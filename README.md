@@ -1,9 +1,7 @@
 <p align="center">
 <h1><strong>GRETEL v2.0: Graph Counterfactual Explanation Evaluation Framework</strong></h1>
-
-[![discord](https://img.shields.io/badge/Discord-blue?style=for-the-badge)](https://discord.com/)
-[![python](https://img.shields.io/badge/Python-3.9-blue)](https://docs.python.org/release/3.9.0/)
-[![DL](https://img.shields.io/npm/dt/discord-together?style=for-the-badge)](https://img.shields.io/npm/dt/discord-together?style=for-the-badge)
+[![discord](https://img.shields.io/badge/Discord-blue?style=for-the-badge)]([https://discord.com/](https://discord.gg/9AKVyr8S))
+[![python](https://img.shields.io/badge/Python-3.9-blue?style=for-the-badge)](https://docs.python.org/release/3.9.0/)
 </p>
 
 ## General Information:
