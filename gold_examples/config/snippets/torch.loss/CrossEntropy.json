@@ -1,0 +1,8 @@
+{
+    "loss_fn": {
+    "class": "torch.nn.CrossEntropyLoss",
+    "parameters": {     
+      "reduction":"mean"
+    }
+  }
+}

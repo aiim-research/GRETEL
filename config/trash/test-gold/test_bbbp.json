@@ -1,0 +1,63 @@
+{  
+    "store_paths": [
+        {"name": "dataset_store_path", "address": "./data/datasets/"},
+        {"name": "embedder_store_path", "address": "./data/embedders/"},
+        {"name": "oracle_store_path", "address": "./data/oracles/"},
+        {"name": "explainer_store_path", "address": "./data/explainers/"},
+        {"name": "output_store_path", "address": "./output/"},
+        {"name": "log_store_path", "address": "./output/logs/"}
+    ],
+    "old-datasets": [
+        {"name": "tree-cycles", "parameters": {"n_inst": 500, "n_per_inst": 28, "n_in_cycles": 5, "nodes_per_cycle": 3, "number_of_cycles": 4} }
+    ],
+    "datasets": [
+        {"name": "bbbp", "parameters": {
+            "force_fixed_nodes": true
+        } }
+    ],
+    "oracles": [
+        {
+            "class": "src.oracle.svm.predictor.SVMOracle",
+            "parameters": {
+                "embedder": {
+                    "class": "src.embedder.molecule.model.RDKFingerprintEmbedder", 
+                    "parameters": {
+                        "model": {
+                            "parameters": {}
+                        }
+                    } 
+                },
+                "model": { "parameters": {} }
+            } 
+        }
+    ],
+    "explainers": [
+        {
+            "name": "graph_countergan", 
+            "parameters": {
+                "fold_id": 0,
+                "n_nodes": 269,
+                "device": "cpu",
+                "converter": "tree_cycles",
+                "n_labels": 2,
+                "training_iterations": 1,
+                "sampling_iterations": 1,
+                "feature_dim": 8,
+                "lr_generator": 0.001,
+                "lr_discriminator": 0.001
+            } 
+        }
+    ],
+    "evaluation_metrics": [ 
+        {"name": "graph_edit_distance", "parameters": {}},
+        {"name": "oracle_calls", "parameters": {}},
+        {"name": "correctness", "parameters": {}},
+        {"name": "sparsity", "parameters": {}},
+        {"name": "fidelity", "parameters": {}},
+        {"name": "oracle_accuracy", "parameters": {}}
+    ],
+    "experiment" : {
+        "scope": "gcn_oracle",
+        "parameters" : {}
+    }
+}

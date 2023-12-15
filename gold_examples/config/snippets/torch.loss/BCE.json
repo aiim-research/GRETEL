@@ -1,0 +1,8 @@
+{
+    "loss_fn": {
+    "class": "torch.nn.BCELoss",
+    "parameters": {     
+      "reduction":"mean"
+    }
+  }
+}

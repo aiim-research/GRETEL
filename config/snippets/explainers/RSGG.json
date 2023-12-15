@@ -1,0 +1,8 @@
+{
+  "class": "src.explainer.generative.rsgg.RSGG",
+  "parameters": {
+    "fold_id": 0,
+    "retrain": true,
+    "epochs": 1000
+  }
+}

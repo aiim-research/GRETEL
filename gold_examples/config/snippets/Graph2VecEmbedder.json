@@ -1,0 +1,8 @@
+{
+    "embedder": {
+        "class": "src.embedder.graph2vec.model.Graph2VecEmbedder", 
+        "parameters": {
+            "model": {"parameters": { "wl_iterations": 17 } }
+        }
+    }
+}

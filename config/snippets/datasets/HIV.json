@@ -1,0 +1,13 @@
+{
+    "class": "src.n_dataset.dataset_base.Dataset",
+    "parameters": {
+        "generator": {
+            "class": "src.n_dataset.generators.hiv.HIV",
+            "parameters": {
+                "data_dir": "data/datasets/hiv/",
+                "data_file_name": "HIV.csv",
+                "data_label_name": "HIV_active"
+            }
+        }
+    }
+}

@@ -1,0 +1,4 @@
+version: "2.3"
+services:
+  gretel:
+    command: /bin/bash -c "while sleep 1000; do :; done"

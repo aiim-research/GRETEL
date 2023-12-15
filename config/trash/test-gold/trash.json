@@ -1,0 +1,10 @@
+{'parameters': {'epochs': 100, 'batch_size': 8, 'optimizer': {'class': 'torch.optim.Adam', 'parameters': {'lr': 0.001, 'betas': (0.9,
+                0.999), 'eps': 1e-08, 'weight_decay': 0, 'amsgrad': False, 'foreach': None, 'maximize': False, 'capturable': False, 'differentiable': False, 'fused': None
+            }
+        }, 'loss_fn': {'class': 'torch.nn.BCELoss', 'parameters': {'weight': None, 'size_average': None, 'reduce': None, 'reduction': 'mean'
+            }
+        }, 'converter': {'class': 'src.dataset.converters.weights_converter.DefaultFeatureAndWeightConverter', 'parameters': {'feature_dim': 10, 'weight_dim': 1
+            }
+        }
+    }
+}

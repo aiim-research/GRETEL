@@ -1,0 +1,32 @@
+{
+  "class": "src.explainer.generative.rsgg.RSGG",
+  "parameters": {
+    "fold_id": 0,
+    "retrain": true,
+    "epochs": 1000,
+    "sampler": {
+      "class": "src.utils.n_samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler",
+      "parameters": {
+        "sampling_iterations": 500
+      }
+    },
+    "models": [
+      {
+        "class": "src.explainer.generative.gans.model.GAN",
+        "parameters": {
+          "model_label": 0,
+          "fold_id": 0,
+          "retrain": true
+        }
+      },
+      {
+        "class": "src.explainer.generative.gans.model.GAN",
+        "parameters": {
+          "model_label": 1,
+          "fold_id": 0,
+          "retrain": true
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "class": "src.explainer.generative.gans.model.GAN",
+  "parameters": {
+    "model_label": 0,
+    "fold_id": 0,
+    "retrain": true,
+    "epochs": 1000,
+    "batch_size": 1,
+    "loss_fn": {
+      "class": "torch.nn.BCELoss",
+      "parameters": {
+        "reduction": "mean"
+      }
+    },
+    "generator": {
+      "class": "src.explainer.generative.gans.res_gen.ResGenerator",
+      "parameters": {
+        "node_features": 7
+      }
+    },
+    "discriminator": {
+      "class": "src.explainer.generative.gans.smpl_disc.SimpleDiscriminator",
+      "parameters": {
+        "num_nodes": 28,
+        "node_features": 7
+      }
+    },
+    "gen_optimizer": {
+      "class": "torch.optim.SGD",
+      "parameters": {
+        "lr": 0.001,
+        "momentum": 0,
+        "dampening": 0,
+        "weight_decay": 0,
+        "nesterov": false,
+        "maximize": false,
+        "differentiable": false
+      }
+    },
+    "disc_optimizer": {
+      "class": "torch.optim.SGD",
+      "parameters": {
+        "lr": 0.001,
+        "momentum": 0,
+        "dampening": 0,
+        "weight_decay": 0,
+        "nesterov": false,
+        "maximize": false,
+        "differentiable": false
+      }
+    }
+  }
+}

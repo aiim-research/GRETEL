@@ -1,0 +1,41 @@
+{
+    "store_paths": [
+        {"name": "dataset_store_path", "address": "./data/datasets/"},
+        {"name": "embedder_store_path", "address": "./data/embedders/"},
+        {"name": "oracle_store_path", "address": "./data/oracles/"},
+        {"name": "explainer_store_path", "address": "./data/explainers/"},
+        {"name": "output_store_path", "address": "./output/optimus/ASD/"}
+    ],
+    "datasets": [
+        {"name": "autism", "parameters": {} }
+    ],
+    "oracles": [
+        {"name": "asd_custom_oracle", "parameters": {} }
+    ],
+    "explainers": [
+        {
+            "name": "cf2",
+            "parameters":{
+                "n_nodes": 116,
+                "fold_id": 1,
+                "alpha": 0.7,
+                "lam": 20,
+                "epochs": 500,
+                "lr": 0.01,
+                "batch_size": 0.2,
+                "gamma": 0.9,
+                "feature_dim": 8,
+                "converter": "tree_cycles"
+            } 
+        }
+    ],
+    "evaluation_metrics": [ 
+        {"name": "graph_edit_distance", "parameters": {}},
+        {"name": "oracle_calls", "parameters": {}},
+        {"name": "correctness", "parameters": {}},
+        {"name": "sparsity", "parameters": {}},
+        {"name": "fidelity", "parameters": {}},
+        {"name": "oracle_accuracy", "parameters": {}},
+        {"name": "dumper", "parameters": {"store_path":"./output/dump/"}}
+        ]
+}

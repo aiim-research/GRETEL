@@ -1,0 +1,8 @@
+{
+    "class": "src.oracle.tabulars.knn.KNNOracle",           
+    "parameters": {
+        "compose_st" : "config/snippets/Graph2VecEmbedder.json",
+        "model": { "parameters": {} }
+        
+    } 
+}

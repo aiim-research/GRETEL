@@ -1,0 +1,8 @@
+
+{"optimizer": {
+    "class": "torch.optim.Adagrad",
+    "parameters": {
+        "lr":0.00001
+    }
+  }
+}

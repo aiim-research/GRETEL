@@ -1,0 +1,19 @@
+version: "0.1"
+
+services:
+  gretel:
+    container_name: gretel
+    hostname: gretel
+    image: gretelxai/gretel:dev-latest
+    ports:
+      - "8501:8501"
+      - "8000:8000"
+    volumes:
+      - "./:/usr/lib/python3/dist-packages/gretel"
+      - "./vendor/illiterate/illiterate:/usr/lib/python3/dist-packages/illiterate"
+      - "~/.coder:/home/coder/.gretel"
+      - "./:/home/coder/gretel"
+      - "~/.ssh:/home/coder/.ssh"
+      - "~/.gitconfig:/home/coder/.gitconfig"
+    command: bash
+

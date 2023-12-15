@@ -1,0 +1,32 @@
+{  
+    "experiment" : {
+        "scope": "tree_cycles_custom_oracle",
+        "parameters" : {
+            "lock_release_tout":120,
+            "propagate":[
+                {"in_sections" : ["do-pairs/oracle"],"params" : {"fold_id": -1,"retrain": true}}
+            ]
+        }
+    },
+    "do-pairs":[ {
+        "dataset": { 
+                "class": "src.n_dataset.dataset_base.Dataset",
+                "parameters": {
+                    "generator": {
+                        "class": "src.n_dataset.generators.asd.ASD", 
+                        "parameters": { "data_dir": "data/datasets/autism/" }
+                    }
+                }
+            },
+        "oracle": {
+          "class": "src.oracle.custom.oracle_asd_custom.ASDOracle",
+          "parameters": {} 
+          }   
+      }
+    ],
+    
+    "explainers": [{"class": "src.explainer.heuristic.ddbs.DataDrivenBidirectionalSearchExplainer",
+                    "parameters":{"fold_id":-1}}],
+    "compose_mes" : "config/snippets/default_metrics.json",
+    "compose_strs" : "config/snippets/default_store_paths.json"
+}
