@@ -1,5 +1,5 @@
 
-# GRETEL: Graph Counterfactual Explanation Evaluation Framework
+# GRETEL (gold): Graph Counterfactual Explanation Evaluation Framework
 ## General Information:
 Machine Learning (ML) systems are a building part of the modern tools that impact our daily life in several application domains. Due to their black-box nature, those systems are hardly adopted in application domains (e.g. health, finance) where understanding the decision process is of paramount importance. Explanation methods were developed to explain how the ML model has taken a specific decision for a given case/instance. Graph Counterfactual Explanations (GCE) is one of the explanation techniques adopted in the Graph Learning domain. The existing works on Graph Counterfactual Explanations diverge mostly in the problem definition, application domain, test data, and evaluation metrics, and most existing works do not compare exhaustively against other counterfactual explanation techniques present in the literature. Here, we release GRETEL [1,2], a unified framework to develop and test GCE methods in several settings. GRETEL [1,2] is an open-source framework for Evaluating Graph Counterfactual Explanation Methods. It is implemented using the Object-Oriented paradigm and the Factory Method design pattern. Our main goal is to create a generic platform that allows the researchers to speed up the process of developing and testing new Graph Counterfactual Explanation Methods.
 GRETEL is a highly extensible evaluation framework that promotes Open Science and the reproducibility of the evaluation by providing a set of well-defined mechanisms to integrate and manage easily: both real and synthetic datasets, ML models, state-of-the-art explanation techniques, and evaluation measures. 
@@ -9,7 +9,7 @@ GRETEL is a highly extensible evaluation framework that promotes Open Science an
 
 * [Team Information](#team-information)
 * [General Information](#general-information)
-* [Citation Request](#citation-request)
+* [Notable References](#citation-request)
 * [Requirements](#requirements)
 * [Installation](#installation)
 * [Resources Provided with the Framework](#resources-provided-with-the-framework)
@@ -17,12 +17,13 @@ GRETEL is a highly extensible evaluation framework that promotes Open Science an
 * [References](#references)
 
 ## Team Information:
-* Prof. Giovanni Stilo [project leader]
+* Prof. Giovanni Stilo [project leader/investigator]
 * Mario Alfonso Prado Romero [principal investigator]
-* Dr. Bardh Prenkaj [investigator]
+* Dr. Bardh Prenkaj [notable investigator]
 * Hiram Borbolla Hernández [notable contributor]
 * Roberto Marti Cedeño [notable contributor]
-* Alessandro Celi [administrative Staff]
+* Alessandro Celi [administrative staff]
+
 ### Past Contributors:
 * Ernesto Estevanell-Valladares [contributor]
 * Daniel Alejandro Valdés-Pérez [contributor]
