@@ -1,8 +1,7 @@
-<p align="center">
-<h1><strong>GRETEL v2.0: Graph Counterfactual Explanation Evaluation Framework</strong></h1>
+# GRETEL v2.0: Graph Counterfactual Explanation Evaluation Framework
 [discord](https://img.shields.io/badge/Discord-blue?style=for-the-badge)]([https://discord.com/](https://discord.gg/9AKVyr8S))
 [python](https://img.shields.io/badge/Python-3.9-blue?style=for-the-badge)](https://docs.python.org/release/3.9.0/)
-</p>
+
 
 ## General Information:
 Machine Learning (ML) systems are a building part of the modern tools that impact our daily life in several application domains. Due to their black-box nature, those systems are hardly adopted in application domains (e.g. health, finance) where understanding the decision process is of paramount importance. Explanation methods were developed to explain how the ML model has taken a specific decision for a given case/instance. Graph Counterfactual Explanations (GCE) is one of the explanation techniques adopted in the Graph Learning domain. The existing works on Graph Counterfactual Explanations diverge mostly in the problem definition, application domain, test data, and evaluation metrics, and most existing works do not compare exhaustively against other counterfactual explanation techniques present in the literature. Here, we release GRETEL [1,2], a unified framework to develop and test GCE methods in several settings. GRETEL [1,2] is an open-source framework for Evaluating Graph Counterfactual Explanation Methods. It is implemented using the Object-Oriented paradigm and the Factory Method design pattern. Our main goal is to create a generic platform that allows the researchers to speed up the process of developing and testing new Graph Counterfactual Explanation Methods.
