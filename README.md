@@ -2,7 +2,7 @@
 [![discord](https://img.shields.io/badge/Discord-blue?style=for-the-badge)](https://discord.gg/VhRmBt9aAH)
 [![python](https://img.shields.io/badge/Python-3.9-blue?style=for-the-badge)](https://docs.python.org/release/3.9.0/)
 [![linkedin](https://img.shields.io/badge/Python-3.9-blue?style=for-the-badge)](https://docs.python.org/release/3.9.0/)
-[![github](https://img.shields.io/github/stars/aiim-research/GRETEL?style=for-the-badge)]
+[![github](https://img.shields.io/github/stars/aiim-research/GRETEL?style=for-the-badge)](#)
 
 
 
