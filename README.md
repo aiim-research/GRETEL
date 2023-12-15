@@ -1,14 +1,9 @@
 # GRETEL v2.0: Graph Counterfactual Explanation Evaluation Framework
 [![discord](https://img.shields.io/badge/Discord-blue?style=for-the-badge)](https://discord.gg/VhRmBt9aAH)
 [![python](https://img.shields.io/badge/Python-3.9-blue?style=for-the-badge)](https://docs.python.org/release/3.9.0/)
-<p align='center'>
- <a href="https://github.com/sponsors/alexandresanlim">
-    <img src="https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&logo=GitHub-Sponsors&logoColor=#white" />        
-  </a>&nbsp;&nbsp;
-  <a href="#">
-  <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/aiim-research/GRETEL-README.md-Profile?style=for-the-badge">
-</a>&nbsp;&nbsp;
-</p>
+[![linkedin](https://img.shields.io/badge/Python-3.9-blue?style=for-the-badge)](https://docs.python.org/release/3.9.0/)
+[![github](https://img.shields.io/github/stars/aiim-research/GRETEL?style=for-the-badge)]
+
 
 
 ## General Information:
