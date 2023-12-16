@@ -66,24 +66,24 @@ class ADHD(Generator):
 
             
 def _nd_array_from_adjlist(path: str):
-        with open(path, 'r') as f:
-            data = []
-            while f.readable():
-                line = f.readline()
-                if not line:
-                    break
-                if len(line) > 0 and len(line.strip()) > 0 and line[0] != '#':
-                    splitted = line.split(' ')
-                    vertex_id = int(splitted[0])
-                    vertex_arist_lenght = int(splitted[1])
-                    data.append([])
-                    for _ in range(vertex_arist_lenght):
-                        if not f.readable():
-                            break
-                        edge = int(f.readline().split(' ')[0])
-                        data[vertex_id].append(edge)
-            result = np.zeros((len(data),len(data)))
-            for i,vertex in enumerate(data):
-                for edge in vertex:
-                    result[i][edge] = 1
-            return result
+    with open(path, 'r') as f:
+        data = []
+        while f.readable():
+            line = f.readline()
+            if not line:
+                break
+            if len(line) > 0 and len(line.strip()) > 0 and line[0] != '#':
+                splitted = line.split(' ')
+                vertex_id = int(splitted[0])
+                vertex_arist_lenght = int(splitted[1])
+                data.append([])
+                for _ in range(vertex_arist_lenght):
+                    if not f.readable():
+                        break
+                    edge = int(f.readline().split(' ')[0])
+                    data[vertex_id].append(edge)
+        result = np.zeros((len(data),len(data)))
+        for i,vertex in enumerate(data):
+            for edge in vertex:
+                result[i][edge] = 1
+        return result
