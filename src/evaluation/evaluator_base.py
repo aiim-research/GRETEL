@@ -16,9 +16,8 @@ from src.utils.logger import GLogger
 class Evaluator(ABC):
     _logger = GLogger.getLogger()
 
-    def __init__(self, id, data, oracle: Oracle, explainer: Explainer, evaluation_metrics, results_store_path, run_number=0) -> None:
+    def __init__(self, data, oracle: Oracle, explainer: Explainer, evaluation_metrics, results_store_path, run_number=0) -> None:
         super().__init__()
-        self._id = id
         self._name = 'Evaluator_for_' + explainer.name + '_using_' + oracle.name
         self._data = data
         self._oracle = oracle
@@ -36,14 +35,6 @@ class Evaluator(ABC):
             evaluator_config['metrics'].append(metric._config_dict)
         # creatig the results dictionary with the basic info
         self._results = {'config':evaluator_config, 'runtime': []}
-
-    @property
-    def id(self):
-        return self._id
-
-    @id.setter
-    def id(self, new_id):
-        self._id = new_id
 
     @property
     def name(self):
