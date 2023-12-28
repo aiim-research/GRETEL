@@ -4,10 +4,12 @@ from typing import List
 import numpy as np
 import torch
 
-from src.dataset.data_instance_base import DataInstance
+
+#TODO: Bardh Please Revise and FIX IT
+from src.dataset.instances import DataInstance
 from src.dataset.data_instance_features import DataInstanceWFeaturesAndWeights
 from src.core.oracle_base import Oracle
-from src.utils.samplers.abstract_sampler import Sampler
+from src.utils.n_samplers.abstract_sampler import Sampler
 
 
 class BlendedSampler(Sampler):

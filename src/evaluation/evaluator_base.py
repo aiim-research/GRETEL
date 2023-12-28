@@ -148,7 +148,7 @@ class Evaluator(ABC):
                 self._real_evaluate(inst, counterfactual,self._oracle,self._explainer,self._data)
                 self._logger.info('evaluated instance with id %s', str(inst.id))
 
-        print(self._results)
+        self._logger.info(self._results)
         self.write_results()
 
 
