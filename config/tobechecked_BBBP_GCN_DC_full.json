@@ -68,7 +68,7 @@
     ],
     "store_paths": [
         {
-            "name": "n_dataset_store_path",
+            "name": "dataset_store_path",
             "address": "./data/datasets/"
         },
         {
