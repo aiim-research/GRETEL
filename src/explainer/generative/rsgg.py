@@ -1,10 +1,10 @@
 import torch
+
 from src.core.factory_base import get_instance_kvargs
 from src.explainer.per_cls_explainer import PerClassExplainer
 
-from src.dataset.utils.dataset_torch import TorchGeometricDataset
 from src.utils.cfg_utils import init_dflts_to_of
-from src.utils.n_samplers.abstract_sampler import Sampler
+from src.utils.samplers.abstract_sampler import Sampler
 
 class RSGG(PerClassExplainer):
 
@@ -33,5 +33,5 @@ class RSGG(PerClassExplainer):
         #The sampler must be present in any case
         init_dflts_to_of(self.local_config,
                          'sampler',
-                         'src.utils.n_samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler',
+                         'src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler',
                          sampling_iterations=500)
