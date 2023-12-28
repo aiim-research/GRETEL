@@ -1,4 +1,4 @@
-from src.n_dataset.instances.graph import GraphInstance
+from src.dataset.instances.graph import GraphInstance
 import hashlib
 
 class WeisfeilerLehmanMachine:

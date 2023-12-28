@@ -27,11 +27,11 @@
                     "params": {
                         "manipulators": [
                             {
-                                "class": "src.n_dataset.manipulators.centralities.NodeCentrality",
+                                "class": "src.dataset.manipulators.centralities.NodeCentrality",
                                 "parameters": {}
                             },
                             {
-                                "class": "src.n_dataset.manipulators.weights.EdgeWeights",
+                                "class": "src.dataset.manipulators.weights.EdgeWeights",
                                 "parameters": {}
                             }
                         ]
@@ -95,21 +95,21 @@
     "do-pairs": [
         {
             "dataset": {
-                "class": "src.n_dataset.dataset_base.Dataset",
+                "class": "src.dataset.dataset_base.Dataset",
                 "parameters": {
                     "generator": {
-                        "class": "src.n_dataset.generators.bbbp.BBBP",
+                        "class": "src.dataset.generators.bbbp.BBBP",
                         "parameters": {
                             "data_dir": "data/datasets/bbbp/"
                         }
                     },
                     "manipulators": [
                         {
-                            "class": "src.n_dataset.manipulators.centralities.NodeCentrality",
+                            "class": "src.dataset.manipulators.centralities.NodeCentrality",
                             "parameters": {}
                         },
                         {
-                            "class": "src.n_dataset.manipulators.weights.EdgeWeights",
+                            "class": "src.dataset.manipulators.weights.EdgeWeights",
                             "parameters": {}
                         }
                     ]
@@ -146,9 +146,5 @@
             }
         }
     ],
-    "explainers": [
-        {
-            "class": "src.explainer.search.dce.DCESearchExplainer"
-        }
-    ]
+    "explainers": [{"class": "src.explainer.search.dces.DCESExplainer"}]
 }

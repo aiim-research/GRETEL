@@ -1,3 +1,4 @@
+from src.core.torch_base import TorchBase
 import torch
 import copy
 from src.core.explainer_base import Explainer
@@ -25,6 +26,11 @@ class PerClassExplainer(Trainable, Explainer):
 
     def write(self):
         pass
+    
+    def send_to_device(self):
+        for model in self.model:
+            if isinstance(model, TorchBase):
+                model.to(self.device)
             
     def explain(self, instance):            
         with torch.no_grad():
@@ -35,7 +41,7 @@ class PerClassExplainer(Trainable, Explainer):
         
     def get_proto_kls(self):
         return self._proto_kls
-    
+        
     def check_configuration(self):
         super().check_configuration()
         

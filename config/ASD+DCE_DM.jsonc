@@ -9,9 +9,9 @@
                 {"in_sections": ["do-pairs/dataset"],"params": 
                 {
                     "manipulators": [
-                        { "class": "src.n_dataset.manipulators.centralities.NodeCentrality", "parameters": {} },
-                        { "class": "src.n_dataset.manipulators.weights.EdgeWeights", "parameters": {} },
-                        { "class": "src.n_dataset.manipulators.diameter.Diameter", "parameters": {} }        
+                        { "class": "src.dataset.manipulators.centralities.NodeCentrality", "parameters": {} },
+                        { "class": "src.dataset.manipulators.weights.EdgeWeights", "parameters": {} },
+                        { "class": "src.dataset.manipulators.diameter.Diameter", "parameters": {} }        
                         ]   
                   }}
             ]
@@ -19,7 +19,7 @@
     },
     "do-pairs":[ {"compose_bbbp_gcn" : "config/snippets/do-pairs/ASD-GCN.json"}
         ],
-    "explainers": [{"class": "src.explainer.search.dce.DCESearchExplainer"}],
+    "explainers": [{"class": "src.explainer.search.dces.DCESExplainer"}],
     "compose_mes" : "config/snippets/default_metrics.json",
     "compose_strs" : "config/snippets/default_store_paths.json"
 }

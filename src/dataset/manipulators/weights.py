@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from src.n_dataset.manipulators.base import BaseManipulator
+from src.dataset.manipulators.base import BaseManipulator
 
 
 class EdgeWeights(BaseManipulator):

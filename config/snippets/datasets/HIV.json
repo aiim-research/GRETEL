@@ -1,8 +1,8 @@
 {
-    "class": "src.n_dataset.dataset_base.Dataset",
+    "class": "src.dataset.dataset_base.Dataset",
     "parameters": {
         "generator": {
-            "class": "src.n_dataset.generators.hiv.HIV",
+            "class": "src.dataset.generators.hiv.HIV",
             "parameters": {
                 "data_dir": "data/datasets/hiv/",
                 "data_file_name": "HIV.csv",

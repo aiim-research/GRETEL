@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import final
 
-from src.n_dataset.dataset_base import Dataset
+from src.dataset.dataset_base import Dataset
 from src.core.trainable_base import Trainable
 from src.utils.context import Context
 

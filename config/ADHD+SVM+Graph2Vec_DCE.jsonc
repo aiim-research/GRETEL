@@ -13,10 +13,10 @@
     "do-pairs":[ 
         {
             "dataset": {
-                "class": "src.n_dataset.dataset_base.Dataset",
+                "class": "src.dataset.dataset_base.Dataset",
                 "parameters": {
                     "generator": {
-                        "class": "src.n_dataset.generators.adhd.ADHD", 
+                        "class": "src.dataset.generators.adhd.ADHD", 
                         "parameters": { "data_dir": "data/datasets/adhd/graphs/" }
                     }
                 }
@@ -34,7 +34,7 @@
             }
         }
         ],
-    "explainers": [{"class": "src.explainer.search.dcerank.DCESearchExplainerWithRank"}],
+    "explainers": [{"class": "src.explainer.search.dces.DCESExplainer"}],
     "compose_mes" : "config/snippets/default_metrics.json",
     "compose_strs" : "config/snippets/default_store_paths.json"
 }

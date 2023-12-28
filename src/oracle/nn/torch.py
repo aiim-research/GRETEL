@@ -3,7 +3,7 @@ import torch
 
 from src.core.oracle_base import Oracle
 from src.core.torch_base import TorchBase
-from src.n_dataset.utils.dataset_torch import TorchGeometricDataset
+from src.dataset.utils.dataset_torch import TorchGeometricDataset
 
 class OracleTorch(TorchBase, Oracle):
                                 

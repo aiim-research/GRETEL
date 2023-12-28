@@ -1,7 +1,7 @@
 import networkx as nx
 import numpy as np
 
-from src.n_dataset.manipulators.base import BaseManipulator
+from src.dataset.manipulators.base import BaseManipulator
 from src.evaluation.evaluation_metric_ged import GraphEditDistanceMetric
 
 

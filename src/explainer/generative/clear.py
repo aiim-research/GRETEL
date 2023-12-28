@@ -9,8 +9,8 @@ from torch.utils.data import DataLoader, Dataset, TensorDataset
 from torch_geometric.nn import DenseGCNConv, DenseGraphConv
 
 
-from src.n_dataset.dataset_base import Dataset
-from src.n_dataset.instances.graph import GraphInstance
+from src.dataset.dataset_base import Dataset
+from src.dataset.instances.graph import GraphInstance
 from src.core.explainer_base import Explainer
 from src.core.trainable_base import Trainable
 from src.utils.logger import GLogger

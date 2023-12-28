@@ -7,8 +7,9 @@ import torch
 
 import networkx as nx
 from src.core.oracle_base import Oracle
-from src.n_dataset.instances.graph import GraphInstance
-from src.utils.samplers.abstract_sampler import Sampler
+from src.dataset.instances.graph import GraphInstance
+
+from src.utils.n_samplers.abstract_sampler import Sampler
 
 
 class PositiveAndNegativeEdgeSampler(Sampler):

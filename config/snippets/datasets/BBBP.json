@@ -1,8 +1,8 @@
 {
-    "class": "src.n_dataset.dataset_base.Dataset",
+    "class": "src.dataset.dataset_base.Dataset",
     "parameters": {
         "generator": {
-            "class": "src.n_dataset.generators.bbbp.BBBP",
+            "class": "src.dataset.generators.bbbp.BBBP",
             "parameters": {
                 "data_dir": "data/datasets/bbbp/",
                 "data_file_name": "BBBP.csv",

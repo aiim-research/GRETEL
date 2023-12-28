@@ -3,9 +3,9 @@ import copy
 import exmol
 import selfies as sf
 
-from src.n_dataset.instances.graph import GraphInstance
-from src.n_dataset.dataset_base import Dataset
-from src.n_dataset.generators import mol_gen
+from src.dataset.generators import mol_gen
+from src.dataset.instances.graph import GraphInstance
+from src.dataset.dataset_base import Dataset
 from src.core.explainer_base import Explainer
 from src.core.oracle_base import Oracle
 from src.core.trainable_base import Trainable

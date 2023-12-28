@@ -10,13 +10,13 @@
 
  
         {
-            "name": "ASD+SVM+Graph2Vec_DCES",
+            "name": "TCR-128-32-0.2_KNN-G2V_DCE",
             "type": "python",
             "request": "launch",
             "program": "main.py",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["config/ASD+SVM+Graph2Vec_DCES.jsonc", "1"],
+            "args": ["config/TCR-128-32-0.2_KNN-G2V_DCE.jsonc", "1"],
         },
         {
             "name": "BBBP_KNN-MOL_DCE",

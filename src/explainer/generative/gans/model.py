@@ -6,7 +6,7 @@ import torch
 
 from src.core.factory_base import get_instance_kvargs
 from src.core.torch_base import TorchBase
-from src.n_dataset.instances.graph import GraphInstance
+from src.dataset.instances.graph import GraphInstance
 from src.utils.cfg_utils import init_dflts_to_of, retake_oracle
 
 class BaseGAN(TorchBase):

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from src.n_dataset.instances.base import DataInstance
+from src.dataset.instances.base import DataInstance
 from src.core.oracle_base import Oracle
 
 

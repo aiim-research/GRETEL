@@ -6,7 +6,7 @@ from torch.utils.data import TensorDataset
 from torch.utils.data import DataLoader
 
 from src.explainer.generative.gans.model import BaseGAN
-from src.n_dataset.instances.graph import GraphInstance
+from src.dataset.instances.graph import GraphInstance
 from src.utils.cfg_utils import init_dflts_to_of
 
 
@@ -106,4 +106,5 @@ class GAN(BaseGAN):
     
     
     def __call__(self, *args: Tuple[GraphInstance], **kwds: Any) -> Any:
-        return self.generator(torch.from_numpy(args[0].data).double())
+        torch_data = torch.from_numpy(args[0].data[None,None,:,:]).float()
+        return self.generator(torch_data)

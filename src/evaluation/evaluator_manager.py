@@ -1,5 +1,5 @@
 import random
-from src.n_dataset.dataset_factory import DatasetFactory
+from src.dataset.dataset_factory import DatasetFactory
 from src.evaluation.evaluation_metric_factory import EvaluationMetricFactory
 from src.evaluation.evaluator_base import Evaluator
 from src.explainer.explainer_factory import ExplainerFactory
@@ -7,6 +7,7 @@ from src.oracle.embedder_factory import EmbedderFactory
 from src.oracle.oracle_factory import OracleFactory
 from src.utils.context import Context
 
+#TODO: To be removed
 
 class EvaluatorManager:
 
@@ -16,7 +17,6 @@ class EvaluatorManager:
 
         self._evaluators = []
         
-        #TODO: Move the Factories creation outside
         self.context.factories['datasets'] = DatasetFactory(context)
         self.context.factories['embedders'] = EmbedderFactory(context)
         self.context.factories['oracles'] = OracleFactory(context)

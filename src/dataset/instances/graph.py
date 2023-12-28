@@ -4,16 +4,16 @@ from copy import deepcopy
 import networkx as nx
 import numpy as np
 
-from src.n_dataset.instances.base import DataInstance
+from src.dataset.instances.base import DataInstance
 
 
 class GraphInstance(DataInstance):
 
     def __init__(self, id, label, data, node_features=None, edge_features=None, edge_weights=None, graph_features=None, dataset=None):
         super().__init__(id, label, data, dataset=dataset)
-        self.node_features = self.__init_node_features(node_features)
-        self.edge_features = self.__init_edge_features(edge_features)
-        self.edge_weights = self.__init_edge_weights(edge_weights)
+        self.node_features = self.__init_node_features(node_features).astype(np.float32)
+        self.edge_features = self.__init_edge_features(edge_features).astype(np.float32)
+        self.edge_weights = self.__init_edge_weights(edge_weights).astype(np.float32)
         self.graph_features = graph_features
         self._nx_repr = None
 
@@ -70,5 +70,3 @@ class GraphInstance(DataInstance):
     
     def degrees(self):
         return [ len(self.neighbors(y)) for y in self.nodes()]
-    
-        

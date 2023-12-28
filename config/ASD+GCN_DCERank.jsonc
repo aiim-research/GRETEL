@@ -8,16 +8,16 @@
                 {"in_sections" : ["do-pairs/oracle"],"params" : {"fold_id": -1,"retrain":true}},
                 {"in_sections": ["do-pairs/dataset"],"params": 
                 { "manipulators": [
-                    { "class": "src.n_dataset.manipulators.centralities.NodeCentrality", "parameters": {} },
-                    { "class": "src.n_dataset.manipulators.weights.EdgeWeights", "parameters": {} },
-                    { "class": "src.n_dataset.manipulators.rank.RankManipulator", "parameters": {} }      
+                    { "class": "src.dataset.manipulators.centralities.NodeCentrality", "parameters": {} },
+                    { "class": "src.dataset.manipulators.weights.EdgeWeights", "parameters": {} },
+                    { "class": "src.dataset.manipulators.rank.RankManipulator", "parameters": {} }      
                     ] }}
             ]
         }
     },
     "do-pairs":[ {"compose_bbbp_gcn" : "config/snippets/do-pairs/ASD-GCN.json"}
         ],
-    "explainers": [{"class": "src.explainer.search.dcerank.DCESearchExplainerWithRank"}],
+    "explainers": [{"class": "src.explainer.search.dces.DCESExplainer"}],
     "compose_mes" : "config/snippets/default_metrics.json",
     "compose_strs" : "config/snippets/default_store_paths.json"
 }

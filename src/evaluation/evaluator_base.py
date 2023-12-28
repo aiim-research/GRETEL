@@ -8,6 +8,7 @@ from scipy import rand
 from src.evaluation.evaluation_metric_base import EvaluationMetric
 from src.core.explainer_base import Explainer
 from src.core.oracle_base import Oracle
+from src.utils.cfg_utils import clean_cfg
 from src.utils.cfgnnexplainer.utils import safe_open
 from src.utils.logger import GLogger
 
@@ -30,7 +31,7 @@ class Evaluator(ABC):
         
 
         # Building the config file to write into disk
-        evaluator_config = {'dataset': data.local_config, 'oracle': oracle.local_config, 'explainer': explainer.local_config, 'metrics': []}
+        evaluator_config = {'dataset': clean_cfg(data.local_config), 'oracle': clean_cfg(oracle.local_config), 'explainer': clean_cfg(explainer.local_config), 'metrics': []}
         for metric in evaluation_metrics:
             evaluator_config['metrics'].append(metric._config_dict)
         # creatig the results dictionary with the basic info
@@ -147,7 +148,7 @@ class Evaluator(ABC):
                 self._real_evaluate(inst, counterfactual,self._oracle,self._explainer,self._data)
                 self._logger.info('evaluated instance with id %s', str(inst.id))
 
-        print(self._results)
+        self._logger.info(self._results)
         self.write_results()
 
 
@@ -163,18 +164,21 @@ class Evaluator(ABC):
 
 
     def write_results(self):
-        #TODO include the dataset name in the path, like in the cache
+        output_path = self._results_store_path
+        
+        output_path = os.path.join(output_path, self._data.name)
+        if not os.path.exists(output_path):
+            os.mkdir(output_path)
 
-        output_oracle_dataset_path = os.path.join(self._results_store_path, self._oracle.name)
-        if not os.path.exists(output_oracle_dataset_path):
-            os.mkdir(output_oracle_dataset_path)
+        output_path = os.path.join(output_path, self._oracle.name)
+        if not os.path.exists(output_path):
+            os.mkdir(output_path)
 
-        output_explainer_path = os.path.join(output_oracle_dataset_path, self._explainer.name)
-        if not os.path.exists(output_explainer_path):
-            os.mkdir(output_explainer_path)
+        output_path = os.path.join(output_path, self._explainer.name)
+        if not os.path.exists(output_path):
+            os.mkdir(output_path)
 
-        results_uri = os.path.join(output_explainer_path, 'results_run-' + str(self._run_number) + '.json')
-        self._run_number += 1
+        results_uri = os.path.join(output_path, 'results_run-' + str(self._run_number) + '.json')
 
         with open(results_uri, 'w') as results_writer:
             results_writer.write(jsonpickle.encode(self._results))

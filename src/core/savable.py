@@ -30,7 +30,7 @@ class Savable(Configurable,metaclass=ABCMeta):
     def load_or_create(self, condition=False):
         condition = condition or not self.saved() if condition else not self.saved()
         lock = Lock(self.context.get_path(self)+'.lck',lifetime=timedelta(hours=self.context.lock_release_tout))
-        with lock: #TODO: Check if it is possible to move it inside the if TRUE branch below to avoid small locks: NO IT IS NOT POSSIBLE
+        with lock: #NOTE: Check if it is possible to move it inside the if TRUE branch below to avoid small locks: NO IT IS NOT POSSIBLE
             if condition:
                 self.context.logger.info(f"Creating: {self}")
                 self.create()

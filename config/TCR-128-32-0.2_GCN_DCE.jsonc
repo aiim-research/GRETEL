@@ -10,7 +10,7 @@
             ]
         }
     },
-    "do-pairs":[ {"compose_tcr_knn" : "config/snippets/do-pairs/TCR-128-32-0.2_SVM-G2V.json"}],
+    "do-pairs":[ {"compose_tcr_knn" : "config/snippets/do-pairs/TCR-128-32-0.2_GCN.json"}],
     
     "explainers": [{"class": "src.explainer.search.dces.DCESExplainer"}],
 

@@ -84,4 +84,11 @@ class TorchBase(Trainable):
                 mod.to(self.device)
         else:
             self.model.to(self.device)
-        
+            
+    def to(self, device):
+        if isinstance(self.model, torch.nn.Module):
+            self.model.to(device)
+        elif isinstance(self.model, list):
+            for model in self.model:
+                if isinstance(model, torch.nn.Module):
+                    model.to(self.device)

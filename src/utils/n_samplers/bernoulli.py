@@ -5,7 +5,7 @@ import torch
 
 from src.core.oracle_base import Oracle
 from src.utils.n_samplers.abstract_sampler import Sampler
-from src.n_dataset.instances.graph import GraphInstance
+from src.dataset.instances.graph import GraphInstance
 
 
 class Bernoulli(Sampler):
@@ -32,11 +32,10 @@ class Bernoulli(Sampler):
         return None 
                 
     def __sample(self, instance, features, probabilities):
-        adj = torch.bernoulli(probabilities).numpy()
+        adj = torch.bernoulli(probabilities)
         selected_edges = torch.nonzero(adj)
-        print(selected_edges)
         return GraphInstance(id=instance.id,
                              label=1-instance.label,
                              data=adj.numpy(),
                              node_features=features,
-                             edge_weights=probabilities[selected_edges])
+                             edge_weights=probabilities[selected_edges].numpy())
