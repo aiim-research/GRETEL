@@ -1,9 +1,0 @@
-{"class": "src.n_dataset.dataset_base.Dataset",
-    "parameters": {
-        "generator": {
-            "class": "src.n_dataset.generators.treecycles.TreeCycles", 
-            "parameters": { "num_instances": 100, "num_nodes_per_instance": 28, "num_nodes_in_cycles": 7 }
-        }
-    }
-}
-

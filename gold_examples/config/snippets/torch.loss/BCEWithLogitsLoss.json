@@ -1,8 +1,0 @@
-{
-    "loss_fn": {
-    "class": "torch.nn.BCEWithLogitsLoss",
-    "parameters": {     
-        "reduction":"mean"
-    }
-  }
-}

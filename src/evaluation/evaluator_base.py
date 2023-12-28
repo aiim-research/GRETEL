@@ -163,6 +163,7 @@ class Evaluator(ABC):
 
 
     def write_results(self):
+        #TODO include the dataset name in the path, like in the cache
 
         output_oracle_dataset_path = os.path.join(self._results_store_path, self._oracle.name)
         if not os.path.exists(output_oracle_dataset_path):
