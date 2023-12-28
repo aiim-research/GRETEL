@@ -1,9 +1,0 @@
-
-{"optimizer": {
-    "class": "torch.optim.SGD",
-    "parameters": {
-        "lr":0.01
-
-    }
-  }
-}
