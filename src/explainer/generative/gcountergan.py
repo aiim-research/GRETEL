@@ -61,8 +61,8 @@ class GCounteRGAN(PerClassExplainer):
 
             embedded_features, edge_probs = dict(), dict()
             for key, prob_adj_matrix in res.items():
-                embedded_features[key] = torch.ones(prob_adj_matrix.shape)
-                edge_probs[key] = prob_adj_matrix
+                embedded_features[key] = torch.ones(prob_adj_matrix.shape[-1], 1)
+                edge_probs[key] = prob_adj_matrix.squeeze()
 
             cf_instance = self.sampler.sample(
                 instance, self.oracle, **{'embedded_features': embedded_features, 'edge_probabilities': edge_probs}
