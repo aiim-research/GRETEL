@@ -47,8 +47,7 @@ class EvaluatorManager:
         for metric_dict in metrics_list:
             evaluation_metrics.append(self.context.factories['metrics'].get_evaluation_metric_by_name(metric_dict))
 
-        #TODO: To be removed and inserted in the evaluator
-        evaluator_id = 0
+     
         for dataset_snippet in datasets_list:
             # The get_dataset method return an already builded/loaded/generated dataset with all its features already in place;
             dataset = self.context.factories['datasets'].get_dataset(dataset_snippet)
@@ -62,14 +61,11 @@ class EvaluatorManager:
                     explainer = self.context.factories['explainers'].get_explainer(explainer_snippet, dataset, oracle)                
                 
                     # Creating the evaluator
-                    evaluator = Evaluator(evaluator_id, dataset, oracle, explainer, evaluation_metrics,
+                    evaluator = Evaluator(dataset, oracle, explainer, evaluation_metrics,
                                              self._output_store_path, self.context.run_number)
 
                     # Adding the evaluator to the evaluator's list
                     self._evaluators.append(evaluator)
-
-                    # increasing the evaluator id counter
-                    evaluator_id +=1
 
                 
     def evaluate(self):
