@@ -9,8 +9,8 @@ from torch_geometric.loader import DataLoader
 from src.core.factory_base import get_instance_kvargs
 
 from src.core.savable import Savable
-from src.n_dataset.instances.base import DataInstance
-from src.n_dataset.utils.dataset_torch import TorchGeometricDataset
+from src.dataset.instances.base import DataInstance
+from src.dataset.utils.dataset_torch import TorchGeometricDataset
 from src.utils.context import Context
 from src.core.factory_base import get_class
 
@@ -169,8 +169,8 @@ class Dataset(Savable):
         if 'manipulators' not in local_config['parameters']: # or not len(local_config['parameters']['manipulators']):
             local_config['parameters']['manipulators'] = []
         
-        #local_config['parameters']['manipulators'].append(build_default_config_obj("src.n_dataset.manipulators.centralities.NodeCentrality"))
-        #local_config['parameters']['manipulators'].append(build_default_config_obj("src.n_dataset.manipulators.weights.EdgeWeights"))
+        #local_config['parameters']['manipulators'].append(build_default_config_obj("src.dataset.manipulators.centralities.NodeCentrality"))
+        #local_config['parameters']['manipulators'].append(build_default_config_obj("src.dataset.manipulators.weights.EdgeWeights"))
             
         local_config['parameters']['n_splits'] = local_config['parameters'].get('n_splits', 10)
         local_config['parameters']['shuffle'] = local_config['parameters'].get('shuffle', True)

@@ -13,7 +13,7 @@
     "compose_mes" : "config/snippets/default_metrics.json",
     "compose_strs" : "config/snippets/default_store_paths.json",
     "datasets": [
-        {"class": "src.n_dataset.dataset_base.Dataset", "parameters": {"generator": {"class": "src.n_dataset.generators.bbbp.BBBP", "parameters": { "data_dir": "data/datasets/bbbp/" }}}}
+        {"class": "src.dataset.dataset_base.Dataset", "parameters": {"generator": {"class": "src.dataset.generators.bbbp.BBBP", "parameters": { "data_dir": "data/datasets/bbbp/" }}}}
     ],
     "oracles": [
         {

@@ -4,8 +4,8 @@ from os.path import isfile, join
 import numpy as np
 import networkx as nx
 
-from src.n_dataset.instances.graph import GraphInstance
-from src.n_dataset.generators.base import Generator
+from src.dataset.instances.graph import GraphInstance
+from src.dataset.generators.base import Generator
 
 
 class ADHD(Generator):

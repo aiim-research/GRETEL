@@ -2,7 +2,7 @@ import math
 import numpy as np
 import torch
 from copy import deepcopy
-from src.n_dataset.instances.graph import GraphInstance
+from src.dataset.instances.graph import GraphInstance
 from src.core.explainer_base import Explainer
 from src.core.trainable_base import Trainable
 from src.core.oracle_base import Oracle

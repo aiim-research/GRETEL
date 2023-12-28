@@ -1,5 +1,5 @@
 import random
-from src.n_dataset.dataset_factory import DatasetFactory
+from src.dataset.dataset_factory import DatasetFactory
 from src.evaluation.evaluation_metric_factory import EvaluationMetricFactory
 from src.evaluation.evaluator_base import Evaluator
 from src.explainer.explainer_factory import ExplainerFactory

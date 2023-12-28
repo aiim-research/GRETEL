@@ -6,7 +6,7 @@ from torch.utils.data import TensorDataset
 from torch.utils.data import DataLoader
 
 from src.explainer.generative.gans.model import BaseGAN
-from src.n_dataset.instances.graph import GraphInstance
+from src.dataset.instances.graph import GraphInstance
 from src.utils.cfg_utils import init_dflts_to_of
 
 

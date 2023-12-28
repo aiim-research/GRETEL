@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 
 from src.core.configurable import Configurable
-from src.n_dataset.dataset_base import Dataset
+from src.dataset.dataset_base import Dataset
 from src.utils.context import Context
 
 

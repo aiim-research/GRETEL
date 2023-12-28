@@ -3,9 +3,9 @@ import torch
 from typing import Any, Tuple
 
 from src.explainer.generative.gans.model import BaseGAN
-from src.n_dataset.instances.graph import GraphInstance
+from src.dataset.instances.graph import GraphInstance
 from src.utils.torch.utils import rebuild_adj_matrix
-from src.n_dataset.utils.dataset_torch import TorchGeometricDataset
+from src.dataset.utils.dataset_torch import TorchGeometricDataset
 
 from torch_geometric.utils.unbatch import unbatch, unbatch_edge_index
 from src.utils.cfg_utils import init_dflts_to_of

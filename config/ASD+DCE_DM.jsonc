@@ -9,9 +9,9 @@
                 {"in_sections": ["do-pairs/dataset"],"params": 
                 {
                     "manipulators": [
-                        { "class": "src.n_dataset.manipulators.centralities.NodeCentrality", "parameters": {} },
-                        { "class": "src.n_dataset.manipulators.weights.EdgeWeights", "parameters": {} },
-                        { "class": "src.n_dataset.manipulators.diameter.Diameter", "parameters": {} }        
+                        { "class": "src.dataset.manipulators.centralities.NodeCentrality", "parameters": {} },
+                        { "class": "src.dataset.manipulators.weights.EdgeWeights", "parameters": {} },
+                        { "class": "src.dataset.manipulators.diameter.Diameter", "parameters": {} }        
                         ]   
                   }}
             ]

@@ -3,9 +3,9 @@ from src.core.explainer_base import Explainer
 from src.core.trainable_base import Trainable
 import networkx as nx
 
-from src.n_dataset.instances.graph import GraphInstance
-from src.n_dataset.manipulators.centralities import NodeCentrality
-from src.n_dataset.manipulators.weights import EdgeWeights
+from src.dataset.instances.graph import GraphInstance
+from src.dataset.manipulators.centralities import NodeCentrality
+from src.dataset.manipulators.weights import EdgeWeights
 
 
 class ExplainerStub(Trainable, Explainer):

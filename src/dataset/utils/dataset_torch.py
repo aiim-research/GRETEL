@@ -3,7 +3,7 @@ from typing import List
 import torch
 from torch_geometric.data import Data, Dataset
 
-from src.n_dataset.instances.graph import GraphInstance
+from src.dataset.instances.graph import GraphInstance
 
 class TorchGeometricDataset(Dataset):
   

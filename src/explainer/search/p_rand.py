@@ -3,8 +3,8 @@ import itertools
 import numpy as np
 import copy
 
-from src.n_dataset.instances.graph import GraphInstance
-from src.n_dataset.dataset_base import Dataset
+from src.dataset.instances.graph import GraphInstance
+from src.dataset.dataset_base import Dataset
 from src.core.explainer_base import Explainer
 from src.core.oracle_base import Oracle
 from src.core.trainable_base import Trainable

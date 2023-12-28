@@ -8,9 +8,9 @@
                 {"in_sections" : ["do-pairs/oracle"],"params" : {"fold_id": -1,"retrain":true}},
                 {"in_sections": ["do-pairs/dataset"],"params": 
                 { "manipulators": [
-                    { "class": "src.n_dataset.manipulators.centralities.NodeCentrality", "parameters": {} },
-                    { "class": "src.n_dataset.manipulators.weights.EdgeWeights", "parameters": {} },
-                    { "class": "src.n_dataset.manipulators.rank.RankManipulator", "parameters": {} }      
+                    { "class": "src.dataset.manipulators.centralities.NodeCentrality", "parameters": {} },
+                    { "class": "src.dataset.manipulators.weights.EdgeWeights", "parameters": {} },
+                    { "class": "src.dataset.manipulators.rank.RankManipulator", "parameters": {} }      
                     ] }}
             ]
         }

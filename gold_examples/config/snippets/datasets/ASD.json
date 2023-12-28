@@ -1,7 +1,7 @@
-{"class": "src.n_dataset.dataset_base.Dataset",
+{"class": "src.dataset.dataset_base.Dataset",
     "parameters": {
         "generator": {
-            "class": "src.n_dataset.generators.asd.ASD", 
+            "class": "src.dataset.generators.asd.ASD", 
             "parameters": { "data_dir": "../data/datasets/autism/" }
         }
     }

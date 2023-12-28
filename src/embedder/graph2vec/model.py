@@ -1,7 +1,7 @@
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 from src.core.embedder_base import Embedder
 from src.embedder.graph2vec.graph2vec_model import WeisfeilerLehmanMachine
-from src.n_dataset.instances.graph import GraphInstance
+from src.dataset.instances.graph import GraphInstance
 import numpy as np
 
 class Graph2VecEmbedder(Embedder):

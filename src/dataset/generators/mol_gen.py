@@ -7,8 +7,8 @@ from rdkit import Chem
 from rdkit.Chem import MolFromSmiles as smi2mol
 from rdkit.Chem import MolToSmiles as mol2smi
 
-from src.n_dataset.generators.base import Generator
-from src.n_dataset.instances.graph import GraphInstance
+from src.dataset.generators.base import Generator
+from src.dataset.instances.graph import GraphInstance
 
 class MolGenerator(Generator):
 

@@ -14,19 +14,19 @@
     "compose_strs" : "config/snippets/default_store_paths.json",
     "datasets": [
         {
-            "class": "src.n_dataset.dataset_base.Dataset",
+            "class": "src.dataset.dataset_base.Dataset",
             "parameters": {
                 "generator": {
-                    "class": "src.n_dataset.generators.asd.ASD", 
+                    "class": "src.dataset.generators.asd.ASD", 
                     "parameters": { "data_dir": "data/datasets/autism/" }
                 }
             } 
         },
         {
-            "class": "src.n_dataset.dataset_base.Dataset",
+            "class": "src.dataset.dataset_base.Dataset",
             "parameters": {
                 "generator": {
-                    "class": "src.n_dataset.generators.treecycles.TreeCycles", 
+                    "class": "src.dataset.generators.treecycles.TreeCycles", 
                     "parameters": { "num_instances": 500, "num_nodes_per_instance": 28, "num_nodes_in_cycles": 4 }
                 }
             } 

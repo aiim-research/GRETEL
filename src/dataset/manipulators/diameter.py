@@ -1,5 +1,5 @@
-from src.n_dataset.instances.graph import GraphInstance
-from src.n_dataset.manipulators.base import BaseManipulator
+from src.dataset.instances.graph import GraphInstance
+from src.dataset.manipulators.base import BaseManipulator
 import networkx as nx
 
 

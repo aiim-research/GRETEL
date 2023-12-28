@@ -13,10 +13,10 @@
     "compose_mes" : "config/snippets/default_metrics.json",
     "compose_strs" : "config/snippets/default_store_paths.json",
     "datasets": [
-        {"class": "src.n_dataset.dataset_base.Dataset",
+        {"class": "src.dataset.dataset_base.Dataset",
             "parameters": {
                 "generator": {
-                    "class": "src.n_dataset.generators.asd.ASD", 
+                    "class": "src.dataset.generators.asd.ASD", 
                     "parameters": { "data_dir": "data/datasets/autism/" }
                 }
             }

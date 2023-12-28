@@ -4,7 +4,7 @@ from copy import deepcopy
 import networkx as nx
 import numpy as np
 
-from src.n_dataset.instances.base import DataInstance
+from src.dataset.instances.base import DataInstance
 
 
 class GraphInstance(DataInstance):

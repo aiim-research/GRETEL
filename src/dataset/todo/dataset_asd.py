@@ -1,5 +1,5 @@
 from src.dataset.instances.base import DataInstance
-from src.n_dataset.dataset_base import Dataset
+from src.dataset.dataset_base import Dataset
 
 import networkx as nx
 import numpy as np

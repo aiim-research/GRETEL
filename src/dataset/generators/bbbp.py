@@ -1,6 +1,6 @@
 from os.path import join
 
-from src.n_dataset.generators.mol_gen import MolGenerator
+from src.dataset.generators.mol_gen import MolGenerator
 
 # dummy class for BBBP dataset
 # important parameters

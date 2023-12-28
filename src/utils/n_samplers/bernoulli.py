@@ -5,7 +5,7 @@ import torch
 
 from src.core.oracle_base import Oracle
 from src.utils.n_samplers.abstract_sampler import Sampler
-from src.n_dataset.instances.graph import GraphInstance
+from src.dataset.instances.graph import GraphInstance
 
 
 class Bernoulli(Sampler):

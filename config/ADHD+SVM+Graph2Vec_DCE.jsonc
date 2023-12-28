@@ -13,10 +13,10 @@
     "do-pairs":[ 
         {
             "dataset": {
-                "class": "src.n_dataset.dataset_base.Dataset",
+                "class": "src.dataset.dataset_base.Dataset",
                 "parameters": {
                     "generator": {
-                        "class": "src.n_dataset.generators.adhd.ADHD", 
+                        "class": "src.dataset.generators.adhd.ADHD", 
                         "parameters": { "data_dir": "data/datasets/adhd/graphs/" }
                     }
                 }
