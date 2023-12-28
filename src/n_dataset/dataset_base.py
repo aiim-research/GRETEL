@@ -4,6 +4,7 @@ from typing import List
 from sklearn.model_selection import StratifiedKFold
 
 from torch.utils.data import Subset
+from src.utils.cfg_utils import clean_cfg
 from torch_geometric.loader import DataLoader
 from src.core.factory_base import get_instance_kvargs
 
@@ -147,7 +148,7 @@ class Dataset(Savable):
         dump = {
             "instances" : self.instances,
             "splits": self.splits,
-            "config": self.local_config, 
+            "config": clean_cfg(self.local_config), 
             "node_features_map": self.node_features_map,
             "edge_features_map": self.edge_features_map,
             "graph_features_map": self.graph_features_map,

@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 import pickle
 from src.core.trainable_base import Trainable
+from src.utils.cfg_utils import clean_cfg
 
 class Embedder(Trainable,metaclass=ABCMeta):
         
@@ -17,7 +18,7 @@ class Embedder(Trainable,metaclass=ABCMeta):
         dump = {
             "model" : self.model,
             "embeddings": self.embedding,
-            "config": self.local_config
+            "config": clean_cfg(self.local_config)
         }
         with open(filepath, 'wb') as f:
             pickle.dump(dump, f)

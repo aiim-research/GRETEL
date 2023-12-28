@@ -5,7 +5,7 @@ from flufl.lock import Lock
 from datetime import timedelta
 from abc import ABCMeta, abstractmethod
 from src.core.savable import Savable
-from src.utils.cfg_utils import retake_dataset
+from src.utils.cfg_utils import clean_cfg, retake_dataset
 from src.utils.context import Context
 
 class Trainable(Savable,metaclass=ABCMeta):
@@ -42,7 +42,7 @@ class Trainable(Savable,metaclass=ABCMeta):
         filepath = self.context.get_path(self)
         dump = {
             "model" : self.model,
-            "config": self.local_config
+            "config": clean_cfg(self.local_config)
         }
         with open(filepath, 'wb') as f:
           pickle.dump(dump, f)

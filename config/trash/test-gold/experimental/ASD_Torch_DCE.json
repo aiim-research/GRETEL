@@ -48,5 +48,5 @@
             }   
         }
     ],
-    "explainers": [{"class": "src.explainer.search.dce.DCESearchExplainer","parameters":{}}]
+    "explainers": [{"class": "src.explainer.search.dces.DCESExplainer"}]
 }

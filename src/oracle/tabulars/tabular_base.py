@@ -27,7 +27,7 @@ class TabularOracle(Oracle):#TODO: Made it Abstract class
 
     def _real_predict(self, data_instance):
         data_instance = self.embedder.get_embedding(data_instance)
-        return self.model.predict(data_instance)
+        return self.model.predict(data_instance).squeeze()
         
     def _real_predict_proba(self, data_instance):
         data_instance = self.embedder.get_embedding(data_instance)

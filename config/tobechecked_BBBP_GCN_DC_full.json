@@ -146,9 +146,5 @@
             }
         }
     ],
-    "explainers": [
-        {
-            "class": "src.explainer.search.dce.DCESearchExplainer"
-        }
-    ]
+    "explainers": [{"class": "src.explainer.search.dces.DCESExplainer"}]
 }
