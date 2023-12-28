@@ -3,6 +3,7 @@ import copy
 import exmol
 import selfies as sf
 
+from src.dataset.generators import mol_gen
 from src.dataset.instances.graph import GraphInstance
 from src.dataset.dataset_base import Dataset
 from src.core.explainer_base import Explainer
@@ -51,17 +52,15 @@ class MACCSExplainer(Explainer):
             cfs = exmol.cf_explain(samples)
         except Exception as err:
             print('instance id:', str(instance.id))
-            print(instance.smiles)
+            print(instance.graph_features['smile'])
             print(err.args)
             return instance
 
         if(len(cfs) > 1):
             # min_counterfactual = copy.deepcopy(instance)
 
-            min_counterfactual = MolecularDataInstance(-1)
-            min_counterfactual.smiles = cfs[1].smiles
-            min_counterfactual.n_node_types = dataset.n_node_types
-            min_counterfactual.max_n_nodes = dataset.max_n_nodes
+            min_cft_label = clf(cfs[1].smiles)
+            _ , min_counterfactual = mol_gen.smile2graph(instance.id, cfs[1].smiles, min_cft_label, self.dataset)
             return min_counterfactual
         else:
             return instance
@@ -73,11 +72,7 @@ class MACCSExplainer(Explainer):
 
         # The inner function uses the oracle, but does not receive it as a parameter
         def _oracle_wrapper(molecule_smiles):
-            inst = MolecularDataInstance(-1)
-            inst.smiles = molecule_smiles
-            inst.n_node_types = dataset.n_node_types
-            inst.max_n_nodes = dataset.max_n_nodes
-
+            _ , inst = mol_gen.smile2graph(-1, molecule_smiles, 0, dataset)
             return oracle.predict(inst)
 
         return _oracle_wrapper
