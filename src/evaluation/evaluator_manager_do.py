@@ -60,7 +60,7 @@ class EvaluatorManager:
                 explainer = self.context.factories['explainers'].get_explainer(explainer_snippet, dataset, oracle)                
             
                 # Creating the evaluator
-                evaluator = Evaluator(dataset, oracle, explainer, evaluation_metrics,
+                evaluator = Evaluator(self.context._scope, dataset, oracle, explainer, evaluation_metrics,
                                             self._output_store_path, self.context.run_number)
 
                 # Adding the evaluator to the evaluator's list

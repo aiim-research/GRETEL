@@ -16,8 +16,9 @@ from src.utils.logger import GLogger
 class Evaluator(ABC):
     _logger = GLogger.getLogger()
 
-    def __init__(self, data, oracle: Oracle, explainer: Explainer, evaluation_metrics, results_store_path, run_number=0) -> None:
+    def __init__(self,scope, data, oracle: Oracle, explainer: Explainer, evaluation_metrics, results_store_path, run_number=0) -> None:
         super().__init__()
+        self._scope = scope
         self._name = 'Evaluator_for_' + explainer.name + '_using_' + oracle.name
         self._data = data
         self._oracle = oracle
@@ -31,6 +32,7 @@ class Evaluator(ABC):
 
         # Building the config file to write into disk
         evaluator_config = {'dataset': clean_cfg(data.local_config), 'oracle': clean_cfg(oracle.local_config), 'explainer': clean_cfg(explainer.local_config), 'metrics': []}
+        evaluator_config['scope']=self._scope
         for metric in evaluation_metrics:
             evaluator_config['metrics'].append(metric._config_dict)
         # creatig the results dictionary with the basic info
@@ -155,7 +157,10 @@ class Evaluator(ABC):
 
 
     def write_results(self):
-        output_path = self._results_store_path
+        output_path = os.path.join(self._results_store_path, self._scope)
+        if not os.path.exists(output_path):
+            os.mkdir(output_path)
+
         
         output_path = os.path.join(output_path, self._data.name)
         if not os.path.exists(output_path):

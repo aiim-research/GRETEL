@@ -39,7 +39,7 @@ class Context(object):
         '''
         self.conf = propagate(compose(JsoncParser.parse_file(self.config_file)))
 
-        self._scope = self.conf['experiment']['scope']
+        self._scope = self.conf['experiment'].get('scope','default_scope')
         self.conf['experiment']['parameters']=self.conf['experiment'].get('parameters',{})
         self.conf['experiment']['parameters']['lock_release_tout']=self.conf['experiment']['parameters'].get('lock_release_tout',24*5) #Expressed in hours
         self.lock_release_tout = self.conf['experiment']['parameters']['lock_release_tout']
