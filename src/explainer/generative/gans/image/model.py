@@ -106,4 +106,5 @@ class GAN(BaseGAN):
     
     
     def __call__(self, *args: Tuple[GraphInstance], **kwds: Any) -> Any:
-        return self.generator(torch.from_numpy(args[0].data).double())
+        torch_data = torch.from_numpy(args[0].data[None,None,:,:]).float()
+        return self.generator(torch_data)

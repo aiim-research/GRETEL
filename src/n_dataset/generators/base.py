@@ -17,7 +17,7 @@ class Generator(Configurable, metaclass=ABCMeta):
         pass
     
     @abstractmethod
-    def init():  
+    def init(self):  
         pass
     
     @abstractmethod
