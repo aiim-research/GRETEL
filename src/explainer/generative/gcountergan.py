@@ -1,7 +1,8 @@
 import torch
+
 from src.core.factory_base import get_instance_kvargs
 from src.explainer.per_cls_explainer import PerClassExplainer
-from src.utils.n_samplers.abstract_sampler import Sampler
+from src.utils.samplers.abstract_sampler import Sampler
 
 from src.utils.cfg_utils import init_dflts_to_of
 
@@ -38,6 +39,6 @@ class GCounteRGAN(PerClassExplainer):
         #The sampler must be present in any case
         init_dflts_to_of(self.local_config,
                          'sampler',
-                         'src.utils.n_samplers.bernoulli.Bernoulli',
+                         'src.utils.samplers.bernoulli.Bernoulli',
                          sampling_iterations=1)
     
