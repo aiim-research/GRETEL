@@ -4,7 +4,7 @@ from typing import List
 import torch
 
 from src.core.oracle_base import Oracle
-from src.utils.n_samplers.abstract_sampler import Sampler
+from src.utils.samplers.abstract_sampler import Sampler
 from src.dataset.instances.graph import GraphInstance
 
 
