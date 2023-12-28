@@ -38,7 +38,7 @@ class Trainable(Savable,metaclass=ABCMeta):
     def create(self):
         self.fit()
 
-    def write(self):#TODO: Support multiple models
+    def write(self):
         filepath = self.context.get_path(self)
         dump = {
             "model" : self.model,
@@ -47,9 +47,8 @@ class Trainable(Savable,metaclass=ABCMeta):
         with open(filepath, 'wb') as f:
           pickle.dump(dump, f)
       
-    def read(self):#TODO: Support multiple models
+    def read(self):
         dump_file = self.context.get_path(self)        
-        #TODO: manage the  if not file exist  case even if it is already managed by the general mecanism
         if self.saved:
             with open(dump_file, 'rb') as f:
                 dump = pickle.load(f)

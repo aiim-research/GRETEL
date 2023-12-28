@@ -55,8 +55,8 @@ class ExplainerEnsemble(Explainer, Trainable):
             inject_oracle(exp, self.oracle)
 
 
-    def write(self):#TODO: Support multiple models
+    def write(self):
         pass
       
-    def read(self):#TODO: Support multiple models
+    def read(self):
         pass

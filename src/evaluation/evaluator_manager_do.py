@@ -16,7 +16,7 @@ class EvaluatorManager:
 
         self._evaluators = []
         
-        #TODO: Move the Factories creation outside
+        #NOTE: Move the Factories creation outside?
         self.context.factories['datasets'] = DatasetFactory(context)
         self.context.factories['embedders'] = EmbedderFactory(context)
         self.context.factories['oracles'] = OracleFactory(context)
