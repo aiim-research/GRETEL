@@ -21,15 +21,11 @@ class PRandExplainer(Explainer):
         if not 'p' in self.local_config['parameters']:
             self.local_config['parameters']['p'] = 0.1
 
-        if not 'fold_id' in self.local_config['parameters']:
-            self.local_config['parameters']['fold_id'] = -1
-
 
     def init(self):
         super().init()
 
         self.perturbation_percentage = self.local_config['parameters']['p']
-        self.fold_id = self.local_config['parameters']['fold_id']
         
         
     def explain(self, instance):

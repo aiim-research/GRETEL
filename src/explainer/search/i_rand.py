@@ -15,9 +15,7 @@ class IRandExplainer(Explainer):
         super().init()
 
         self.perturbation_percentage = self.local_config['parameters']['p']
-        self.tries = self.local_config['parameters']['t']
-        self.fold_id = -1
-        
+        self.tries = self.local_config['parameters']['t']        
         
     def explain(self, instance):
         l_input_inst = self.oracle.predict(instance)
@@ -81,7 +79,6 @@ class IRandExplainer(Explainer):
 
         if not 't' in self.local_config['parameters']:
             self.local_config['parameters']['t'] = 3
-
 
     def write(self):
         pass

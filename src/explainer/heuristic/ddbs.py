@@ -27,8 +27,6 @@ class DataDrivenBidirectionalSearchExplainer(Explainer):
         self.distance_metric = get_instance_kvargs(self.local_config['parameters']['distance_metric']['class'], 
                                                     self.local_config['parameters']['distance_metric']['parameters'])
         
-        self.fold_id = self.local_config['parameters']['fold_id']
-
 
     def check_configuration(self):
         super().check_configuration()
@@ -37,6 +35,9 @@ class DataDrivenBidirectionalSearchExplainer(Explainer):
 
         #Check if the distance metric exist or build with its defaults:
         init_dflts_to_of(self.local_config, 'distance_metric', dst_metric)
+       
+
+
 
 
     def explain(self, instance):

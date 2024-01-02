@@ -26,8 +26,6 @@ class DCESExplainer(Explainer):
 
         self.distance_metric = get_instance_kvargs(self.local_config['parameters']['distance_metric']['class'], 
                                                     self.local_config['parameters']['distance_metric']['parameters'])
-        self.fold_id=-1
-
 
     def explain(self, instance):
         input_label = self.oracle.predict(instance)

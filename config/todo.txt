@@ -1,4 +1,10 @@
 ## Tested and working configurations:
+
+# BBBP
+config/BBBP_GCN_DCE.jsonc
+config/BBBP_GCN_MACCS.json
+
+# TCR
 * config/TCR-128-32-0.2_GCN_DCE.jsonc
 * config/TCR-128-32-0.2_GCN_RSGG.jsonc
 * config/TCR-128-32-0.2_KNN-G2V_DCE.jsonc
@@ -10,3 +16,4 @@
 ## Tested and NOT working configurations:
 * config/TCR-500-64-0.4_GCN_RSGG.jsonc
 * config/TCR-500-64-0.4_GCN_GCounteRGAN.jsonc
+* config/BBBP_GCN_RSGG.json

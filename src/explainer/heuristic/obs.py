@@ -22,6 +22,7 @@ class ObliviousBidirectionalSearchExplainer(Explainer):
 
         #Check if the distance metric exist or build with its defaults:
         init_dflts_to_of(self.local_config, 'distance_metric', dst_metric)
+        
 
 
     def init(self):
@@ -30,8 +31,6 @@ class ObliviousBidirectionalSearchExplainer(Explainer):
         self.distance_metric = get_instance_kvargs(self.local_config['parameters']['distance_metric']['class'], 
                                                     self.local_config['parameters']['distance_metric']['parameters'])
         
-        self.fold_id = self.local_config['parameters']['fold_id']
-
     def explain(self, instance):
 
         # Get the label of the original instance

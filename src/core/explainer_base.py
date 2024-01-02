@@ -14,3 +14,8 @@ class Explainer(Configurable, metaclass=ABCMeta):
     @abstractmethod
     def explain(self, instance):
         pass
+
+    def check_configuration(self):
+        super().check_configuration()
+        self.local_config['parameters']['fold_id'] =  self.local_config['parameters'].get('fold_id', -1)
+        self.fold_id = self.local_config['parameters']['fold_id'] 
