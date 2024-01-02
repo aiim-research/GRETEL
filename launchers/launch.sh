@@ -5,7 +5,7 @@
 #$ -o ./output/qsub/std_$JOB_ID.out
 #$ -e ./output/qsub/err_$JOB_ID.out
 #$ -q parallel.q
-mkdir -p ./output/qsub
+
 
 export OMP_NUM_THREADS=$NSLOTS
 export OPENBLAS_NUM_THREADS=$NSLOTS
