@@ -1,8 +1,13 @@
 ## Tested and working configurations:
+# ASD
+* config/ASD_ASD-Custom_DCE.jsonc
+* config/ASD_ASD-Custom_OBS.jsonc
+* config/ASD+TCRs+BBBP_GCN_DCE.jsonc
 
 # BBBP
 * config/BBBP_GCN_DCE.jsonc
 * config/BBBP_GCN_MACCS.json
+* config/BBBP_SVM-MOL_DCE.json
 
 # TCR
 * config/TCR-128-32-0.2_GCN_DCE.jsonc
