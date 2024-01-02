@@ -1,8 +1,8 @@
 ## Tested and working configurations:
 
 # BBBP
-config/BBBP_GCN_DCE.jsonc
-config/BBBP_GCN_MACCS.json
+* config/BBBP_GCN_DCE.jsonc
+* config/BBBP_GCN_MACCS.json
 
 # TCR
 * config/TCR-128-32-0.2_GCN_DCE.jsonc
