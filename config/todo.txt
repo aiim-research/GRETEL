@@ -1,7 +1,9 @@
 ## Tested and working configurations:
 # ASD
 * config/ASD_ASD-Custom_DCE.jsonc
+* config/ASD_ASD-Custom_DDBS.jsonc
 * config/ASD_ASD-Custom_OBS.jsonc
+* config/ASD_SVM-G2V_DCE.jsonc
 * config/ASD+TCRs+BBBP_GCN_DCE.jsonc
 
 # BBBP

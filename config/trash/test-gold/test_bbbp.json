@@ -57,7 +57,7 @@
         {"name": "oracle_accuracy", "parameters": {}}
     ],
     "experiment" : {
-        "scope": "gcn_oracle",
+        "scope": "examples_configs",
         "parameters" : {}
     }
 }

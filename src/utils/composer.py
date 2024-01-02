@@ -63,7 +63,7 @@ def propagate(config):
 
 
 '''"experiment" : {
-        "scope": "gcn_oracle",
+        "scope": "examples_configs",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[

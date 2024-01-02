@@ -6,7 +6,7 @@
         {"name": "tree-cycles", "parameters": {"n_inst": 500, "n_per_inst": 28, "n_in_cycles": 5, "nodes_per_cycle": 4, "number_of_cycles": 3} }
     ],
     "experiment" : {
-        "scope": "gcn_oracle",
+        "scope": "examples_configs",
         "parameters" : {"ciccio":[],"compose" : "config/test/comp_logs.json"}
     }
 }

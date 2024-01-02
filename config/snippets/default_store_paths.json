@@ -5,6 +5,6 @@
         {"name": "embedder_store_path", "address": "./data/cache/oracles/"},
         {"name": "explainer_store_path", "address": "./data/cache/explainers/"},        
         {"name": "log_store_path", "address": "./output/logs/"},
-        {"name": "output_store_path", "address": "./output/"}
+        {"name": "output_store_path", "address": "./output/results/"}
     ]
 }

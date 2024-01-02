@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "svm_oracle",
+        "scope": "examples_configs",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[
