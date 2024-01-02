@@ -5,9 +5,7 @@
         "parameters": {
             "embedder": {
                 "class": "src.embedder.molecule.model.RDKFingerprintEmbedder", 
-                "parameters": {
-                    "model": {"parameters": { "wl_iterations": 17 } }
-                }
+                "parameters": {}
             },
             "model": {  "parameters": {} }            
         } 

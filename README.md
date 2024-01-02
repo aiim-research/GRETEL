@@ -38,13 +38,15 @@ GRETEL is a highly extensible evaluation framework that promotes Open Science an
 
 GRETEL [1, 2] is an open source framework for Evaluating Graph Counterfactual Explanation Methods. It is implemented using the Object Oriented paradigm and the Factory Method design pattern. Our main goal is to create a generic platform that allows the researchers to speed up the process of developing and testing new Graph Counterfactual Explanation Methods.
 
-## Citation Request:
+## Welcomed Citations:
 
-Please cite our papers if you use GRETEL in your experiments:
+Please cite our papers if you use GRETEL in your projects:
 
-Mario Alfonso Prado-Romero and Giovanni Stilo. 2022. GRETEL: Graph Counterfactual Explanation Evaluation Framework. In Proceedings of the 31st ACM International Conference on Information and Knowledge Management (CIKM '22). Association for Computing Machinery, New York, NY, USA. https://doi.org/10.1145/3511808.3557608
+Mario Alfonso Prado-Romero and Giovanni Stilo. 2022. GRETEL: Graph Counterfactual Explanation Evaluation Framework. In Proceedings of the 31st ACM International Conference on Information and Knowledge Management (CIKM '22). Association for Computing Machinery, New York, NY, USA. [https://doi.org/10.1145/3511808.3557608](https://doi.org/10.1145/3511808.3557608)
 
-Mario Alfonso Prado-Romero, Bardh Prenkaj, and Giovanni Stilo. 2023. Developing and Evaluating Graph Counterfactual Explanation with GRETEL. In Proceedings of the Sixteenth ACM International Conference on Web Search and Data Mining (WSDM '23). Association for Computing Machinery, New York, NY, USA, 1180–1183. https://doi.org/10.1145/3539597.3573026
+Mario Alfonso Prado-Romero, Bardh Prenkaj, and Giovanni Stilo. 2023. Developing and Evaluating Graph Counterfactual Explanation with GRETEL. In Proceedings of the Sixteenth ACM International Conference on Web Search and Data Mining (WSDM '23). Association for Computing Machinery, New York, NY, USA, 1180–1183.  [https://doi.org/10.1145/3539597.3573026](https://doi.org/10.1145/3539597.3573026)
+
+Mario Alfonso Prado-Romero, Bardh Prenkaj, Giovanni Stilo, and Fosca Giannotti. 2023. A Survey on Graph Counterfactual Explanations: Definitions, Methods, Evaluation, and Research Challenges. ACM Comput. Surv. Just Accepted (September 2023). [https://doi.org/10.1145/3618105](https://doi.org/10.1145/3618105)
 
 ```latex:
 @inproceedings{prado-romero2022gretel,
@@ -93,19 +95,33 @@ month = {sep}
 ```
 
 ## Requirements:
-
-* scikit-learn
-* numpy 
-* scipy
-* pandas
-* tensorflow (for GCN)
-* pytorch (for deep-learning-based explainers)
-* jsonpickle (for serialization)
+* pytorch
+* picologging
+* exmol
+* gensim
 * joblib
-* rdkit (Molecules)
-* exmol (maccs method)
-* networkx (Graphs)
+* jsonpickle
+* karateclub
+* matplotlib
+* networkx
+* numpy
+* pandas
+* rdkit
+* scikit-learn
+* scipy
+* selfies
+* sqlalchemy
+* black
+* typing-extensions
+* torch_geometric
+* dgl
+* flufl.lock
+* jsonc-parser
 
+## Installation:
+the suggested way is the following:
+
+<!-- 
 ## Installation:
 The easiest way to get Gretel up and running with all the dependencies is to pull the development Docker image available in [Docker Hub](https://hub.docker.com/):
 
@@ -124,7 +140,7 @@ For simplicity we provide several **makefile** rules for easy interaction with t
  * `make docker` - builds the development image from scratch
  * `make pull` - pull the development image
  * `make push` - push the development image
- * `make demo` - run the demo in the development image.
+ * `make demo` - run the demo in the development image.-->
 
 ## Resources provided with the Framework:
 
@@ -178,8 +194,18 @@ For simplicity we provide several **makefile** rules for easy interaction with t
 
 Lets see an small example of how to use the framework.
 
-### Config file
+### Config file 
+The initialization mechanism in GRETEL 2.0 was completely refactored.
+A slightly different logic comes in place with a more robust and flexible mechanism.
 
+Thus, new configuration files are needed. Even if they are not yet final, you can take a look at the folder config.
+
+To run a configuration:
+```
+python main.py <CONFIG_FILE>
+```
+
+<!-- 
 First, we need to create a config json file with the option we want to use in our experiment. In the file config/CIKM/manager_config_example_all.json it is possible to find all options for each componnent of the framework.
 
 ```json
@@ -245,7 +271,7 @@ eval_manager.evaluate()
 ```
 
 Once the result json files are generated it is possible to use the result_stats.py module to generate the tables with the results of the experiments. The tables will be generated as CSV and LaTex. In the examples folder there are some jupyter notebooks, and associated configuration files, that show how to use the framework for evaluating an explainer. Furthermore, they show how to extend GRETEL with new datasets and explainers.
-
+-->
 
 ## References
 
