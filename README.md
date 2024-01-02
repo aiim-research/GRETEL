@@ -93,7 +93,7 @@ journal = {ACM Comput. Surv.},
 month = {sep}
 }
 ```
-
+<!-- 
 ## Requirements:
 * pytorch
 * picologging
@@ -117,8 +117,10 @@ month = {sep}
 * dgl
 * flufl.lock
 * jsonc-parser
+-->
+## First steps with GRETEL:
 
-## Enviroment:
+### Prepare the enviroment:
 We suggest proceeding to create a (CONDA) environment in the following way (reffering also to the script launchers/env_install.sh):
 ```
 conda update -n base -c defaults conda -y
@@ -139,6 +141,16 @@ pip install picologging exmol gensim joblib jsonpickle karateclub matplotlib net
 
 ```
 
+### How to run an experiment
+The initialization mechanism in GRETEL 2.0 was completely refactored.
+A slightly different logic comes in place with a more robust and flexible mechanism.
+
+Thus, new configuration files are needed. Even if they are not yet final, you can take a look at the folder config.
+
+To run a configuration (configure the enviroment upfront):
+```
+python main.py <CONFIG_FILE>
+```
 
 <!-- 
 ## Installation:
@@ -208,21 +220,6 @@ For simplicity we provide several **makefile** rules for easy interaction with t
 * **CLEAR** [8] is a learning based explanation method that provides Generative Counterfactual Explanations on Graphs.
 
 * **CounteRGAN** [9] is a porting of a GAN-based explanation method for images
-
-## How to use:
-
-Lets see an small example of how to use the framework.
-
-### Config file 
-The initialization mechanism in GRETEL 2.0 was completely refactored.
-A slightly different logic comes in place with a more robust and flexible mechanism.
-
-Thus, new configuration files are needed. Even if they are not yet final, you can take a look at the folder config.
-
-To run a configuration:
-```
-python main.py <CONFIG_FILE>
-```
 
 <!-- 
 First, we need to create a config json file with the option we want to use in our experiment. In the file config/CIKM/manager_config_example_all.json it is possible to find all options for each componnent of the framework.
