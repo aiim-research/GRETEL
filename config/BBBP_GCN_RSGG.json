@@ -13,5 +13,5 @@
     "compose_mes" : "config/snippets/default_metrics.json",
     "compose_strs" : "config/snippets/default_store_paths.json",
     "do-pairs":[ {"compose_bbbp_gcn" : "config/snippets/do-pairs/BBBP_GCN.json"} ],
-    "explainers": [{"class": "src.explainer.generative.rsgg.RSGG","parameters":{}}]
+    "explainers": [{"class": "src.explainer.generative.rsgg.RSGG","parameters":{"epochs": 150}}]
 }

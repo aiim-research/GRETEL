@@ -1,5 +1,12 @@
-Checked and working configurations:
-config/TCR-128-32-0.2_GCN_DCE.jsonc
-config/TCR-128-32-0.2_GCN_RSGG.jsonc
-config/TCR-128-32-0.2_KNN-G2V_DCE.jsonc
-config/TCR-128-32-0.2_SVM-G2V_DCE.jsonc
+## Tested and working configurations:
+* config/TCR-128-32-0.2_GCN_DCE.jsonc
+* config/TCR-128-32-0.2_GCN_RSGG.jsonc
+* config/TCR-128-32-0.2_KNN-G2V_DCE.jsonc
+* config/TCR-128-32-0.2_SVM-G2V_DCE.jsonc
+* config/TCR-150-100-0.3_TCC_DCE.jsonc
+* config/TCR-150-100-0.3_TCC_iRand.jsonc
+* config/TCR-150-100-0.3_TCC_pRand.jsonc
+
+## Tested and NOT working configurations:
+* config/TCR-500-64-0.4_GCN_RSGG.jsonc
+* config/TCR-500-64-0.4_GCN_GCounteRGAN.jsonc

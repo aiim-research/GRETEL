@@ -23,7 +23,7 @@
         "oracle": {
           "class": "src.oracle.nn.torch.OracleTorch",
           "parameters": {
-              "epochs": 50,
+              "epochs": 500,
               "batch_size": 32,
               "optimizer": {
                   "class": "torch.optim.RMSprop",
@@ -45,7 +45,7 @@
       }
     }],
     
-    "explainers": [{"class": "src.explainer.generative.gcountergan.GCounteRGAN","parameters":{"epochs": 1}}],
+    "explainers": [{"class": "src.explainer.generative.gcountergan.GCounteRGAN","parameters":{"epochs": 150}}],
     "compose_mes" : "config/snippets/default_metrics.json",
     "compose_strs" : "config/snippets/default_store_paths.json"
 }
