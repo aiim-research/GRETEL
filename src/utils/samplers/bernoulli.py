@@ -38,4 +38,4 @@ class Bernoulli(Sampler):
                              label=1-instance.label,
                              data=adj.numpy(),
                              node_features=features,
-                             edge_weights=probabilities[selected_edges].numpy())
+                             edge_weights=probabilities[selected_edges[:, 0], selected_edges[:, 1]].numpy())
