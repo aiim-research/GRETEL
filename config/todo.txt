@@ -1,0 +1,3 @@
+Configuration Checked
+config/TCR-128-32-0.2_GCN_DCE.jsonc
+config/TCR-128-32-0.2_GCN_RSGG.jsonc

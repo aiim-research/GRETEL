@@ -16,10 +16,9 @@ GRETEL is a highly extensible evaluation framework that promotes Open Science an
 * [Team Information](#team-information)
 * [General Information](#general-information)
 * [Notable References](#citation-request)
-* [Requirements](#requirements)
-* [Installation](#installation)
+* [First steps with GRETEL](#first-steps-with-gretel)
+
 * [Resources Provided with the Framework](#resources-provided-with-the-framework)
-* [How to Use](#how-to-use)
 * [References](#references)
 
 ## Team Information:
