@@ -24,3 +24,8 @@
 * config/TCR-500-64-0.4_GCN_RSGG.jsonc
 * config/TCR-500-64-0.4_GCN_GCounteRGAN.jsonc
 * config/BBBP_GCN_RSGG.json
+
+#TODO
+config/explainers/*
+* config/BBBP_KNN-MOL_DCE.json
+* config/ADHD_SVM-G2V_DCE.jsonc
