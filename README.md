@@ -15,6 +15,7 @@ GRETEL is a highly extensible evaluation framework that promotes Open Science an
 
 * [Team Information](#team-information)
 * [General Information](#general-information)
+* [First steps with GRETEL](#first-steps-with-gretel)
 * [Notable References](#welcomed-citations)
 * [Resources Provided with the Framework](#resources-provided-with-the-framework)
 * [References](#references)
@@ -34,6 +35,9 @@ GRETEL is a highly extensible evaluation framework that promotes Open Science an
 ## General Information:
 
 GRETEL [1, 2] is an open source framework for Evaluating Graph Counterfactual Explanation Methods. It is implemented using the Object Oriented paradigm and the Factory Method design pattern. Our main goal is to create a generic platform that allows the researchers to speed up the process of developing and testing new Graph Counterfactual Explanation Methods.
+
+## First steps with GRETEL:
+See the [GRETEL's wiki](https://github.com/aiim-research/GRETEL/wiki)
 
 ## Welcomed Citations:
 
@@ -116,8 +120,6 @@ month = {sep}
 * flufl.lock
 * jsonc-parser
 -->
-## First steps with GRETEL:
-See the [GRETEL's wiki](https://github.com/aiim-research/GRETEL/wiki)
 
 
 <!-- 
