@@ -1,4 +1,8 @@
 ## Tested and working configurations:
+
+# ADHD
+* config/ADHD_SVM-G2V_DCE.jsonc
+
 # ASD
 * config/ASD_ASD-Custom_DCE.jsonc
 * config/ASD_ASD-Custom_DDBS.jsonc
@@ -9,6 +13,7 @@
 # BBBP
 * config/BBBP_GCN_DCE.jsonc
 * config/BBBP_GCN_MACCS.json
+* config/BBBP_KNN-MOL_DCE.json
 * config/BBBP_SVM-MOL_DCE.json
 
 # TCR
@@ -27,5 +32,3 @@
 
 #TODO
 config/explainers/*
-* config/BBBP_KNN-MOL_DCE.json
-* config/ADHD_SVM-G2V_DCE.jsonc

@@ -5,14 +5,14 @@
     "retrain": true,
     "epochs": 1000,
     "sampler": {
-      "class": "src.utils.n_samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler",
+      "class": "src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler",
       "parameters": {
         "sampling_iterations": 500
       }
     },
     "models": [
       {
-        "class": "src.explainer.generative.gans.model.GAN",
+        "class": "src.explainer.generative.gans.graph.model.GAN",
         "parameters": {
           "model_label": 0,
           "fold_id": 0,
@@ -20,7 +20,7 @@
         }
       },
       {
-        "class": "src.explainer.generative.gans.model.GAN",
+        "class": "src.explainer.generative.gans.graph.model.GAN",
         "parameters": {
           "model_label": 1,
           "fold_id": 0,

@@ -1,5 +1,5 @@
 {
-  "class": "src.explainer.generative.gans.model.GAN",
+  "class": "src.explainer.generative.gans.graph.model.GAN",
   "parameters": {
     "model_label": 1,
     "fold_id": 0,
@@ -13,13 +13,13 @@
       }
     },
     "generator": {
-      "class": "src.explainer.generative.gans.res_gen.ResGenerator",
+      "class": "src.explainer.generative.gans.graph.res_gen.ResGenerator",
       "parameters": {
         "node_features": 7
       }
     },
     "discriminator": {
-      "class": "src.explainer.generative.gans.smpl_disc.SimpleDiscriminator",
+      "class": "src.explainer.generative.gans.graph.smpl_disc.SimpleDiscriminator",
       "parameters": {
         "num_nodes": 28,
         "node_features": 7
