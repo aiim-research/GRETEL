@@ -1,7 +1,7 @@
 #!/bin/bash
 type='sge' # sge | local
-search_dir=./config
-trgt_scope='examples_configs'
+search_dir=./config # the dir to search
+trgt_scope='examples_configs' # scope to be considered
 
 for entry in "$search_dir"/*.json*
 do
@@ -10,10 +10,9 @@ do
   if [ "$trgt_scope" == "$dcl_scope" ]; then
     echo "Founded $dcl_scope in $entry"
     if [ "$type" == "sge" ]; then
-      echo "qsub launchers/launch.sh main.py $entry"
+      qsub launchers/launch.sh main.py $entry
     else
-      echo "python main.py $entry"
+      python main.py $entry
     fi
   fi
-  #
 done
