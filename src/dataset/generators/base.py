@@ -11,10 +11,6 @@ class Generator(Configurable, metaclass=ABCMeta):
         self.dataset = dataset
         super().__init__(context, local_config)
         self.current = 0
-        
-    @abstractmethod
-    def get_num_instances(self):
-        pass
     
     @abstractmethod
     def init(self):  
@@ -23,6 +19,9 @@ class Generator(Configurable, metaclass=ABCMeta):
     @abstractmethod
     def generate_dataset(self):
         pass
+
+    def get_num_instances(self):
+        return len(self.dataset.instances)
     
     def __iter__(self):
         return self

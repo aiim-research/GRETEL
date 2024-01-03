@@ -49,8 +49,7 @@ class TreeCyclesRand(Generator):
 
             self.context.logger.info("Generated instance with id:"+str(i))
     
-    def get_num_instances(self):
-        return len(self.dataset.instances)
+    
     
     def _join_graphs_as_adj(self, base, others):
         Ab = nx.to_numpy_array(base)

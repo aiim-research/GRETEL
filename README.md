@@ -15,9 +15,7 @@ GRETEL is a highly extensible evaluation framework that promotes Open Science an
 
 * [Team Information](#team-information)
 * [General Information](#general-information)
-* [Notable References](#citation-request)
-* [First steps with GRETEL](#first-steps-with-gretel)
-
+* [Notable References](#welcomed-citations)
 * [Resources Provided with the Framework](#resources-provided-with-the-framework)
 * [References](#references)
 
@@ -119,38 +117,8 @@ month = {sep}
 * jsonc-parser
 -->
 ## First steps with GRETEL:
+See the [GRETEL's wiki](https://github.com/aiim-research/GRETEL/wiki)
 
-### Prepare the enviroment:
-We suggest proceeding to create a (CONDA) environment in the following way (reffering also to the script launchers/env_install.sh):
-```
-conda update -n base -c defaults conda -y
-conda create -n GRTL python=3.9 -y
-```
-
-Activate the created env:
-```
-conda activate GRTL
-```
-
-Install with pip Pytorch at first and then the other dependencies:
-
-```
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-
-pip install picologging==0.9.2 exmol gensim joblib jsonpickle karateclub matplotlib networkx numpy pandas rdkit scikit-learn scipy selfies sqlalchemy black typing-extensions torch_geometric dgl IPython ipykernel flufl.lock jsonc-parser
-
-```
-
-### How to run an experiment
-The initialization mechanism in GRETEL 2.0 was completely refactored.
-A slightly different logic comes in place with a more robust and flexible mechanism.
-
-Thus, new configuration files are needed. Even if they are not yet final, you can take a look at the folder config.
-
-To run a configuration (configure the enviroment upfront):
-```
-python main.py <CONFIG_FILE>
-```
 
 <!-- 
 ## Installation:

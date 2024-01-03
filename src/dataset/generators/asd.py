@@ -14,16 +14,12 @@ class ASD(Generator):
         self._td_file_path = join(base_path, 'td')
         self._asd_file_path = join(base_path, 'asd')
         self.generate_dataset()
-        
-    def get_num_instances(self):
-        return len(self.dataset.instances)
     
     def generate_dataset(self):
         if not len(self.dataset.instances):
             for label, dir in enumerate([self._td_file_path, self._asd_file_path]):
                 self.read(dir, label=label)
-        # pad node and edge features
-        # TODO
+        #TODO pad node and edge features
         
     def read(self, path, label=0):
         files = [f for f in listdir(path) if isfile(join(path, f))]
