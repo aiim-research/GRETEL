@@ -22,7 +22,12 @@ if __name__ == "__main__":
     print(f"Generating context for: {sys.argv[1]}")
     context = Context.get_context(sys.argv[1])
     context.run_number = int(sys.argv[2]) if len(sys.argv) == 3 else -1
-        
+
+    '''if torch.backends.mps.is_available():
+        context.logger.info(f"MPS support founded switch to torch.set_default_dtype(torch.float32)")
+        context.logger.info(f"Clean the cache if torch.float64 where used before")
+        torch.set_default_dtype(torch.float32)'''
+
     context.logger.info(f"Executing: {context.config_file} Run: {context.run_number}")
     context.logger.info(
         "Creating the evaluation manager......................................................."
