@@ -41,19 +41,24 @@ class Dataset(Savable):
                                                     "local_config": self.local_config['parameters']['generator'],
                                                     "dataset": self
                                                 })
-        
+        self.manipulators = self._create_manipulators()
+            
+        self.generate_splits(n_splits=self.local_config['parameters']['n_splits'],
+                             shuffle=self.local_config['parameters']['shuffle'])
+
+    def _create_manipulators(self):
+        manipulator_instances = []
         for manipulator in self.local_config['parameters']['manipulators']:
             self.context.logger.info("Apply: "+manipulator['class'])
-            get_instance_kvargs(manipulator['class'],
+            manipulator_instances.append(get_instance_kvargs(manipulator['class'],
                                 {
                                     "context": self.context,
                                     "local_config": manipulator,
                                     "dataset": self
-                                })
+                                }))
             
-        self.generate_splits(n_splits=self.local_config['parameters']['n_splits'],
-                             shuffle=self.local_config['parameters']['shuffle'])
-        
+        return manipulator_instances
+
     def get_data(self):
         return self.instances
     
