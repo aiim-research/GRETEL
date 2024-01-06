@@ -12,8 +12,9 @@
     },
     "do-pairs":[ {"compose_tcr_gcn" : "config/snippets/do-pairs/TCR-128-32-0.2_GCN.json"}],
     
-    "explainers": [{"class": "src.explainer.search.dces.DCESExplainer"}],
-
+    "explainers": [{"class": "src.explainer.heuristic.ddbs.DataDrivenBidirectionalSearchExplainer",
+                    "parameters":{"fold_id":-1}}],
+                    
     "compose_mes" : "config/snippets/default_metrics.json",
     "compose_strs" : "config/snippets/default_store_paths.json"
 }

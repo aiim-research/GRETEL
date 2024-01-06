@@ -10,7 +10,7 @@ import numpy as np
 from src.core.factory_base import get_instance_kvargs
 from src.utils.cfg_utils import get_dflts_to_of, init_dflts_to_of, inject_dataset, inject_oracle, retake_oracle, retake_dataset
 
-class ExplanationAggregatorTS(ExplanationAggregator):
+class ExplanationTopSelect(ExplanationAggregator):
 
     def init(self):
         super().init()

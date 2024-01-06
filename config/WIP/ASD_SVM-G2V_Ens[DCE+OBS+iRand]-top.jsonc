@@ -42,7 +42,7 @@
                                                 "parameters": {}}
                                                 ],
                                     "aggregator": {
-                                        "class": "src.explainer.ensemble.explanation_aggregator_ts.ExplanationAggregatorTS",
+                                        "class": "src.explainer.ensemble.explanation_aggregator_top_select.ExplanationTopSelect",
                                         "parameters": {}
                                     }
                                     }
