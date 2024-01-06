@@ -8,10 +8,10 @@ from src.utils.cfg_utils import clean_cfg
 class ExplainerCache(Explainer, Trainable):
     def explain(self, instance):
         if instance in self.cache.keys():
-            return self.cache[instance]
+            return self.cache[instance.id]
         else:
             expl = self.instance.explain(instance)
-            self.cache[instance]=expl
+            self.cache[instance.id]=expl
 
     def init(self):
         self.cache = {}
