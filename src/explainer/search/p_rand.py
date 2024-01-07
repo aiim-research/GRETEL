@@ -42,15 +42,19 @@ class PRandExplainer(Explainer):
         # sample according to perturbation_percentage
 
         # Creating the instance to return
-        result = copy.deepcopy(instance)
+        adj = copy.deepcopy(instance.data)
         
         sample_index = np.random.choice(list(range(len(new_edges))),
                                          size=int(len(new_edges) * self.perturbation_percentage))
         
         sampled_edges = new_edges[sample_index]
         # switch on/off the sampled edges
-        result.data[sampled_edges[:,0], sampled_edges[:,1]] = 1 - result.data[sampled_edges[:,0], sampled_edges[:,1]]
-        result.data[sampled_edges[:,1], sampled_edges[:,0]] = 1 - result.data[sampled_edges[:,1], sampled_edges[:,0]]
+        adj[sampled_edges[:,0], sampled_edges[:,1]] = 1 - adj[sampled_edges[:,0], sampled_edges[:,1]]
+        adj[sampled_edges[:,1], sampled_edges[:,0]] = 1 - adj[sampled_edges[:,1], sampled_edges[:,0]]
     
-        # return the perturbated instance
+        # Encapsulating the perturbating adjacency matrix into a new instance
+        result = GraphInstance(id=instance.id,
+                               label=0,
+                               data=adj,
+                               node_features=instance.node_features)
         return result

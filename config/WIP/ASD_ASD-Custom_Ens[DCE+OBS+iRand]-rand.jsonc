@@ -1,0 +1,50 @@
+{  
+    "experiment" : {
+        "scope": "examples_configs",
+        "parameters" : {
+            "lock_release_tout":120,
+            "propagate":[
+                {"in_sections" : ["explainers"],"params" : {"fold_id": -1}},
+                {"in_sections" : ["do-pairs/oracle"],"params" : {"fold_id": -1,"retrain":true}},
+                {"in_sections": ["do-pairs/dataset"],"params": { "compose_man" : "config/snippets/datasets/centr_and_weights.json" }}
+            ]
+        }
+    },
+    "do-pairs":[ 
+        {
+            "dataset": { 
+                "class": "src.dataset.dataset_base.Dataset",
+                "parameters": {
+                    "generator": {
+                        "class": "src.dataset.generators.asd.ASD", 
+                        "parameters": { "data_dir": "data/datasets/autism/" }
+                    }
+                }
+            },
+            "oracle": {
+                "class": "src.oracle.custom.oracle_asd_custom.ASDOracle",
+                "parameters": {} 
+                }
+        }
+        ],
+    "explainers": [
+                    {"class": "src.explainer.ensemble.explainer_ensemble_base.ExplainerEnsemble",
+                     "parameters": {
+                                    "explainers": [
+                                                {"class": "src.explainer.search.dces.DCESExplainer",
+                                                "parameters": {}},
+                                                {"class": "src.explainer.heuristic.obs.ObliviousBidirectionalSearchExplainer",
+                                                "parameters":{"fold_id":-1}},
+                                                {"class": "src.explainer.search.i_rand.IRandExplainer", 
+                                                "parameters": {"p": 0.01, "t": 3}}
+                                                ],
+                                    "aggregator": {
+                                        "class": "src.explainer.ensemble.explanation_aggregator_rand.ExplanationRandom",
+                                        "parameters": {}
+                                    }
+                                    }
+                    }
+                ],
+    "compose_mes" : "config/snippets/default_metrics.json",
+    "compose_strs" : "config/snippets/default_store_paths.json"
+}

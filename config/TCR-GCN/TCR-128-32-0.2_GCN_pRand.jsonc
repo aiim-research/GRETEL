@@ -1,0 +1,20 @@
+{  
+    "experiment" : {
+        "scope": "examples_configs",
+        "parameters" : {
+            "lock_release_tout":120,
+            "propagate":[
+                {"in_sections" : ["explainers"],"params" : {"fold_id": -1}},
+                {"in_sections" : ["do-pairs/oracle"],"params" : {"fold_id": -1}},
+                {"in_sections":  ["do-pairs/dataset"],"params": { "compose_man" : "config/snippets/datasets/centr_and_weights.json" }}
+            ]
+        }
+    },
+    "do-pairs":[ {"compose_tcr_gcn" : "config/snippets/do-pairs/TCR-128-32-0.2_GCN.json"}],
+    
+    "explainers": [{"class": "src.explainer.search.p_rand.PRandExplainer", 
+                    "parameters": {"p": 0.01, "fold_id": -1}}],
+                    
+    "compose_mes" : "config/snippets/default_metrics.json",
+    "compose_strs" : "config/snippets/default_store_paths.json"
+}
