@@ -6,6 +6,7 @@ import copy
 from src.core.explainer_base import Explainer
 from src.core.factory_base import get_instance_kvargs
 from src.utils.cfg_utils import init_dflts_to_of
+from src.dataset.instances.graph import GraphInstance
 
 
 class ObliviousBidirectionalSearchExplainer(Explainer):
@@ -50,10 +51,13 @@ class ObliviousBidirectionalSearchExplainer(Explainer):
                                                                                         l_counterfactual)
 
         # Converting the final counterfactual into a DataInstance
-        result = copy.deepcopy(instance)
-        result.data = final_counterfactual
-        result._nx_repr = None
+        result = GraphInstance(id=instance.id, 
+                               label=0, 
+                               data=final_counterfactual, 
+                               node_features=instance.node_features)
+
         return result
+
 
 
     # 3rd party adapted /////////////////////////////////////////////////////////////////////////////
@@ -108,9 +112,10 @@ class ObliviousBidirectionalSearchExplainer(Explainer):
                         ki+=1
             ki=0
 
-            inst = copy.deepcopy(instance)
-            inst.data = g_c
-            inst._nx_repr = None
+            inst = GraphInstance(id=instance.id, 
+                                 label=0, 
+                                 data=g_c,
+                                 node_features=instance.node_features)
 
             r = self.oracle.predict(inst)
             l += 1 # Increase the oracle calls counter
@@ -148,10 +153,10 @@ class ObliviousBidirectionalSearchExplainer(Explainer):
                     gci[i][j] = 1
                     gci[j][i] = 1
 
-            
-            inst = copy.deepcopy(instance)
-            inst.data = gci
-            inst._nx_repr = None
+            inst = GraphInstance(id=instance.id, 
+                                 label=0, 
+                                 data=gci,
+                                 node_features=instance.node_features)
             
             r = self.oracle.predict(inst)
             li += 1
