@@ -36,7 +36,10 @@ class ExplanationRandom(ExplanationAggregator):
                 changes = (org_instance.data != exp.data).astype(int)
                 all_changes_matrix |= changes
 
-        new_edges = np.nonzero(all_changes_matrix)
+        changed_edges = np.nonzero(all_changes_matrix)
+        num_changed_edges = len(changed_edges[0])
+        new_edges = [[changed_edges[0][i], changed_edges[1][i]] for i in range(num_changed_edges)]
+        new_edges = np.array(new_edges)
 
         # increase the number of random modifications
         for i in range(1, k):
