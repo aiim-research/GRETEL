@@ -69,7 +69,7 @@ class PerClassExplainer(Trainable, Explainer):
                 model['parameters']['model_label'] = i
                 
                 for usr_model in cfg_models:
-                    if(usr_model['parameters']['model_label'] == i):
+                    if 'model_label' in usr_model['parameters'] and usr_model['parameters']['model_label'] == i:
                         # We sobstitute the copied prototype
                         model = usr_model
                 

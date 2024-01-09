@@ -46,11 +46,10 @@ class TopKPooling(torch.nn.Module):
         
         x = x[perm] * score.view(-1,1)
         x = self.multiplier * x if self.multiplier != 1 else x
+            
+        connect_out = self.connect(select_out, edge_index, edge_attr, batch.type(torch.int64))
         
-        connect_out = self.connect(select_out, edge_index, edge_attr, batch)
-        
-        return (x, connect_out.edge_index, connect_out.edge_attr,
-                connect_out.batch, perm, score)
+        return x, connect_out.edge_index, connect_out.edge_attr, connect_out.batch, perm, score
         
     def __repr__(self) -> str:
         return (f'{self.__class__.__name__}({self.in_channels}, {self.k}, multiplier={self.multiplier})')

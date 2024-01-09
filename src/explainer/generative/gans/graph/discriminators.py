@@ -52,12 +52,11 @@ class TopKPoolingDiscriminator(nn.Module):
         
         if self.training:
             x = self.add_gaussian_noise(x)
-
         x = F.relu(x)
-        x = F.dropout(x, p=.4, training=self.training)
-        x, _ = self.pool(x, edge_list, edge_attr)
+        x, _, _, _, _, _ = self.pool(x, edge_list, edge_attr)
+        x = torch.flatten(x)
         x = self.fc(x)
-        x = torch.sigmoid(x).squeeze()
+        x = torch.sigmoid(x)
 
         return x
     

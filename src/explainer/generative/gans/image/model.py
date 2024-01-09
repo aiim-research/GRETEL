@@ -69,9 +69,11 @@ class GAN(BaseGAN):
         dflt_discriminator = 'src.explainer.generative.gans.image.discriminators.SimpleDiscriminator'
 
         #Check if the generator exist or build with its defaults:
-        init_dflts_to_of(self.local_config, 'generator', dflt_generator, self.dataset.num_nodes)
+        init_dflts_to_of(self.local_config, 'generator', dflt_generator, 
+                         num_nodes=self.dataset.num_nodes)
         #Check if the generator exist or build with its defaults:
-        init_dflts_to_of(self.local_config, 'discriminator', dflt_discriminator, self.dataset.num_nodes)
+        init_dflts_to_of(self.local_config, 'discriminator', dflt_discriminator, 
+                         num_nodes=self.dataset.num_nodes)
         
         super().check_configuration()
         

@@ -18,10 +18,18 @@
             "class": "src.explainer.generative.rsgg.RSGG",
             "parameters": {
                 "epochs": 150,
-                "discriminator": {
-                    "class": "src.explainer.generative.gans.graph.discriminators.TopKPoolingDiscriminator",
-                    "parameters": {}
-                }
+                "models": [
+                    {
+                        "class": "src.explainer.generative.gans.graph.model.GAN",
+                        "parameters": {
+                            "discriminator": {
+                                "class": "src.explainer.generative.gans.graph.discriminators.TopKPoolingDiscriminator",
+                                "parameters": {}
+                            }
+                        }
+                    }
+                ]
+                
             }
         }
     ]

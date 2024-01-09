@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import torch
 from typing import Any, Tuple
@@ -96,23 +97,24 @@ class GAN(BaseGAN):
         dflt_generator = "src.explainer.generative.gans.graph.res_gen.ResGenerator"
         dflt_discriminator =  "src.explainer.generative.gans.graph.discriminators.SimpleDiscriminator"
         
+        sqrt_features = int(math.sqrt(self.dataset.num_node_features())) + 1
         if 'discriminator' in self.local_config['parameters']\
             and 'parameters' in self.local_config['parameters']['discriminator']:
-            embed_dim_discr = self.local_config['parameters']['discriminator']['parameters'].get('embed_dim', 2)
+            embed_dim_discr = self.local_config['parameters']['discriminator']['parameters'].get('embed_dim', sqrt_features)
         else:
-            embed_dim_discr = 2
+            embed_dim_discr = sqrt_features
         #Check if the generator exist or build with its defaults:
         init_dflts_to_of(self.local_config, 
                          'generator',
                          dflt_generator,
-                         self.dataset.num_node_features())
+                         node_features=self.dataset.num_node_features())
         #Check if the generator exist or build with its defaults:
         init_dflts_to_of(self.local_config,
                          'discriminator',
                          dflt_discriminator,
-                         self.dataset.num_nodes,
-                         self.dataset.num_node_features(),
-                         embed_dim_discr)  
+                         num_nodes=self.dataset.num_nodes,
+                         node_features=self.dataset.num_node_features(),
+                         dim=embed_dim_discr)  
         
         super().check_configuration()
         
