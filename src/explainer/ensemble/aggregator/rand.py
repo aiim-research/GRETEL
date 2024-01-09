@@ -4,7 +4,7 @@ from abc import ABC
 
 from src.dataset.instances.graph import GraphInstance
 from src.core.explainer_base import Explainer
-from src.explainer.ensemble.explanation_aggregator_base import ExplanationAggregator
+from src.explainer.ensemble.aggregator.base import ExplanationAggregator
 from src.evaluation.evaluation_metric_ged import GraphEditDistanceMetric
 import numpy as np
 
