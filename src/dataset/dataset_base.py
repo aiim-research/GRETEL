@@ -1,5 +1,6 @@
 import pickle
 from typing import List
+import numpy as np
 
 from sklearn.model_selection import StratifiedKFold
 
@@ -31,6 +32,7 @@ class Dataset(Savable):
         self._class_indices = {}
         
         self._num_nodes = None
+        self._num_nodes_values = None
         #################################################
     
         
@@ -96,8 +98,16 @@ class Dataset(Savable):
     @property
     def num_nodes(self):
         if not self._num_nodes:
-            self._num_nodes = len(self.get_instance(0).data)
+            self._num_nodes = np.min(self.num_nodes_values)
         return self._num_nodes
+    
+    @property
+    def num_nodes_values(self):
+        if not self._num_nodes_values:
+            self._num_nodes_values = []
+            for inst in self.instances:
+                self._num_nodes_values.append(len(inst.data))
+        return self._num_nodes_values
     
     def get_split_indices(self, fold_id=-1):
         if fold_id == -1:
