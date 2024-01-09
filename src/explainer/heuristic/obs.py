@@ -124,8 +124,8 @@ class ObliviousBidirectionalSearchExplainer(Explainer):
                 #print('- A counterfactual is found!')
                 d = self.distance_metric.distance(g_o,g_c)
                 return d,g_c,l
-            if len(g_rem)<1:
-                print('no more remove')
+            # if len(g_rem)<1:
+                # print('no more remove')
         
         # m-comment: return the original graph if no counterfactual was found
         return 0, g_o, l
