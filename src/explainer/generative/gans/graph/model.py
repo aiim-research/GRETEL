@@ -93,14 +93,26 @@ class GAN(BaseGAN):
         return instances
     
     def check_configuration(self):
-        self.set_generator_kls('src.explainer.generative.gans.graph.res_gen.ResGenerator')
-        self.set_discriminator_kls('src.explainer.generative.gans.graph.discriminators.SimpleDiscriminator')
+        dflt_generator = "src.explainer.generative.gans.graph.res_gen.ResGenerator"
+        dflt_discriminator =  "src.explainer.generative.gans.graph.discriminators.SimpleDiscriminator"
         
+        if 'discriminator' in self.local_config['parameters']\
+            and 'parameters' in self.local_config['parameters']['discriminator']:
+            embed_dim_discr = self.local_config['parameters']['discriminator']['parameters'].get('embed_dim', 2)
+        else:
+            embed_dim_discr = 2
         #Check if the generator exist or build with its defaults:
-        init_dflts_to_of(self.local_config, 'generator', self.get_generator_kls(), self.dataset.num_node_features())
+        init_dflts_to_of(self.local_config, 
+                         'generator',
+                         dflt_generator,
+                         self.dataset.num_node_features())
         #Check if the generator exist or build with its defaults:
-        init_dflts_to_of(self.local_config, 'discriminator', self.get_discriminator_kls(),
-                         self.dataset.num_nodes, self.dataset.num_node_features())  
+        init_dflts_to_of(self.local_config,
+                         'discriminator',
+                         dflt_discriminator,
+                         self.dataset.num_nodes,
+                         self.dataset.num_node_features(),
+                         embed_dim_discr)  
         
         super().check_configuration()
         
