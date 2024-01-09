@@ -5,7 +5,7 @@ from torch_geometric.nn import GCNConv
 
 from src.utils.cfg_utils import default_cfg
 
-
+from torch_geometric.nn.pool.select import SelectTopK
 class SimpleDiscriminator(nn.Module):
     
     def __init__(self, num_nodes, node_features):

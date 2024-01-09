@@ -94,7 +94,7 @@ class GAN(BaseGAN):
     
     def check_configuration(self):
         self.set_generator_kls('src.explainer.generative.gans.graph.res_gen.ResGenerator')
-        self.set_discriminator_kls('src.explainer.generative.gans.graph.smpl_disc.SimpleDiscriminator')
+        self.set_discriminator_kls('src.explainer.generative.gans.graph.discriminators.SimpleDiscriminator')
         
         #Check if the generator exist or build with its defaults:
         init_dflts_to_of(self.local_config, 'generator', self.get_generator_kls(), self.dataset.num_node_features())
