@@ -17,11 +17,14 @@ class ExplanationFrequency(ExplanationAggregator):
 
     def check_configuration(self):
         super().check_configuration()
+        self.logger= self.context.logger
 
         dst_metric='src.evaluation.evaluation_metric_ged.GraphEditDistanceMetric'  
 
         #Check if the distance metric exist or build with its defaults:
         init_dflts_to_of(self.local_config, 'distance_metric', dst_metric)
+
+        
 
         if not 'ft' in self.local_config['parameters']:
             self.local_config['parameters']['ft'] = 3
@@ -29,11 +32,13 @@ class ExplanationFrequency(ExplanationAggregator):
 
     def init(self):
         super().init()
+        
 
         self.distance_metric = get_instance_kvargs(self.local_config['parameters']['distance_metric']['class'], 
                                                     self.local_config['parameters']['distance_metric']['parameters'])
         
         self.ft = self.local_config['parameters']['ft']
+        
 
         self.sampler = Bernoulli(1)
 

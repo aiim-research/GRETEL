@@ -20,7 +20,7 @@ class ExplainerEnsemble(Explainer, Trainable):
         super().init()
 
         self.explanation_aggregator = get_instance_kvargs(self.local_config['parameters']['aggregator']['class'], 
-                                                          {'context':self.context,'local_config': self.local_config['parameters']['aggregator']['parameters']})
+                                                          {'context':self.context,'local_config': self.local_config['parameters']['aggregator']})
         
         self.base_explainers = [ get_instance_kvargs(exp['class'],
                     {'context':self.context,'local_config':exp}) for exp in self.local_config['parameters']['explainers']]
@@ -45,8 +45,8 @@ class ExplainerEnsemble(Explainer, Trainable):
     def check_configuration(self):
         super().check_configuration()
 
-        inject_dataset(self.local_config['parameters']['aggregator']['parameters'], self.dataset)
-        inject_oracle(self.local_config['parameters']['aggregator']['parameters'], self.oracle)
+        inject_dataset(self.local_config['parameters']['aggregator'], self.dataset)
+        inject_oracle(self.local_config['parameters']['aggregator'], self.oracle)
 
         for exp in self.local_config['parameters']['explainers']:
             exp['parameters']['fold_id'] = self.local_config['parameters']['fold_id']
