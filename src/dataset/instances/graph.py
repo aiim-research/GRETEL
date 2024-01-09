@@ -58,6 +58,10 @@ class GraphInstance(DataInstance):
     def num_edges(self):
         nx_repr = self.get_nx()
         return nx_repr.number_of_edges()
+    
+    @property
+    def num_nodes(self):
+        return len(self.data)
             
     def nodes(self):
         return [ i for i in range(self.data.shape[0])]
