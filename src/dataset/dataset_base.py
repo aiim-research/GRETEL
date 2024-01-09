@@ -43,11 +43,18 @@ class Dataset(Savable):
                                                     "local_config": self.local_config['parameters']['generator'],
                                                     "dataset": self
                                                 })
+        self._inject_dataset()
+            
         self.manipulators = self._create_manipulators()
             
         self.generate_splits(n_splits=self.local_config['parameters']['n_splits'],
                              shuffle=self.local_config['parameters']['shuffle'])
 
+       
+    def _inject_dataset(self):
+        for instance in self.instances:
+            instance._dataset = self
+            
     def _create_manipulators(self):
         manipulator_instances = []
         for manipulator in self.local_config['parameters']['manipulators']:
@@ -151,10 +158,11 @@ class Dataset(Savable):
                 self.edge_features_map = dump['edge_features_map']
                 self.graph_features_map = dump['graph_features_map']
                 self._num_nodes = dump['num_nodes']
-                self._class_indices = dump['class_indices'] 
+                self._class_indices = dump['class_indices']
+                self.manipulators = dump['manipulators']
 
             #TODO: Attach the dataset back to all the instances
-            
+            self._inject_dataset()
             
                 
     def write(self):
@@ -168,7 +176,8 @@ class Dataset(Savable):
             "edge_features_map": self.edge_features_map,
             "graph_features_map": self.graph_features_map,
             "num_nodes": self._num_nodes,
-            "class_indices": self._class_indices      
+            "class_indices": self._class_indices,
+            "manipulators": self.manipulators      
         }
         
         with open(store_path, 'wb') as f:

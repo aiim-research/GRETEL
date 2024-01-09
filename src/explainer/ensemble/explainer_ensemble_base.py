@@ -1,16 +1,7 @@
-import copy
-import sys
-
 from src.core.explainer_base import Explainer
 from src.core.factory_base import get_instance_kvargs
 from src.core.trainable_base import Trainable
-from src.dataset.utils.dataset_torch import TorchGeometricDataset
-from src.utils.cfg_utils import get_dflts_to_of, init_dflts_to_of, inject_dataset, inject_oracle, retake_oracle, retake_dataset
-
-from src.evaluation.evaluation_metric_ged import GraphEditDistanceMetric
-from src.explainer.ensemble.explanation_aggregator_base import ExplanationAggregator
-import numpy as np
-
+from src.utils.cfg_utils import  inject_dataset, inject_oracle
 
 class ExplainerEnsemble(Explainer, Trainable):
     """The base class for the Explainer Ensemble. It should provide the common logic 

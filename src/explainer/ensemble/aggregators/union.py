@@ -3,7 +3,7 @@ import sys
 from abc import ABC
 
 from src.core.explainer_base import Explainer
-from src.explainer.ensemble.aggregator.base import ExplanationAggregator
+from src.explainer.ensemble.aggregators.base import ExplanationAggregator
 from src.evaluation.evaluation_metric_ged import GraphEditDistanceMetric
 import numpy as np
 
