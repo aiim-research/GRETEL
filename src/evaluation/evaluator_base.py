@@ -142,7 +142,7 @@ class Evaluator(ABC):
                 self._logger.info('evaluated instance with id %s', str(inst.id))
 
         self._logger.info(self._results)
-        self.write_results()
+        self.write_results(fold_id)
 
 
     def _real_evaluate(self, instance, counterfactual, oracle = None, explainer=None, dataset=None):
@@ -156,7 +156,7 @@ class Evaluator(ABC):
             self._results[metric.name].append(m_result)
 
 
-    def write_results(self):
+    def write_results(self,fold_id):
         output_path = os.path.join(self._results_store_path, self._scope)
         if not os.path.exists(output_path):
             os.mkdir(output_path)
@@ -174,7 +174,7 @@ class Evaluator(ABC):
         if not os.path.exists(output_path):
             os.mkdir(output_path)
 
-        results_uri = os.path.join(output_path, 'results_run-' + str(self._run_number) + '.json')
+        results_uri = os.path.join(output_path, 'results_run_' + fold_id + '_'+ str(self._run_number)+'.json')
 
         with open(results_uri, 'w') as results_writer:
             results_writer.write(jsonpickle.encode(self._results))
