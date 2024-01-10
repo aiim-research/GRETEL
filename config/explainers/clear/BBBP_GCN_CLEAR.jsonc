@@ -1,0 +1,21 @@
+{  
+    "experiment" : {
+        "scope": "examples_configs",
+        "parameters" : {
+            "lock_release_tout":120,
+            "propagate":[
+                {"in_sections" : ["explainers"],"params" : {"fold_id": 0}},
+                {"in_sections" : ["do-pairs/oracle"],"params" : {"fold_id": -1,"retrain": false}},
+                {"in_sections": ["do-pairs/dataset"],"params": { "manipulators" : 
+                [{ "class": "src.dataset.manipulators.causality.Causality", "parameters": {} },
+                { "class": "src.dataset.manipulators.centralities.NodeCentrality", "parameters": {} },
+                { "class": "src.dataset.manipulators.weights.EdgeWeights", "parameters": {} }] }}
+            ]
+        }
+    },
+    "do-pairs":[ {"compose_BBP_gcn" : "config/snippets/do-pairs/BBBP_GCN.json"} ],
+    
+    "explainers": [{"class": "src.explainer.generative.clear.CLEARExplainer","parameters":{ "epochs": 100, "lr": 0.01, "lambda_cfe": 0.1, "alpha": 0.4, "batch_size_ratio": 0.15 }}],
+    "compose_mes" : "config/snippets/default_metrics.json",
+    "compose_strs" : "config/snippets/default_store_paths.json"
+}
