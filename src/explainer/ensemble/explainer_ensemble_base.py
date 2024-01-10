@@ -22,7 +22,9 @@ class ExplainerEnsemble(Explainer, Trainable):
 
         explanations = []
         for explainer in self.base_explainers:
-            explanations.append(explainer.explain(instance))
+            exp = explainer.explain(instance)
+            exp.producer = explainer
+            explanations.append(exp)
 
         result = self.explanation_aggregator.aggregate(instance, explanations)
 
