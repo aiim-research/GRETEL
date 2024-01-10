@@ -1,5 +1,0 @@
-{
-    "do-pairs":[ 
-        {"compose_tcr_gcn" : "config/snippets/do-pairs/TCR-128-32-0.2_GCN.json"}
-    ]
-}

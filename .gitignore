@@ -135,7 +135,7 @@ data/cache/*
 output/
 stats/
 AAAI/
-config/papers
+config/_papers
 .DS_Store
 
 # videos

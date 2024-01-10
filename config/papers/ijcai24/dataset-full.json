@@ -1,7 +1,0 @@
-{
-    "do-pairs":[ 
-        {"compose_tcr_gcn" : "config/snippets/do-pairs/TCR-128-32-0.2_GCN.json"},
-        {"compose_ASD_ASDC" : "config/snippets/do-pairs/ASD_ASD-Custom.json"},
-        {"compose_BBP_gcn" : "config/snippets/do-pairs/BBBP_GCN.json"}
-    ]
-}
