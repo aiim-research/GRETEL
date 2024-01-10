@@ -31,8 +31,8 @@
                                                 "parameters": {"p": 0.015, "t": 2}}
                                                 ],
                                     "aggregator": {
-                                        "class": "src.explainer.ensemble.explanation_aggregator_freq.ExplanationFrequency",
-                                        "parameters": {"ft": 3}
+                                        "class": "src.explainer.ensemble.aggregators.stochastic.StochasticAggregator",
+                                        "parameters": {}
                                     }
                                     }
                     }
