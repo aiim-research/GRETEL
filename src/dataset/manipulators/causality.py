@@ -9,8 +9,8 @@ class Causality(BaseManipulator):
         super().init()
 
     def check_configuration(self):
-        self.local_config['parameters']['causality_dim_choice'] = self.local_config['parameters'].get('causality_dim_choice', 10)
-        return super().check_configuration()
+        super().check_configuration()
+        self.local_config['parameters']['causality_dim_choice'] = self.local_config['parameters'].get('causality_dim_choice', 10) 
 
     def node_info(self, instance):
         u = int(self.causalities[instance.id])

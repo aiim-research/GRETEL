@@ -57,7 +57,7 @@ class CLEARExplainer(Trainable, Explainer):
                                           lr=self.lr, weight_decay=self.weight_decay)
 
         self._logger = GLogger.getLogger()
-        self._fitted = False
+        self.model._fitted = False
         
     def check_configuration(self):
         super().check_configuration()
@@ -90,7 +90,7 @@ class CLEARExplainer(Trainable, Explainer):
     def explain(self, instance):
         # dataset = self.converter.convert(self.dataset)      
         
-        if(not self._fitted):
+        if(not self.model._fitted):
             self.fit()
 
         # instance = dataset.get_instance(instance.id)
@@ -169,7 +169,7 @@ class CLEARExplainer(Trainable, Explainer):
             ((loss_sim + loss_kl + alpha * loss_cfe) / batch_num).backward()        
             self.optimizer.step()
         
-        self._fitted = True
+        self.model._fitted = True
         
     def __compute_loss(self, params):
         model, oracle, z_mu, z_logvar, adj_permuted, features_permuted, adj_reconst, features_reconst, \
