@@ -3,15 +3,11 @@ import sys
 from abc import ABC
 
 from src.dataset.instances.graph import GraphInstance
-from src.core.explainer_base import Explainer
 from src.explainer.ensemble.aggregators.base import ExplanationAggregator
-from src.evaluation.evaluation_metric_ged import GraphEditDistanceMetric
-from src.utils.samplers.bernoulli import Bernoulli
 import numpy as np
 
 from src.core.factory_base import get_instance_kvargs
-from src.utils.cfg_utils import get_dflts_to_of, init_dflts_to_of, inject_dataset, inject_oracle, retake_oracle, retake_dataset
-
+from src.utils.cfg_utils import init_dflts_to_of
 
 class ExplanationFrequency(ExplanationAggregator):
 
@@ -22,41 +18,32 @@ class ExplanationFrequency(ExplanationAggregator):
         dst_metric='src.evaluation.evaluation_metric_ged.GraphEditDistanceMetric'  
 
         #Check if the distance metric exist or build with its defaults:
-        init_dflts_to_of(self.local_config, 'distance_metric', dst_metric)
-
-        
+        init_dflts_to_of(self.local_config, 'distance_metric', dst_metric)       
 
         if not 'ft' in self.local_config['parameters']:
             self.local_config['parameters']['ft'] = 3
 
+        if not 'to_be_correct' in self.local_config['parameters']:
+            self.local_config['parameters']['to_be_correct'] = False
+
 
     def init(self):
-        super().init()
-        
+        super().init()       
 
         self.distance_metric = get_instance_kvargs(self.local_config['parameters']['distance_metric']['class'], 
                                                     self.local_config['parameters']['distance_metric']['parameters'])
         
         self.ft = self.local_config['parameters']['ft']
+        self.if_correct = self.local_config['parameters']['to_be_correct']
         
-
-        self.sampler = Bernoulli(1)
-
 
     def aggregate(self, org_instance, explanations):
         org_lbl = self.oracle.predict(org_instance)
 
         # Getting the perturbation matrices of all the explanations that are valid counterfactuals
-        # explanations_perturbation_list = [(org_instance.data != exp.data).astype(int) for exp in explanations if self.oracle.predict(exp) != org_lbl]
-        explanations_perturbation_list = [exp.data for exp in explanations if self.oracle.predict(exp) != org_lbl]
+        explanations_perturbation_list = [exp.data for exp in explanations if (not self.if_correct or self.oracle.predict(exp) != org_lbl)]
         # Getting the frequency with which each edge is modified
         pert_freq = self.union_arrays(explanations_perturbation_list)
-
-        # normalized_A = pert_freq / pert_freq.sum(axis=1, keepdims=True)
-        # samples = self.sampler.sample(org_instance, 
-        #                               self.oracle,
-        #                               **{'embedded_features': org_instance.node_features,
-        #                                 'edge_probabilities': normalized_A})
 
         # Getting all the edges above the frequency threshold
         sampled_edges = []
@@ -67,33 +54,16 @@ class ExplanationFrequency(ExplanationAggregator):
                     pert_freq[i,j] = 1
                 else:
                     pert_freq[i,j] = 0
-        # sampled_edges = np.array(sampled_edges)
-
-        # If there are edges that meet the desired criteria
-        # if len(sampled_edges) > 0:
-        #     cf_cand_matrix = np.copy(org_instance.data)
-        #     # switch on/off the sampled edges
-        #     cf_cand_matrix[sampled_edges[:,0], sampled_edges[:,1]] = 1 - cf_cand_matrix[sampled_edges[:,0], sampled_edges[:,1]]
-        #     cf_cand_matrix[sampled_edges[:,1], sampled_edges[:,0]] = 1 - cf_cand_matrix[sampled_edges[:,1], sampled_edges[:,0]]
-        
-        #     # build the counterfactaul candidates instance
-        #     result = GraphInstance(id=org_instance.id,
-        #                             label=0,
-        #                             data=cf_cand_matrix,
-        #                             node_features=org_instance.node_features)
-            
-        #     # if a counterfactual was found return that
-        #     l_cf_cand = self.oracle.predict(result)
-        #     if org_lbl != l_cf_cand:
-        #         result.label = l_cf_cand
-        #         return result
-                    
-        result = GraphInstance(id=org_instance.id,
+                            
+        cf_candidate = GraphInstance(id=org_instance.id,
                                     label=0,
                                     data=pert_freq,
                                     node_features=org_instance.node_features)
         
-        return result
+        for manipulator in org_instance._dataset.manipulators:
+            manipulator._process_instance(cf_candidate)
+
+        return cf_candidate
         
         # If no counterfactual was found return the original instance by convention
         # return copy.deepcopy(org_instance)

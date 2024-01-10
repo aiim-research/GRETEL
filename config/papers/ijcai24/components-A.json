@@ -1,0 +1,22 @@
+{
+    "explainers": [
+        {"class": "src.explainer.search.dces.DCESExplainer", "parameters": {}},
+        {"class": "src.explainer.search.dces.DCESExplainer", "parameters": {}},
+        {"class": "src.explainer.search.dces.DCESExplainer", "parameters": {}},
+        {"class": "src.explainer.heuristic.obs.ObliviousBidirectionalSearchExplainer", "parameters":{}},
+        {"class": "src.explainer.heuristic.obs.ObliviousBidirectionalSearchExplainer", "parameters":{}},
+        {"class": "src.explainer.heuristic.obs.ObliviousBidirectionalSearchExplainer", "parameters":{}},
+        {"class": "src.explainer.search.i_rand.IRandExplainer", "parameters": {"p": 0.01, "t": 3}},
+        {"class": "src.explainer.search.i_rand.IRandExplainer", "parameters": {"p": 0.005, "t": 5}},
+        {"class": "src.explainer.search.i_rand.IRandExplainer", "parameters": {"p": 0.015, "t": 2}},
+        {"class": "src.explainer.generative.rsgg.RSGG", "parameters":{"epochs": 150}},
+        {"class": "src.explainer.generative.rsgg.RSGG", "parameters":{"epochs": 150}},
+        {"class": "src.explainer.generative.rsgg.RSGG", "parameters":{"epochs": 150}},
+        {"class": "src.explainer.generative.cf2.CF2Explainer","parameters":{"epochs": 50, "batch_size_ratio": 0.2, "lr" : 0.02, "alpha" : 0.7, "lam" : 20, "gamma" : 0.9}},
+        {"class": "src.explainer.generative.cf2.CF2Explainer","parameters":{"epochs": 50, "batch_size_ratio": 0.2, "lr" : 0.02, "alpha" : 0.7, "lam" : 20, "gamma" : 0.9}},
+        {"class": "src.explainer.generative.cf2.CF2Explainer","parameters":{"epochs": 50, "batch_size_ratio": 0.2, "lr" : 0.02, "alpha" : 0.7, "lam" : 20, "gamma" : 0.9}},
+        {"class": "src.explainer.generative.clear.CLEARExplainer","parameters":{ "epochs": 150, "lr": 0.01, "lambda_cfe": 0.1, "alpha": 0.4, "batch_size_ratio": 0.15 }},
+        {"class": "src.explainer.generative.clear.CLEARExplainer","parameters":{ "epochs": 150, "lr": 0.01, "lambda_cfe": 0.1, "alpha": 0.4, "batch_size_ratio": 0.15 }},
+        {"class": "src.explainer.generative.clear.CLEARExplainer","parameters":{ "epochs": 150, "lr": 0.01, "lambda_cfe": 0.1, "alpha": 0.4, "batch_size_ratio": 0.15 }}
+    ]
+}
