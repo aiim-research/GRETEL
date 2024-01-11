@@ -37,6 +37,8 @@ class Evaluator(ABC):
         # Building the config file to write into disk
         evaluator_config = {'dataset': clean_cfg(data.local_config), 'oracle': clean_cfg(oracle.local_config), 'explainer': clean_cfg(explainer.local_config), 'metrics': []}
         evaluator_config['scope']=self._scope
+        evaluator_config['orgin_conf']=data.context.conf
+        
         for metric in evaluation_metrics:
             evaluator_config['metrics'].append(metric._config_dict)
         # creatig the results dictionary with the basic info
