@@ -15,7 +15,7 @@
     },
     "do-pairs":[ {"compose_BBP_gcn" : "config/snippets/do-pairs/BBBP_GCN.json"} ],
     
-    "explainers": [{"class": "src.explainer.generative.clear.CLEARExplainer","parameters":{ "epochs": 100, "lr": 0.01, "lambda_cfe": 0.1, "alpha": 0.4, "batch_size_ratio": 0.15 }}],
+    "explainers": [{"class": "src.explainer.generative.clear.CLEARExplainer","parameters":{ "epochs": 1, "lr": 0.01, "lambda_cfe": 0.1, "alpha": 0.4, "batch_size": 32 }}],
     "compose_mes" : "config/snippets/default_metrics.json",
     "compose_strs" : "config/snippets/default_store_paths.json"
 }
