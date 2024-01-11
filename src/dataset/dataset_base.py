@@ -5,14 +5,13 @@ import numpy as np
 from sklearn.model_selection import StratifiedKFold
 
 from torch.utils.data import Subset
+from src.dataset.manipulators.base import BaseManipulator
 from src.utils.cfg_utils import clean_cfg
 from torch_geometric.loader import DataLoader
 from src.core.factory_base import get_instance_kvargs
 
 from src.core.savable import Savable
 from src.dataset.instances.base import DataInstance
-from src.dataset.utils.dataset_torch import TorchGeometricDataset
-from src.utils.context import Context
 from src.core.factory_base import get_class
 
 
@@ -45,7 +44,7 @@ class Dataset(Savable):
                                                 })
         self._inject_dataset()
             
-        self.manipulators = self._create_manipulators()
+        self.manipulators: List[BaseManipulator] = self._create_manipulators()
             
         self.generate_splits(n_splits=self.local_config['parameters']['n_splits'],
                              shuffle=self.local_config['parameters']['shuffle'])
@@ -67,6 +66,9 @@ class Dataset(Savable):
                                 }))
             
         return manipulator_instances
+    
+    def __len__(self):
+        return len(self.get_data())
 
     def get_data(self):
         return self.instances
@@ -97,6 +99,10 @@ class Dataset(Savable):
             for i, inst in enumerate(self.instances):
                 self._class_indices[inst.label] = self._class_indices.get(inst.label, []) + [i]
         return self._class_indices
+    
+    def manipulate(self, instance: DataInstance):
+        for manipulator in self.manipulators:
+            manipulator._process_instance(instance)
     
     @property        
     def num_classes(self):
@@ -129,21 +135,19 @@ class Dataset(Savable):
         for train_index, test_index in spl:
             self.splits.append({'train': train_index.tolist(), 'test': test_index.tolist()})
             
-    def get_torch_loader(self, fold_id=-1, batch_size=4, usage='train', kls=-1):
-        if not self._torch_repr:
-            self._torch_repr = TorchGeometricDataset(self.instances)
-        
+    def get_torch_loader(self, fold_id=-1, batch_size=4, usage='train', kls=-1, dataset_kls='src.dataset.utils.dataset_torch.TorchGeometricDataset', **kwargs):
+        self._torch_repr = self.get_torch_instances(dataset_kls=dataset_kls, **kwargs)
         # get the train/test indices from the dataset
         indices = self.get_split_indices(fold_id)[usage]
         # get only the indices of a specific class
         if kls != -1:
             indices = list(set(indices).difference(set(self.class_indices()[kls])))
             
-        return DataLoader(Subset(self._torch_repr.instances, indices), batch_size=batch_size, shuffle=True)
+        return DataLoader(Subset(self._torch_repr.instances, indices), batch_size=batch_size, shuffle=True, drop_last=True)
     
-    def get_torch_instances(self, fold_id=-1, batch_size=4, usage='train', kls=-1):
+    def get_torch_instances(self, dataset_kls='src.dataset.utils.dataset_torch.TorchGeometricDataset', **kwargs):
         if not self._torch_repr:
-            self._torch_repr = TorchGeometricDataset(self.instances)
+            self._torch_repr = get_class(dataset_kls)(self.instances, **kwargs)
         return self._torch_repr
     
     def read(self):

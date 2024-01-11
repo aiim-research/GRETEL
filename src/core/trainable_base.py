@@ -1,17 +1,15 @@
 import pickle
 import time
-from typing import final
-from flufl.lock import Lock
-from datetime import timedelta
 from abc import ABCMeta, abstractmethod
 from src.core.savable import Savable
+from src.dataset.dataset_base import Dataset
 from src.utils.cfg_utils import clean_cfg, retake_dataset
 from src.utils.context import Context
 
 class Trainable(Savable,metaclass=ABCMeta):
 
     def __init__(self, context: Context, local_config):
-        self.dataset = retake_dataset(local_config)
+        self.dataset: Dataset = retake_dataset(local_config)
         super().__init__(context, local_config)
 
     def load_or_create(self, condition=False):

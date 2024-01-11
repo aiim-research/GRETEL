@@ -1,28 +1,27 @@
-import os
 from numbers import Number
+from typing import List
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset, TensorDataset
 from torch_geometric.nn import DenseGCNConv, DenseGraphConv
+from torch_geometric.data import Data
 
 
-from src.dataset.dataset_base import Dataset
 from src.dataset.instances.graph import GraphInstance
 from src.core.explainer_base import Explainer
 from src.core.trainable_base import Trainable
+from src.dataset.utils.dataset_torch import TorchGeometricDataset
 from src.utils.logger import GLogger
+from src.utils.utils import pad_adj_matrix
 
 
 class CLEARExplainer(Trainable, Explainer):
 
     def init(self):
         super().init()        
-        self.n_nodes = self.local_config['parameters']['n_nodes']
-        self.n_labels = self.local_config['parameters']['n_labels']
-        self.batch_size_ratio = self.local_config['parameters']['batch_size_ratio']
+        self.batch_size = self.local_config['parameters']['batch_size']
         self.h_dim = self.local_config['parameters']['h_dim']
         self.z_dim = self.local_config['parameters']['z_dim']
         self.dropout = self.local_config['parameters']['dropout']
@@ -39,70 +38,46 @@ class CLEARExplainer(Trainable, Explainer):
         self.lambda_cfe = self.local_config['parameters']['lambda_cfe']
         self.beta_x = self.local_config['parameters']['beta_x']
         self.beta_adj = self.local_config['parameters']['beta_adj']
+        self.n_nodes = self.local_config['parameters']['n_nodes']
 
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-        self.model = CLEAR(feature_dim=self.feature_dim,
-                               n_nodes=self.n_nodes,
-                               graph_pool_type=self.graph_pool_type,
-                               encoder_type=self.encoder_type,
-                               h_dim=self.h_dim,
-                               z_dim=self.z_dim,
-                               dropout=self.dropout,
-                               disable_u=self.disable_u,
-                               device=self.device
-                            ).to(torch.device(self.device))
+        self.explainer = CLEAR(feature_dim=self.feature_dim,
+                           graph_pool_type=self.graph_pool_type,
+                           encoder_type=self.encoder_type,
+                           n_nodes=self.n_nodes,
+                           h_dim=self.h_dim,
+                           z_dim=self.z_dim,
+                           dropout=self.dropout,
+                           disable_u=self.disable_u,
+                           device=self.device).to(self.device)
                         
-        self.optimizer = torch.optim.Adam(self.model.parameters(),
-                                          lr=self.lr, weight_decay=self.weight_decay)
+        self.optimizer = torch.optim.Adam(self.explainer.parameters(),
+                                          lr=self.lr,
+                                          weight_decay=self.weight_decay)
 
         self._logger = GLogger.getLogger()
-        self.model._fitted = False
         
-    def check_configuration(self):
-        super().check_configuration()
-        self.local_config['parameters']['n_labels'] =  self.local_config['parameters'].get('n_labels', 2)
-        self.local_config['parameters']['batch_size_ratio'] =  self.local_config['parameters'].get('batch_size_ratio', .1)
-        self.local_config['parameters']['h_dim'] =  self.local_config['parameters'].get('h_dim', 10)
-        self.local_config['parameters']['z_dim'] =  self.local_config['parameters'].get('z_dim', 10)
-        self.local_config['parameters']['dropout'] =  self.local_config['parameters'].get('dropout', .1)
-        self.local_config['parameters']['encoder_type'] =  self.local_config['parameters'].get('encoder_type', 'gcn')
-        self.local_config['parameters']['graph_pool_type'] =  self.local_config['parameters'].get('graph_pool_type', 'mean')
-        self.local_config['parameters']['disable_u'] =  self.local_config['parameters'].get('disable_u', False)
-        self.local_config['parameters']['epochs'] =  self.local_config['parameters'].get('epochs', 200)
-        self.local_config['parameters']['alpha'] =  self.local_config['parameters'].get('alpha', 5)
-        self.local_config['parameters']['lr'] =  self.local_config['parameters'].get('lr', 1e-3)
-        self.local_config['parameters']['weight_decay'] =  self.local_config['parameters'].get('weight_decay', 1e-5)
-        self.local_config['parameters']['lambda_sim'] =  self.local_config['parameters'].get('lambda_sim', 1)
-        self.local_config['parameters']['lambda_kl'] =  self.local_config['parameters'].get('lambda_kl', 1)
-        self.local_config['parameters']['lambda_cfe'] =  self.local_config['parameters'].get('lambda_cfe', 1)
-        self.local_config['parameters']['beta_x'] =  self.local_config['parameters'].get('beta_x', 10)
-        self.local_config['parameters']['beta_adj'] =  self.local_config['parameters'].get('beta_adj', 10)
-
-        n_nodes = self.local_config['parameters'].get('n_nodes', None)
-        if not n_nodes:
-            n_nodes = max([x.num_nodes for x in self.dataset.instances])
-        self.local_config['parameters']['n_nodes'] = n_nodes
-
-        self.local_config['parameters']['feature_dim'] = len(self.dataset.node_features_map)
-
-
-    def explain(self, instance):
-        # dataset = self.converter.convert(self.dataset)      
-        
-        if(not self.model._fitted):
-            self.fit()
-
-        # instance = dataset.get_instance(instance.id)
-        self.model.eval()
+    def explain(self, instance):        
+        self.explainer.eval()
         
         with torch.no_grad():
-            features = torch.from_numpy(np.array(instance.node_features)).float().to(self.device)
-            adj = torch.from_numpy(instance.data).float().to(self.device)
-            u = torch.from_numpy(np.array(instance.graph_features[self.dataset.graph_features_map["graph_causality"]])).float().to(self.device)[None,:]
-            labels = torch.from_numpy(np.array([instance.label])).to(self.device)[None,:]
+            # pad the adjacency matrix of the current instance
+            padded_adj = pad_adj_matrix(instance.data, self.n_nodes)
+            # create a new instance
+            new_instance = GraphInstance(id=instance.id,
+                                        label=instance.label,
+                                        data=padded_adj,
+                                        dataset=instance._dataset)
+            # redo the manipulators
+            instance._dataset.manipulate(new_instance)
+            # get the features, adj matrix, graph causality and label
+            features = torch.from_numpy(np.array(new_instance.node_features)).float().to(self.device)[None,:,:]
+            adj = torch.from_numpy(new_instance.data).float().to(self.device)[None,:,:]
+            u = torch.from_numpy(np.array(new_instance.graph_features[self.dataset.graph_features_map["graph_causality"]])).float().to(self.device)[None,:]
+            labels = torch.from_numpy(np.array([new_instance.label])).to(self.device)[None,:]
             
-            model_return = self.model(features, u, adj, labels)
+            model_return = self.explainer(features, u, adj, labels)
             adj_reconst, features_reconst = model_return['adj_reconst'], model_return['features_reconst']
             
             adj_reconst_binary = torch.bernoulli(adj_reconst.squeeze())
@@ -115,33 +90,38 @@ class CLEARExplainer(Trainable, Explainer):
             return cf_instance
 
     def real_fit(self):
-        train_loader = self.transform_data(self.dataset, fold_id=self.fold_id)
+        train_loader = self.dataset.get_torch_loader(fold_id=self.fold_id,
+                                                     batch_size=self.batch_size,
+                                                     dataset_kls='src.explainer.generative.clear.CLEARGeometricDataset',
+                                                     max_nodes=self.n_nodes)
         for epoch in range(self.epochs):
-            self.model.train()
+            self.explainer.train()
             
             batch_num = 0
             loss, loss_kl, loss_sim, loss_cfe, loss_kl_cf = 0, 0, 0, 0, 0
-            for _, data in enumerate(train_loader):
+            for data in train_loader:
                 batch_num += 1
-                                
-                adj, features, u, labels = data
-                features = features.float().to(self.device)
-                u = u.float().to(self.device)
-                adj = adj.float().to(self.device)
-                labels = (1 - labels.float()).to(self.device)
-            
+                # here we're abusing the geometric dataset signature                                
+                features = data.x.float().to(self.device)
+                features = features.reshape(self.batch_size, -1, features.shape[-1])
+                num_nodes = features.shape[1]
+                u = data.edge_attr.float().to(self.device)[:,None]
+                adj = data.edge_index.float().to(self.device)
+                adj = adj.reshape(self.batch_size, num_nodes, num_nodes)
+                labels = (1 - data.y.float()).to(self.device)[:,None]
+                ########################################################
                 self.optimizer.zero_grad()
                 # forward pass
-                retr = self.model(features, u, adj, labels)
+                retr = self.explainer(features, u, adj, labels)
                 # z_cf
-                z_mu_cf, z_logvar_cf = self.model.get_represent(
+                z_mu_cf, z_logvar_cf = self.explainer.encoder(
                     retr['features_reconst'], 
                     u, 
                     retr['adj_reconst'], 
                     labels)
                 # compute loss
                 loss_params = {
-                    'model': self.model,
+                    'model': self.explainer,
                     'oracle': self.oracle,
                     'adj_input': adj,
                     'features_input': features,
@@ -169,11 +149,11 @@ class CLEARExplainer(Trainable, Explainer):
             ((loss_sim + loss_kl + alpha * loss_cfe) / batch_num).backward()        
             self.optimizer.step()
         
-        self.model._fitted = True
+        self.explainer._fitted = True
         
     def __compute_loss(self, params):
-        model, oracle, z_mu, z_logvar, adj_permuted, features_permuted, adj_reconst, features_reconst, \
-            adj_input, features_input, y_cf, z_u_mu, z_u_logvar, z_mu_cf, z_logvar_cf = params['model'], params['oracle'], params['z_mu'], \
+        _, oracle, z_mu, z_logvar, adj_permuted, features_permuted, adj_reconst, features_reconst, \
+            _, _, y_cf, z_u_mu, z_u_logvar, z_mu_cf, z_logvar_cf = params['model'], params['oracle'], params['z_mu'], \
                 params['z_logvar'], params['adj_permuted'], params['features_permuted'], params['adj_reconst'], params['features_reconst'], \
                     params['adj_input'], params['features_input'], params['y_cf'], params['z_u_mu'], params['z_u_logvar'], params['z_mu_cf'], params['z_logvar_cf']
                     
@@ -184,6 +164,7 @@ class CLEARExplainer(Trainable, Explainer):
         # similarity loss
         size = len(features_permuted)
         dist_x = torch.mean(self.__distance_feature(features_permuted.view(size, -1), features_reconst.view(size, -1)))
+        adj_permuted /= torch.max(adj_permuted)
         dist_a = self.__distance_graph_prob(adj_permuted, adj_reconst)
                 
         loss_sim = self.beta_x * dist_x + self.beta_adj * dist_a
@@ -220,35 +201,31 @@ class CLEARExplainer(Trainable, Explainer):
     def __distance_graph_prob(self, adj_1, adj_2_prob):
         return F.binary_cross_entropy(adj_2_prob, adj_1)
     
-    def transform_data(self, dataset: Dataset, fold_id=0):  
-        X_adj  = np.array([i.data for i in dataset.instances])
-        X_features = np.array([i.node_features for i in dataset.instances])
-        X_causality = np.array([i.graph_features[dataset.graph_features_map["graph_causality"]] for i in dataset.instances])
-        y = np.array([i.label for i in dataset.instances])[..., np.newaxis]
-
-        indexs = dataset.get_split_indices(fold_id)['train']
-        X_adj = X_adj[indexs]
-        X_features = X_features[indexs]
-        X_causality = X_causality[indexs]
-        y_train = y[indexs]
-        
-        dataset = TensorDataset(
-            torch.tensor(X_adj, dtype=torch.float),
-            torch.tensor(X_features, dtype=torch.float),
-            torch.tensor(X_causality, dtype=torch.float),
-            torch.tensor(y_train, dtype=torch.float)
-            )
-        
-        loader = DataLoader(dataset,
-                            batch_size=int(len(X_adj) * self.batch_size_ratio),
-                            shuffle=True,
-                            num_workers=2,
-                            drop_last=True)
-        
-        return loader
     
+    def check_configuration(self):
+        super().check_configuration()
+        self.local_config['parameters']['batch_size'] =  self.local_config['parameters'].get('batch_size', 8)
+        self.local_config['parameters']['h_dim'] =  self.local_config['parameters'].get('h_dim', 10)
+        self.local_config['parameters']['z_dim'] =  self.local_config['parameters'].get('z_dim', 10)
+        self.local_config['parameters']['dropout'] =  self.local_config['parameters'].get('dropout', .1)
+        self.local_config['parameters']['encoder_type'] =  self.local_config['parameters'].get('encoder_type', 'gcn')
+        self.local_config['parameters']['graph_pool_type'] =  self.local_config['parameters'].get('graph_pool_type', 'mean')
+        self.local_config['parameters']['disable_u'] =  self.local_config['parameters'].get('disable_u', False)
+        self.local_config['parameters']['epochs'] =  self.local_config['parameters'].get('epochs', 200)
+        self.local_config['parameters']['alpha'] =  self.local_config['parameters'].get('alpha', 5)
+        self.local_config['parameters']['lr'] =  self.local_config['parameters'].get('lr', 1e-3)
+        self.local_config['parameters']['weight_decay'] =  self.local_config['parameters'].get('weight_decay', 1e-5)
+        self.local_config['parameters']['lambda_sim'] =  self.local_config['parameters'].get('lambda_sim', 1)
+        self.local_config['parameters']['lambda_kl'] =  self.local_config['parameters'].get('lambda_kl', 1)
+        self.local_config['parameters']['lambda_cfe'] =  self.local_config['parameters'].get('lambda_cfe', 1)
+        self.local_config['parameters']['beta_x'] =  self.local_config['parameters'].get('beta_x', 10)
+        self.local_config['parameters']['beta_adj'] =  self.local_config['parameters'].get('beta_adj', 10)
 
+        n_nodes = max([x.num_nodes for x in self.dataset.instances])
+        self.local_config['parameters']['n_nodes'] = n_nodes
 
+        self.local_config['parameters']['feature_dim'] = len(self.dataset.node_features_map)
+    
 class CLEAR(nn.Module):
 
     def __init__(self,
@@ -354,10 +331,6 @@ class CLEAR(nn.Module):
             z_logvar = self.encoder_var(torch.cat((graph_rep, u, y_cf), dim=1))
             
         return z_mu, z_logvar
-    
-    def get_represent(self, features, u, adj, y_cf):
-        u_onehot = u
-        return self.encoder(features, u_onehot, adj, y_cf)
     
     def decoder(self, z, y_cf, u):
         if self.disable_u:
@@ -498,3 +471,34 @@ class MLP(nn.Module):
             else:
                 h = self._act_f[c](self.fc[c](h))
         return h
+    
+    
+class CLEARGeometricDataset(TorchGeometricDataset):
+  
+    def __init__(self, instances: List[GraphInstance], max_nodes=10):
+        self.max_nodes = max_nodes
+        super(CLEARGeometricDataset, self).__init__(instances)
+      
+    def _process(self, instances: List[GraphInstance]):
+        for i, instance in enumerate(instances):
+          padded_adj = pad_adj_matrix(instance.data, self.max_nodes)
+          # create a new instance
+          new_instance = GraphInstance(id=instance.id,
+                                       label=instance.label,
+                                       data=padded_adj,
+                                       dataset=instance._dataset)
+          # redo the manipulators
+          instance._dataset.manipulate(new_instance)
+          instances[i] = new_instance
+        
+        self.instances = [self.to_geometric(inst, label=inst.label) for inst in instances]
+ 
+    @classmethod
+    def to_geometric(self, instance: GraphInstance, label=0) -> Data:   
+      adj = torch.from_numpy(instance.data).double()
+      x = torch.from_numpy(instance.node_features).double()
+      label = torch.tensor(label).long()
+      causality = np.array(instance.graph_features[instance._dataset.graph_features_map["graph_causality"]])
+      return Data(x=x, y=label,
+                  edge_index=adj,
+                  edge_attr=torch.from_numpy(causality))
