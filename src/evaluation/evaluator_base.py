@@ -29,6 +29,10 @@ class Evaluator(ABC):
         self._run_number = run_number
         self._explanations = []
         
+       
+        data.local_config["name"] = data.name
+        oracle.local_config["name"] = oracle.name
+        explainer.local_config["name"] = explainer.name
 
         # Building the config file to write into disk
         evaluator_config = {'dataset': clean_cfg(data.local_config), 'oracle': clean_cfg(oracle.local_config), 'explainer': clean_cfg(explainer.local_config), 'metrics': []}
