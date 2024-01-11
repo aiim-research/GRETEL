@@ -174,7 +174,7 @@ class Evaluator(ABC):
         if not os.path.exists(output_path):
             os.mkdir(output_path)
 
-        results_uri = os.path.join(output_path, 'results_run_' + fold_id + '_'+ str(self._run_number)+'.json')
+        results_uri = os.path.join(output_path, 'results_run_' + str(fold_id) + '_'+ str(self._run_number)+'.json')
 
         with open(results_uri, 'w') as results_writer:
             results_writer.write(jsonpickle.encode(self._results))
