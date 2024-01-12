@@ -20,7 +20,7 @@ class ExplanationIntersection(ExplanationAggregator):
         edge_freq_matrix = np.zeros_like(instance.data)
         for exp in explanations:
             #if self.oracle.predict(exp) != label:
-            edge_freq_matrix = np.matmul(edge_freq_matrix, exp.data)
+            edge_freq_matrix = edge_freq_matrix * exp.data
 
         adj = np.where(edge_freq_matrix > 0, 1, 0)
 
