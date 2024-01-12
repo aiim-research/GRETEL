@@ -28,9 +28,9 @@ class PerClassExplainer(Trainable, Explainer):
         pass
     
     def send_to_device(self):
-        for model in self.model:
-            if isinstance(model, TorchBase):
-                model.to(self.device)
+        for i in range(len(self.model)):
+            if isinstance(self.model[i], TorchBase):
+                self.model[i].to(self.device)
             
     def explain(self, instance):            
         with torch.no_grad():
