@@ -15,12 +15,12 @@ from src.utils.cfg_utils import get_dflts_to_of, init_dflts_to_of, inject_datase
 class ExplanationIntersection(ExplanationAggregator):
 
     def aggregate(self, instance, explanations):
-        #label = self.oracle.predict(org_instance)
+        label = self.oracle.predict(instance)
 
         edge_freq_matrix = np.zeros_like(instance.data)
         for exp in explanations:
-            #if self.oracle.predict(exp) != label:
-            edge_freq_matrix = edge_freq_matrix * exp.data
+            if self.oracle.predict(exp) != label:
+                edge_freq_matrix = edge_freq_matrix * exp.data
 
         adj = np.where(edge_freq_matrix > 0, 1, 0)
 

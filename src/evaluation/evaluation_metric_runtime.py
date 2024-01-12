@@ -18,4 +18,4 @@ class RuntimeMetric(EvaluationMetric):
         # giving the same id to the counterfactual and the original instance 
         counterfactual.id = instance_1.id       
         
-        return end_time - start_time, counterfactual
+        return (end_time - start_time), counterfactual

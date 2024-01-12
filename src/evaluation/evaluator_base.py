@@ -145,9 +145,10 @@ class Evaluator(ABC):
             is_alt = True
             oracle = self._oracle
 
-        for metric in self._evaluation_metrics:            
-            m_result = metric.evaluate(instance, counterfactual, oracle, explainer,dataset)
-            self._results[Context.get_fullname(metric)].append(m_result)
+        for metric in self._evaluation_metrics:
+            if(not metric._special):        
+                m_result = metric.evaluate(instance, counterfactual, oracle, explainer,dataset)
+                self._results[Context.get_fullname(metric)].append(m_result)
 
 
     def write_results(self,fold_id):
