@@ -1,4 +1,4 @@
-FROM tensorflow/tensorflow:2.7.4-gpu
+FROM python:3.9-slim-bullseye
 
 ARG USERNAME=scientist
 ARG USER_UID=1000
@@ -29,21 +29,8 @@ VOLUME /home/$USERNAME/.gretel
 COPY ./ /home/$USERNAME/gretel
 
 # Install project requirements
-COPY ./requirements.txt /home/$USERNAME/requirements.txt
-RUN python3 -m pip install -r /home/$USERNAME/requirements.txt
-RUN python3 -m pip install poetry
-RUN python3 -m pip install IPython
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+RUN pip install picologging==0.9.2 exmol gensim joblib jsonpickle karateclub matplotlib networkx numpy pandas rdkit scikit-learn scipy selfies sqlalchemy black typing-extensions torch_geometric dgl IPython ipykernel flufl.lock jsonc-parser
 
-# Install Pytorch
-RUN pip install torch==1.11.0+cu113 --extra-index-url https://download.pytorch.org/whl/cu113
-RUN pip install torchvision==0.12.0+cu113 --extra-index-url https://download.pytorch.org/whl/cu113
-RUN pip install torchaudio==0.11.0 --extra-index-url https://download.pytorch.org/whl/cu113
 
-# Install DGL
-RUN pip install dgl
-
-# Install Geo-Pytorch
-RUN pip install torch-scatter -f https://data.pyg.org/whl/torch-1.11.0+cu113.html
-RUN pip install torch-sparse -f https://data.pyg.org/whl/torch-1.11.0+cu113.html
-RUN pip install torch-geometric
 CMD ["/bin/bash"]
