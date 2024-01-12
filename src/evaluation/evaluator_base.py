@@ -8,9 +8,8 @@ from scipy import rand
 from src.evaluation.evaluation_metric_base import EvaluationMetric
 from src.core.explainer_base import Explainer
 from src.core.oracle_base import Oracle
-from src.utils.cfg_utils import clean_cfg
 from src.utils.cfgnnexplainer.utils import safe_open
-from src.utils.context import Context
+from src.utils.context import Context,clean_cfg
 from src.utils.logger import GLogger
 
 
@@ -31,9 +30,7 @@ class Evaluator(ABC):
         self._explanations = []
         
        
-        data.local_config["name"] = data.name
-        oracle.local_config["name"] = oracle.name
-        explainer.local_config["name"] = explainer.name
+        
 
         # Building the config file to write into disk
         evaluator_config = {'dataset': clean_cfg(data.local_config), 'oracle': clean_cfg(oracle.local_config), 'explainer': clean_cfg(explainer.local_config), 'metrics': []}
@@ -50,6 +47,8 @@ class Evaluator(ABC):
         # creatig the results dictionary with the basic info
         self._results = {}
         self._complete = {'config':evaluator_config, "results":self._results}
+
+        
 
     @property
     def name(self):
@@ -136,6 +135,7 @@ class Evaluator(ABC):
             self._logger.info('evaluated instance with id %s', str(inst.id))
 
         self._logger.info(self._results)
+    
         self.write_results(fold_id)
 
 
