@@ -60,6 +60,9 @@ class ExplanationRandom(ExplanationAggregator):
                                        data=cf_cand_matrix,
                                        node_features=org_instance.node_features)
                 
+                for manipulator in org_instance._dataset.manipulators:
+                    manipulator._process_instance(result)
+                
                 # if a counterfactual was found return that
                 l_cf_cand = self.oracle.predict(result)
                 if org_lbl != l_cf_cand:
