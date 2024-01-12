@@ -1,3 +1,4 @@
+import numpy as np
 from src.core.explainer_base import Explainer
 from src.core.oracle_base import Oracle
 
@@ -23,4 +24,7 @@ class EvaluationMetric(ABC):
     @abstractmethod
     def evaluate(self, instance_1 , instance_2 , oracle : Oracle=None, explainer : Explainer=None, dataset  = None):
         pass
-    
+
+    #@abstractmethod
+    def aggregate(self,measure_list):
+        return np.mean(measure_list),np.std(measure_list)

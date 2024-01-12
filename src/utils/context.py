@@ -83,7 +83,8 @@ class Context(object):
                 os.makedirs(directory)
             return os.path.join(directory, obj.name)
     
-    def get_fullname(self, o):
+    @classmethod
+    def get_fullname(cls, o):
         klass = o.__class__
         module = klass.__module__
         if module == 'builtins':
