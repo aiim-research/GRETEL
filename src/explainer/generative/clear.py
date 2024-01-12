@@ -42,7 +42,7 @@ class CLEARExplainer(Trainable, Explainer):
 
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-        self.explainer = CLEAR(feature_dim=self.feature_dim,
+        self.model = CLEAR(feature_dim=self.feature_dim,
                            graph_pool_type=self.graph_pool_type,
                            encoder_type=self.encoder_type,
                            n_nodes=self.n_nodes,
@@ -52,14 +52,14 @@ class CLEARExplainer(Trainable, Explainer):
                            disable_u=self.disable_u,
                            device=self.device).to(self.device)
                         
-        self.optimizer = torch.optim.Adam(self.explainer.parameters(),
+        self.optimizer = torch.optim.Adam(self.model.parameters(),
                                           lr=self.lr,
                                           weight_decay=self.weight_decay)
 
         self._logger = GLogger.getLogger()
         
     def explain(self, instance):        
-        self.explainer.eval()
+        self.model.eval()
         
         with torch.no_grad():
             # pad the adjacency matrix of the current instance
@@ -77,7 +77,7 @@ class CLEARExplainer(Trainable, Explainer):
             u = torch.from_numpy(np.array(new_instance.graph_features[self.dataset.graph_features_map["graph_causality"]])).float().to(self.device)[None,:]
             labels = torch.from_numpy(np.array([new_instance.label])).to(self.device)[None,:]
             
-            model_return = self.explainer(features, u, adj, labels)
+            model_return = self.model(features, u, adj, labels)
             adj_reconst, features_reconst = model_return['adj_reconst'], model_return['features_reconst']
             
             adj_reconst_binary = torch.bernoulli(adj_reconst.squeeze())
@@ -95,7 +95,7 @@ class CLEARExplainer(Trainable, Explainer):
                                                      dataset_kls='src.explainer.generative.clear.CLEARGeometricDataset',
                                                      max_nodes=self.n_nodes)
         for epoch in range(self.epochs):
-            self.explainer.train()
+            self.model.train()
             
             batch_num = 0
             loss, loss_kl, loss_sim, loss_cfe, loss_kl_cf = 0, 0, 0, 0, 0
@@ -112,16 +112,16 @@ class CLEARExplainer(Trainable, Explainer):
                 ########################################################
                 self.optimizer.zero_grad()
                 # forward pass
-                retr = self.explainer(features, u, adj, labels)
+                retr = self.model(features, u, adj, labels)
                 # z_cf
-                z_mu_cf, z_logvar_cf = self.explainer.encoder(
+                z_mu_cf, z_logvar_cf = self.model.encoder(
                     retr['features_reconst'], 
                     u, 
                     retr['adj_reconst'], 
                     labels)
                 # compute loss
                 loss_params = {
-                    'model': self.explainer,
+                    'model': self.model,
                     'oracle': self.oracle,
                     'adj_input': adj,
                     'features_input': features,
@@ -149,7 +149,7 @@ class CLEARExplainer(Trainable, Explainer):
             ((loss_sim + loss_kl + alpha * loss_cfe) / batch_num).backward()        
             self.optimizer.step()
         
-        self.explainer._fitted = True
+        self.model._fitted = True
         
     def __compute_loss(self, params):
         _, oracle, z_mu, z_logvar, adj_permuted, features_permuted, adj_reconst, features_reconst, \

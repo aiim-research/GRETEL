@@ -48,7 +48,7 @@ class Evaluator(ABC):
         for metric in evaluation_metrics:
             evaluator_config['metrics'].append(metric._config_dict)
         # creatig the results dictionary with the basic info
-        self._results = {'runtime': []}
+        self._results = {}
         self._complete = {'config':evaluator_config, "results":self._results}
 
     @property
@@ -117,42 +117,23 @@ class Evaluator(ABC):
 
         # If the explainer was trained then evaluate only on the test set, else evaluate on the entire dataset
         fold_id = self._explainer.fold_id
-        if fold_id == -1:
-            for inst in self._data.instances:
-                self._logger.info("Evaluating instance with id %s", str(inst.id))
-                start_time = time.time()
-                counterfactual = self._explainer.explain(inst)
-                end_time = time.time()
-                # giving the same id to the counterfactual and the original instance 
-                counterfactual.id = inst.id
-                self._explanations.append(counterfactual)
-
-                # The runtime metric is built-in inside the evaluator``
-                self._results['runtime'].append(end_time - start_time)
-
-                self._real_evaluate(inst, counterfactual,self._oracle,self._explainer,self._data)
-                self._logger.info('  Evaluated instance with id %s', str(inst.id))
-        else:
-            test_indices = self.dataset.splits[fold_id]['test']
+        if fold_id > -1 :
+            test_indices = self.dataset.splits[fold_id]['test']          
             test_set = [i for i in self.dataset.instances if i.id in test_indices]
+        else:
+            test_set = self.dataset.instances 
 
-            for inst in test_set:
-                self._logger.info("Evaluating instance with id %s", str(inst.id))
+        for inst in test_set:
+            self._logger.info("Evaluating instance with id %s", str(inst.id))
 
+            for metric in self._evaluation_metrics:
+                if(metric._special):
+                    val, counterfactual = metric.evaluate(inst, None, self._oracle,self._explainer,self._data)
+                    self._results[Context.get_fullname(metric)].append(val)
+                    self._explanations.append(counterfactual)
 
-                start_time = time.time()
-                counterfactual = self._explainer.explain(inst)
-
-                end_time = time.time()
-                # giving the same id to the counterfactual and the original instance 
-                counterfactual.id = inst.id
-                self._explanations.append(counterfactual)
-
-                # The runtime metric is built-in inside the evaluator``
-                self._results['runtime'].append(end_time - start_time)
-
-                self._real_evaluate(inst, counterfactual,self._oracle,self._explainer,self._data)
-                self._logger.info('evaluated instance with id %s', str(inst.id))
+            self._real_evaluate(inst, counterfactual,self._oracle,self._explainer,self._data)
+            self._logger.info('evaluated instance with id %s', str(inst.id))
 
         self._logger.info(self._results)
         self.write_results(fold_id)
