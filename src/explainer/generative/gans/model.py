@@ -86,19 +86,6 @@ class BaseGAN(TorchBase):
         oracle_scores = torch.tensor(oracle_scores, dtype=torch.float).to(self.device)
         
         return oracle_scores
-
-    
-    def get_generator_kls(self):
-        return self._generator_kls
-        
-    def set_generator_kls(self, kls):
-        self._generator_kls = kls
-  
-    def get_discriminator_kls(self):
-        return self._discriminator_kls
-        
-    def set_discriminator_kls(self, kls):
-        self._discriminator_kls = kls
         
     def get_generator_params(self):
         return self.dataset.num_node_features()

@@ -65,13 +65,15 @@ class GAN(BaseGAN):
             self.context.logger.info(f'Epoch {epoch}\t Loss_D = {np.mean(D_losses): .4f}\t Loss_G = {np.mean(G_losses): .4f}')
   
     def check_configuration(self):
-        self.set_generator_kls('src.explainer.generative.gans.image.res_gen.ResGenerator')
-        self.set_discriminator_kls('src.explainer.generative.gans.image.smpl_disc.SimpleDiscriminator')  
-        
+        dflt_generator = 'src.explainer.generative.gans.image.res_gen.ResGenerator'
+        dflt_discriminator = 'src.explainer.generative.gans.image.discriminators.SimpleDiscriminator'
+
         #Check if the generator exist or build with its defaults:
-        init_dflts_to_of(self.local_config, 'generator', self.get_generator_kls(), self.dataset.num_nodes)
+        init_dflts_to_of(self.local_config, 'generator', dflt_generator, 
+                         num_nodes=self.dataset.num_nodes)
         #Check if the generator exist or build with its defaults:
-        init_dflts_to_of(self.local_config, 'discriminator', self.get_discriminator_kls(), self.dataset.num_nodes)
+        init_dflts_to_of(self.local_config, 'discriminator', dflt_discriminator, 
+                         num_nodes=self.dataset.num_nodes)
         
         super().check_configuration()
         

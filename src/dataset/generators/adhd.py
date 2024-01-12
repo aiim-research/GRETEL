@@ -16,10 +16,7 @@ class ADHD(Generator):
         self.adhd_class_path = join(base_path, 'adhd_dataset')  
         self._td_file_path = join(base_path, 'td')
         self.generate_dataset()
-
-    def get_num_instances(self):
-        return len(self.dataset.instances)
-    
+            
     def generate_dataset(self):
         if not len(self.dataset.instances):
             self.read_adjacency_matrices()

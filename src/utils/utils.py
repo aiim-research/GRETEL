@@ -3,7 +3,7 @@ import copy
 import json
 import os
 import torch
-
+import numpy as np
 
 def update_saved_pyg(input_file,output_file):
     old_model =  torch.load(input_file, map_location=torch.device('cpu'))
@@ -51,6 +51,15 @@ def unfold_confs(based_dir,out_dir,prefix,num_folds=10):
                                 with open(out_file, 'w') as o_file:
                                     json.dump(current_conf, o_file)
                                 print(out_file)
+                                
+def pad_adj_matrix(adj_matrix, target_dimension):
+    # Get the current dimensions of the adjacency matrix
+    current_rows, current_cols = adj_matrix.shape
+    # Calculate the amount of padding needed for rows and columns
+    pad_rows = max(0, target_dimension - current_rows)
+    pad_cols = max(0, target_dimension - current_cols)
+    # Pad the adjacency matrix with zeros
+    return np.pad(adj_matrix, ((0, pad_rows), (0, pad_cols)), mode='constant')     
 
 # from src.utils.utils import update_saved_pyg 
 

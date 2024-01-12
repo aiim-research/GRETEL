@@ -1,0 +1,10 @@
+{  
+    "experiment" : {
+        "scope": "dummy_configs",
+        "parameters" : {
+            "lock_release_tout":120,
+            "propagate":[]
+        }
+    },
+    "compose_strs" : "config/snippets/default_store_paths.json"
+}

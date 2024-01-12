@@ -31,9 +31,6 @@ class MolGenerator(Generator):
        
         if 'data_label_name' not in local_config['parameters']:
             raise Exception("The name of the label column must be given.")
-
-    def get_num_instances(self):
-        return len(self.dataset.instances)
     
     def generate_dataset(self):
         if not len(self.dataset.instances):

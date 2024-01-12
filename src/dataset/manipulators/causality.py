@@ -3,14 +3,13 @@ from src.dataset.manipulators.base import BaseManipulator
 
 class Causality(BaseManipulator):
 
-    def init(self):
-        self.causality_dim_choice = self.local_config['parameters']['causality_dim_choice']
-        self.causalities = self._calc_causalities()
-        super().init()
-
     def check_configuration(self):
-        self.local_config['parameters']['causality_dim_choice'] = self.local_config['parameters'].get('causality_dim_choice', 10)
-        return super().check_configuration()
+        super().check_configuration()
+        self.causality_dim_choice = self.local_config['parameters'].get('causality_dim_choice', 10)
+        self.causalities = self._calc_causalities() 
+        #TODO Configuration of the Maniupalators affect the dataset signature: it must be invoked before performing the signature on the dataset
+        # actually it doe not work properly with the defaults. This courrent above (init here the self.causalities) is a workaround.
+    
 
     def node_info(self, instance):
         u = int(self.causalities[instance.id])

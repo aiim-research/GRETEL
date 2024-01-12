@@ -20,9 +20,11 @@ class CF2Explainer(Trainable, Explainer):
         self.alpha = self.local_config['parameters']['alpha']
         self.epochs = self.local_config['parameters']['epochs']
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self._fitted = False
+        
 
         self.model = ExplainModelGraph(self.n_nodes).to(self.device)
+        self.model._fitted = False
+
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
@@ -61,11 +63,11 @@ class CF2Explainer(Trainable, Explainer):
                 self.optimizer.step()
             self.context.logger.info(f"Epoch {epoch+1} --- loss {np.mean(losses)}")
         
-        self._fitted = True
+        self.model._fitted = True
 
     def explain(self, instance : GraphInstance):
 
-        if(not self._fitted):
+        if(not self.model._fitted):
             self.fit()
 
         self.model.eval()

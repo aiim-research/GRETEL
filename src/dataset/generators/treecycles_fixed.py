@@ -55,10 +55,6 @@ class TreeCyclesFixed(Generator):
                 self.dataset.instances.append(GraphInstance(id=i, data=nx.to_numpy_array(t_graph), label=0))
 
             self.context.logger.info("Generated instance with id:"+str(i))
-        
-    
-    def get_num_instances(self):
-        return len(self.dataset.instances)
     
     def _join_graphs_as_adj(self, base, others):
         Ab = nx.to_numpy_array(base)

@@ -135,6 +135,7 @@ data/cache/*
 output/
 stats/
 AAAI/
+config/_papers
 .DS_Store
 
 # videos
@@ -142,3 +143,4 @@ AAAI/
 
 # Testing files
 main_test.py
+da_test.py

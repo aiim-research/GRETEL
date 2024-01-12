@@ -37,9 +37,6 @@ class DataDrivenBidirectionalSearchExplainer(Explainer):
         init_dflts_to_of(self.local_config, 'distance_metric', dst_metric)
        
 
-
-
-
     def explain(self, instance):
         """
         Uses a combination of Data-driven Forward Search with Data-driven Backward Search as described in "Abrate, Carlo, and Francesco Bonchi. 
@@ -56,9 +53,11 @@ class DataDrivenBidirectionalSearchExplainer(Explainer):
 
         final_counterfactual, ged, oracle_calls, info = self.bb_prob_2(instance, original_graph, counterfactual, counterfactual_label, edges_prob)
 
-        result = copy.deepcopy(instance)
-        result.data = final_counterfactual
-        result._nx_repr = None
+        result = GraphInstance(id=instance.id, 
+                                label=0, 
+                                data=final_counterfactual,
+                                node_features=instance.node_features)
+
         return result
     
 
@@ -155,9 +154,14 @@ class DataDrivenBidirectionalSearchExplainer(Explainer):
         while(li<l_max):
             gc,edges = self.DFS_select(gc,edges,y_bar,k,edges_prob,)
 
-            inst = copy.deepcopy(instance)
-            inst.data = gc
-            inst._nx_repr = None
+            inst = GraphInstance(id=instance.id, 
+                                 label=0, 
+                                 data=gc,
+                                 node_features=instance.node_features)
+            
+            # inst = copy.deepcopy(instance)
+            # inst.data = gc
+            # inst._nx_repr = None
             r = self.oracle.predict(inst)
             
             li += 1
@@ -183,9 +187,14 @@ class DataDrivenBidirectionalSearchExplainer(Explainer):
 
             # Modified code ////////////////////////////////////////////////
             # r = oracle(gci)
-            inst = copy.deepcopy(instance)
-            inst.data = gci
-            inst._nx_repr = None
+            inst = GraphInstance(id=instance.id, 
+                                 label=0, 
+                                 data=gci,
+                                 node_features=instance.node_features)
+            
+            # inst = copy.deepcopy(instance)
+            # inst.data = gci
+            # inst._nx_repr = None
             r = self.oracle.predict(inst)
             # //////////////////////////////////////////////////////////////
             li += 1

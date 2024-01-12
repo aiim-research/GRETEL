@@ -23,8 +23,10 @@ class RSGG(PerClassExplainer):
                 embedded_features[key] = values[0]
                 edge_probs[key] = values[-1]
 
-            cf_instance = self.sampler.sample(instance, self.oracle, **{'embedded_features': embedded_features,
-                                                                        'edge_probabilities': edge_probs})
+            cf_instance = self.sampler.sample(instance, self.oracle,
+                                              embedded_features=embedded_features,
+                                              edge_probabilities=edge_probs)
+            
         return cf_instance if cf_instance else instance
     
     def check_configuration(self):

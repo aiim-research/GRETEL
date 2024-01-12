@@ -1,5 +1,7 @@
 import inspect
 import json
+import numpy as np
+
 from src.core.factory_base import get_class
 
 def pprint(dic):
@@ -19,15 +21,23 @@ def retake_oracle(cfg):
     return cfg['oracle']
 
 def clean_cfg(cfg):
-    new_cfg = {}
-    for k in cfg.keys():
-        if k == 'oracle' or k == 'dataset':
-            pass #new_cfg[k] = clean_cfg(cfg[k].local_config)
-        elif isinstance(cfg[k],dict):            
-            new_cfg[k] = clean_cfg(cfg[k])
-        else:
-            new_cfg[k] = cfg[k]
-            
+
+    if isinstance(cfg,dict):
+        new_cfg = {}
+        for k in cfg.keys():
+            if k == 'oracle' or k == 'dataset':
+                pass #new_cfg[k] = clean_cfg(cfg[k].local_config)
+            elif isinstance(cfg, (list,dict, np.ndarray)):
+                new_cfg[k] = clean_cfg(cfg[k])
+            else:
+                new_cfg[k] = cfg[k]
+    elif isinstance(cfg, (list, np.ndarray)):
+        new_cfg = []
+        for k in cfg:
+            new_cfg.append(clean_cfg(k))
+    else:
+        new_cfg = cfg
+
     return new_cfg
 
 

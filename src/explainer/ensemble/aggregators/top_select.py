@@ -3,14 +3,14 @@ import sys
 from abc import ABC
 
 from src.core.explainer_base import Explainer
-from src.explainer.ensemble.explanation_aggregator_base import ExplanationAggregator
+from src.explainer.ensemble.aggregators.base import ExplanationAggregator
 from src.evaluation.evaluation_metric_ged import GraphEditDistanceMetric
 import numpy as np
 
 from src.core.factory_base import get_instance_kvargs
 from src.utils.cfg_utils import get_dflts_to_of, init_dflts_to_of, inject_dataset, inject_oracle, retake_oracle, retake_dataset
 
-class ExplanationAggregatorTS(ExplanationAggregator):
+class ExplanationTopSelect(ExplanationAggregator):
 
     def init(self):
         super().init()

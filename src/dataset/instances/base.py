@@ -6,9 +6,7 @@ class DataInstance:
         self.label = label #TODO: Refactoring to have a one-hot encoding of labels!
         self._dataset = dataset
         
-    @property
-    def num_nodes(self):
-        return len(self.data)
+
         
     
     

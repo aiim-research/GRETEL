@@ -31,11 +31,16 @@ class Bernoulli(Sampler):
             
         return None 
                 
-    def __sample(self, instance, features, probabilities):
+    def __sample(self, instance: GraphInstance, features, probabilities):
         adj = torch.bernoulli(probabilities)
         selected_edges = torch.nonzero(adj)
-        return GraphInstance(id=instance.id,
+        
+        cf_candidate = GraphInstance(id=instance.id,
                              label=1-instance.label,
                              data=adj.numpy(),
                              node_features=features,
                              edge_weights=probabilities[selected_edges[:, 0], selected_edges[:, 1]].numpy())
+        
+        instance._dataset.manipulate(cf_candidate)
+     
+        return cf_candidate

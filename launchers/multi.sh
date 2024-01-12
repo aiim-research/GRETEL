@@ -1,7 +1,7 @@
 #!/bin/bash
 # Schedule multiple runs of all the configurations contained in the searchdir
 
-search_dir=./config/ablation/CF2
+search_dir=./config/explainers/cf2
 num_runs=1
 
 for i in {1..$num_runs}
