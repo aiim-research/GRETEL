@@ -3,8 +3,8 @@ import time
 from abc import ABCMeta, abstractmethod
 from src.core.savable import Savable
 from src.dataset.dataset_base import Dataset
-from src.utils.cfg_utils import clean_cfg, retake_dataset
-from src.utils.context import Context
+from src.utils.cfg_utils import retake_dataset
+from src.utils.context import Context,clean_cfg
 
 class Trainable(Savable,metaclass=ABCMeta):
 

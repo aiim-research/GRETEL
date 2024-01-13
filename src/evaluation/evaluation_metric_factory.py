@@ -4,6 +4,7 @@ from src.evaluation.evaluation_metric_correctness import CorrectnessMetric
 from src.evaluation.evaluation_metric_fidelity import FidelityMetric
 from src.evaluation.evaluation_metric_base import EvaluationMetric
 from src.evaluation.evaluation_metric_ged import GraphEditDistanceMetric
+from src.evaluation.evaluation_metric_runtime import RuntimeMetric
 from src.evaluation.evaluation_metric_sparsity import SparsityMetric
 from src.evaluation.evaluation_metric_oracle_calls import OracleCallsMetric
 from src.evaluation.evaluation_metric_oracle_accuracy import OracleAccuracyMetric
@@ -51,10 +52,17 @@ class EvaluationMetricFactory:
         
         elif metric_name == 'dumper':
             return self.get_dumper_metric(config_dict=metric_dict)
+        
+        elif metric_name == 'runtime':
+            return self.get_runtime_metric(config_dict=metric_dict)
 
         else:
             raise ValueError('''The provided evaluation metric name does not match any evaluation
              metric provided by the factory''')
+        
+    def get_runtime_metric(self, config_dict=None) -> EvaluationMetric:
+        result = RuntimeMetric(config_dict)
+        return result
 
     def get_dumper_metric(self, config_dict=None) -> EvaluationMetric:
         result = InstancesDumper(self._config_dict,config_dict)

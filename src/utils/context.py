@@ -4,6 +4,7 @@ import os
 from flufl.lock import Lock
 from datetime import timedelta
 import jsonpickle
+import numpy as np
 from jsonc_parser.parser import JsoncParser
 import hashlib
 from src.utils.composer import compose,propagate
@@ -93,7 +94,7 @@ class Context(object):
         
     def get_name(self, inst, dictionary=None, alias=None):        
         cls = inst.__class__.__name__ if not alias else alias
-        dictionary= inst.local_config if dictionary is None else dictionary
+        dictionary= clean_cfg(inst.local_config) if dictionary is None else clean_cfg(dictionary)
         md5_hash = hashlib.md5()       
 
         def flatten_dict(d, parent_key='', sep='_'):
@@ -151,5 +152,23 @@ class Context(object):
 #print(context._scope)
 #print(context.dataset_store_path)
 
+def clean_cfg(cfg):
+    if isinstance(cfg,dict):
+        new_cfg = {}
+        for k in cfg.keys():
+            if hasattr(cfg[k],"local_config"):#k == 'oracle' or k == 'dataset':
+                new_cfg[k] = clean_cfg(cfg[k].local_config)
+            elif isinstance(cfg[k], (list,dict, np.ndarray)):
+                new_cfg[k] = clean_cfg(cfg[k])
+            else:
+                new_cfg[k] = cfg[k]
+    elif isinstance(cfg, (list, np.ndarray)):
+        new_cfg = []
+        for k in cfg:
+            new_cfg.append(clean_cfg(k))
+    else:
+        new_cfg = cfg
+
+    return new_cfg
 
             

@@ -6,13 +6,13 @@ from sklearn.model_selection import StratifiedKFold
 
 from torch.utils.data import Subset
 from src.dataset.manipulators.base import BaseManipulator
-from src.utils.cfg_utils import clean_cfg
 from torch_geometric.loader import DataLoader
 from src.core.factory_base import get_instance_kvargs
 
 from src.core.savable import Savable
 from src.dataset.instances.base import DataInstance
 from src.core.factory_base import get_class
+from src.utils.context import clean_cfg
 
 
 class Dataset(Savable):
