@@ -6,13 +6,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import DenseGCNConv, DenseGraphConv
-from torch_geometric.data import Data
-
+from torch.utils.data import Dataset, DataLoader
 
 from src.dataset.instances.graph import GraphInstance
 from src.core.explainer_base import Explainer
 from src.core.trainable_base import Trainable
-from src.dataset.utils.dataset_torch import TorchGeometricDataset
 from src.utils.logger import GLogger
 from src.utils.utils import pad_adj_matrix
 
@@ -74,10 +72,10 @@ class CLEARExplainer(Trainable, Explainer):
             # get the features, adj matrix, graph causality and label
             features = torch.from_numpy(np.array(new_instance.node_features)).float().to(self.device)[None,:,:]
             adj = torch.from_numpy(new_instance.data).float().to(self.device)[None,:,:]
-            u = torch.from_numpy(np.array(new_instance.graph_features[self.dataset.graph_features_map["graph_causality"]])).float().to(self.device)[None,:]
+            causality = torch.from_numpy(np.array(new_instance.graph_features[self.dataset.graph_features_map["graph_causality"]])).float().to(self.device)[None,:]
             labels = torch.from_numpy(np.array([new_instance.label])).to(self.device)[None,:]
             
-            model_return = self.model(features, u, adj, labels)
+            model_return = self.model(features, causality, adj, labels)
             adj_reconst, features_reconst = model_return['adj_reconst'], model_return['features_reconst']
             
             adj_reconst_binary = torch.bernoulli(adj_reconst.squeeze())
@@ -90,33 +88,32 @@ class CLEARExplainer(Trainable, Explainer):
             return cf_instance
 
     def real_fit(self):
-        train_loader = self.dataset.get_torch_loader(fold_id=self.fold_id,
-                                                     batch_size=self.batch_size,
-                                                     dataset_kls='src.explainer.generative.clear.CLEARGeometricDataset',
-                                                     max_nodes=self.n_nodes)
+        train_loader = DataLoader(
+            self.dataset.get_torch_instances(fold_id=self.fold_id,
+                                             dataset_kls='src.explainer.generative.clear.CLEARDataset',
+                                             max_nodes=self.n_nodes), 
+            batch_size=self.batch_size, shuffle=True, drop_last=True)
+        
         for epoch in range(self.epochs):
             self.model.train()
             
             batch_num = 0
             loss, loss_kl, loss_sim, loss_cfe, loss_kl_cf = 0, 0, 0, 0, 0
-            for data in train_loader:
+            for adj, features, labels, causality in train_loader:
                 batch_num += 1
-                # here we're abusing the geometric dataset signature                                
-                features = data.x.float().to(self.device)
-                features = features.reshape(self.batch_size, -1, features.shape[-1])
-                num_nodes = features.shape[1]
-                u = data.edge_attr.float().to(self.device)[:,None]
-                adj = data.edge_index.float().to(self.device)
-                adj = adj.reshape(self.batch_size, num_nodes, num_nodes)
-                labels = (1 - data.y.float()).to(self.device)[:,None]
+                # send the tensors to the device chosen
+                features = features.float().to(self.device)
+                causality = causality.float().to(self.device)
+                adj = adj.float().to(self.device)
+                labels = (1 - labels.float()).to(self.device)[:,None]
                 ########################################################
                 self.optimizer.zero_grad()
                 # forward pass
-                retr = self.model(features, u, adj, labels)
+                retr = self.model(features, causality, adj, labels)
                 # z_cf
                 z_mu_cf, z_logvar_cf = self.model.encoder(
                     retr['features_reconst'], 
-                    u, 
+                    causality, 
                     retr['adj_reconst'], 
                     labels)
                 # compute loss
@@ -315,9 +312,9 @@ class CLEAR(nn.Module):
         self.graph_norm = nn.BatchNorm1d(self.h_dim)
         
         
-    def encoder(self, features, u, adj, y_cf):
-        # Q(Z | X, U, A, Y^CF)
-        # input: x, u, A, y^cf
+    def encoder(self, features, causality, adj, y_cf):
+        # Q(Z | X, causality, A, Y^CF)
+        # input: x, causality, A, y^cf
         # output: z
         graph_rep = self.graph_model(features, adj) # n x num_node x h_dim
         graph_rep  = self.graph_pooling(graph_rep, self.graph_pool_type) # n x h_dim
@@ -327,19 +324,19 @@ class CLEAR(nn.Module):
             z_mu = self.encoder_mean(torch.cat((graph_rep, y_cf), dim=1))
             z_logvar = self.encoder_var(torch.cat((graph_rep, y_cf), dim=1))
         else:
-            z_mu = self.encoder_mean(torch.cat((graph_rep, u, y_cf), dim=1))
-            z_logvar = self.encoder_var(torch.cat((graph_rep, u, y_cf), dim=1))
+            z_mu = self.encoder_mean(torch.cat((graph_rep, causality, y_cf), dim=1))
+            z_logvar = self.encoder_var(torch.cat((graph_rep, causality, y_cf), dim=1))
             
         return z_mu, z_logvar
     
-    def decoder(self, z, y_cf, u):
+    def decoder(self, z, y_cf, causality):
         if self.disable_u:
             adj_reconst = self.decoder_a(
                 torch.cat((z, y_cf), dim=1)
                 ).view(-1, self.n_nodes, self.n_nodes)
         else:
             adj_reconst = self.decoder_a(
-                torch.cat((z, u, y_cf), dim=1)
+                torch.cat((z, causality, y_cf), dim=1)
                 ).view(-1, self.n_nodes, self.n_nodes)
                             
         features_reconst = self.decoder_x(
@@ -357,13 +354,13 @@ class CLEAR(nn.Module):
             out = torch.sum(x, dim=1, keepdim=False)
         return out
     
-    def prior_params(self, u): # P(Z | U)
+    def prior_params(self, causality): # P(Z | causality)
         if self.disable_u:
-            z_u_mu = torch.zeros((len(u), self.h_dim)).to(self.device)
-            z_u_logvar = torch.ones((len(u), self.h_dim)).to(self.device)
+            z_u_mu = torch.zeros((len(causality), self.h_dim)).to(self.device)
+            z_u_logvar = torch.ones((len(causality), self.h_dim)).to(self.device)
         else:
-            z_u_logvar = self.prior_var(u)
-            z_u_mu = self.prior_mean(u)
+            z_u_logvar = self.prior_var(causality)
+            z_u_mu = self.prior_mean(causality)
             
         return z_u_mu, z_u_logvar
     
@@ -381,8 +378,8 @@ class CLEAR(nn.Module):
             return mu
         
         
-    def forward(self, features, u, adj, y_cf):
-        u_onehot = u
+    def forward(self, features, causality, adj, y_cf):
+        u_onehot = causality
         
         z_u_mu, z_u_logvar = self.prior_params(u_onehot)
         # encoder
@@ -473,32 +470,37 @@ class MLP(nn.Module):
         return h
     
     
-class CLEARGeometricDataset(TorchGeometricDataset):
+class CLEARDataset(Dataset):
   
     def __init__(self, instances: List[GraphInstance], max_nodes=10):
+        super(CLEARDataset, self).__init__()
         self.max_nodes = max_nodes
-        super(CLEARGeometricDataset, self).__init__(instances)
+        self.instances = instances
+        self._process(instances)
       
     def _process(self, instances: List[GraphInstance]):
         for i, instance in enumerate(instances):
-          padded_adj = pad_adj_matrix(instance.data, self.max_nodes)
-          # create a new instance
-          new_instance = GraphInstance(id=instance.id,
-                                       label=instance.label,
-                                       data=padded_adj,
-                                       dataset=instance._dataset)
-          # redo the manipulators
-          instance._dataset.manipulate(new_instance)
-          instances[i] = new_instance
+            padded_adj = pad_adj_matrix(instance.data, self.max_nodes)
+            # create a new instance
+            new_instance = GraphInstance(id=instance.id,
+                                        label=instance.label,
+                                        data=padded_adj,
+                                        dataset=instance._dataset)
+            # redo the manipulators
+            instance._dataset.manipulate(new_instance)
+            instances[i] = new_instance
         
         self.instances = [self.to_geometric(inst, label=inst.label) for inst in instances]
  
     @classmethod
-    def to_geometric(self, instance: GraphInstance, label=0) -> Data:   
-      adj = torch.from_numpy(instance.data).double()
-      x = torch.from_numpy(instance.node_features).double()
-      label = torch.tensor(label).long()
-      causality = np.array(instance.graph_features[instance._dataset.graph_features_map["graph_causality"]])
-      return Data(x=x, y=label,
-                  edge_index=adj,
-                  edge_attr=torch.from_numpy(causality))
+    def to_geometric(self, instance: GraphInstance, label=0):   
+        adj = torch.from_numpy(instance.data).double()
+        x = torch.from_numpy(instance.node_features).double()
+        label = torch.tensor(label).long()
+        causality = torch.from_numpy(np.array(instance.graph_features[instance._dataset.graph_features_map["graph_causality"]]))
+
+        return adj, x, label, causality
+    
+    
+    def __getitem__(self, index):
+        return self.instances(index)
