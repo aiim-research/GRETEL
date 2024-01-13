@@ -39,7 +39,7 @@
                                                 "parameters": {"p": 0.01, "t": 3}}
                                                 ],
                                     "aggregator": {
-                                        "class": "src.explainer.ensemble.explanation_aggregator_top_select.ExplanationTopSelect",
+                                        "class": "src.explainer.ensemble.aggregators.top_select.ExplanationTopSelect",
                                         "parameters": {}
                                     }
                                     }

@@ -152,6 +152,14 @@ class Evaluator(ABC):
 
 
     def write_results(self,fold_id):
+        hash_info = {"scope":self._scope,
+                      "dataset":self._data.name,
+                      "oracle":self._oracle.name,
+                      "explainer":self._explainer.name
+                      }
+        
+        self._complete['hash_ids']=hash_info
+
         output_path = os.path.join(self._results_store_path, self._scope)
         if not os.path.exists(output_path):
             os.mkdir(output_path)
