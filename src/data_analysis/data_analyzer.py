@@ -48,6 +48,7 @@ class DataAnalyzer():
                 hashed_scope = results_dict['config']['scope']
                 fold_id = results_dict['config']['fold_id']
                 run_id = results_dict['config']['run_id']
+                extra_columns = results_dict['config']['experiment']['extra_columns']
 
                 # Getting the dataset, oracle and explainer names
                 hashed_dataset_name = os.path.basename(os.path.dirname(os.path.dirname(os.path.dirname(results_file_uri))))
