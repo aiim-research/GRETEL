@@ -6,11 +6,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import DenseGCNConv, DenseGraphConv
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 
 from src.dataset.instances.graph import GraphInstance
 from src.core.explainer_base import Explainer
 from src.core.trainable_base import Trainable
+from src.dataset.utils.dataset_torch import TorchDataset
 from src.utils.logger import GLogger
 from src.utils.utils import pad_adj_matrix
 
@@ -470,37 +471,14 @@ class MLP(nn.Module):
         return h
     
     
-class CLEARDataset(Dataset):
-  
+class CLEARDataset(TorchDataset):
+    
     def __init__(self, instances: List[GraphInstance], max_nodes=10):
-        super(CLEARDataset, self).__init__()
-        self.max_nodes = max_nodes
-        self.instances = instances
-        self._process(instances)
-      
-    def _process(self, instances: List[GraphInstance]):
-        for i, instance in enumerate(instances):
-            padded_adj = pad_adj_matrix(instance.data, self.max_nodes)
-            # create a new instance
-            new_instance = GraphInstance(id=instance.id,
-                                        label=instance.label,
-                                        data=padded_adj,
-                                        dataset=instance._dataset)
-            # redo the manipulators
-            instance._dataset.manipulate(new_instance)
-            instances[i] = new_instance
+        super(CLEARDataset, self).__init__(instances=instances, max_nodes=max_nodes)
         
-        self.instances = [self.to_geometric(inst, label=inst.label) for inst in instances]
- 
     @classmethod
     def to_geometric(self, instance: GraphInstance, label=0):   
-        adj = torch.from_numpy(instance.data).double()
-        x = torch.from_numpy(instance.node_features).double()
-        label = torch.tensor(label).long()
+        adj, x, label = super().to_geometric(instance, label)
         causality = torch.from_numpy(np.array(instance.graph_features[instance._dataset.graph_features_map["graph_causality"]]))
 
         return adj, x, label, causality
-    
-    
-    def __getitem__(self, index):
-        return self.instances(index)

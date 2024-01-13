@@ -19,9 +19,24 @@ class GAN(BaseGAN):
                 yield adj.to(self.device), label, node_features.to(self.device)
                 
     def real_fit(self):
-        discriminator_loader = self.infinite_data_stream(self.__transform_data(fold_id=self.fold_id, kls=self.explainee_label))
-        # TODO: make it multiclass in Datase
-        generator_loader = self.infinite_data_stream(self.__transform_data(fold_id=self.fold_id, kls=1-self.explainee_label))
+        max_nodes = max(self.dataset.num_nodes_values)
+        discriminator_loader = DataLoader(
+            self.dataset.get_torch_instances(fold_id=self.fold_id,
+                                             kls=self.explainee_label,
+                                             dataset_kls='src.dataset.utils.dataset_torch.TorchDataset',
+                                             max_nodes=max_nodes), 
+            batch_size=self.batch_size, shuffle=True, drop_last=True)
+        
+        generator_loader = DataLoader(
+            self.dataset.get_torch_instances(fold_id=self.fold_id,
+                                             kls=1-self.explainee_label,
+                                             dataset_kls='src.dataset.utils.dataset_torch.TorchDataset',
+                                             max_nodes=max_nodes), 
+            batch_size=self.batch_size, shuffle=True, drop_last=True)
+        
+        discriminator_loader = self.infinite_data_stream(discriminator_loader)
+        # TODO: make it multiclass in Dataset
+        generator_loader = self.infinite_data_stream(generator_loader)
 
         for epoch in range(self.epochs):
             G_losses, D_losses = [], []
@@ -29,11 +44,13 @@ class GAN(BaseGAN):
             self.prepare_discriminator_for_training()
             #######################################################################
             # discriminator data (real batch)
-            f_graph, _, f_node_features = next(discriminator_loader)
+            f_graph, f_node_features, _ = next(discriminator_loader)
+            f_graph = f_graph.double().to(self.device)[:,None,:,:]
             # generator data (fake batch)
-            cf_graph, _, cf_node_features  = next(generator_loader)
+            cf_graph, cf_node_features, _  = next(generator_loader)
+            cf_graph = cf_graph.double().to(self.device)[:,None,:,:]
             
-            cf_graph = self.generator(cf_graph)
+            cf_graph = self.generator(cf_graph).double()
             # get the real and fake labels
             y_batch = torch.cat([torch.ones(self.batch_size,), torch.zeros(self.batch_size,)], dim=0).to(self.device)
             #######################################################################
@@ -54,8 +71,9 @@ class GAN(BaseGAN):
             self.prepare_generator_for_training()
             ## Update G network: maximize log(D(G(z)))
             cf_graph, _, _ = next(generator_loader)
+            cf_graph = cf_graph.double().to(self.device)[:,None,:,:]
             y_fake = torch.ones((self.batch_size, 1)).to(self.device)
-            output = self.discriminator(self.generator(cf_graph))
+            output = self.discriminator(self.generator(cf_graph).double())
             # calculate the loss
             loss = self.loss_fn(output.double(), y_fake.double())
             loss.backward()
@@ -65,15 +83,15 @@ class GAN(BaseGAN):
             self.context.logger.info(f'Epoch {epoch}\t Loss_D = {np.mean(D_losses): .4f}\t Loss_G = {np.mean(G_losses): .4f}')
   
     def check_configuration(self):
-        dflt_generator = 'src.explainer.generative.gans.image.res_gen.ResGenerator'
+        dflt_generator = 'src.explainer.generative.gans.image.generators.ResGenerator'
         dflt_discriminator = 'src.explainer.generative.gans.image.discriminators.SimpleDiscriminator'
 
         #Check if the generator exist or build with its defaults:
         init_dflts_to_of(self.local_config, 'generator', dflt_generator, 
-                         num_nodes=self.dataset.num_nodes)
+                         num_nodes=max(self.dataset.num_nodes_values))
         #Check if the generator exist or build with its defaults:
         init_dflts_to_of(self.local_config, 'discriminator', dflt_discriminator, 
-                         num_nodes=self.dataset.num_nodes)
+                         num_nodes=max(self.dataset.num_nodes_values))
         
         super().check_configuration()
         
@@ -86,27 +104,8 @@ class GAN(BaseGAN):
                                            label=1-self.explainee_label if counterfactual else self.explainee_label,
                                            data=graph[i].squeeze().cpu().numpy(),
                                            node_features=node_features[i].cpu().numpy()))
-        return instances
-        
-    def __transform_data(self, fold_id=0, kls=0, usage='train'):
-        X  = np.array([i.data for i in self.dataset.instances])
-        node_features = np.array([i.node_features for i in self.dataset.instances])
-        y = np.array([i.label for i in self.dataset.instances])
-        # get the train/test indices from the dataset
-        indices = self.dataset.get_split_indices(fold_id)[usage]
-        # get only the indices of a specific class
-        if kls != -1:
-            indices = list(set(indices).difference(set(self.dataset.class_indices()[kls])))
-        # get the indices
-        X, y, node_features = X[indices], y[indices], node_features[indices]
-        
-        dataset = TensorDataset(torch.tensor(X[:,None,:,:], dtype=torch.float),
-                                torch.tensor(y, dtype=torch.float),
-                                torch.tensor(node_features, dtype=torch.float))
-        
-        return DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=2, drop_last=True)
-    
+        return instances    
     
     def __call__(self, *args: Tuple[GraphInstance], **kwds: Any) -> Any:
-        torch_data = torch.from_numpy(args[0].data[None,None,:,:]).float()
+        torch_data = torch.from_numpy(args[0].data[None,None,:,:]).double()
         return self.generator(torch_data)

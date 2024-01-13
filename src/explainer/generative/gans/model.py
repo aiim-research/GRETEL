@@ -44,7 +44,10 @@ class BaseGAN(TorchBase):
             else "mps"
             if torch.backends.mps.is_available()
             else "cpu"
-        )
+        )        
+        self.generator.to(torch.double)
+        self.discriminator.to(torch.double)
+        
         self.generator.to(self.device)
         self.discriminator.to(self.device)
 
