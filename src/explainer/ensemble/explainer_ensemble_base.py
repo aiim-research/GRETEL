@@ -1,5 +1,5 @@
 from src.core.explainer_base import Explainer
-from src.core.factory_base import get_instance_kvargs
+from src.core.factory_base import get_class, get_instance_kvargs
 from src.core.trainable_base import Trainable
 from src.utils.cfg_utils import  inject_dataset, inject_oracle
 
@@ -53,3 +53,8 @@ class ExplainerEnsemble(Explainer, Trainable):
       
     def read(self):
         pass
+
+    @property
+    def name(self):
+        alias = get_class( self.local_config['parameters']['aggregator']['class'] ).__name__
+        return self.context.get_name(self,alias=alias)
