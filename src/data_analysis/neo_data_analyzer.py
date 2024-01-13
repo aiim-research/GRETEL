@@ -30,23 +30,33 @@ class DataAnalyzer():
         return result
     
     @classmethod
-    def create_do_pair_table(cls, do_pair_folder_path, stats_folder_path):
+    def create_aggregated_results_dict(cls, results_folder_path):
         """This method receives a do-pair folder path. This folder is associated to an specific 
         dataset and oracle combination and should contain folders for each of the explainers tested 
         on that do-pair"""
-        results_file_paths = cls.get_json_file_paths(do_pair_folder_path)
+        results_file_paths = cls.get_json_file_paths(results_folder_path)
 
-        dataset_name = None
-        oracle_name = None
-
+        results_dict = {}
         for results_file_uri in results_file_paths:
             with open(results_file_uri, 'r') as results_file_reader:
                 results_plain_text = results_file_reader.read()
                 results_dict = jsonpickle.decode(results_plain_text)
 
-                if not dataset_name or not oracle_name:
-                    dataset_name = results_dict['config']['dataset']['name']
-                    oracle_name = results_dict['config']['oracle']['name']
+                # Getting the dataset and oracle name
+                dataset_class = results_dict['config']['dataset']['parameters']['generator']['class']
+                dataset_name = dataset_class.split('.')[-1]
+                hashed_dataset_name = os.path.basename(os.path.dirname(os.path.dirname(os.path.dirname(results_file_uri))))
+
+                oracle_class = results_dict['config']['oracle']['class']
+                oracle_name = oracle_class.split('.')[-1]
+                hashed_oracle_name = os.path.basename(os.path.dirname(os.path.dirname(results_file_uri)))
+
+                # Creating the entries for the dataset and dictionaries if they don't exist
+                if dataset_name not in results_dict:
+                    results_dict[dataset_name] = {}
+
+                if oracle_name not in results_dict[dataset_name]:
+                    results_dict[dataset_name][oracle_name] = {}
 
                 if dataset_name != results_dict['config']['dataset']['name'] or oracle_name != results_dict['config']['oracle']['name']:
                     raise ValueError('Results files for different do-pairs are contained in the folder')
