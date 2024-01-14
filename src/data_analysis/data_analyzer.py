@@ -72,8 +72,88 @@ class DataAnalyzer():
         mega_table = pd.DataFrame(data=rows, columns=column_names)
         return mega_table
 
-                
-                
+
+    @classmethod
+    def create_aggregated_dataframe_oldstyle(cls, results_folder_path):
+        """This method receives a do-pair folder path. This folder is associated to an specific 
+        dataset and oracle combination and should contain folders for each of the explainers tested 
+        on that do-pair"""
+        results_file_paths = cls.get_json_file_paths(results_folder_path)
+
+        mega_dict = {}
+        rows = []
+        first_iteration = True
+        metric_names = []
+        
+        # Reading the files and creating a dictionaries with aggregated results for each run
+        for results_file_uri in results_file_paths:
+            with open(results_file_uri, 'r') as results_file_reader:
+                results_plain_text = results_file_reader.read()
+                results_dict = jsonpickle.decode(results_plain_text)
+
+                # Getting the dataset, oracle and explainer names
+                hashed_scope = results_dict['config']['scope']
+                hashed_dataset_name = results_dict['hash_ids']['dataset']
+                hashed_oracle_name = results_dict['hash_ids']['oracle']
+                exp_class = results_dict['config']['explainer']['class']
+                exp_name = exp_class.split(sep='.')[-1]
+                hashed_explainer_name = exp_name
+                # hashed_explainer_name = results_dict['hash_ids']['explainer']
+
+                # Creating all the necesary levels in the dictionary
+                if not hashed_scope in mega_dict:
+                    mega_dict[hashed_scope] = {}
+
+                if not hashed_dataset_name in mega_dict[hashed_scope]:
+                    mega_dict[hashed_scope][hashed_dataset_name] = {}
+
+                if not hashed_oracle_name in mega_dict[hashed_scope][hashed_dataset_name]:
+                    mega_dict[hashed_scope][hashed_dataset_name][hashed_oracle_name] = {}
+
+                if not hashed_explainer_name in mega_dict[hashed_scope][hashed_dataset_name][hashed_oracle_name]:
+                    mega_dict[hashed_scope][hashed_dataset_name][hashed_oracle_name][hashed_explainer_name] = []
+
+
+                aggregated_metrics = []
+                for m_class, m_value in results_dict['results'].items():
+                    if first_iteration: # The metric names are only needed the first time
+                         metric_names.append(m_class.split('.')[-1])
+
+                    metric = get_instance_kvargs(kls=m_class, param={})
+                    vals = [x['value'] for x in m_value]
+                    agg_values, agg_std = metric.aggregate(vals)
+                    aggregated_metrics.append(agg_values)
+
+                mega_dict[hashed_scope][hashed_dataset_name][hashed_oracle_name][hashed_explainer_name].append(aggregated_metrics)
+
+            first_iteration = False
+
+        # Creating the header of the table
+        column_names = ['scope', 'dataset', 'oracle', 'explainer']
+        for m_name in metric_names:
+            column_names.append(m_name)
+            column_names.append(m_name + '-std')
+
+        # Iterating over the dictionary and agregating different runs and folds together
+        rows = []
+        for scope_name, datasets in mega_dict.items():
+            for dataset_name, oracles in datasets.items():
+                for oracle_name, explainers in oracles.items():
+                    for explainer_name, runs in explainers.items():
+                        row = [scope_name, dataset_name, oracle_name, explainer_name]
+
+                        for m in range(len(metric_names)):
+                            m_values = [runs[i][m] for i in range(len(runs))]
+                            v_mean = np.mean(m_values)
+                            v_std = np.std(m_values)
+                            row.append(v_mean)
+                            row.append(v_std)
+
+                        rows.append(row)
+
+        # Building the dataframe                  
+        result = pd.DataFrame(data=rows, columns=column_names)
+        return result
 
 
        
