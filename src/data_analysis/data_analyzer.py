@@ -95,8 +95,7 @@ class DataAnalyzer():
                 hashed_scope = results_dict['config']['scope']
                 hashed_dataset_name = results_dict['hash_ids']['dataset']
                 hashed_oracle_name = results_dict['hash_ids']['oracle']
-                exp_class = results_dict['config']['explainer']['class']
-                exp_name = exp_class.split(sep='.')[-1]
+                exp_name = results_dict['hash_ids']['explainer'].split(sep='-')[0]
                 hashed_explainer_name = exp_name
                 # hashed_explainer_name = results_dict['hash_ids']['explainer']
 
