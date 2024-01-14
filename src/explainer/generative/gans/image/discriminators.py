@@ -9,7 +9,7 @@ from src.core.factory_base import build_w_params_string
 class SimpleDiscriminator(nn.Module):
     
     def __init__(self, num_nodes, kernel=(3,3), stride=(2,2), activation=LeakyReLU(), dropout_p=0.2):
-        """This class provides a GCN to discriminate between real and generated graph instances"""
+        """This class discriminates between real and generated graph instances"""
         super(SimpleDiscriminator, self).__init__()
 
         self.training = False
