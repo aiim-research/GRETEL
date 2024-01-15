@@ -113,15 +113,28 @@ class DataAnalyzer():
                     mega_dict[hashed_scope][hashed_dataset_name][hashed_oracle_name][hashed_explainer_name] = []
 
 
+                correctness_cls, correctness_name = cls.resolve_correctness_class_and_name(results_dict)
+
                 aggregated_metrics = []
                 for m_class, m_value in results_dict['results'].items():
+                    metric_name = m_class.split('.')[-1]
                     if first_iteration: # The metric names are only needed the first time
-                         metric_names.append(m_class.split('.')[-1])
+                         metric_names.append(metric_name)
 
-                    metric = get_instance_kvargs(kls=m_class, param={})
-                    vals = [x['value'] for x in m_value]
-                    agg_values, agg_std = metric.aggregate(vals)
-                    aggregated_metrics.append(agg_values)
+                     # Ignoring instances with correctness 0
+                    if  m_class != correctness_cls and metric_name != 'FidelityMetric':
+                        vals = [x['value'] for x in m_value]
+                        correctness_vals = [x['value'] for x in results_dict['results'][correctness_cls]]
+                        v_filtered = [item for item, flag in zip(vals, correctness_vals) if flag == 1]
+                        
+                        metric = get_instance_kvargs(kls=m_class, param={})
+                        agg_values, agg_std = metric.aggregate(v_filtered)
+                        aggregated_metrics.append(agg_values)
+                    else:
+                        metric = get_instance_kvargs(kls=m_class, param={})
+                        vals = [x['value'] for x in m_value]
+                        agg_values, agg_std = metric.aggregate(vals)
+                        aggregated_metrics.append(agg_values)
 
                 mega_dict[hashed_scope][hashed_dataset_name][hashed_oracle_name][hashed_explainer_name].append(aggregated_metrics)
 
@@ -153,6 +166,13 @@ class DataAnalyzer():
         # Building the dataframe                  
         result = pd.DataFrame(data=rows, columns=column_names)
         return result
+
+
+    @classmethod
+    def resolve_correctness_class_and_name(cls, results_dict):
+        for k in results_dict['results'].keys():
+            if 'Correctness' in k or 'correctness' in k:
+                return k, k.split('.')[-1]
 
 
        
