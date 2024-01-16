@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import List
 
 import numpy as np
@@ -52,7 +53,7 @@ class ExplanationAggregator(Configurable):
             for manipulator in cf_candidate._dataset.manipulators:
                 manipulator._process_instance(cf_candidate)
         else:
-            cf_candidate = instance
+            cf_candidate = deepcopy(instance)
         
         return cf_candidate
             

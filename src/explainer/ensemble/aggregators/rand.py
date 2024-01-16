@@ -42,28 +42,20 @@ class ExplanationRandom(ExplanationAggregator):
             # increase the number of random modifications
             for i in range(1, k):
                 # how many attempts at a current modification level
-                for j in range(0, self.tries):
-                    cf_cand_matrix = np.copy(org_instance.data)
+                for _ in range(0, self.tries):
+                    cf_cand_matrix = copy.deepcopy(org_instance.data)
                     # sample according to perturbation_percentage
-                    sample_index = np.random.choice(list(range(len(new_edges))), size=i)
+                    sample_index = np.random.choice(list(range(len(new_edges))), size=i, replace=False)
                     sampled_edges = new_edges[sample_index]
-
                     # switch on/off the sampled edges
-                    cf_cand_matrix[sampled_edges[:,0], sampled_edges[:,1]] = 1 - cf_cand_matrix[sampled_edges[:,0], sampled_edges[:,1]]
-                    cf_cand_matrix[sampled_edges[:,1], sampled_edges[:,0]] = 1 - cf_cand_matrix[sampled_edges[:,1], sampled_edges[:,0]]
-                
+                    cf_cand_matrix[sampled_edges[:,0], sampled_edges[:,1]] = 1 - cf_cand_matrix[sampled_edges[:,0], sampled_edges[:,1]]                
                     # build the counterfactaul candidates instance
-                    result = GraphInstance(id=org_instance.id,
-                                        label=0,
-                                        data=cf_cand_matrix,
-                                        node_features=org_instance.node_features)
-                    
+                    result = GraphInstance(id=org_instance.id, label=-1, data=cf_cand_matrix)
                     # if a counterfactual was found return that
                     l_cf_cand = self.oracle.predict(result)
                     if org_lbl != l_cf_cand:
                         result.label = l_cf_cand
                         return result
-        
         # If no counterfactual was found return the original instance by convention
         return copy.deepcopy(org_instance)
     
