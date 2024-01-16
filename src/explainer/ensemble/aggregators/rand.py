@@ -30,7 +30,7 @@ class ExplanationRandom(ExplanationAggregator):
             if org_lbl != self.oracle.predict(exp):
 
                 if exp.data.shape[0] < max_dim:
-                    exp = np.pad(exp, 
+                    exp.data = np.pad(exp.data, 
                                  pad_width=((0, max_dim - exp.data.shape[0]), (0, max_dim - exp.data.shape[0])), 
                                  mode='constant', 
                                  constant_values=0)
