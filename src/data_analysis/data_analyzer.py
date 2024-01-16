@@ -30,7 +30,7 @@ class DataAnalyzer():
         return result
     
     @classmethod
-    def create_aggregated_dataframe(cls, results_folder_path):
+    def build_moat(cls, results_folder_path):
         """This method receives a do-pair folder path. This folder is associated to an specific 
         dataset and oracle combination and should contain folders for each of the explainers tested 
         on that do-pair"""
@@ -114,6 +114,7 @@ class DataAnalyzer():
 
 
                 correctness_cls, correctness_name = cls.resolve_correctness_class_and_name(results_dict)
+                fidelity_cls, fidelity_name = cls.resolve_fidelity_class_and_name(results_dict)
 
                 aggregated_metrics = []
                 for m_class, m_value in results_dict['results'].items():
@@ -122,7 +123,7 @@ class DataAnalyzer():
                          metric_names.append(metric_name)
 
                      # Ignoring instances with correctness 0
-                    if  m_class != correctness_cls and metric_name != 'FidelityMetric':
+                    if  m_class != correctness_cls and m_class != fidelity_cls:
                         vals = [x['value'] for x in m_value]
                         correctness_vals = [x['value'] for x in results_dict['results'][correctness_cls]]
                         v_filtered = [item for item, flag in zip(vals, correctness_vals) if flag == 1]
@@ -173,6 +174,17 @@ class DataAnalyzer():
         for k in results_dict['results'].keys():
             if 'Correctness' in k or 'correctness' in k:
                 return k, k.split('.')[-1]
+            
+        raise NameError('Correctness metric name could not be solved')
+            
 
+    @classmethod
+    def resolve_fidelity_class_and_name(cls, results_dict):
+        for k in results_dict['results'].keys():
+            if 'Fidelity' in k or 'fidelity' in k:
+                return k, k.split('.')[-1]
+            
+        raise NameError('Fidelity metric name could not be solved')
+    
 
        
