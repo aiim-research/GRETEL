@@ -6,6 +6,7 @@ import torch
 from src.core.oracle_base import Oracle
 from src.utils.samplers.abstract_sampler import Sampler
 from src.dataset.instances.graph import GraphInstance
+from src.utils.utils import pad_features
 
 
 class Bernoulli(Sampler):
@@ -33,13 +34,14 @@ class Bernoulli(Sampler):
                 
     def __sample(self, instance: GraphInstance, features, probabilities):
         adj = torch.bernoulli(probabilities)
+        features = pad_features(features, adj.shape[0])            
         selected_edges = torch.nonzero(adj)
         
         cf_candidate = GraphInstance(id=instance.id,
-                             label=1-instance.label,
-                             data=adj.numpy(),
-                             node_features=features,
-                             edge_weights=probabilities[selected_edges[:, 0], selected_edges[:, 1]].numpy())
+                                     label=1-instance.label,
+                                     data=adj.numpy(),
+                                     node_features=features,
+                                     edge_weights=probabilities[selected_edges[:, 0], selected_edges[:, 1]].numpy())
         
         instance._dataset.manipulate(cf_candidate)
      

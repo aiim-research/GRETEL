@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import List
 
 import torch
@@ -41,22 +42,24 @@ class StochasticAggregator(ExplanationAggregator):
 
     def real_aggregate(self, instance: GraphInstance, explanations: List[GraphInstance]):
         label = self.oracle.predict(instance)
-        
-        edge_freq_matrix = np.zeros_like(instance.data)
+        max_dim = max([exp.data.shape[0] for exp in explanations])
+        edge_freq_matrix = np.zeros((max_dim, max_dim))
         for exp in explanations:
             # Getting the perturbation matrices of all the explanations that are valid counterfactuals
             if self.oracle.predict(exp) != label:
-                edge_freq_matrix = np.add(edge_freq_matrix, exp.data)
+                edge_freq_matrix[:exp.data.shape[0], :exp.data.shape[0]] += exp.data
 
         norm_edge_freqs = edge_freq_matrix / np.max(edge_freq_matrix)
-        
-        embedded_features = { label:torch.from_numpy(instance.node_features) for label in range(self.dataset.num_classes) }
-        edge_probabilities = { label:torch.from_numpy(norm_edge_freqs) for label in range(self.dataset.num_classes) }
-        
-        cf_candidate = self.sampler.sample(instance,
-                                           self.oracle,
-                                           embedded_features=embedded_features,
-                                           edge_probabilities=edge_probabilities)
-        
-        return instance if not cf_candidate else cf_candidate
+
+        if np.any(edge_freq_matrix):
+            embedded_features = { label:torch.from_numpy(instance.node_features) for label in range(self.dataset.num_classes) }
+            edge_probabilities = { label:torch.from_numpy(norm_edge_freqs) for label in range(self.dataset.num_classes) }
+            
+            cf_candidate = self.sampler.sample(instance, self.oracle,
+                                               embedded_features=embedded_features,
+                                               edge_probabilities=edge_probabilities)
+            
+            return deepcopy(instance) if not cf_candidate else cf_candidate
+        else:
+            return deepcopy(instance)
         
