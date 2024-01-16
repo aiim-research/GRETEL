@@ -1,15 +1,12 @@
 import copy
-import sys
-from abc import ABC
+from typing import List
 
 from src.dataset.instances.graph import GraphInstance
-from src.core.explainer_base import Explainer
 from src.explainer.ensemble.aggregators.base import ExplanationAggregator
-from src.evaluation.evaluation_metric_ged import GraphEditDistanceMetric
 import numpy as np
 
 from src.core.factory_base import get_instance_kvargs
-from src.utils.cfg_utils import get_dflts_to_of, init_dflts_to_of, inject_dataset, inject_oracle, retake_oracle, retake_dataset
+from src.utils.cfg_utils import init_dflts_to_of
 
 class ExplanationRandom(ExplanationAggregator):
 
@@ -20,27 +17,26 @@ class ExplanationRandom(ExplanationAggregator):
                                                     self.local_config['parameters']['distance_metric']['parameters'])
         self.tries = 5
 
-    def aggregate(self, org_instance, explanations):
+    def real_aggregate(self, org_instance: GraphInstance, explanations: List[GraphInstance]):
         org_lbl = self.oracle.predict(org_instance)
 
-
-        all_changes_matrix = np.zeros(org_instance.data.shape, dtype=int)
+        max_dim = max([exp.data.shape[0] for exp in explanations])
+        all_changes_matrix = np.zeros((max_dim, max_dim), dtype=int)
+        
         k = 15
 
         for exp in explanations:
-            # Get the oracle's prediction for the explanation
-            exp_lbl = self.oracle.predict(exp)
-
             # If the explanation is a correct counterfactual
-            if org_lbl != exp_lbl:
+            if org_lbl != self.oracle.predict(exp):
+                # TODO: @mario this one breaks if the shapes of the two adj matrices aren't the same
+                # it always breaks if the explainer is a search-based one
+                # it will always break if the explainer adds/removes nodes
                 changes = (org_instance.data != exp.data).astype(int)
                 all_changes_matrix |= changes
 
         changed_edges = np.nonzero(all_changes_matrix)
         num_changed_edges = len(changed_edges[0])
-        new_edges = [[changed_edges[0][i], changed_edges[1][i]] for i in range(num_changed_edges)]
-        new_edges = np.array(new_edges)
-
+        new_edges = np.array([[changed_edges[0][i], changed_edges[1][i]] for i in range(num_changed_edges)])
         # increase the number of random modifications
         for i in range(1, k):
             # how many attempts at a current modification level
@@ -59,9 +55,6 @@ class ExplanationRandom(ExplanationAggregator):
                                        label=0,
                                        data=cf_cand_matrix,
                                        node_features=org_instance.node_features)
-                
-                for manipulator in org_instance._dataset.manipulators:
-                    manipulator._process_instance(result)
                 
                 # if a counterfactual was found return that
                 l_cf_cand = self.oracle.predict(result)

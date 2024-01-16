@@ -1,8 +1,10 @@
 import copy
 import sys
 from abc import ABC
+from typing import List
 
 from src.core.explainer_base import Explainer
+from src.dataset.instances.graph import GraphInstance
 from src.explainer.ensemble.aggregators.base import ExplanationAggregator
 from src.evaluation.evaluation_metric_ged import GraphEditDistanceMetric
 import numpy as np
@@ -18,7 +20,7 @@ class ExplanationTopSelect(ExplanationAggregator):
         self.distance_metric = get_instance_kvargs(self.local_config['parameters']['distance_metric']['class'], 
                                                     self.local_config['parameters']['distance_metric']['parameters'])
 
-    def aggregate(self, org_instance, explanations):
+    def real_aggregate(self, org_instance: GraphInstance, explanations: List[GraphInstance]):
         org_lbl = self.oracle.predict(org_instance)
 
         result = org_instance
