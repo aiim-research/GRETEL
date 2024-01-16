@@ -131,7 +131,7 @@ dmypy.json
 .pyre/
 
 # data folders
-data/cache/*
+data/cache*
 output/
 stats/
 AAAI/

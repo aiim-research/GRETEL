@@ -1,37 +1,21 @@
-import copy
-import sys
-from abc import ABC
+from typing import List
 
-import torch
 
-from src.core.explainer_base import Explainer
 from src.dataset.instances.graph import GraphInstance
 from src.explainer.ensemble.aggregators.base import ExplanationAggregator
-from src.evaluation.evaluation_metric_ged import GraphEditDistanceMetric
 import numpy as np
 
-from src.core.factory_base import get_instance_kvargs
-from src.utils.cfg_utils import get_dflts_to_of, init_dflts_to_of, inject_dataset, inject_oracle, retake_oracle, retake_dataset
-
+from src.utils.utils import pad_adj_matrix
 
 class ExplanationUnion(ExplanationAggregator):
 
-    def aggregate(self, instance, explanations):
-        #label = self.oracle.predict(org_instance)
-
-        edge_freq_matrix = np.zeros_like(instance.data)
+    def real_aggregate(self, instance: GraphInstance, explanations: List[GraphInstance]):
+        max_dim = max([exp.data.shape[0] for exp in explanations])
+        edge_freq_matrix = np.zeros((max_dim, max_dim))
+        
         for exp in explanations:
-            #if self.oracle.predict(exp) != label:
-            edge_freq_matrix = np.add(edge_freq_matrix, exp.data)
+            edge_freq_matrix = np.add(edge_freq_matrix, pad_adj_matrix(exp.data, max_dim))
 
         adj = np.where(edge_freq_matrix >= 1, 1, 0)
 
-        cf_candidate = GraphInstance(id=instance.id,
-                             label=1-instance.label,
-                             data=adj,
-                             node_features=instance.node_features)
-        
-        for manipulator in instance._dataset.manipulators:
-            manipulator._process_instance(cf_candidate)
-        
-        return cf_candidate
+        return GraphInstance(id=instance.id, label=1-instance.label, data=adj)

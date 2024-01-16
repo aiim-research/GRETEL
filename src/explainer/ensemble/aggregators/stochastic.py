@@ -39,7 +39,7 @@ class StochasticAggregator(ExplanationAggregator):
                                                     self.local_config['parameters']['sampler']['parameters'])
         
 
-    def aggregate(self, instance: GraphInstance, explanations: List[GraphInstance]):
+    def real_aggregate(self, instance: GraphInstance, explanations: List[GraphInstance]):
         label = self.oracle.predict(instance)
         
         edge_freq_matrix = np.zeros_like(instance.data)

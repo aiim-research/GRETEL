@@ -10,26 +10,23 @@ import numpy as np
 
 from src.core.factory_base import get_instance_kvargs
 from src.utils.cfg_utils import get_dflts_to_of, init_dflts_to_of, inject_dataset, inject_oracle, retake_oracle, retake_dataset
+from src.utils.utils import pad_adj_matrix
 
 
 class ExplanationIntersection(ExplanationAggregator):
 
-    def aggregate(self, instance, explanations):
+    def real_aggregate(self, instance, explanations):
+        
         label = self.oracle.predict(instance)
 
-        edge_freq_matrix = np.zeros_like(instance.data)
+        max_dim = max([exp.data.shape[0] for exp in explanations])
+        edge_freq_matrix = np.ones((max_dim, max_dim))
+
         for exp in explanations:
             if self.oracle.predict(exp) != label:
-                edge_freq_matrix = edge_freq_matrix * exp.data
+                edge_freq_matrix = edge_freq_matrix * pad_adj_matrix(exp.data, max_dim)
 
         adj = np.where(edge_freq_matrix > 0, 1, 0)
 
-        cf_candidate = GraphInstance(id=instance.id,
-                             label=1-instance.label,
-                             data=adj,
-                             node_features=instance.node_features)
+        return GraphInstance(id=instance.id, data=adj, label=1-instance.label)
         
-        for manipulator in instance._dataset.manipulators:
-            manipulator._process_instance(cf_candidate)
-        
-        return cf_candidate

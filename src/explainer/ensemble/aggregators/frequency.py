@@ -1,6 +1,7 @@
 import copy
 import sys
 from abc import ABC
+from typing import List
 
 from src.dataset.instances.graph import GraphInstance
 from src.explainer.ensemble.aggregators.base import ExplanationAggregator
@@ -37,7 +38,7 @@ class ExplanationFrequency(ExplanationAggregator):
         self.if_correct = self.local_config['parameters']['to_be_correct']
         
 
-    def aggregate(self, org_instance, explanations):
+    def real_aggregate(self, org_instance: GraphInstance, explanations: List[GraphInstance]):
         org_lbl = self.oracle.predict(org_instance)
 
         # Getting the perturbation matrices of all the explanations that are valid counterfactuals

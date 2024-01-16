@@ -1,6 +1,6 @@
 #!/bin/bash
 #$ -S /bin/bash
-#$ -pe mpi 16
+#$ -pe mpi 24
 #$ -cwd
 #$ -o ./output/qsub/std_$JOB_ID.out
 #$ -e ./output/qsub/err_$JOB_ID.out
