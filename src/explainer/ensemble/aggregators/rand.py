@@ -36,31 +36,33 @@ class ExplanationRandom(ExplanationAggregator):
 
         changed_edges = np.nonzero(all_changes_matrix)
         num_changed_edges = len(changed_edges[0])
-        new_edges = np.array([[changed_edges[0][i], changed_edges[1][i]] for i in range(num_changed_edges)])
-        # increase the number of random modifications
-        for i in range(1, k):
-            # how many attempts at a current modification level
-            for j in range(0, self.tries):
-                cf_cand_matrix = np.copy(org_instance.data)
-                # sample according to perturbation_percentage
-                sample_index = np.random.choice(list(range(len(new_edges))), size=i)
-                sampled_edges = new_edges[sample_index]
+        # if there are any changes, perform the random search
+        if num_changed_edges:
+            new_edges = np.array([[changed_edges[0][i], changed_edges[1][i]] for i in range(num_changed_edges)])
+            # increase the number of random modifications
+            for i in range(1, k):
+                # how many attempts at a current modification level
+                for j in range(0, self.tries):
+                    cf_cand_matrix = np.copy(org_instance.data)
+                    # sample according to perturbation_percentage
+                    sample_index = np.random.choice(list(range(len(new_edges))), size=i)
+                    sampled_edges = new_edges[sample_index]
 
-                # switch on/off the sampled edges
-                cf_cand_matrix[sampled_edges[:,0], sampled_edges[:,1]] = 1 - cf_cand_matrix[sampled_edges[:,0], sampled_edges[:,1]]
-                cf_cand_matrix[sampled_edges[:,1], sampled_edges[:,0]] = 1 - cf_cand_matrix[sampled_edges[:,1], sampled_edges[:,0]]
-            
-                # build the counterfactaul candidates instance
-                result = GraphInstance(id=org_instance.id,
-                                       label=0,
-                                       data=cf_cand_matrix,
-                                       node_features=org_instance.node_features)
+                    # switch on/off the sampled edges
+                    cf_cand_matrix[sampled_edges[:,0], sampled_edges[:,1]] = 1 - cf_cand_matrix[sampled_edges[:,0], sampled_edges[:,1]]
+                    cf_cand_matrix[sampled_edges[:,1], sampled_edges[:,0]] = 1 - cf_cand_matrix[sampled_edges[:,1], sampled_edges[:,0]]
                 
-                # if a counterfactual was found return that
-                l_cf_cand = self.oracle.predict(result)
-                if org_lbl != l_cf_cand:
-                    result.label = l_cf_cand
-                    return result
+                    # build the counterfactaul candidates instance
+                    result = GraphInstance(id=org_instance.id,
+                                        label=0,
+                                        data=cf_cand_matrix,
+                                        node_features=org_instance.node_features)
+                    
+                    # if a counterfactual was found return that
+                    l_cf_cand = self.oracle.predict(result)
+                    if org_lbl != l_cf_cand:
+                        result.label = l_cf_cand
+                        return result
         
         # If no counterfactual was found return the original instance by convention
         return copy.deepcopy(org_instance)
