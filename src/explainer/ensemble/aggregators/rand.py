@@ -7,6 +7,7 @@ import numpy as np
 
 from src.core.factory_base import get_instance_kvargs
 from src.utils.cfg_utils import init_dflts_to_of
+from src.utils.utils import pad_features
 
 class ExplanationRandom(ExplanationAggregator):
 
@@ -52,6 +53,7 @@ class ExplanationRandom(ExplanationAggregator):
                 for _ in range(0, self.tries):
                     cf_cand_matrix = copy.deepcopy(org_instance.data)
 
+                    # Padding the cf candidate
                     if cf_cand_matrix.shape[0] < max_dim:
                         cf_cand_matrix = np.pad(exp, 
                                                 pad_width=((0, max_dim - cf_cand_matrix.shape[0]), (0, max_dim - cf_cand_matrix.shape[0])), 
@@ -63,8 +65,10 @@ class ExplanationRandom(ExplanationAggregator):
                     sampled_edges = new_edges[sample_index]
                     # switch on/off the sampled edges
                     cf_cand_matrix[sampled_edges[:,0], sampled_edges[:,1]] = 1 - cf_cand_matrix[sampled_edges[:,0], sampled_edges[:,1]]                
+                    
                     # build the counterfactaul candidates instance
-                    result = GraphInstance(id=org_instance.id, label=-1, data=cf_cand_matrix)
+                    features = pad_features(org_instance.node_features, max_dim)
+                    result = GraphInstance(id=org_instance.id, label=-1, data=cf_cand_matrix, node_features=features)
                     self.dataset.manipulate(result)
                     # if a counterfactual was found return that
                     l_cf_cand = self.oracle.predict(result)
