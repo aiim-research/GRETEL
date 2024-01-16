@@ -127,10 +127,16 @@ class DataAnalyzer():
                         vals = [x['value'] for x in m_value]
                         correctness_vals = [x['value'] for x in results_dict['results'][correctness_cls]]
                         v_filtered = [item for item, flag in zip(vals, correctness_vals) if flag == 1]
-                        
-                        metric = get_instance_kvargs(kls=m_class, param={})
-                        agg_values, agg_std = metric.aggregate(v_filtered)
+
+                        # Avoid aggregating an empty list
+                        if len(v_filtered) > 0:
+                            metric = get_instance_kvargs(kls=m_class, param={})
+                            agg_values, agg_std = metric.aggregate(v_filtered)
+                        else:
+                            agg_values = 0
+
                         aggregated_metrics.append(agg_values)
+
                     else:
                         metric = get_instance_kvargs(kls=m_class, param={})
                         vals = [x['value'] for x in m_value]
