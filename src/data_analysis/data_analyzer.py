@@ -113,35 +113,24 @@ class DataAnalyzer():
                     mega_dict[hashed_scope][hashed_dataset_name][hashed_oracle_name][hashed_explainer_name] = []
 
 
+                # If correctness is among the metrics then get the correctness for each instance
                 correctness_cls, correctness_name = cls.resolve_correctness_class_and_name(results_dict)
-                fidelity_cls, fidelity_name = cls.resolve_fidelity_class_and_name(results_dict)
+                if correctness_cls is not None:
+                    correctness_vals = [x['value'] for x in results_dict['results'][correctness_cls]]
+                else:
+                    correctness_vals = None
 
+                # Aggregate the measures
                 aggregated_metrics = []
                 for m_class, m_value in results_dict['results'].items():
                     metric_name = m_class.split('.')[-1]
                     if first_iteration: # The metric names are only needed the first time
                          metric_names.append(metric_name)
 
-                     # Ignoring instances with correctness 0
-                    if  m_class != correctness_cls and m_class != fidelity_cls:
-                        vals = [x['value'] for x in m_value]
-                        correctness_vals = [x['value'] for x in results_dict['results'][correctness_cls]]
-                        v_filtered = [item for item, flag in zip(vals, correctness_vals) if flag == 1]
-
-                        # Avoid aggregating an empty list
-                        if len(v_filtered) > 0:
-                            metric = get_instance_kvargs(kls=m_class, param={})
-                            agg_values, agg_std = metric.aggregate(v_filtered)
-                        else:
-                            agg_values = 0
-
-                        aggregated_metrics.append(agg_values)
-
-                    else:
-                        metric = get_instance_kvargs(kls=m_class, param={})
-                        vals = [x['value'] for x in m_value]
-                        agg_values, agg_std = metric.aggregate(vals)
-                        aggregated_metrics.append(agg_values)
+                    metric = get_instance_kvargs(kls=m_class, param={})
+                    vals = [x['value'] for x in m_value]
+                    agg_values, agg_std = metric.aggregate(vals, correctness_vals)
+                    aggregated_metrics.append(agg_values)
 
                 mega_dict[hashed_scope][hashed_dataset_name][hashed_oracle_name][hashed_explainer_name].append(aggregated_metrics)
 
@@ -178,19 +167,40 @@ class DataAnalyzer():
     @classmethod
     def resolve_correctness_class_and_name(cls, results_dict):
         for k in results_dict['results'].keys():
-            if 'Correctness' in k or 'correctness' in k:
+            k_low = k.lower()
+            if 'correctness' in k_low:
                 return k, k.split('.')[-1]
             
-        raise NameError('Correctness metric name could not be solved')
+        return None
             
 
     @classmethod
     def resolve_fidelity_class_and_name(cls, results_dict):
         for k in results_dict['results'].keys():
-            if 'Fidelity' in k or 'fidelity' in k:
+            k_low = k.lower()
+            if 'fidelity' in k_low:
                 return k, k.split('.')[-1]
             
-        raise NameError('Fidelity metric name could not be solved')
+        return None
+    
+
+    @classmethod
+    def resolve_oracle_accuracy_class_and_name(cls, results_dict):
+        for k in results_dict['results'].keys():
+            k_low = k.lower()
+            if 'oracle' in k_low and 'accuracy' in k_low:
+                return k, k.split('.')[-1]
+            
+        return None
+    
+    @classmethod
+    def resolve_oracle_calls_class_and_name(cls, results_dict):
+        for k in results_dict['results'].keys():
+            k_low = k.lower()
+            if 'oracle' in k_low and 'calls' in k_low:
+                return k, k.split('.')[-1]
+            
+        return None
     
 
        

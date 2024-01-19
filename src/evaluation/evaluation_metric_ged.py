@@ -92,5 +92,19 @@ class GraphEditDistanceMetric(EvaluationMetric):
             edges_diff_count /= 2
 
         return nodes_diff_count + edges_diff_count
+    
+    
+    def aggregate(self, measure_list, instances_correctness_list=None):
+        # If no correctness list is provided aggregate all the measures
+        if instances_correctness_list is None:
+            return super().aggregate(measure_list, instances_correctness_list)
+        else: # If correctness list is provided then aggregate only the measures of the correct instances
+            filtered_measure_list = [item for item, flag in zip(measure_list, instances_correctness_list) if flag == 1]
+
+            # Avoid aggregating an empty list
+            if len(filtered_measure_list) > 0:
+                return np.mean(filtered_measure_list), np.std(filtered_measure_list)
+            else:
+                return 0.0, 0.0
 
     
