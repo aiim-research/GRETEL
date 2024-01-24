@@ -3,7 +3,6 @@ import time
 from abc import ABC
 
 import jsonpickle
-from scipy import rand
 
 from src.evaluation.evaluation_metric_base import EvaluationMetric
 from src.core.explainer_base import Explainer
