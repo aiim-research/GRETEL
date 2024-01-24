@@ -28,6 +28,6 @@ jobs:
       uses: docker/build-push-action@v2
       with:
         push: true
-        tags: gretelxai/gretel:dev-latest
+        tags: gretelxai/gretel:gpu-latest
         context: "."
         file: "dockerfile.gpu"
