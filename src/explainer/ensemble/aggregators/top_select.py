@@ -22,11 +22,17 @@ class ExplanationTopSelect(ExplanationAggregator):
 
     def real_aggregate(self, org_instance: GraphInstance, explanations: List[GraphInstance]):
         org_lbl = self.oracle.predict(org_instance)
-        geds = list()
+        
+        ged_min = -1
+        ged_inst = None
         for exp in explanations:
             if self.oracle.predict(exp) != org_lbl:
-                geds.append(self.distance_metric.evaluate(org_instance, exp))
-        return explanations[np.argmin(geds)] if len(geds) else org_instance
+                tmp_ged = self.distance_metric.evaluate(org_instance, exp)
+                if tmp_ged < ged_min:
+                    ged_min = tmp_ged
+                    ged_inst = exp
+              
+        return ged_inst if ged_inst is not None else org_instance
     
     def check_configuration(self):
         super().check_configuration()

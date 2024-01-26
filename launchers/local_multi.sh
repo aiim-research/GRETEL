@@ -4,7 +4,7 @@
 #cfg=config/_papers/ijcai24/baselines/baselines_asd.jsonc
 cfg=$1
 
-for i in {1..10}
+for i in {1..1}
 do
     python main.py $cfg $i
 done
