@@ -21,17 +21,33 @@ class ExplanationTopSelect(ExplanationAggregator):
                                                     self.local_config['parameters']['distance_metric']['parameters'])
 
     def real_aggregate(self, org_instance: GraphInstance, explanations: List[GraphInstance]):
+        # Getting the label of the original instance
         org_lbl = self.oracle.predict(org_instance)
-        geds = list()
+
+        # Initializing the result with the original instance which will be returned if a 
+        # counterfactual is not found
+        result = org_instance
+        min_ged = sys.maxsize
+
+        # Iterate over the base explanations looking for a correct counterfactual with the lowest GED
         for exp in explanations:
-            if self.oracle.predict(exp) != org_lbl:
-                geds.append(self.distance_metric.evaluate(org_instance, exp))
-        return explanations[np.argmin(geds)] if len(geds) else org_instance
+            if self.oracle.predict(exp) != org_lbl: # If the explanation is correct
+                exp_ged = self.distance_metric.evaluate(org_instance, exp) # Get the counterfactual GED
+
+                # If the GED is lower that the best counterfactual so far then replace it 
+                # with current counterfactual
+                if (exp_ged < min_ged):
+                    result = exp
+                    min_ged = exp_ged
+
+        # Return the explanation
+        return result
+
     
     def check_configuration(self):
         super().check_configuration()
 
-        dst_metric='src.evaluation.evaluation_metric_ged.GraphEditDistanceMetric'  
+        dst_metric='src.evaluation.evaluation_metric_ged.GraphEditDistanceMetric' 
 
         #Check if the distance metric exist or build with its defaults:
         init_dflts_to_of(self.local_config, 'distance_metric', dst_metric)
