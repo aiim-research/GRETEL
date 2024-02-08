@@ -38,7 +38,11 @@ class TorchBase(Trainable):
     
     def real_fit(self):
         if self.optimize_hyperparameters_GCN:
-            self.model = self.find_and_set_best_GCN()
+            self.context.logger.info("Optimizing hyperparameters")
+            get_instance_kvargs(self.local_config['parameters']['model']['class'],
+                                self.get_best_hyperparameters())
+            
+            self.context.logger.info("Retraining the best found model")
             loader = self.dataset.get_torch_loader(fold_id=self.fold_id, batch_size=self.batch_size, usage='train')
             
             for epoch in range(self.epochs):
@@ -68,6 +72,7 @@ class TorchBase(Trainable):
                 self.context.logger.info(f'epoch = {epoch} ---> loss = {np.mean(losses):.4f}\t accuracy = {accuracy:.4f}')
                 self.lr_scheduler.step()
         else:
+            self.context.logger.info("Training the model without hyperparameter optimization")
             loader = self.dataset.get_torch_loader(fold_id=self.fold_id, batch_size=self.batch_size, usage='train')
             
             for epoch in range(self.epochs):
@@ -132,12 +137,20 @@ class TorchBase(Trainable):
     # hyperparameter search related functions
     def optuna_objective_GCN(self, trial):
         num_conv_layers = trial.suggest_int("num_conv_layers",2,10,log=True)
-        num_dense_layers = trial.suggest_int("num_dense_layers",2,10,log=True)
-        conv_booster = trial.suggest_int("conv_booster",1,5,log=True)
-        linear_decay = trial.suggest_int("linear_decay",1,5,log=True)
+        num_dense_layers = trial.suggest_int("num_dense_layers",1,5,log=True)
+        conv_booster = trial.suggest_int("conv_booster",1,3,log=True)
+        linear_decay = trial.suggest_int("linear_decay",1,3,log=True)
         model_parameters = {"num_conv_layers": num_conv_layers, "num_dense_layers": num_dense_layers, "conv_booster": conv_booster, "linear_decay": linear_decay, "node_features": 7, "n_classes": 2}
-        model= get_instance_kvargs(self.local_config['parameters']['model']['class'],
+        model = get_instance_kvargs(self.local_config['parameters']['model']['class'],
                                      model_parameters)
+        
+        optimizer = get_instance_kvargs(self.local_config['parameters']['optimizer']['class'],
+                                      {'params': model.parameters(), **self.local_config['parameters']['optimizer']['parameters']})
+        
+        loss_fn = get_instance_kvargs(self.local_config['parameters']['loss_fn']['class'],
+                                           self.local_config['parameters']['loss_fn']['parameters'])
+        
+        scheduler =  lr_scheduler.LinearLR(optimizer, start_factor=1.0, end_factor=0.5, total_iters=self.epochs)
 
         loader = self.dataset.get_torch_loader(fold_id=self.fold_id, batch_size=self.batch_size, usage='train')
             
@@ -152,24 +165,26 @@ class TorchBase(Trainable):
                 edge_weights = batch.edge_attr.to(self.device)
                 labels = batch.y.to(self.device).long()
                 
-                self.optimizer.zero_grad()
+                optimizer.zero_grad()
                 
                 pred = model(node_features, edge_index, edge_weights, batch.batch)
-                loss = self.loss_fn(pred, labels)
+                loss = loss_fn(pred, labels)
                 losses.append(loss.to('cpu').detach().numpy())
                 loss.backward()
                 
                 labels_list += list(labels.squeeze().long().detach().to('cpu').numpy())
                 preds += list(pred.squeeze().detach().to('cpu').numpy())
             
-                self.optimizer.step()
+                optimizer.step()
 
             accuracy = self.accuracy(labels_list, preds)
             self.context.logger.info(f'epoch = {epoch} ---> loss = {np.mean(losses):.4f}\t accuracy = {accuracy:.4f}')
-            self.lr_scheduler.step()
+            scheduler.step()
+        print(f"mean loss: {np.mean(losses)}")
         return np.mean(losses)
     
-    def find_and_set_best_GCN(self):
+    def get_best_hyperparameters(self):
         study = optuna.create_study(study_name="GCN optimization")
-        study.optimize(self.optuna_objective_GCN, n_trials=10)
-        return DownstreamGCN(num_conv_layers = study.best_params['num_conv_layers'], num_dense_layers = study.best_params['num_dense_layers'], conv_booster=study.best_params['conv_booster'], linear_decay=study.best_params['linear_decay'], node_features=7, n_classes=2)
+        study.optimize(self.optuna_objective_GCN, n_trials=25)
+        self.context.logger.info(f"Best hyperparamteres found: {study.best_params}")
+        return {"num_conv_layers": study.best_params['num_conv_layers'], "num_dense_layers": study.best_params['num_dense_layers'], "conv_booster":study.best_params['conv_booster'], "linear_decay":study.best_params['linear_decay'], "node_features": 7, "n_classes": 2}
