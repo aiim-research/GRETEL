@@ -1,11 +1,8 @@
-from os import listdir
-from os.path import isfile, join
+from os.path import join
 import numpy as np
 import networkx as nx
 from src.dataset.instances.graph import GraphInstance
 from src.dataset.generators.base import Generator
-
-from torch import zeros
 
 class GithubStargazersGenerator(Generator):
     
@@ -44,32 +41,14 @@ class GithubStargazersGenerator(Generator):
                 graph_edges = edges[np.isin(edges, graph_nodes).any(axis=1)]
 
                 G = nx.Graph()
-                G.add_edges_from(graph_edges)  # Sottrai 1 se gli indici dei nodi partono da 1
-                node_features = generate_node_features(G)
-                print(f"node features: {node_features}")
+                G.add_edges_from(graph_edges)
                 graph = nx.to_numpy_array(G)
 
                 label = graph_labels[graph_id - 1]
-                self.dataset.instances.append(GraphInstance(id=graph_id, data=graph, node_features=node_features, label=label))    
+                self.dataset.instances.append(GraphInstance(id=graph_id, data=graph, label=label))    
 
     def get_num_instances(self):
         return len(self.dataset.instances)
 
 
-def generate_node_features(graph: nx.Graph):
-    degree_centrality = nx.degree_centrality(graph)
-    betweenness_centrality = nx.betweenness_centrality(graph)
-    clustering_index = nx.clustering(graph)
-    closeness_centrality = nx.closeness_centrality(graph)
-    num_nodes = graph.number_of_nodes()
 
-    features = zeros((num_nodes, 4))
-    node_idx = 0
-    print(graph.nodes())
-    for node in graph.nodes():
-        features[node_idx][0] = degree_centrality[node]
-        features[node_idx][1] = betweenness_centrality[node]
-        features[node_idx][2] = clustering_index[node]
-        features[node_idx][3] = closeness_centrality[node]
-        node_idx += 1
-    return features.detach().numpy()
