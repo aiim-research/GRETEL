@@ -1,0 +1,7 @@
+{
+    "manipulators": [
+    { "class": "src.dataset.manipulators.centralities.NodeCentrality", "parameters": {} },
+    { "class": "src.dataset.manipulators.weights.EdgeWeights", "parameters": {} },
+    { "class": "src.dataset.manipulators.rank.RankManipulator", "parameters": {} }      
+    ]    
+}

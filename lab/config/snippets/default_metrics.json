@@ -1,0 +1,9 @@
+{"evaluation_metrics": [ 
+    {"name": "runtime", "parameters": {}},
+    {"name": "graph_edit_distance", "parameters": {}},
+    {"name": "oracle_calls", "parameters": {}},
+    {"name": "correctness", "parameters": {}},
+    {"name": "sparsity", "parameters": {}},
+    {"name": "fidelity", "parameters": {}},
+    {"name": "oracle_accuracy", "parameters": {}}
+]}

@@ -1,0 +1,13 @@
+{
+    "class": "src.dataset.dataset_base.Dataset",
+    "parameters": {
+        "generator": {
+            "class": "src.dataset.generators.bbbp.BBBP",
+            "parameters": {
+                "data_dir": "data/datasets/bbbp/",
+                "data_file_name": "BBBP.csv",
+                "data_label_name": "p_np"
+            }
+        }
+    }
+}

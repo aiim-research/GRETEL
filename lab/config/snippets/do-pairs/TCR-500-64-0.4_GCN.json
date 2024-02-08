@@ -1,0 +1,34 @@
+{
+    "dataset" : {
+      "class": "src.dataset.dataset_base.Dataset",
+      "parameters": {
+          "generator": {
+              "class": "src.dataset.generators.treecycles_rand.TreeCyclesRand", 
+              "parameters": { "num_instances": 500, "num_nodes_per_instance": 64, "ratio_nodes_in_cycles": 0.4 }
+          }
+      } 
+  },
+    "oracle": {
+      "class": "src.oracle.nn.torch.OracleTorch",
+      "parameters": {
+          "epochs": 100,
+          "batch_size": 64,
+          "optimizer": {
+              "class": "torch.optim.RMSprop",
+              "parameters": {
+                  "lr":0.01                
+              }
+            },
+          "loss_fn": {
+              "class": "torch.nn.CrossEntropyLoss",
+              "parameters": {     
+                "reduction":"mean"
+              }
+            },
+          "model": { 
+            "class": "src.oracle.nn.gcn.DownstreamGCN",
+            "parameters": {"num_conv_layers":3,"num_dense_layers":1,"conv_booster":2,"linear_decay":1.8}
+        } 
+      }   
+  }
+}

@@ -29,5 +29,5 @@
     "explainers": [{"class": "src.explainer.heuristic.obs.ObliviousBidirectionalSearchExplainer",
                     "parameters":{"fold_id":0}}],
     "compose_mes" : "config/snippets/default_metrics.json",
-    "compose_strs" : "config/snippets/default_store_paths.json"
+    "compose_strs" : "./lab/config/snippets/default_store_paths.json"
 }
