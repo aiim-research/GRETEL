@@ -1,0 +1,13 @@
+{
+    "dataset" : {"compose_gcn" : "config/snippets/datasets/BBBP.json"},
+    "oracle": {
+        "class": "src.oracle.tabulars.svm.SVMOracle",           
+        "parameters": {
+            "embedder": {
+                "class": "src.embedder.molecule.model.RDKFingerprintEmbedder", 
+                "parameters": {}
+            },
+            "model": {  "parameters": {} }            
+        } 
+    }
+}
