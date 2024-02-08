@@ -1,0 +1,15 @@
+{
+    "dataset" : {"compose_gcn" : "config/snippets/datasets/TCR-128-32-0.2.json"},
+    "oracle": {
+        "class": "src.oracle.tabulars.svm.SVMOracle",           
+        "parameters": {
+            "embedder": {
+                "class": "src.embedder.graph2vec.model.Graph2VecEmbedder", 
+                "parameters": {
+                    "model": {"parameters": { "wl_iterations": 17 } }
+                }
+            },
+            "model": {  "parameters": {} }            
+        } 
+    }
+}

@@ -29,49 +29,6 @@ class DataAnalyzer():
 
         return result
     
-    @classmethod
-    def build_moat(cls, results_folder_path):
-        """This method receives a do-pair folder path. This folder is associated to an specific 
-        dataset and oracle combination and should contain folders for each of the explainers tested 
-        on that do-pair"""
-        results_file_paths = cls.get_json_file_paths(results_folder_path)
-
-        mega_table = None
-        rows = []
-        column_names = ['scope', 'dataset', 'oracle', 'explainer', 'fold_id', 'run_id']
-        
-        for results_file_uri in results_file_paths:
-            with open(results_file_uri, 'r') as results_file_reader:
-                results_plain_text = results_file_reader.read()
-                results_dict = jsonpickle.decode(results_plain_text)
-
-                hashed_scope = results_dict['config']['scope']
-                fold_id = results_dict['config']['fold_id']
-                run_id = results_dict['config']['run_id']
-                extra_columns = results_dict['config']['experiment']['extra_columns']
-
-                # Getting the dataset, oracle and explainer names
-                hashed_dataset_name = os.path.basename(os.path.dirname(os.path.dirname(os.path.dirname(results_file_uri))))
-                hashed_oracle_name = os.path.basename(os.path.dirname(os.path.dirname(results_file_uri)))
-                hashed_explainer_name = os.path.basename(os.path.dirname(results_file_uri))
-
-                row = [hashed_scope, hashed_dataset_name, hashed_oracle_name, hashed_explainer_name, fold_id, run_id]
-
-                for m_class, m_value in results_dict['results'].items():
-                    if len(rows) < 1: # The metric names are only needed the first time
-                         column_names.append(m_class)
-
-                    metric = get_instance_kvargs(kls=m_class, param={})
-                    agg_values, agg_std = metric.aggregate(m_value)
-
-                    # agg_values = np.mean(m_value)
-                    row.append(agg_values)
-
-                rows.append(row)
-
-        mega_table = pd.DataFrame(data=rows, columns=column_names)
-        return mega_table
-
 
     @classmethod
     def create_aggregated_dataframe_oldstyle(cls, results_folder_path):
@@ -175,32 +132,105 @@ class DataAnalyzer():
             
 
     @classmethod
-    def resolve_fidelity_class_and_name(cls, results_dict):
-        for k in results_dict['results'].keys():
-            k_low = k.lower()
-            if 'fidelity' in k_low:
-                return k, k.split('.')[-1]
-            
-        return None
+    def get_node_changes(cls, g1, g2):
+        """Input: g1 is a data instance and g2 is its counterfactual instance
+           Output: (common nodes, added nodes, removed nodes)"""
+
+        n_g1 = g1.data.shape[0]
+        n_g2 = g2.data.shape[0]
+
+        common_nodes_num = min(n_g1, n_g2)
+        common_nodes = list(range(0, common_nodes_num))
+
+        if n_g1 == n_g2: # Both graphs have the same size
+            removed_nodes = []
+            added_nodes = []
+        elif n_g1 > n_g2: # G1 has more nodes than G2
+            removed_nodes = list(range(common_nodes_num, n_g1))
+            added_nodes = []
+        else: # G2 has more nodes than G1
+            removed_nodes = []
+            added_nodes = list(range(common_nodes_num, n_g2))
+
+        return common_nodes, added_nodes, removed_nodes
     
 
     @classmethod
-    def resolve_oracle_accuracy_class_and_name(cls, results_dict):
-        for k in results_dict['results'].keys():
-            k_low = k.lower()
-            if 'oracle' in k_low and 'accuracy' in k_low:
-                return k, k.split('.')[-1]
-            
-        return None
-    
-    @classmethod
-    def resolve_oracle_calls_class_and_name(cls, results_dict):
-        for k in results_dict['results'].keys():
-            k_low = k.lower()
-            if 'oracle' in k_low and 'calls' in k_low:
-                return k, k.split('.')[-1]
-            
-        return None
+    def get_edge_changes(cls, g1, g2, directed=False):
+        """Returns (common_edges_list, added_edges_list, removed_edges_list)"""
+        g1_A = g1.data
+        g2_A = g2.data
+        n_g1 = g1_A.shape[0]
+        n_g2 = g2_A.shape[0]
+        common_nodes_num = min(n_g1, n_g2)
+
+        common_edges = []
+        added_edges = []
+        removed_edges = []
+
+        if directed: # If the graphs are directed
+
+            # Check the edges between the nodes common to both graphs
+            for i in range(common_nodes_num):
+                for j in range(common_nodes_num):
+                    if g1_A[i,j] == 1 and g2_A[i,j] == 1:
+                        common_edges.append((i,j))
+                    elif g1_A[i,j] == 0 and g2_A[i,j] == 1:
+                        added_edges.append((i,j))
+                    elif g1_A[i,j] == 1 and g2_A[i,j] == 0:
+                        removed_edges.append((i,j))
+
+            # If g2 removed nodes from g1 then all the edges from those nodes were removed
+            if n_g1 > n_g2:
+                for i in range(common_nodes_num, n_g1):
+                    for j in range(0, i):
+                        if g1_A[i,j] == 1:
+                            removed_edges.append((i,j))
+
+                for j in range(common_nodes_num, n_g1):
+                    for i in range(0, j):
+                        if g1_A[i,j] == 1:
+                            removed_edges.append((i,j))
+
+            # If g2 added nodes then all the edges to those nodes were added
+            elif n_g2 > n_g1:
+                for i in range(common_nodes_num, n_g2):
+                    for j in range(0, j):
+                        if g2_A[i,j] == 1:
+                            added_edges.append((i,j))
+                
+                for j in range(common_nodes_num, n_g2):
+                    for i in range(0, j):
+                        if g2_A[i,j] == 1:
+                            added_edges.append((i,j))
+
+        else: # The graph is undirected, so we only iterate over half the graph
+
+            # Check the edges between the nodes common to both graphs
+            for i in range(common_nodes_num):
+                for j in range(i, common_nodes_num):
+                    if g1_A[i,j] == 1 and g2_A[i,j] == 1:
+                        common_edges.append((i,j))
+                    elif g1_A[i,j] == 0 and g2_A[i,j] == 1:
+                        added_edges.append((i,j))
+                    elif g1_A[i,j] == 1 and g2_A[i,j] == 0:
+                        removed_edges.append((i,j))
+
+            # If g2 removed nodes from g1 then all the edges from those nodes were removed
+            if n_g1 > n_g2:
+                for j in range(common_nodes_num, n_g1):
+                    for i in range(0, j):
+                        if g1_A[i,j] == 1:
+                            removed_edges.append((i,j))
+
+            # If g2 added nodes then all the edges to those nodes were added
+            elif n_g2 > n_g1:
+                for j in range(common_nodes_num, n_g2):
+                    for i in range(0, j):
+                        if g2_A[i,j] == 1:
+                            added_edges.append((i,j))
+
+        return common_edges, added_edges, removed_edges
     
 
        
