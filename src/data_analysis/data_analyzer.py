@@ -233,4 +233,98 @@ class DataAnalyzer():
         return common_edges, added_edges, removed_edges
     
 
+    @classmethod
+    def get_cf_changes(cls, og_inst, cf_inst, directed=False):
+        common_nodes, added_nodes, removed_nodes = cls.get_node_changes(og_inst, cf_inst)
+        common_edges, added_edges, removed_edges = cls.get_edge_changes(og_inst, cf_inst, directed)
+
+        return {'common nodes': common_nodes, 
+                'common edges': common_edges, 
+                'added nodes': added_nodes, 
+                'added edges': added_edges,
+                'removed nodes': removed_nodes,
+                'removed edges': removed_edges}
+
+
+    @classmethod
+    def get_nx_graph(cls, graph_instance):
+        # This method exist in case we move the networkx transformation outside of the instances in the future
+        return graph_instance.get_nx()
+    
+
+    @classmethod
+    def draw_graph(cls, data_instance, position=None, img_store_address=None):
+
+        G = cls.get_nx_graph(data_instance)
+
+        if position is None:
+            layout = nx.spring_layout
+            position = layout(G)
+
+        edge_colors = ['cyan' for u, v in G.edges()]
+        node_colors = ['cyan' for node in G.nodes()]
+
+        nx.draw(G=G, pos=position, node_color=node_colors, edge_color=edge_colors, with_labels=True)
+
+        if img_store_address:
+            plt.savefig(img_store_address, format='svg')
+
+        plt.show(block=False)
+
+        # After showing the graph returns the position used, so can be re-used later
+        return position
+
+
+    @classmethod
+    def draw_counterfactual_actions(cls, 
+                                    og_instance, 
+                                    cf_instance, 
+                                    position=None, 
+                                    img_store_address=None):
+        
+        # In case a position is not provided
+        if position is None:
+            layout = nx.spring_layout
+            position = layout(cls.get_nx_graph(og_instance))
+        
+        changes = cls.get_cf_changes(og_instance, cf_instance, False)
+
+        edges_shared = changes['common edges']
+        edges_added = changes['added edges']
+        edges_deleted = changes['removed edges']
+        nodes_shared = changes['common nodes']
+        nodes_added = changes['added nodes']
+        nodes_deleted = changes['removed nodes']
+
+        # Create a new Network object
+        G = nx.Graph()
+
+        # Add shared nodes and edges in grey
+        for node in nodes_shared:
+            G.add_node(node, color='cyan')
+        for edge in edges_shared:
+            G.add_edge(*edge, color='cyan')
+
+        # Add deleted nodes and edges in red
+        for node in nodes_deleted:
+            G.add_node(node, color='red')
+        for edge in edges_deleted:
+            G.add_edge(*edge, color='red')
+
+        # Add added nodes and edges in green color
+        for node in nodes_added:
+            G.add_node(node, color='green')
+        for edge in edges_added:
+            G.add_edge(*edge, color='green')
+
+        edge_colors = [G[u][v]['color'] for u, v in G.edges()]
+        node_colors = [G.nodes[node]['color'] for node in G.nodes()]
+        
+        nx.draw(G=G, pos=position, node_color=node_colors, edge_color=edge_colors, with_labels=True)
+
+        if img_store_address:
+            plt.savefig(img_store_address, format='svg')
+
+        plt.show(block=False)
+
        
