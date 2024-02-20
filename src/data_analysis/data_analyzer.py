@@ -264,7 +264,7 @@ class DataAnalyzer():
         edge_colors = ['cyan' for u, v in G.edges()]
         node_colors = ['cyan' for node in G.nodes()]
 
-        nx.draw(G=G, pos=position, node_color=node_colors, edge_color=edge_colors, with_labels=True)
+        nx.draw_networkx(G=G, pos=position, node_color=node_colors, edge_color=edge_colors, with_labels=True)
 
         if img_store_address:
             plt.savefig(img_store_address, format='svg')
@@ -320,7 +320,7 @@ class DataAnalyzer():
         edge_colors = [G[u][v]['color'] for u, v in G.edges()]
         node_colors = [G.nodes[node]['color'] for node in G.nodes()]
         
-        nx.draw(G=G, pos=position, node_color=node_colors, edge_color=edge_colors, with_labels=True)
+        nx.draw_networkx(G=G, pos=position, node_color=node_colors, edge_color=edge_colors, with_labels=True)
 
         if img_store_address:
             plt.savefig(img_store_address, format='svg')
