@@ -1,0 +1,9 @@
+{
+    "class": "src.dataset.dataset_base.Dataset",
+    "parameters": {
+        "generator": {
+            "class": "lab.src.dataset.treeinfinity_rand.TreeInfinityCycles", 
+            "parameters": { "num_instances": 128, "num_nodes_per_instance": 32, "infinity_cycle_length": 8}
+        }
+    } 
+}
