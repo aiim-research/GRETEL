@@ -53,17 +53,20 @@ class MACCSExplainer(Explainer):
             return instance
 
         if(len(cfs) > 1):
-            # min_counterfactual = copy.deepcopy(instance)
-
             min_cft_label = clf(cfs[1].smiles)
-            _ , min_counterfactual = mol_gen.smile2graph(instance.id, cfs[1].smiles, min_cft_label, self.dataset)
+            _ , min_counterfactual = mol_gen.smile2graph(instance.id, 
+                                                         cfs[1].smiles, 
+                                                         min_cft_label, 
+                                                         self.dataset)
             return min_counterfactual
         else:
             return instance
 
     def _oracle_wrapper_creator(self, oracle: Oracle, dataset: Dataset):
         """
-        This function takes an oracle and return a function that takes the smiles of a molecule, transforms it into a DataInstance and returns the prediction of the oracle for it
+        This function takes an oracle and return a function that takes the smiles
+        of a molecule, transforms it into a DataInstance and returns the prediction 
+        of the oracle for it
         """
 
         # The inner function uses the oracle, but does not receive it as a parameter
@@ -72,3 +75,5 @@ class MACCSExplainer(Explainer):
             return oracle.predict(inst)
 
         return _oracle_wrapper
+    
+    
