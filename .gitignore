@@ -138,6 +138,8 @@ stats/
 AAAI/
 config/_papers
 .DS_Store
+experiments/
+config/Gretel1_AAAI/
 
 # videos
 .mp4

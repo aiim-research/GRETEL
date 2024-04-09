@@ -1,0 +1,26 @@
+{
+    "dataset" : {"compose_gcn" : "config/Gretel2_AAAI/snippets/datasets/TCR-500-28-7.json"},
+      "oracle": {
+        "class": "src.oracle.nn.torch.OracleTorch",
+        "parameters": {
+            "epochs": 200,
+            "batch_size": 32,
+            "optimizer": {
+                "class": "torch.optim.RMSprop",
+                "parameters": {
+                    "lr":0.01                
+                }
+              },
+            "loss_fn": {
+                "class": "torch.nn.CrossEntropyLoss",
+                "parameters": {     
+                  "reduction":"mean"
+                }
+              },
+            "model": { 
+              "class": "src.oracle.custom.oracle_tree_cycles.TreeCyclesOracle",
+              "parameters": {}
+          } 
+        }   
+    }
+  }
