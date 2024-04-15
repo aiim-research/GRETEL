@@ -1,16 +1,12 @@
-#!/bin/bash
-#$ -S /bin/bash
-#$ -pe mpi 24
-#$ -cwd
-#$ -o ./output/qsub/std_$JOB_ID.out
-#$ -e ./output/qsub/err_$JOB_ID.out
-#$ -q parallel.q
+#!/bin/bash -l
+#SBATCH -o output/logs/%j.out
+#SBATCH -s
+#SBATCH -N 1
+#SBATCH -n 1
+#SBATCH -J RSGG-MAIN
+#SBATCH -c 8
+#SBATCH -p normal
 
+export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-export OMP_NUM_THREADS=$NSLOTS
-export OPENBLAS_NUM_THREADS=$NSLOTS
-export MKL_NUM_THREADS=$NSLOTS
-export VECLIB_MAXIMUM_THREADS=$NSLOTS
-export NUMEXPR_NUM_THREADS=$NSLOTS
-
-python $1 $2 $3
+srun python "$@"
