@@ -4,7 +4,7 @@ conda create -n GRTL python=3.9 -y
 
 conda activate GRTL
 
-#pip install -y torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+#pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 
 

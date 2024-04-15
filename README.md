@@ -1,5 +1,5 @@
 # GRETEL (v2.0): Graph Counterfactual Explanation Evaluation Framework
-[![discord](https://img.shields.io/badge/Discord-blue?style=for-the-badge)](https://discord.gg/XHSc8Rv2)
+[![discord](https://img.shields.io/badge/Discord-blue?style=for-the-badge)](https://discord.gg/TdZWBDg7)
 [![linkedin](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/company/artificial-intelligence-information-mining)
 [![github](https://img.shields.io/github/stars/aiim-research/GRETEL?style=for-the-badge)](#)
 [![python](https://img.shields.io/badge/Python-3.9-blue?style=for-the-badge)](https://docs.python.org/release/3.9.0/)

@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 import pickle
 from src.core.trainable_base import Trainable
-from src.utils.cfg_utils import clean_cfg
+from src.utils.context import clean_cfg
 
 class Embedder(Trainable,metaclass=ABCMeta):
         

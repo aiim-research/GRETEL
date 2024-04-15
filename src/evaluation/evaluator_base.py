@@ -79,11 +79,12 @@ class Evaluator(ABC):
         if len(self.explanations) < 1:
             return None
 
-        # iterates over the original instances and the explanations
-        n_ins = len(self.dataset.instances)
+        # iterates over the explanations (because we can be explaining just a fold)
+        n_exp = len(self.explanations)
         result = []
-        for i in range(0, n_ins):
-            result.append((self.dataset.instances[i], self.explanations[i]))
+        for i in range(0, n_exp):
+            exp = self.explanations[i]
+            result.append((self.dataset.instances[exp.id], exp))
 
         return result
 
