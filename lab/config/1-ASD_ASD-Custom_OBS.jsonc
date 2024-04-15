@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "aaai_lab",
+        "scope": "demo",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[

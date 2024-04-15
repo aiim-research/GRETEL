@@ -133,6 +133,8 @@ dmypy.json
 # data folders
 data/cache*
 lab/data/cache*
+lab/results_legacy*
+lab/stats_legacy*
 output/
 stats/
 AAAI/
