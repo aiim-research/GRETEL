@@ -31,7 +31,7 @@ class DataAnalyzer():
     
 
     @classmethod
-    def create_aggregated_dataframe_oldstyle(cls, results_folder_path):
+    def create_aggregated_dataframe(cls, results_folder_path):
         """This method receives a do-pair folder path. This folder is associated to an specific 
         dataset and oracle combination and should contain folders for each of the explainers tested 
         on that do-pair"""

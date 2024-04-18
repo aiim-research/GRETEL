@@ -2,8 +2,8 @@
     "store_paths": [
         {"name": "dataset_store_path", "address": "./lab/data/cache/datasets/"},        
         {"name": "oracle_store_path", "address": "./lab/data/cache/oracles/"},
-        {"name": "embedder_store_path", "address": ".lab//data/cache/oracles/"},
-        {"name": "explainer_store_path", "address": ".lab//data/cache/explainers/"},        
+        {"name": "embedder_store_path", "address": "./lab//data/cache/oracles/"},
+        {"name": "explainer_store_path", "address": "./lab//data/cache/explainers/"},        
         {"name": "log_store_path", "address": "./lab/output/logs/"},
         {"name": "output_store_path", "address": "./lab/output/results/"}
     ]

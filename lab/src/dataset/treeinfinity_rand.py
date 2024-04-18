@@ -1,4 +1,3 @@
-import networkx as nx
 import numpy as np
 
 from src.dataset.generators.base import Generator
