@@ -54,7 +54,7 @@ class PositiveAndNegativeEdgeSampler(Sampler):
     def __sample(self, instance, features, probabilities, edge_list, num_samples=1):
         n_nodes = instance.num_nodes
         adj = torch.zeros((n_nodes, n_nodes)).double()
-        selected_indices = torch.multinomial(probabilities, num_samples=num_samples, replacement=False).numpy()
+        selected_indices = torch.multinomial(probabilities, num_samples=num_samples, replacement=False).cpu().numpy()
         for edge in edge_list[:,selected_indices].T:
             adj[edge[0], edge[1]] = 1
         return GraphInstance(id=instance.id, label=1-instance.label, data=adj.numpy(), node_features=features)      

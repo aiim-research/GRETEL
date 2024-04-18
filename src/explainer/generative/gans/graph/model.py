@@ -8,7 +8,7 @@ from src.dataset.instances.graph import GraphInstance
 from src.utils.torch.utils import rebuild_adj_matrix
 from src.dataset.utils.dataset_torch import TorchGeometricDataset
 
-from torch_geometric.utils.unbatch import unbatch, unbatch_edge_index
+from torch_geometric.utils import unbatch, unbatch_edge_index
 from src.utils.cfg_utils import init_dflts_to_of
 
 class GAN(BaseGAN):
