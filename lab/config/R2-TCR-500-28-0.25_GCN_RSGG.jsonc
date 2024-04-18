@@ -15,17 +15,7 @@
     "do-pairs":[ {"compose_tcr_gcn" : "./lab/config/snippets/do-pairs/TCR-500-28-0.25_Custom.json"}],
     
     "explainers": [
-                    {"class": "src.explainer.generative.rsgg.RSGG","parameters": {
-                                                                                "n_nodes": 28,
-                                                                                "device": "cuda",
-                                                                                "converter": "tree_cycles",
-                                                                                "n_labels": 2,
-                                                                                "training_iterations": 500,
-                                                                                "sampling_iterations": 500,
-                                                                                "feature_dim": 8,
-                                                                                "lr_generator": 0.001,
-                                                                                "lr_discriminator": 0.001
-                                                                            }
+                    {"class": "src.explainer.generative.rsgg.RSGG","parameters": {"epochs": 500}
                     }
                 ],
 

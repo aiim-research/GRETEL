@@ -14,7 +14,7 @@
     },
     "do-pairs":[ {"compose_tcr_gcn" : "./lab/config/snippets/do-pairs/TCR-128-32-0.2_GCN.json"}],
     
-    "explainers": [{"class": "src.explainer.generative.rsgg.RSGG","parameters":{"epochs": 150}}],
+    "explainers": [{"class": "src.explainer.generative.rsgg.RSGG","parameters":{"epochs": 500}}],
 
     "compose_mes" : "./lab/config/snippets/default_metrics.json",
     "compose_strs" : "./lab/config/snippets/default_store_paths.json"
