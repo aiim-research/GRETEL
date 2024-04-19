@@ -30,7 +30,8 @@ COPY ./ /home/$USERNAME/gretel
 
 # Install project requirements
 RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-RUN pip install -r /home/$USERNAME/gretel/requirements.txt
+RUN pip install picologging==0.9.2 exmol gensim joblib jsonpickle matplotlib networkx numpy pandas rdkit scikit-learn scipy selfies sqlalchemy black typing-extensions torch_geometric==2.4.0 dgl IPython ipykernel flufl.lock jsonc-parser
+
 
 
 CMD ["/bin/bash"]
