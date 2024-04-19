@@ -1,4 +1,4 @@
-import network as nx
+import networkx as nx
 import matplotlib.pyplot as plt
 
 ds_size= 500
