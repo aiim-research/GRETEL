@@ -1,10 +1,11 @@
 
-from src.explainer.meg.environments.molecule_env import Molecule
+from src.explainer.rl.meg_utils.environments.molecule_env import Molecule
 import torch
 
 from torch.nn import functional as F
-from src.explainer.meg.utils.similarity import get_similarity
-from src.explainer.meg.utils.molecules import mol_from_smiles, mol_to_tox21_pyg
+from src.explainer.rl.meg_utils.utils.similarity import get_similarity
+from src.explainer.rl.meg_utils.utils.molecules import mol_to_tox21_pyg
+from src.explainer.rl.meg_utils.environments.molecule_env import mol_from_smiles
 
 class CF_Tox21(Molecule):
     
