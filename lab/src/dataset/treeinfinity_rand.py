@@ -1,4 +1,5 @@
 import numpy as np
+import networkx as nx
 
 from src.dataset.generators.base import Generator
 from src.dataset.instances.graph import GraphInstance
