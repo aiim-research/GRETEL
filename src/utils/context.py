@@ -1,13 +1,15 @@
 import copy
-import inspect
-import os
-from flufl.lock import Lock
-from datetime import timedelta
-import jsonpickle
-import numpy as np
-from jsonc_parser.parser import JsoncParser
 import hashlib
-from src.utils.composer import compose,propagate
+import inspect
+import numpy as np
+import os
+
+from datetime import timedelta
+from flufl.lock import Lock, TimeOutError
+from jsonc_parser.parser import JsoncParser
+from time import sleep
+
+from src.utils.composer import compose, propagate
 from src.utils.logger import GLogger
 
 
@@ -25,6 +27,7 @@ class Context(object):
             "metrics": None
         }
         self.lock_release_tout : None
+        self.lock_timeout = None
         ###################################################
         assert(create_key == Context.__create_key), \
             "Context objects must be created using Context.get_context"
@@ -44,6 +47,8 @@ class Context(object):
         self.conf['experiment']['parameters']=self.conf['experiment'].get('parameters',{})
         self.conf['experiment']['parameters']['lock_release_tout']=self.conf['experiment']['parameters'].get('lock_release_tout',24*5) #Expressed in hours
         self.lock_release_tout = self.conf['experiment']['parameters']['lock_release_tout']
+        self.conf['experiment']['parameters']['lock_timeout']=self.conf['experiment']['parameters'].get('lock_timeout',5) #Expressed in seconds
+        self.lock_timeout = self.conf['experiment']['parameters']['lock_timeout']
 
         self.raw_conf = copy.deepcopy(self.conf) #TODO: I think it is will be useless remove that in the future.
 
@@ -78,11 +83,18 @@ class Context(object):
             directory = os.path.join(store_dir, str(obj.dataset))
         else:
             directory = store_dir
-        lock = Lock(directory+'.lck',lifetime=timedelta(hours=self.lock_release_tout))
-        with lock:
-            os.makedirs(directory, exist_ok=True)
-            return os.path.join(directory, obj.name)
-    
+        lock_file = f'{directory}.lck'
+        lock_lifetime = timedelta(hours=self.lock_release_tout)
+        lock_timeout = timedelta(seconds=self.lock_timeout)
+        while True:
+            try:
+                with Lock(lock_file, lock_lifetime, default_timeout=lock_timeout):
+                    os.makedirs(directory, exist_ok=True)
+                    return os.path.join(directory, obj.name)
+            except TimeOutError:
+                sleep(1)
+                continue
+
     @classmethod
     def get_fullname(cls, o):
         klass = o.__class__
