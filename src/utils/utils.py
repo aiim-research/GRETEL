@@ -28,12 +28,10 @@ def sanitize_dir_pyg(based_dir,prefix,model_name='explainer'):
 def unfold_confs(based_dir,out_dir,prefix,num_folds=10):
     for dir in os.listdir(based_dir):
         if dir.startswith(prefix) and os.path.isdir(os.path.join(based_dir,dir)):
-            ''' if not os.path.exists(os.path.join(out_dir,dir)):
-                os.makedirs(os.path.join(out_dir,dir)) '''
+            # os.makedirs(os.path.join(out_dir,dir), exist_ok=True)
             for sub_dir in os.listdir(os.path.join(based_dir,dir)):
                 if os.path.isdir(os.path.join(based_dir,dir,sub_dir)):
-                    if not os.path.exists(os.path.join(out_dir,dir,sub_dir)):
-                        os.makedirs(os.path.join(out_dir,dir,sub_dir))
+                    os.makedirs(os.path.join(out_dir,dir,sub_dir), exist_ok=True)
                     print("Processing subfolder: "+os.path.join(based_dir,dir,sub_dir))
                     for conf_file in os.listdir(os.path.join(based_dir,dir,sub_dir)):
                         #print(conf_file)

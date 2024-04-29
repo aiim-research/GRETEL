@@ -80,8 +80,7 @@ class Context(object):
             directory = store_dir
         lock = Lock(directory+'.lck',lifetime=timedelta(hours=self.lock_release_tout))
         with lock:
-            if not os.path.exists(directory):
-                os.makedirs(directory)
+            os.makedirs(directory, exist_ok=True)
             return os.path.join(directory, obj.name)
     
     @classmethod
@@ -119,8 +118,7 @@ class Context(object):
             
     def __create_storages(self):
         for store_path in self.conf['store_paths']:
-            if not os.path.exists(store_path['address']):
-                os.makedirs(store_path['address'])
+            os.makedirs(store_path['address'], exist_ok=True)
 
     @property
     def dataset_store_path(self):

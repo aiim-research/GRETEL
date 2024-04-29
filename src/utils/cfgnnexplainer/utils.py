@@ -8,7 +8,7 @@ from torch_geometric.utils import k_hop_subgraph, dense_to_sparse, to_dense_adj,
 
 def mkdir_p(path):
 	try:
-		os.makedirs(path)
+		os.makedirs(path, exist_ok=True)
 	except OSError as exc:  # Python >2.5
 		if exc.errno == errno.EEXIST and os.path.isdir(path):
 			pass

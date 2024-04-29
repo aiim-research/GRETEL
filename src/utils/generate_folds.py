@@ -3,9 +3,6 @@ import os
 import json
 import copy
 
-def make_dir_if_not_exists(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
 
 def update_fold_id_for_explainers(data, new_fold_id, target='explainers'):
     if 'parameters' in data.get('experiment', {}):
@@ -67,7 +64,7 @@ def perform_ablation(input_data, ablation):
 
 def generate_folds(cf, output_folder, isfolder=False):
 
-    make_dir_if_not_exists(output_folder)
+    os.makedirs(output_folder, exist_ok=True)
 
     with open(cf) as json_file:
         data = json.load(json_file)
@@ -110,7 +107,7 @@ def generate_folds(cf, output_folder, isfolder=False):
 
                         op = os.path.join(os.path.join(output_folder,'temp'))
 
-                        make_dir_if_not_exists(op)
+                        os.makedirs(op, exist_ok=True)
 
                         op = os.path.join(op, filename)
                         
@@ -131,7 +128,7 @@ def generate_folds(cf, output_folder, isfolder=False):
                 else:
                     save_dir = os.path.join(output_folder, f"{cf_name}_do{number_do_pair}_e{number_explainer}")
 
-                make_dir_if_not_exists(save_dir)
+                os.makedirs(save_dir, exist_ok=True)
 
                 new_file = os.path.join(save_dir, f"{cf_name}_do{number_do_pair}_e{number_explainer}_f{fold}.json")
 

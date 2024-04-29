@@ -18,14 +18,11 @@ class InstancesDumper(EvaluationMetric):
         self._name = 'Dumper'
         self._correctness = CorrectnessMetric()
         self._store_path = os.path.join(config_dict['parameters']['store_path'],self.__class__.__name__)
-        if not os.path.exists(self._store_path):
-            os.makedirs(self._store_path)
-        
+        os.makedirs(self._store_path, exist_ok=True)
 
     def evaluate(self, instance_1 , instance_2 , oracle : Oracle=None, explainer : Explainer=None, dataset = None):
         exp_path=os.path.join(self._store_path,dataset.name,explainer.name.replace('fold_id=.*_',''),str(explainer.fold_id))
-        if not os.path.exists(exp_path):
-            os.makedirs(exp_path)
+        os.makedirs(exp_path, exist_ok=True)
 
         correctness = self._correctness.evaluate(instance_1,instance_2,oracle)
         
