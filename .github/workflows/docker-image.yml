@@ -5,29 +5,17 @@ on:
     branches:
       - main
   pull_request:
-    branches: 
+    branches:
       - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
-      
-    - name: Login to DockerHub
-      uses: docker/login-action@v1 
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }} 
-    
-    - name: Build and push
-      id: docker_build
-      uses: docker/build-push-action@v2
-      with:
-        push: true
-        tags: gretelxai/gretel:dev-latest
-        context: "."
-        file: "dockerfile"
+      - name: Build and Push Docker Image
+        uses: ./.github/actions/docker-build.yml
+        with:
+          dockerfile: "dockerfile"
+          image_tag: "gretelxai/gretel:dev-latest"
+          push_image: ${{ github.event_name == 'push' }}
+          optimize_space: "true"
