@@ -12,6 +12,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Build and Push Docker Image
         uses: ./.github/actions/docker-build.yml
         with:
