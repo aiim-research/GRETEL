@@ -1,14 +1,11 @@
-import os
-import time
 from abc import ABC
+from jsonpickle import encode
+from os import makedirs
+from os.path import join
 
-import jsonpickle
-
-from src.evaluation.evaluation_metric_base import EvaluationMetric
 from src.core.explainer_base import Explainer
 from src.core.oracle_base import Oracle
-from src.utils.cfgnnexplainer.utils import safe_open
-from src.utils.context import Context,clean_cfg
+from src.utils.context import Context, clean_cfg
 from src.utils.logger import GLogger
 
 
@@ -160,25 +157,19 @@ class Evaluator(ABC):
         
         self._complete['hash_ids']=hash_info
 
-        output_path = os.path.join(self._results_store_path, self._scope)
-        if not os.path.exists(output_path):
-            os.mkdir(output_path)
+        output_path = join(self._results_store_path, self._scope)
+        makedirs(output_path, exist_ok=True)
 
-        
-        output_path = os.path.join(output_path, self._data.name)
-        if not os.path.exists(output_path):
-            os.mkdir(output_path)
+        output_path = join(output_path, self._data.name)
+        makedirs(output_path, exist_ok=True)
 
-        output_path = os.path.join(output_path, self._oracle.name)
-        if not os.path.exists(output_path):
-            os.mkdir(output_path)
+        output_path = join(output_path, self._oracle.name)
+        makedirs(output_path, exist_ok=True)
 
-        output_path = os.path.join(output_path, self._explainer.name)
-        if not os.path.exists(output_path):
-            os.mkdir(output_path)
+        output_path = join(output_path, self._explainer.name)
+        makedirs(output_path, exist_ok=True)
 
-        results_uri = os.path.join(output_path, 'results_' + str(fold_id) + '_'+ str(self._run_number)+'.json')
+        results_uri = join(output_path, f'results_{fold_id}_{self._run_number}.json')
 
         with open(results_uri, 'w') as results_writer:
-            results_writer.write(jsonpickle.encode(self._complete))
-
+            results_writer.write(encode(self._complete))

@@ -18,8 +18,7 @@ class GLogger(object):
         self.info = logging.getLogger()
         self.info.setLevel(logging.INFO)
 
-        if not os.path.exists(GLogger._path):
-            os.makedirs(GLogger._path)
+        os.makedirs(GLogger._path, exist_ok=True)
 
         file_handler = logging.FileHandler(GLogger._path+"/"+str(os.getenv('JOB_ID',str(os.getpid())))+"-"+socket.gethostname()+".info", encoding='utf-8')
         stdout_handler = logging.StreamHandler(sys.stdout)
