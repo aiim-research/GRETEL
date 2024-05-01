@@ -15,7 +15,7 @@ class Causality(BaseManipulator):
         u = int(self.causalities[instance.id])
         noise_1 = (self.max_1[u] - self.min_1[u]) * np.random.random_sample() + self.min_1[u]
         feat_x1 = noise_1 + 0.5 * np.mean(instance.degrees())
-        feat_add = feat_x1.repeat(instance.num_nodes).reshape(-1,1)
+        feat_add = feat_x1.repeat(instance.num_nodes)
         return { "node_causality": list(feat_add) }
     
     def graph_info(self, instance):
