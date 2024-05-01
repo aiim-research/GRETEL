@@ -18,7 +18,7 @@ jobs:
           repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref }}
 
-      - run: cd .github/actions && ls -la
+      - run: cat ./.github/actions/docker-build.yml
 
       - name: Build and Push Docker Image
         uses: ./.github/actions/docker-build.yml
