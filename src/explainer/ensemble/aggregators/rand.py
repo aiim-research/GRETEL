@@ -1,74 +1,69 @@
 import copy
 from typing import List
+import numpy as np
+import random
 
+from src.dataset.instances.base import DataInstance
 from src.dataset.instances.graph import GraphInstance
 from src.explainer.ensemble.aggregators.base import ExplanationAggregator
-import numpy as np
-
-from src.core.factory_base import get_instance_kvargs
-from src.utils.cfg_utils import init_dflts_to_of
 from src.utils.utils import pad_adj_matrix, pad_features
 
 class ExplanationRandom(ExplanationAggregator):
 
+    def check_configuration(self):
+        super().check_configuration()
+
+        if 'runs' not in self.local_config['parameters']:
+            self.local_config['parameters']['runs'] = 5
+
+
     def init(self):
         super().init()
 
-        self.distance_metric = get_instance_kvargs(self.local_config['parameters']['distance_metric']['class'], 
-                                                    self.local_config['parameters']['distance_metric']['parameters'])
-        self.tries = 5
-        self.k = 15
+        self.runs = self.local_config['parameters']['runs']
 
-    def real_aggregate(self, org_instance: GraphInstance, explanations: List[GraphInstance]):
-        org_lbl = self.oracle.predict(org_instance)
 
-        max_dim = max([exp.data.shape[0] for exp in explanations])
-        all_changes_matrix = np.zeros((max_dim, max_dim), dtype=int)
+    def real_aggregate(self, instance: DataInstance, explanations: List[DataInstance]):
+        # If the correctness filter is active then consider only the correct explanations in the list
+        if self.correctness_filter:
+            filtered_explanations = self.filter_correct_explanations(instance, explanations)
+        else:
+            # Consider all the explanations in the list
+            filtered_explanations = explanations
 
-        org_instance.data = pad_adj_matrix(org_instance.data, max_dim)
+        if len(filtered_explanations) < 1:
+            return copy.deepcopy(instance)
         
-        for exp in explanations:
-            # If the explanation is a correct counterfactual
-            if org_lbl != self.oracle.predict(exp):
-                if exp.data.shape[0] < max_dim:
-                    exp.data = pad_adj_matrix(exp.data, max_dim)
-                changes = (org_instance.data != exp.data).astype(int)
-                all_changes_matrix |= changes
+        # Getting the label of the original instance
+        inst_lbl = self.oracle.predict(instance)
 
-        changed_edges = np.nonzero(all_changes_matrix)
-        num_changed_edges = len(changed_edges[0])
-        # if there are any changes, perform the random search
-        if num_changed_edges:
-            new_edges = np.array([[changed_edges[0][i], changed_edges[1][i]] for i in range(num_changed_edges)])
-            # increase the number of random modifications
-            for i in range(1, self.k):
-                # how many attempts at a current modification level
-                for _ in range(0, self.tries):
-                    cf_cand_matrix = copy.deepcopy(org_instance.data)
-                    # Padding the cf candidate
-                    if cf_cand_matrix.shape[0] < max_dim:
-                        cf_cand_matrix = pad_adj_matrix(exp.data, max_dim)
-                    # sample according to perturbation_percentage
-                    sample_index = np.random.choice(list(range(len(new_edges))), size=i)
-                    sampled_edges = new_edges[sample_index]
-                    # switch on/off the sampled edges
-                    cf_cand_matrix[sampled_edges[:,0], sampled_edges[:,1]] = 1 - cf_cand_matrix[sampled_edges[:,0], sampled_edges[:,1]]
-                    # build the counterfactaul candidates instance
-                    result = GraphInstance(id=org_instance.id,
-                                           label=-1,
-                                           data=cf_cand_matrix,
-                                           node_features=pad_features(org_instance.node_features, max_dim))
-                    self.dataset.manipulate(result)
-                    # if a counterfactual was found return that
-                    l_cf_cand = self.oracle.predict(result)
-                    if org_lbl != l_cf_cand:
-                        result.label = l_cf_cand
-                        return result
-        # If no counterfactual was found return the original instance by convention
-        return copy.deepcopy(org_instance)
-    
-    def check_configuration(self):
-        super().check_configuration()
-        dst_metric = 'src.evaluation.evaluation_metric_ged.GraphEditDistanceMetric'
-        #Check if the distance metric exist or build with its defaults:
-        init_dflts_to_of(self.local_config, 'distance_metric', dst_metric)
+        change_edges, min_changes, change_freq_matrix = self.get_all_edge_differences(instance, filtered_explanations)
+
+        # Perform r runs repeating the random search process
+        # aggregated_explanation = copy.deepcopy(instance)
+        for i in range(0, self.runs):
+            # The working matrix for each run is a new copy of the instance adjacency matrix
+            adj_matrix = copy.deepcopy(instance.data)
+            # Randomly sample a number of edges equivalent to the smallest base explanation
+            sampled_edges = random.sample(change_edges, min_changes)
+
+            # Try to modified the chosen edges one by one until a counterfactual is found
+            for edge in sampled_edges:
+                adj_matrix[edge[0], edge[1]] = abs( adj_matrix[edge[0], edge[1]] - 1 )
+
+                # Creating an instance with the modified adjacency matrix
+                aggregated_explanation = GraphInstance(id=instance.id,
+                                                       label=0,
+                                                       data=adj_matrix,
+                                                       node_features=instance.node_features)
+
+                # Predicting the label of the instance
+                exp_lbl = self.oracle.predict(aggregated_explanation)
+                aggregated_explanation.label = exp_lbl
+
+                # If a counterfactual has been found return it
+                if exp_lbl != inst_lbl:
+                    return aggregated_explanation
+
+        # If no counterfactual was found, return the original instance
+        return copy.deepcopy(instance)

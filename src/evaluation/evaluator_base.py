@@ -29,8 +29,6 @@ class Evaluator(ABC):
         self._explanations = []
         
        
-        
-
         # Building the config file to write into disk
         evaluator_config = {'dataset': clean_cfg(data.local_config), 'oracle': clean_cfg(oracle.local_config), 'explainer': clean_cfg(explainer.local_config), 'metrics': []}
         evaluator_config['scope']=self._scope
@@ -52,27 +50,32 @@ class Evaluator(ABC):
     @property
     def name(self):
         return self._name
+    
 
     @name.setter
     def name(self, new_name):
         self._name = new_name
 
+
     @property
     def dataset(self):
         return self._data
 
-    @dataset.setter
-    def dataset(self, new_dataset):
-        self._data = new_dataset
 
     @property
     def explanations(self):
         return self._explanations
+    
 
-    @explanations.setter
-    def explanations(self, new_explanations_list):
-        self._explanations = new_explanations_list
+    @property
+    def oracle(self):
+        return self._oracle
+    
 
+    @property
+    def explainer(self):
+        return self._explainer
+    
 
     def get_instance_explanation_pairs(self):
         # Check if the explanations were generated already
