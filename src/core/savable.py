@@ -36,7 +36,7 @@ class Savable(Configurable, metaclass=ABCMeta):
         while True:
             try:
                 lock = Lock(path, lifetime, default_timeout=timeout)
-                condition_ext = condition_ext if not lock.is_locked() else False
+                condition_ext = condition_ext if not lock.is_locked else False
                 with lock:
                     condition = condition_ext or not self.saved()
                     if condition:
