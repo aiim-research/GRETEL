@@ -28,14 +28,17 @@ class Savable(Configurable, metaclass=ABCMeta):
     def saved(self):
         return exists(self.context.get_path(self))
 
-    def load_or_create(self, condition=False):
+    def load_or_create(self, condition_ext=False):
         path = f'{self.context.get_path(self)}.lck'
         lifetime = timedelta(hours=self.context.lock_release_tout)
         timeout = timedelta(seconds=self.context.lock_timeout)
+        
         while True:
             try:
-                with Lock(path, lifetime, default_timeout=timeout):
-                    condition = condition or not self.saved()
+                lock = Lock(path, lifetime, default_timeout=timeout)
+                condition_ext = condition_ext if not lock.is_locked() else False
+                with lock:
+                    condition = condition_ext or not self.saved()
                     if condition:
                         self.context.logger.info(f"Creating: {self}")
                         self.create()
