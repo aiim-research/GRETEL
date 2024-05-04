@@ -58,6 +58,15 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": ["config/RSGG_ASD.json", "1"],
-        }       
+        },
+        {
+            "name": "TWITTER_TEST",
+            "type": "python",
+            "request": "launch",
+            "program": "main.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["config/TWITTER_DCE.json", "1"],
+        }             
     ]
 }
