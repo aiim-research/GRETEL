@@ -107,10 +107,6 @@ class TwitterRGP(Generator):
             corresponding_graph = node_graph[desired_value]
             #Get all the nodes for the current graph
             current_graph_node_list = graph_nodes[corresponding_graph]
-            # # Using a list comprehension to find the key(s) for the given value ((1,2) -> graph_id : 1)
-            # keys_for_value = [key for key, value in graph_nodes.items() if desired_value in value]
-            # 
-            # current_graph_node_list = graph_nodes[keys_for_value[0]]
             #Get the right adj matrix in the list for the current graph and change the 0 to 1 if there is an arc
             adj_matrix[corresponding_graph-1][current_graph_node_list.index(tuple_item[0])][current_graph_node_list.index(tuple_item[1])] = 1
             edge_matrix[corresponding_graph-1][current_graph_node_list.index(tuple_item[0])][current_graph_node_list.index(tuple_item[1])] = edge_weights_list[counter]
