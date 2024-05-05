@@ -20,6 +20,9 @@ class GAN(BaseGAN):
                 yield batch.to(self.device)
                 
     def real_fit(self):
+        ae_features_loss = torch.nn.MSELoss()
+        edge_probs_loss = torch.nn.BCELoss()
+        
         discriminator_loader = self.infinite_data_stream(self.dataset.get_torch_loader(fold_id=self.fold_id, batch_size=self.batch_size, kls=self.explainee_label))
         # TODO: make it multiclass in Datase
         generator_loader = self.infinite_data_stream(self.dataset.get_torch_loader(fold_id=self.fold_id, batch_size=self.batch_size, kls=1-self.explainee_label))
@@ -54,11 +57,20 @@ class GAN(BaseGAN):
             #######################################################################
             self.prepare_generator_for_training()
             ## Update G network: maximize log(D(G(z)))
-            fake_features, fake_edge_index, fake_edge_attr, _, fake_batch, _ = next(generator_loader)
-            y_fake = torch.ones((len(torch.unique(fake_batch[1])),)).to(self.device)
-            output = self.discriminator(self.generator(fake_features[1], fake_edge_index[1], fake_edge_attr[1], fake_batch[1])[0], fake_edge_index[1], fake_edge_attr[1])
+            fake_node_features, fake_edge_index, fake_edge_attr, _, fake_batch, _ = next(generator_loader)
+            fake_node_features, fake_edge_index, fake_edge_attr, fake_batch = fake_node_features[1], fake_edge_index[1], fake_edge_attr[1], fake_batch[1]
+            
+            y_fake = torch.ones((len(torch.unique(fake_batch)),)).to(self.device)
+            fake_features_gen, fake_edge_index_gen, fake_edge_probs_gen = self.generator(fake_node_features,
+                                                                                         fake_edge_index,
+                                                                                         fake_edge_attr,
+                                                                                         fake_batch)
+            fake_edge_probs_gen = fake_edge_probs_gen[fake_edge_index[0,:], fake_edge_index[1,:]]
+            output = self.discriminator(fake_features_gen, fake_edge_index_gen, fake_edge_probs_gen)
             # calculate the loss
-            loss = self.loss_fn(output.expand(1).double(), y_fake.double())
+            loss = self.loss_fn(output.expand(1).double(), y_fake.double())\
+                + ae_features_loss(fake_features_gen, fake_node_features)\
+                    + edge_probs_loss(fake_edge_probs_gen, fake_edge_attr)
             loss.backward()
             G_losses.append(loss.item())
             self.generator_optimizer.step()
