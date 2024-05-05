@@ -36,19 +36,19 @@ class GAN(BaseGAN):
             node_features, edge_index, edge_features, _ , real_batch ,_ = next(discriminator_loader)
             # generator data (fake batch)
             fake_node_features, fake_edge_index, fake_edge_features, _ , fake_batch , _  = next(generator_loader)
-            _, fake_edge_index, fake_edge_probs = self.generator(fake_node_features[1], fake_edge_index[1], fake_edge_features[1], fake_batch[1])
+            fake_node_features, fake_edge_index, fake_edge_probs = self.generator(fake_node_features[1], fake_edge_index[1], fake_edge_features[1], fake_batch[1])
             # get the real and fake labels
             y_batch = torch.cat([torch.ones((len(torch.unique(real_batch[1])),)),
                                  torch.zeros(len(torch.unique(fake_batch[1])),)], dim=0).to(self.device)
             #######################################################################
             # get the oracle's predictions
             real_inst = self.retake_batch(node_features[1], edge_index[1], edge_features[1], real_batch[1])
-            fake_inst = self.retake_batch(fake_node_features[1], fake_edge_index, fake_edge_probs, fake_batch[1], counterfactual=True, generator=True)
+            fake_inst = self.retake_batch(fake_node_features, fake_edge_index, fake_edge_probs, fake_batch[1], counterfactual=True, generator=True)
             oracle_scores = self.take_oracle_predictions(real_inst + fake_inst, y_batch)
             #######################################################################
             # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
             real_pred = self.discriminator(node_features[1], edge_index[1], edge_features[1]).expand(1)
-            fake_pred = self.discriminator(fake_node_features[1], fake_edge_index, fake_edge_features[1]).expand(1)
+            fake_pred = self.discriminator(fake_node_features, fake_edge_index, fake_edge_features[1]).expand(1)
             y_pred = torch.cat([real_pred, fake_pred])
             loss = torch.mean(self.loss_fn(y_pred.squeeze().double(), y_batch.double()) * torch.tensor(oracle_scores, dtype=torch.float))
             D_losses.append(loss.item())

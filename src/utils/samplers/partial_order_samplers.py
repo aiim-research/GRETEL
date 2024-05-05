@@ -38,6 +38,7 @@ class PositiveAndNegativeEdgeSampler(Sampler):
                                         edge_list, 
                                         num_samples=edge_num,
                                         flip_label=True)
+            self.dataset.manipulate(cf_instance)
             
             if oracle.predict(cf_instance) != pred_label:
                 return cf_instance
@@ -77,7 +78,8 @@ class PositiveAndNegativeEdgeSampler(Sampler):
             
         return GraphInstance(id=instance.id,
                              label=1-instance.label if flip_label else instance.label,
-                             data=adj.numpy())      
+                             data=adj.numpy(),
+                             node_features=features)      
     
     def __get_edges(self, instance):
         indices = np.nonzero(instance.data)
@@ -92,7 +94,8 @@ class PositiveAndNegativeEdgeSampler(Sampler):
         new_cf_instance.data += old_cf_instance.data
         new_cf_instance = GraphInstance(id=new_cf_instance.id,
                                         label=new_cf_instance.label,
-                                        data=new_cf_instance.data)
+                                        data=new_cf_instance.data,
+                                        node_features=new_cf_instance.node_features)
         self.dataset.manipulate(new_cf_instance)
         return new_cf_instance
         
