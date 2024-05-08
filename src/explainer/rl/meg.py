@@ -11,7 +11,7 @@ from src.core.trainable_base import Trainable
 from src.core.factory_base import get_instance_kvargs
 from src.utils.cfg_utils import get_dflts_to_of, init_dflts_to_of, inject_dataset, inject_oracle, retake_oracle, retake_dataset
 from src.dataset.dataset_base import Dataset
-from src.dataset.instances import DataInstance
+from src.dataset.instances.base import DataInstance
 from src.explainer.rl.meg_utils.utils.queue import SortedQueue
 
 
