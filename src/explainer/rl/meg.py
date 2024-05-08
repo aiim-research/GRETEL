@@ -1,58 +1,85 @@
 import os
+import random
+from typing import cast
 
 import numpy as np
 import torch
-import random
 
 from src.core.explainer_base import Explainer
+from src.core.factory_base import get_instance_kvargs
 from src.core.oracle_base import Oracle
 from src.core.trainable_base import Trainable
-
-from src.core.factory_base import get_instance_kvargs
-from src.utils.cfg_utils import get_dflts_to_of, init_dflts_to_of, inject_dataset, inject_oracle, retake_oracle, retake_dataset
 from src.dataset.dataset_base import Dataset
 from src.dataset.instances.base import DataInstance
+from src.evaluation.evaluation_metric_base import EvaluationMetric
+from src.explainer.rl.meg_utils.environments.base_env import BaseEnvironment
+from src.explainer.rl.meg_utils.utils.encoders import ActionEncoderAB
 from src.explainer.rl.meg_utils.utils.queue import SortedQueue
+from src.explainer.rl.meg_utils.utils.sorters import SorterSelector
+from src.utils.cfg_utils import init_dflts_to_of
 
 
 class MEGExplainer(Explainer, Trainable):
-    
-    def __init__(self,
-                id,
-                environment,
-                action_encoder,
-                num_input=5,
-                lr=1e-3,
-                replay_buffer_size=10,
-                num_epochs=500,
-                max_steps_per_episode=5,
-                update_interval=10,
-                batch_size=25,
-                num_counterfactuals=5,
-                gamma=5,
-                polyak=5,
-                fold_id=0,
-                sort_predicate=None,
-                config_dict=None) -> None:
-        
-        super().__init__(id, config_dict)
-        
-        self.num_epochs = num_epochs
-        self.max_steps_per_episode = max_steps_per_episode
-        self.update_interval = update_interval
-        self.batch_size = batch_size
-        self.num_counterfactuals = num_counterfactuals
-        self.gamma = gamma
-        self.polyak = polyak
-        self.action_encoder = action_encoder
-        self.sort_predicate = sort_predicate
-        self.fold_id = fold_id
-        self.num_input = num_input
-        self.replay_buffer_size = replay_buffer_size
-        self.environment = environment
-        self.lr = lr
-        
-        
+    def check_configuration(self):
+        super().check_configuration()
+        dst_metric = "src.evaluation.evaluation_metric_ged.GraphEditDistanceMetric"
+        environment = "src.explainer.rl.meg_utils.environments.basic_policies.AddRemoveEdgesEnvironment"
+        action_encoder = "src.explainer.rl.meg_utils.utils.encoders.IDActionEncoder"
+        sorter = "src.explainer.rl.meg_utils.utils.sorters.RewardSorterSelector"
+        init_dflts_to_of(self.local_config, "distance_metric", dst_metric)
+        init_dflts_to_of(self.local_config, "env", environment)
+        init_dflts_to_of(self.local_config, "action_encoder", action_encoder)
+        init_dflts_to_of(self.local_config, "sorter_selector", sorter)
+        params = self.local_config["parameters"]
+        params["num_input"] = params.get("num_input", 5)
+        params["batch_size"] = params.get("batch_size", 1)
+        params["lr"] = params.get("lr", 1e-4)
+        params["replay_buffer_size"] = params.get("replay_buffer_size", 10000)
+        params["epochs"] = params.get("epochs", 10)
+        params["max_steps_per_episode"] = params.get("max_steps_per_episode", 1)
+        params["update_interval"] = params.get("update_interval", 1)
+        params["gamma"] = params.get("gamma", 0.95)
+        params["polyak"] = params.get("polyak", 0.995)
+        params["num_counterfactuals"] = params.get("num_counterfactuals", 10)
+
+    def init(self):
+        super().init()
+        params = self.local_config["parameters"]
+        self.distance_metric = cast(
+            EvaluationMetric,
+            get_instance_kvargs(
+                params["distance_metric"]["class"],
+                params["distance_metric"]["parameters"],
+            ),
+        )
+        self.environment = cast(
+            BaseEnvironment,
+            get_instance_kvargs(params["env"]["class"], params["env"]["parameters"]),
+        )
+        self.action_encoder = cast(
+            ActionEncoderAB,
+            get_instance_kvargs(
+                params["action_encoder"]["class"],
+                params["action_encoder"]["parameters"],
+            ),
+        )
+        self.sorter_selector = cast(
+            SorterSelector,
+            get_instance_kvargs(
+                params["sorter_selector"]["class"],
+                params["sorter_selector"]["parameters"],
+            ),
+        )
+        self.num_input = cast(int, params["num_input"])
+        self.batch_size = cast(int, params["batch_size"])
+        self.lr = cast(float, params["lr"])
+        self.replay_buffer_size = cast(int, params["replay_buffer_size"])
+        self.epochs = cast(int, params["epochs"])
+        self.max_steps_per_episode = cast(int, params["max_steps_per_episode"])
+        self.update_interval = cast(int, params["update_interval"])
+        self.gamma = cast(float, params["gamma"])
+        self.polyak = cast(float, params["polyak"])
+        self.num_counterfactuals = cast(int, params["num_counterfactuals"])
 
     def explain(self, instance):
         #dataset = self.converter.convert(dataset)              
