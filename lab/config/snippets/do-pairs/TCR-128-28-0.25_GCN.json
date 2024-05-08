@@ -3,7 +3,7 @@
     "oracle": {
         "class": "src.oracle.nn.torch.OracleTorch",
         "parameters": {
-            "epochs": 200,
+            "epochs": 100,
             "batch_size": 32,
             "optimizer": {
                 "class": "torch.optim.RMSprop",

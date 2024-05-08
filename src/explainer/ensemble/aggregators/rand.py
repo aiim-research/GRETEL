@@ -54,8 +54,8 @@ class ExplanationRandom(ExplanationAggregator):
                 # Creating an instance with the modified adjacency matrix
                 aggregated_explanation = GraphInstance(id=instance.id,
                                                        label=0,
-                                                       data=adj_matrix,
-                                                       node_features=instance.node_features)
+                                                       data=adj_matrix)
+                self.dataset.manipulate(aggregated_explanation)
 
                 # Predicting the label of the instance
                 exp_lbl = self.oracle.predict(aggregated_explanation)

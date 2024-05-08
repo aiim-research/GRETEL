@@ -22,18 +22,18 @@ class ExplanationUnion(ExplanationAggregator):
             return copy.deepcopy(instance)
 
         # Get the number of nodes of the bigger explanation instance
-        max_dim = max([exp.data.shape[0] for exp in filtered_explanations])
-        # Create an empty adjacency matrix with the size of the bigger explanation instance
-        edge_freq_matrix = np.zeros((max_dim, max_dim))
-        
-        # Sum the padded explanation instances to the edge-frequency matrix
-        for exp in filtered_explanations:
-            edge_freq_matrix = np.add(edge_freq_matrix, pad_adj_matrix(exp.data, max_dim))
+        max_dim = max(instance.data.shape[0], max([exp.data.shape[0] for exp in filtered_explanations]))
 
-        # Create the union adjacency matrix with one in all the positions where the edge frequency is greater than 1
-        union_matrix = np.where(edge_freq_matrix >= 1, 1, 0)
+        # Get all the changes in all explanations
+        mod_edges, _, _ = self.get_all_edge_differences(instance, filtered_explanations)
+        # Apply those changes to the original matrix
+        union_matrix = pad_adj_matrix(copy.deepcopy(instance.data), max_dim)
+        for edge in mod_edges:
+            union_matrix[edge[0], edge[1]] = abs(union_matrix[edge[0], edge[1]] - 1 )
+
         # Create the aggregated explanation
         aggregated_explanation = GraphInstance(id=instance.id, label=1-instance.label, data=union_matrix)
+        self.dataset.manipulate(aggregated_explanation)
         aggregated_explanation.label = self.oracle.predict(aggregated_explanation)
 
         return aggregated_explanation

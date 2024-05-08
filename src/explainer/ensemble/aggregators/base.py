@@ -23,7 +23,7 @@ class ExplanationAggregator(Configurable):
                              'node_feature_aggregator',
                              'src.explainer.ensemble.aggregators.nodes.average.AverageAggregator')
             
-        if not 'correctness_filter' in self.local_config['parameters']:
+        if 'correctness_filter' not in self.local_config['parameters']:
             self.local_config['parameters']['correctness_filter'] = True
 
 
@@ -96,13 +96,21 @@ class ExplanationAggregator(Configurable):
         diff_matrix = np.where(edge_freq_matrix == 1, 1, 0)
         diff_number = np.count_nonzero(diff_matrix)
 
-        return diff_number, diff_matrix
+        if instance.directed:
+            filtered_diff_number = diff_number
+        else:
+            filtered_diff_number = diff_number/2
+
+        return filtered_diff_number, diff_matrix
     
 
     def get_all_edge_differences(self, instance: DataInstance, explanations: List[DataInstance]):
         # Getting the max explanation instance dimension and padding the original instance
         max_dim = max(instance.data.shape[0], max([exp.data.shape[0] for exp in explanations]))
-        padded_instance = pad_adj_matrix(instance.data, max_dim)
+        padded_inst_adj_matrix = pad_adj_matrix(instance.data, max_dim)
+
+        padded_instance = GraphInstance(id=instance.id, data=padded_inst_adj_matrix, label=instance.label, directed=instance.directed)
+        self.dataset.manipulate(padded_instance)
 
         # Creating a matrix with the edges that were changed in any explanation and in how many explanations they were modified
         edge_change_freq_matrix = np.zeros((max_dim, max_dim))
@@ -120,4 +128,13 @@ class ExplanationAggregator(Configurable):
         # Get the positions of the edge_change_freq
         edges = [(row, col) for row, col in zip(*np.where(edge_change_freq_matrix))]
 
-        return edges, min_changes, edge_change_freq_matrix       
+        # If we are working with directed graphs
+        if instance.directed:
+            filtered_edges = edges
+        else: # if we are working with undirected graphs
+            filtered_edges = []
+            for x, y in edges:
+                if (y,x) not in filtered_edges:
+                    filtered_edges.append((x,y))
+
+        return filtered_edges, min_changes, edge_change_freq_matrix       

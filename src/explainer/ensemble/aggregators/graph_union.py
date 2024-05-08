@@ -8,7 +8,7 @@ from src.explainer.ensemble.aggregators.base import ExplanationAggregator
 from src.utils.utils import pad_adj_matrix
 
 
-class ExplanationIntersection(ExplanationAggregator):
+class ExplanationGraphUnion(ExplanationAggregator):
 
     def real_aggregate(self, instance: DataInstance, explanations: List[DataInstance]):
         # If the correctness filter is active then consider only the correct explanations in the list
@@ -22,19 +22,18 @@ class ExplanationIntersection(ExplanationAggregator):
             return copy.deepcopy(instance)
 
         # Get the number of nodes of the bigger explanation instance
-        max_dim = max(instance.data.shape[0], max([exp.data.shape[0] for exp in filtered_explanations]))
-        exp_count = len(filtered_explanations)
+        max_dim = max([exp.data.shape[0] for exp in filtered_explanations])
+        # Create an empty adjacency matrix with the size of the bigger explanation instance
+        edge_freq_matrix = np.zeros((max_dim, max_dim))
+        
+        # Sum the padded explanation instances to the edge-frequency matrix
+        for exp in filtered_explanations:
+            edge_freq_matrix = np.add(edge_freq_matrix, pad_adj_matrix(exp.data, max_dim))
 
-        # Get all the changes in all explanations
-        mod_edges, _, mod_freq_matrix = self.get_all_edge_differences(instance, filtered_explanations)
-        # Apply to the original matrix those changes that where performed by all explanations
-        intersection_matrix = pad_adj_matrix(copy.deepcopy(instance.data), max_dim)
-        for edge in mod_edges:
-            if mod_freq_matrix[edge[0], edge[1]] == exp_count:
-                intersection_matrix[edge[0], edge[1]] = abs(intersection_matrix[edge[0], edge[1]] - 1 )
-
+        # Create the union adjacency matrix with one in all the positions where the edge frequency is greater than 1
+        union_matrix = np.where(edge_freq_matrix >= 1, 1, 0)
         # Create the aggregated explanation
-        aggregated_explanation = GraphInstance(id=instance.id, label=1-instance.label, data=intersection_matrix)
+        aggregated_explanation = GraphInstance(id=instance.id, label=1-instance.label, data=union_matrix)
         self.dataset.manipulate(aggregated_explanation)
         aggregated_explanation.label = self.oracle.predict(aggregated_explanation)
 

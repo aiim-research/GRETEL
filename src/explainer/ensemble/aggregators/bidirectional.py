@@ -1,207 +1,188 @@
 import copy
 import sys
-from abc import ABC
-
-from src.core.explainer_base import Explainer
-from src.explainer.ensemble.aggregators.base import ExplanationAggregator
-from src.evaluation.evaluation_metric_ged import GraphEditDistanceMetric
 import numpy as np
 import random
+from typing import List
 
+from src.core.explainer_base import Explainer
 from src.core.factory_base import get_instance_kvargs
 from src.utils.cfg_utils import get_dflts_to_of, init_dflts_to_of, inject_dataset, inject_oracle, retake_oracle, retake_dataset
 from src.dataset.instances.graph import GraphInstance
+from src.dataset.instances.graph import GraphInstance
+from src.dataset.instances.base import DataInstance
+from src.explainer.ensemble.aggregators.base import ExplanationAggregator
+from src.utils.utils import pad_adj_matrix
 
-class ExplanationBidirectional(ExplanationAggregator):
+
+class ExplanationBidirectionalSearch(ExplanationAggregator):
+
+    def check_configuration(self):
+        super().check_configuration()
+        self.logger= self.context.logger
+
+        if 'oc_limit' not in self.local_config['parameters']:
+            self.local_config['parameters']['oc_limit'] = 2000
+
+        if 'change_batch' not in self.local_config['parameters']:
+            self.local_config['parameters']['change_batch'] = 5
+
+        if 'action_prob' not in self.local_config['parameters']:
+            self.local_config['parameters']['action_prob'] = 0.5
+
 
     def init(self):
         super().init()
 
-        self.distance_metric = get_instance_kvargs(self.local_config['parameters']['distance_metric']['class'], 
-                                                    self.local_config['parameters']['distance_metric']['parameters'])
-
-    def aggregate(self, org_instance, explanations):
-        org_lbl = self.oracle.predict(org_instance)
-
-        result = org_instance
-        best_ged = sys.float_info.max
-        for exp in explanations:
-            exp_lbl = self.oracle.predict(exp)
-            if exp_lbl != org_lbl:
-                exp_dist = self.distance_metric.evaluate(org_instance, exp)
-                if exp_dist < best_ged:
-                    best_ged = exp_dist
-                    result = exp
-
-        return result
-    
-    def check_configuration(self):
-        super().check_configuration()
-
-        dst_metric='src.evaluation.evaluation_metric_ged.GraphEditDistanceMetric'  
-
-        #Check if the distance metric exist or build with its defaults:
-        init_dflts_to_of(self.local_config, 'distance_metric', dst_metric)
+        self.oc_limit = self.local_config['parameters']['runs']
+        self.k = self.local_config['parameters']['change_batch']
+        self.p = self.local_config['parameters']['action_prob']
 
 
-    def explain(self, instance):
+    def real_aggregate(self, instance: DataInstance, explanations: List[DataInstance]):
+        # If the correctness filter is active then consider only the correct explanations in the list
+        if self.correctness_filter:
+            filtered_explanations = self.filter_correct_explanations(instance, explanations)
+        else:
+            # Consider all the explanations in the list
+            filtered_explanations = explanations
 
-        # Get the label of the original instance
-        l_inst = self.oracle.predict(instance)
-        # Get the label of the counterfactual (just for binary classification problems)
-        l_counterfactual = 1 - l_inst
+        if len(filtered_explanations) < 1:
+            return copy.deepcopy(instance)
 
-        instance_matrix = instance.data
-        # Try to get a first counterfactual with the greedy "Oblivious Forward Search"
-        ged, counterfactual, oracle_calls = self.oblivious_forward_search(instance, 
-                                                                          instance_matrix,
-                                                                          l_counterfactual)
-
-        final_counterfactual, edit_distance, oracle_calls, info = self.oblivious_backward_search(instance, 
-                                                                                        instance_matrix, 
-                                                                                        counterfactual, 
-                                                                                        l_counterfactual)
-
-        # Converting the final counterfactual into a DataInstance
-        result = GraphInstance(id=instance.id, 
-                               label=0, 
-                               data=final_counterfactual, 
-                               node_features=instance.node_features)
-
-        return result
-
-
-
-    # 3rd party adapted /////////////////////////////////////////////////////////////////////////////
+        e_add = []
+        e_rem = []
+        change_edges, min_changes, change_freq_matrix = self.get_all_edge_differences(instance, filtered_explanations)
+        for x, y in change_edges:
+            if instance.data[x,y] > 0:
+                e_rem.append((x,y)) # Add existing edges to the remove list
+            else:
+                e_add.append((x,y)) # Add non-existing edges to the add list
         
-    def oblivious_forward_search(self, instance, g_o, y_bar, k=5, lambda_g=2000, p_0=0.5):
+        # Try to get a first counterfactual with the greedy "Oblivious Forward Search"
+        initial_cf = self.oblivious_forward_search(instance=instance, 
+                                                       e_add=e_add,
+                                                       e_rem=e_rem,
+                                                       k=self.k,
+                                                       maximum_oracle_calls=self.oc_limit,
+                                                       p=self.p)
+        
+        # If the first step was unable to find a counterfactual
+        if initial_cf.label == instance.label:
+            return copy.deepcopy(instance)
+        
+        # If a counterfactual was found in the first step then try to reduce the number of changes in the second step
+        changed_edges, _, _ = self.get_all_edge_differences(instance, [initial_cf])
+        final_cf  = self.oblivious_backward_search(instance=instance,
+                                                               cf_instance=initial_cf,
+                                                               changed_edges=changed_edges,
+                                                               k=self.k,
+                                                               maximum_oracle_calls=self.oc_limit)
+
+        return final_cf
+
+        
+    def oblivious_forward_search(self, instance, e_add, e_rem, k=5, maximum_oracle_calls=2000, p=0.5):
         '''
-        Oblivious Forward Search as implemented by Abrate and Bonchi
+        This method performs a random search trying to generate a counterfactual by testing 
+        multiple combinations of edge modifications
         '''
-        dim = len(g_o)
-        l=0
+        oracle_calls_count=0
+        instance_lbl = self.oracle.predict(instance)
         
         # Candidate counterfactual
-        g_c = np.copy(g_o)
-        r = abs(1-y_bar)
-
-        # Create add and remove sets of edges
-        g_add = []
-        g_rem = []
-        for i in range(dim):
-            for j in range(i,dim):
-                if i!=j:
-                    if g_c[i][j]>0.5: # Add existing edges to the remove list
-                        g_rem.append((i,j))
-                    else:
-                        g_add.append((i,j)) # Add non-exisitng edges to the add list
+        cf_candidate_matrix = np.copy(instance.data)
 
         # randomize and remove duplicate
-        random.shuffle(g_add)
-        random.shuffle(g_rem)
+        random.shuffle(e_add)
+        random.shuffle(e_rem)
         
         # Start the search
-        while(l<lambda_g): # While the maximum number of oracle calls is not exceeded
-            ki=0
-            while(ki<k): # Made a number of changes (edge adds/removals) no more than k
-                if self._bernoulli(p_0):
-                    if (len(g_rem) > 0):
+        while(oracle_calls_count < maximum_oracle_calls): # While the maximum number of oracle calls is not exceeded
+            k_i=0
+            while(k_i<k): # Made a number of changes (edge adds/removals) no more than k
+                if random.random() < p:
+                    if (len(e_rem) > 0):
                         # remove
-                        i,j = g_rem.pop(0)
-                        g_c[i][j]=0
-                        g_c[j][i]=0
-                        g_add.append((i,j))
-                        #random.shuffle(g_add)
-                        ki+=1
+                        i,j = e_rem.pop(0)
+
+                        if instance.directed:
+                            cf_candidate_matrix[i][j]=0
+                        else:
+                            cf_candidate_matrix[i][j]=0
+                            cf_candidate_matrix[j][i]=0
+
+                        e_add.append((i,j))
+                        random.shuffle(e_add)
+                        k_i+=1
                 else:
-                    if (len(g_add) > 0):
+                    if (len(e_add) > 0):
                         # add
-                        i,j = g_add.pop(0)
-                        g_c[i][j]=1
-                        g_c[j][i]=1
-                        g_rem.append((i,j))
-                        #random.shuffle(g_rem)
-                        ki+=1
-            ki=0
+                        i,j = e_add.pop(0)
 
-            inst = GraphInstance(id=instance.id, 
-                                 label=0, 
-                                 data=g_c,
-                                 node_features=instance.node_features)
+                        if instance.directed:
+                            cf_candidate_matrix[i][j]=1
+                        else:
+                            cf_candidate_matrix[i][j]=1
+                            cf_candidate_matrix[j][i]=1
 
-            r = self.oracle.predict(inst)
-            l += 1 # Increase the oracle calls counter
+                        e_rem.append((i,j))
+                        random.shuffle(e_rem)
+                        k_i+=1
 
-            if r==y_bar:
-                #print('- A counterfactual is found!')
-                d = self.distance_metric.distance(g_o,g_c)
-                return d,g_c,l
+            cf_candidate_inst = GraphInstance(id=instance.id, label=0, data=cf_candidate_matrix)
+            self.dataset.manipulate(cf_candidate_inst)
+            cf_candidate_inst.label = self.oracle.predict(cf_candidate_inst)
+            oracle_calls_count += 1 # Increase the oracle calls counter
+
+            if cf_candidate_inst.label != instance_lbl:
+                # A counterfactual was found
+                return cf_candidate_inst
         
-        # m-comment: return the original graph if no counterfactual was found
-        return 0, g_o, l
+        # return the original graph if no counterfactual was found
+        return copy.deepcopy(instance)
 
 
-    def oblivious_backward_search(self, instance, g ,gc1 ,y_bar ,k=5 , l_max=2000):
+    def oblivious_backward_search(self, instance, cf_instance, changed_edges, k=5, maximum_oracle_calls=2000):
         '''
+        This method tries to reduce the size of a counterfactual instance by randomly reverting some of the changes, 
+        made to the original instance, while mantaining the correctness
         '''
-        info = []
+        gc = np.copy(cf_instance.data)
+        # d = self.distance_metric.distance(instance.data,gc)
+        random.shuffle(changed_edges)
+        oracle_calls_count=0
 
-        gc = np.copy(gc1)
-        edges = self._get_change_list(g,gc)
-        d = self.distance_metric.distance(g,gc)
-        random.shuffle(edges)
-        li=0
-        while(li<l_max and len(edges)>0 and d>1):
-            ki = min(k,len(edges))
+        # while(oracle_calls_count < maximum_oracle_calls and len(changed_edges) > 0 and d > 1):
+        while(oracle_calls_count < maximum_oracle_calls and len(changed_edges) > 0):
+            # Create a working copy of the CF adjacency matrix to revert some changes
             gci = np.copy(gc)
-            edges_i = [edges.pop(0) for i in range(ki)]
-            for i,j in edges_i:
-                if gci[i][j]>0.5:
-                    gci[i][j] = 0
-                    gci[j][i] = 0
-                else:
-                    gci[i][j] = 1
-                    gci[j][i] = 1
 
-            inst = GraphInstance(id=instance.id, 
-                                 label=0, 
-                                 data=gci,
-                                 node_features=instance.node_features)
+            # Select some edges to revert
+            ki = min(k,len(changed_edges))
+            edges_i = [changed_edges.pop(0) for i in range(ki)]
             
-            r = self.oracle.predict(inst)
-            li += 1
+            # Revert the changes on the selected edges
+            for i,j in edges_i:
+                gci[i][j] = abs(1 - gci[i][j])
+                gci[j][i] = abs(1 - gci[j][i])
 
-            if r==y_bar:
+            reduced_cf_inst = GraphInstance(id=instance.id, label=0, data=gci)
+            self.dataset.manipulate(reduced_cf_inst)
+            reduced_cf_inst.label = self.oracle.predict(reduced_cf_inst)
+            oracle_calls_count += 1
+
+            if reduced_cf_inst.label != instance.label: # If the reduced instance is still a counterfactual
                 gc = np.copy(gci)
-                d = self.distance_metric.distance(g,gc)
-                info.append((r,d,li,ki))
                 k+=1
-            else:
-                d = self.distance_metric.distance(g,gc)
-                info.append((r,d,li,ki))
-
+            else: # If the reduced instance is no longer a counterfactual
                 if k>1:
+                    # Reduce the amount of changes to perform in the next iteration
                     k-=1
-                    edges = edges + edges_i
+                    changed_edges = changed_edges + edges_i
 
-        return gc, self.distance_metric.distance(g,gc), li, info
+        result_cf = GraphInstance(id=instance.id, label=0, data=gc, directed=instance.directed)
+        self.dataset.manipulate(result_cf)
+        result_cf.label = self.oracle.predict(reduced_cf_inst)
+
+        return result_cf
     
-
-    # Ancillary functions//////////////////////////////////////////////////////////////////////////////
-
-   
-    def _bernoulli(self, p):
-        ''' p is the probability of removing an edge.
-        '''
-        return True if random.random() < p else False
-
-
-    def _get_change_list(self, g1,g2):
-        edges = []
-        g_diff = abs(g1-g2)
-        dim_g = len(g1)
-        for i in range(dim_g):
-            for j in range(i,dim_g):
-                if g_diff[i][j]==1:
-                    edges.append((i,j))
-        return edges
