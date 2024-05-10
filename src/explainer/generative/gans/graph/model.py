@@ -68,9 +68,9 @@ class GAN(BaseGAN):
             fake_edge_probs_gen = fake_edge_probs_gen[fake_edge_index[0,:], fake_edge_index[1,:]]
             output = self.discriminator(fake_features_gen, fake_edge_index_gen, fake_edge_probs_gen)
             # calculate the loss
-            loss = self.loss_fn(output.expand(1).double(), y_fake.double())\
-                + ae_features_loss(fake_features_gen, fake_node_features)\
-                    + edge_probs_loss(fake_edge_probs_gen, fake_edge_attr)
+            loss = self.loss_fn(output.expand(1).double(), y_fake.double())
+            #+ ae_features_loss(fake_features_gen, fake_node_features)\
+            #        + edge_probs_loss(fake_edge_probs_gen, fake_edge_attr)
             loss.backward()
             G_losses.append(loss.item())
             self.generator_optimizer.step()
