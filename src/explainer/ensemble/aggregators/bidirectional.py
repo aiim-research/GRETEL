@@ -18,7 +18,7 @@ class ExplanationBidirectionalSearch(ExplanationAggregator):
 
     def check_configuration(self):
         super().check_configuration()
-        self.logger= self.context.logger
+        self.logger = self.context.logger
 
         if 'oc_limit' not in self.local_config['parameters']:
             self.local_config['parameters']['oc_limit'] = 2000
@@ -33,7 +33,7 @@ class ExplanationBidirectionalSearch(ExplanationAggregator):
     def init(self):
         super().init()
 
-        self.oc_limit = self.local_config['parameters']['runs']
+        self.oc_limit = self.local_config['parameters']['oc_limit']
         self.k = self.local_config['parameters']['change_batch']
         self.p = self.local_config['parameters']['action_prob']
 
@@ -47,6 +47,7 @@ class ExplanationBidirectionalSearch(ExplanationAggregator):
             filtered_explanations = explanations
 
         if len(filtered_explanations) < 1:
+            self.logger.info(f'No base explanation was correct for instance {instance.id}')
             return copy.deepcopy(instance)
 
         e_add = []
@@ -59,15 +60,16 @@ class ExplanationBidirectionalSearch(ExplanationAggregator):
                 e_add.append((x,y)) # Add non-existing edges to the add list
         
         # Try to get a first counterfactual with the greedy "Oblivious Forward Search"
-        initial_cf = self.oblivious_forward_search(instance=instance, 
-                                                       e_add=e_add,
-                                                       e_rem=e_rem,
-                                                       k=self.k,
-                                                       maximum_oracle_calls=self.oc_limit,
-                                                       p=self.p)
+        initial_cf, used_oc = self.oblivious_forward_search(instance=instance, 
+                                                            e_add=e_add,
+                                                            e_rem=e_rem,
+                                                            k=self.k,
+                                                            maximum_oracle_calls=self.oc_limit,
+                                                            p=self.p)
         
         # If the first step was unable to find a counterfactual
         if initial_cf.label == instance.label:
+            self.logger.info(f'No counterfactual was found for instance {instance.id} in the forward search')
             return copy.deepcopy(instance)
         
         # If a counterfactual was found in the first step then try to reduce the number of changes in the second step
@@ -76,7 +78,7 @@ class ExplanationBidirectionalSearch(ExplanationAggregator):
                                                                cf_instance=initial_cf,
                                                                changed_edges=changed_edges,
                                                                k=self.k,
-                                                               maximum_oracle_calls=self.oc_limit)
+                                                               maximum_oracle_calls=self.oc_limit - used_oc)
 
         return final_cf
 
@@ -136,10 +138,10 @@ class ExplanationBidirectionalSearch(ExplanationAggregator):
 
             if cf_candidate_inst.label != instance_lbl:
                 # A counterfactual was found
-                return cf_candidate_inst
+                return cf_candidate_inst, oracle_calls_count
         
         # return the original graph if no counterfactual was found
-        return copy.deepcopy(instance)
+        return copy.deepcopy(instance), oracle_calls_count
 
 
     def oblivious_backward_search(self, instance, cf_instance, changed_edges, k=5, maximum_oracle_calls=2000):
@@ -172,6 +174,7 @@ class ExplanationBidirectionalSearch(ExplanationAggregator):
             oracle_calls_count += 1
 
             if reduced_cf_inst.label != instance.label: # If the reduced instance is still a counterfactual
+                self.logger.info(f'The counterfactual for {instance.id} was reduced')
                 gc = np.copy(gci)
                 k+=1
             else: # If the reduced instance is no longer a counterfactual

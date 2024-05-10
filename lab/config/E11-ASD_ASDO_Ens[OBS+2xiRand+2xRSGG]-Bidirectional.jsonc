@@ -44,7 +44,7 @@
                                                 ],
                                     "aggregator": {
                                         "class": "src.explainer.ensemble.aggregators.bidirectional.ExplanationBidirectionalSearch",
-                                        "parameters": {"runs": 10}
+                                        "parameters": {"oc_limit": 1000}
                                     }
                                     }
                     }
