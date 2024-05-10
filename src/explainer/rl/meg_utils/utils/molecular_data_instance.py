@@ -1,27 +1,23 @@
-from src.dataset.instances.base import DataInstance
-
 import networkx as nx
 import numpy as np
-
 from rdkit import Chem
-import networkx as nx
-
-import random
-from rdkit import Chem  # type: ignore
 from rdkit.Chem import MolFromSmiles as smi2mol  # type: ignore
 from rdkit.Chem import MolToSmiles as mol2smi  # type: ignore
-import exmol
+
+from src.dataset.instances.base import DataInstance
+
 
 class MolecularDataInstance(DataInstance):
-
-    def __init__(self,
-                 id = None,
-                 name: str=None, 
-                 graph=None, 
-                 graph_label: int=None, 
-                 node_labels: dict=None, 
-                 edge_labels: dict=None, 
-                 mcd: int=None) -> None:
+    def __init__(
+        self,
+        id=None,
+        name: str = None,
+        graph=None,
+        graph_label: int = None,
+        node_labels: dict = None,
+        edge_labels: dict = None,
+        mcd: int = None,
+    ) -> None:
         super().__init__(id, name, graph, graph_label, node_labels, edge_labels, mcd)
         # Create a variable to store the molecular representation of the graph
         self._molecule = None
@@ -50,11 +46,9 @@ class MolecularDataInstance(DataInstance):
     def graph(self):
         return self.molecule_to_graph(self._force_fixed_nodes)
 
-
     @property
     def molecule(self):
         return self._molecule
-
 
     @molecule.setter
     def molecule(self, new_molecule):
@@ -62,11 +56,9 @@ class MolecularDataInstance(DataInstance):
         # The smiles and the molecule should be consistent inside the instance
         self._smiles = Chem.MolToSmiles(new_molecule)
 
-
     @property
     def smiles(self):
         return self._smiles
-
 
     @smiles.setter
     def smiles(self, new_smiles):
@@ -74,47 +66,51 @@ class MolecularDataInstance(DataInstance):
         # The smiles and the molecule should be consistent inside the instance
         self._molecule = Chem.MolFromSmiles(new_smiles)
 
-
     def molecule_to_graph(self, force_fixed_node_positions=False):
         # Creating an empty graph
         G = nx.Graph()
 
-        if (not force_fixed_node_positions):
+        if not force_fixed_node_positions:
             # For each atom in the molecule create a node in the graph and add the necessary attributes
             for atom in self.molecule.GetAtoms():
-                G.add_node(atom.GetIdx(),
-                        atomic_num=atom.GetAtomicNum(),
-                        is_aromatic=atom.GetIsAromatic(),
-                        atom_symbol=atom.GetSymbol())
+                G.add_node(
+                    atom.GetIdx(),
+                    atomic_num=atom.GetAtomicNum(),
+                    is_aromatic=atom.GetIsAromatic(),
+                    atom_symbol=atom.GetSymbol(),
+                )
 
-            # For each bond between atoms add an edge in the graph with the corresponding attributes    
+            # For each bond between atoms add an edge in the graph with the corresponding attributes
             for bond in self.molecule.GetBonds():
-                G.add_edge(bond.GetBeginAtomIdx(),
-                        bond.GetEndAtomIdx(),
-                        bond_type=bond.GetBondType())
-                
+                G.add_edge(
+                    bond.GetBeginAtomIdx(),
+                    bond.GetEndAtomIdx(),
+                    bond_type=bond.GetBondType(),
+                )
+
             return G
         else:
             # For each atom in the molecule create a node in the graph and add the necessary attributes
             for atom in self.molecule.GetAtoms():
-                G.add_node(atom.GetIdx(),
-                        atomic_num=atom.GetAtomicNum(),
-                        is_aromatic=atom.GetIsAromatic(),
-                        atom_symbol=atom.GetSymbol())
-                
+                G.add_node(
+                    atom.GetIdx(),
+                    atomic_num=atom.GetAtomicNum(),
+                    is_aromatic=atom.GetIsAromatic(),
+                    atom_symbol=atom.GetSymbol(),
+                )
+
             # Add extra dummy atoms present in the molecules dataset
             for i in range(len(self.molecule.GetAtoms()), self.max_n_nodes):
-                G.add_node(i,
-                        atomic_num=-1,
-                        is_aromatic=False,
-                        atom_symbol='C')
+                G.add_node(i, atomic_num=-1, is_aromatic=False, atom_symbol="C")
 
-            # For each bond between atoms add an edge in the graph with the corresponding attributes    
+            # For each bond between atoms add an edge in the graph with the corresponding attributes
             for bond in self.molecule.GetBonds():
-                G.add_edge(bond.GetBeginAtomIdx(),
-                        bond.GetEndAtomIdx(),
-                        bond_type=bond.GetBondType())
-                
+                G.add_edge(
+                    bond.GetBeginAtomIdx(),
+                    bond.GetEndAtomIdx(),
+                    bond_type=bond.GetBondType(),
+                )
+
             return G
 
             # # For each atom in the molecule create a node in the graph and add the necessary attributes
@@ -145,42 +141,41 @@ class MolecularDataInstance(DataInstance):
             #                     is_aromatic=False,
             #                     atom_symbol='C')
 
-            # # For each bond between atoms add an edge in the graph with the corresponding attributes 
+            # # For each bond between atoms add an edge in the graph with the corresponding attributes
             # for bond in self.molecule.GetBonds():
             #     a1 = bond.GetBeginAtomIdx()
             #     a2 = bond.GetEndAtomIdx()
             #     G.add_edge((a1*self._max_n_atoms + atoms[a1].GetAtomicNum()) - 1,
             #                (a2*self._max_n_atoms + atoms[a2].GetAtomicNum()) - 1,
             #                bond_type=bond.GetBondType())
-                
+
             # return G
 
-
     def graph_to_molecule(self, store=True, force_fixed_node_positions=False):
-
         # If there is no any stored molecule
-        if(self._molecule is None):
+        if self._molecule is None:
             if not force_fixed_node_positions:
-                # Transform the attributted graph into 
+                # Transform the attributted graph into
                 molecule = self._att_graph_to_molecule(att_g)
 
-                if(store):
+                if store:
                     self._molecule = molecule
 
                 return molecule
 
             else:
-                att_g = self._fixed_nodes_graph_to_att_graph(self.graph, self._max_n_atoms)
+                att_g = self._fixed_nodes_graph_to_att_graph(
+                    self.graph, self._max_n_atoms
+                )
                 molecule = self._att_graph_to_molecule(att_g)
 
-                if(store):
+                if store:
                     self._molecule = molecule
 
                 return molecule
 
         # If there is an stored molecule return that
         return self._molecule
-
 
     def _att_graph_to_molecule(self, G):
         # create empty editable mol object
@@ -189,16 +184,16 @@ class MolecularDataInstance(DataInstance):
         # Add molecule atoms (nodes)
         for n, n_data in G.nodes(data=True):
             atom = Chem.Atom(n)
-            atom.SetAtomicNum(n_data['atomic_num'])
-            atom.SetIsAromatic(n_data['is_aromatic'])
+            atom.SetAtomicNum(n_data["atomic_num"])
+            atom.SetIsAromatic(n_data["is_aromatic"])
             molecule.AddAtom(atom)
 
         # Add molecule bonds (edges)
         for n1, n2, e_data in G.edges(data=True):
             # If the edge has a bound type use it
-            if 'bond_type' in e_data:
-                bond_type = e_data['bond_type']
-            else: # In other case just use a Single bound
+            if "bond_type" in e_data:
+                bond_type = e_data["bond_type"]
+            else:  # In other case just use a Single bound
                 bond_type = Chem.rdchem.BondType.SINGLE
             molecule.AddBond(n1, n2, bond_type)
 
@@ -207,25 +202,24 @@ class MolecularDataInstance(DataInstance):
 
         return molecule
 
-
     def _fixed_nodes_graph_to_att_graph(self, fn_G, max_n_atoms):
         result = nx.Graph()
 
         for n1_ext, n2_ext, e_data in fn_G.edges(data=True):
             # Calculating the id of the node in the molecule
-            n1 = int(n1_ext/max_n_atoms)
+            n1 = int(n1_ext / max_n_atoms)
             if n1 not in result.nodes:
                 # Getting node data
                 n1_data = self.graph.nodes[n1_ext]
-                
+
                 result.add_node(n1)
                 nx.set_node_attributes(result, {n1: n1_data})
 
-            n2 = int(n2_ext/max_n_atoms)
+            n2 = int(n2_ext / max_n_atoms)
             if n2 not in result.nodes:
                 # Getting node data
                 n2_data = self.graph.nodes[n2_ext]
-                
+
                 result.add_node(n2)
                 nx.set_node_attributes(result, {n2: n2_data})
 
@@ -233,7 +227,6 @@ class MolecularDataInstance(DataInstance):
             result.edges[n1, n2].update(e_data)
 
         return result
-
 
     def sanitize_smiles(self, store=False):
         """Transmfoms the smile of the data instance into a canonical smile representation"""
@@ -244,7 +237,6 @@ class MolecularDataInstance(DataInstance):
             self._smiles = smi
 
         return result
-
 
     def _sanitize_smiles(self):
         """Transmfoms the smile of the data instance into a canonical smile representation
@@ -262,9 +254,8 @@ class MolecularDataInstance(DataInstance):
 
             return mol, smi_canon, True
 
-        except Exception as e:
+        except Exception:
             return None, None, False
-
 
     def to_numpy_arrays(self, store=False, max_n_nodes=-1, n_node_types=-1):
         """Argument for the RD2NX function should be a valid SMILES sequence
@@ -276,6 +267,9 @@ class MolecularDataInstance(DataInstance):
         m = self.molecule
         smi_canon = self.smiles
         # ///////////////////////////////////////////////////////////////////
+
+        if self.molecule is None:
+            m = Chem.MolFromSmiles(smi_canon)
 
         # m = Chem.MolFromSmiles(smi_canon)
         m = Chem.AddHs(m)
@@ -317,4 +311,3 @@ class MolecularDataInstance(DataInstance):
         # ////////////////////////////////////////////////////////////////////
 
         return nodes, adj
-        

@@ -1,12 +1,11 @@
-import sys
 import os
-import torch
-
-from rdkit import Chem
-from rdkit.Chem import AllChem, RDConfig
+import sys
 from enum import Enum
+
+import torch
+from rdkit import Chem
+from rdkit.Chem import RDConfig
 from torch_geometric.data import Data
-from torch_geometric.datasets import MoleculeNet
 
 sys.path.append(os.path.join(RDConfig.RDContribDir, "SA_Score"))
 
@@ -14,15 +13,17 @@ sys.path.append(os.path.join(RDConfig.RDContribDir, "SA_Score"))
 def mol_from_smiles(smiles):
     return Chem.MolFromSmiles(smiles)
 
+
 def mol_to_smiles(mol):
     return Chem.MolToSmiles(mol)
+
 
 def atom_valences(atom_types):
     periodic_table = Chem.GetPeriodicTable()
     return [
-        max(list(periodic_table.GetValenceList(atom_type)))
-        for atom_type in atom_types
+        max(list(periodic_table.GetValenceList(atom_type))) for atom_type in atom_types
     ]
+
 
 def check_molecule_validity(mol, transform):
     if type(mol) == Data:
@@ -30,42 +31,39 @@ def check_molecule_validity(mol, transform):
 
     return Chem.SanitizeMol(mol, catchErrors=True) == Chem.SANITIZE_NONE
 
-def mol_to_tox21_pyg(molecule):
 
+def mol_to_tox21_pyg(molecule):
     if isinstance(molecule, str):
         molecule = mol_from_smiles(molecule)
 
     X = torch.nn.functional.one_hot(
-        torch.tensor([
-            x_map_tox21[atom.GetSymbol()].value
-            for atom in molecule.GetAtoms()
-        ]),
-        num_classes=53
+        torch.tensor(
+            [x_map_tox21[atom.GetSymbol()].value for atom in molecule.GetAtoms()]
+        ),
+        num_classes=53,
     ).float()
 
-    E = torch.tensor([
-        [bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()]
-        for bond in molecule.GetBonds()
-    ] + [
-        [bond.GetEndAtomIdx(), bond.GetBeginAtomIdx()]
-        for bond in molecule.GetBonds()
-    ]).t()
+    E = torch.tensor(
+        [[bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()] for bond in molecule.GetBonds()]
+        + [
+            [bond.GetEndAtomIdx(), bond.GetBeginAtomIdx()]
+            for bond in molecule.GetBonds()
+        ]
+    ).t()
 
     edge_attr = torch.nn.functional.one_hot(
-        torch.tensor([
-            e_map_tox21(bond.GetBondType())
-            for bond in molecule.GetBonds()
-        ] + [
-            e_map_tox21(bond.GetBondType())
-            for bond in molecule.GetBonds()
-        ]),
-        num_classes=4
+        torch.tensor(
+            [e_map_tox21(bond.GetBondType()) for bond in molecule.GetBonds()]
+            + [e_map_tox21(bond.GetBondType()) for bond in molecule.GetBonds()]
+        ),
+        num_classes=4,
     ).float()
 
     pyg_mol = Data(x=X, edge_index=E, edge_attr=edge_attr)
     pyg_mol.batch = torch.zeros(X.shape[0]).long()
     pyg_mol.smiles = mol_to_smiles(molecule)
     return pyg_mol
+
 
 """def mol_to_esol_pyg(molecule):
     if isinstance(molecule, str):
@@ -122,10 +120,7 @@ def pyg_to_mol_esol(pyg_mol):
     mol = Chem.RWMol()
 
     X = pyg_mol.x.numpy().tolist()
-    X = [
-        Chem.Atom(int(x[0]))
-        for x in X
-    ]
+    X = [Chem.Atom(int(x[0])) for x in X]
 
     E = pyg_mol.edge_index.t()
 
@@ -141,14 +136,12 @@ def pyg_to_mol_esol(pyg_mol):
         if mol.GetBondBetweenAtoms(u, v):
             continue
 
-
         mol.AddBond(u, v, Chem.BondType.values[attr])
 
     return mol
 
 
 def e_map_tox21(bond_type, reverse=False):
-
     if not reverse:
         if bond_type == Chem.BondType.SINGLE:
             return 0
@@ -171,6 +164,7 @@ def e_map_tox21(bond_type, reverse=False):
         return Chem.BondType.TRIPLE
     else:
         raise Exception("No bond type found")
+
 
 class x_map_tox21(Enum):
     O = 0
