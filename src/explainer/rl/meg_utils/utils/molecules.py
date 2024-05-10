@@ -115,6 +115,7 @@ def mol_to_tox21_pyg(molecule):
     data.batch = torch.zeros(x.shape[0]).long()
     data.smiles = mol_to_smiles(molecule)
     return data
+"""
 
 
 def pyg_to_mol_esol(pyg_mol):
@@ -225,4 +226,3 @@ class x_map_tox21(Enum):
     Ru = 50
     Eu = 51
     Sc = 52
-"""

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import numpy as np
-from src.dataset.data_instance_molecular import MolecularDataInstance
+from src.explainer.rl.meg_utils.utils.molecular_data_instance import MolecularDataInstance
 from src.dataset.instances.base import DataInstance
 from src.explainer.rl.meg_utils.utils.fingerprints import Fingerprint
 from rdkit import Chem

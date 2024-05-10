@@ -12,6 +12,7 @@ from rdkit import Chem
 from rdkit.Chem import Draw
 from src.explainer.rl.meg_utils.utils.molecules import mol_from_smiles
 from src.explainer.rl.meg_utils.environments.base_env import Result, BaseEnvironment          
+from src.explainer.rl.meg_utils.utils.molecular_data_instance import MolecularDataInstance
           
 class Molecule(BaseEnvironment):
     
