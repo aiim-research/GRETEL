@@ -97,9 +97,9 @@ class ExplanationAggregator(Configurable):
         diff_number = np.count_nonzero(diff_matrix)
 
         if instance.directed:
-            filtered_diff_number = diff_number
+            filtered_diff_number = int(diff_number)
         else:
-            filtered_diff_number = diff_number/2
+            filtered_diff_number = int(diff_number/2)
 
         return filtered_diff_number, diff_matrix
     
