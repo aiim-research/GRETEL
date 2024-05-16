@@ -6,8 +6,8 @@ from rdkit.Chem import AllChem
 
 from src.dataset.instances.base import DataInstance
 from src.explainer.rl.meg_utils.utils.fingerprints import Fingerprint
-from src.explainer.rl.meg_utils.utils.molecular_data_instance import (
-    MolecularDataInstance,
+from src.explainer.rl.meg_utils.utils.molecular_instance import (
+    MolecularInstance,
 )
 
 
@@ -42,7 +42,7 @@ class MorganBitFingerprintActionEncoder(ActionEncoderAB):
         self.fp_radius = fp_rad
 
     def encode(self, action: DataInstance) -> np.array:
-        assert isinstance(action, MolecularDataInstance)
+        assert isinstance(action, MolecularInstance)
         # if action:
         molecule = Chem.MolFromSmiles(action.smiles)
         if molecule is None:
@@ -66,7 +66,7 @@ class MorganCountFingerprintActionEncoder(ActionEncoderAB):
         self.fp_radius = fp_radius
 
     def encode(self, action: DataInstance) -> np.array:
-        assert isinstance(action, MolecularDataInstance)
+        assert isinstance(action, MolecularInstance)
 
         fp = AllChem.GetHashedMorganFingerprint(
             action.molecule, self.fp_radius, self.fp_length, bitInfo=None
@@ -83,7 +83,7 @@ class RDKitFingerprintActionEncoder(ActionEncoderAB):
         self.fp_radius = fp_radius
 
     def encode(self, action: DataInstance) -> np.array:
-        assert isinstance(action, MolecularDataInstance)
+        assert isinstance(action, MolecularInstance)
 
         fp = Chem.RDKFingerprint(
             action.molecule, self.fp_radius, self.fp_length, bitInfo=None

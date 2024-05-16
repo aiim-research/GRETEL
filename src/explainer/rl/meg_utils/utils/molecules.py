@@ -61,6 +61,7 @@ def mol_to_tox21_pyg(molecule):
 
     pyg_mol = Data(x=X, edge_index=E, edge_attr=edge_attr)
     pyg_mol.batch = torch.zeros(X.shape[0]).long()
+    pyg_mol.molecule = molecule
     pyg_mol.smiles = mol_to_smiles(molecule)
     return pyg_mol
 
@@ -167,7 +168,7 @@ def e_map_tox21(bond_type, reverse=False):
 
 
 class x_map_tox21(Enum):
-    O = 0
+    O = 0  # noqa: E741
     C = 1
     N = 2
     F = 3
@@ -176,7 +177,7 @@ class x_map_tox21(Enum):
     Br = 6
     Si = 7
     Na = 8
-    I = 9
+    I = 9  # noqa: E741
     Hg = 10
     B = 11
     K = 12

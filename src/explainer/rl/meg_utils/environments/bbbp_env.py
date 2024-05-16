@@ -1,8 +1,8 @@
-from src.explainer.rl.meg_utils.environments.molecule_env import Molecule
+from src.explainer.rl.meg_utils.environments.molecule_env import MoleculeEnvironment
 from src.explainer.rl.meg_utils.utils.similarity import get_similarity
 
 
-class BBBPEnvironment(Molecule):
+class BBBPEnvironment(MoleculeEnvironment):
     def __init__(
         self,
         oracle=None,

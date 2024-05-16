@@ -24,8 +24,8 @@ def rescaled_cosine_similarity(molecule_a, molecule_b, S, scale="mean"):
 
 def get_similarity(name, model, fp_len=None, fp_rad=None):
     if name == "tanimoto":
-        similarity = lambda x, y: tanimoto_similarity(x, y)
-        make_encoding = lambda x: Fingerprint(
+        similarity = lambda x, y: tanimoto_similarity(x, y)  # noqa: E731
+        make_encoding = lambda x: Fingerprint(  # noqa: E731
             AllChem.GetMorganFingerprintAsBitVect(x.molecule, fp_len, fp_rad), fp_len
         )
 

@@ -2,14 +2,13 @@ import torch
 from torch.nn import functional as F
 
 from src.explainer.rl.meg_utils.environments.molecule_env import (
-    Molecule,
-    mol_from_smiles,
+    MoleculeEnvironment,
 )
 from src.explainer.rl.meg_utils.utils.molecules import mol_to_tox21_pyg
 from src.explainer.rl.meg_utils.utils.similarity import get_similarity
 
 
-class CF_Tox21(Molecule):
+class CF_Tox21(MoleculeEnvironment):
     def __init__(
         self,
         model_to_explain,
@@ -33,22 +32,19 @@ class CF_Tox21(Molecule):
         )
 
     def reward(self):
-        molecule = mol_from_smiles(self._state)
-        molecule = mol_to_tox21_pyg(molecule)
+        data = mol_to_tox21_pyg(self._state.molecule)
 
-        out, (_, encoding) = self.model_to_explain(molecule.x, molecule.edge_index)
+        out, (_, encoding) = self.model_to_explain(data.x, data.edge_index)
         out = F.softmax(out, dim=-1).squeeze().detach()
 
-        sim_score = self.similarity(
-            self.make_encoding(molecule), self.original_encoding
-        )
+        sim_score = self.similarity(self.make_encoding(data), self.original_encoding)
         pred_score = out[self.class_to_optimize].item()
         pred_class = torch.argmax(out).item()
 
         reward = pred_score * (1 - self.weight_sim) + sim_score * self.weight_sim
 
         return {
-            "pyg": molecule,
+            "pyg": data,
             "reward": reward * self.discount_factor,
             "reward_pred": pred_score,
             "reward_sim": sim_score,
