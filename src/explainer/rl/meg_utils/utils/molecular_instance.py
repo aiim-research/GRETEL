@@ -28,6 +28,19 @@ class MolecularInstance(GraphInstance):
             dataset,
         )
 
+    @staticmethod
+    def from_graph_instance(graph_instance: GraphInstance):
+        return MolecularInstance(
+            graph_instance.id,
+            graph_instance.label,
+            graph_instance.data,
+            graph_instance.node_features,
+            graph_instance.edge_features,
+            graph_instance.edge_weights,
+            graph_instance.graph_features,
+            graph_instance._dataset,
+        )
+
     @property
     def molecule(self):
         return self.graph_features.get("mol")
