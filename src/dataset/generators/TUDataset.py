@@ -1,5 +1,6 @@
 # https://chrsmrrs.github.io/datasets/docs/format/
 
+import os
 import numpy as np
 import pandas as pd
 
@@ -9,12 +10,29 @@ from collections import defaultdict
 from src.dataset.generators.base import Generator
 from src.dataset.instances.graph import GraphInstance
 
+from io import BytesIO
+from zipfile import ZipFile
+from urllib.request import urlopen
+
 
 class TUDataset(Generator):
+
+    def prepare_data(self):
+        base_path = os.path.join(self.context.working_store_path,self.dataset_name)
+        self.context.logger.info("Dataset Data Path:\t" + base_path)
+        if not os.path.exists(base_path):
+            self.context.logger.info("Downloading " + self.dataset_name + "...")
+            os.makedirs(base_path, exist_ok=True)
+            resp = urlopen("https://www.chrsmrrs.com/graphkerneldatasets/"+self.dataset_name+".zip")
+            zipped = ZipFile(BytesIO(resp.read()))
+            zipped.extractall(self.context.working_store_path)
+            self.context.logger.info("Extracted in " + self.context.working_store_path)
+
+        return base_path
     
-    def init(self, dataset_name = ''):
-        self.dataset_name = dataset_name
-        base_path = self.local_config['parameters']['data_dir']
+    def init(self):
+        self.dataset_name = self.local_config['parameters']['alias']
+        base_path = self.prepare_data() #self.local_config['parameters']['data_dir']
 
         a = join(base_path, f'{self.dataset_name}_A.txt')
         graph_indicator = join(base_path, f'{self.dataset_name}_graph_indicator.txt')

@@ -15,8 +15,8 @@
                 "class": "src.dataset.dataset_base.Dataset",
                 "parameters": {
                     "generator": {
-                        "class": "src.dataset.generators.frankestein.Frankestein", 
-                        "parameters": { "data_dir": "data/datasets/frankestein/" }
+                        "class": "src.dataset.generators.TUDataset.TUDataset",
+                        "parameters": { "alias": "FRANKENSTEIN" }
                     }
                 },
                 "retrain": true
