@@ -3,14 +3,13 @@ from src.core.oracle_base import Oracle
 from src.core.explainer_base import Explainer
 import numpy as np
 
-class GraphEditDistanceMetric(EvaluationMetric):
+class GraphEditDistanceMetric:
     """Provides a graph edit distance function for graphs where nodes are already matched, 
     thus eliminating the need of performing an NP-Complete graph matching.
     """
 
     def __init__(self, node_insertion_cost=1.0, node_deletion_cost=1.0, edge_insertion_cost=1.0,
                  edge_deletion_cost=1.0, undirected=True, config_dict=None) -> None:
-        super().__init__(config_dict)
         self._name = 'Graph_Edit_Distance'
         self._node_insertion_cost = node_insertion_cost
         self._node_deletion_cost = node_deletion_cost
@@ -19,11 +18,9 @@ class GraphEditDistanceMetric(EvaluationMetric):
         self.undirected = undirected
         
 
-    def evaluate(self, instance , explanation , oracle : Oracle=None, explainer : Explainer=None, dataset = None):
-        instance_2 = explanation.top
-
+    def evaluate(self, instance_1 , instance_2 , oracle : Oracle=None, explainer : Explainer=None, dataset = None):
         # Implementation for numpy matrices
-        A_g1 = instance.data
+        A_g1 = instance_1.data
         A_g2 = instance_2.data
 
         # Get the difference in the number of nodes

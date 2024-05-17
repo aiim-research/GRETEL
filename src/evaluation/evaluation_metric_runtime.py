@@ -11,11 +11,11 @@ class RuntimeMetric(EvaluationMetric):
         self._name = 'Runtime'
         self._special = True
 
-    def evaluate(self, instance_1 , instance_2 , oracle : Oracle=None, explainer : Explainer=None, dataset = None):
+    def evaluate(self, instance , explanation , oracle : Oracle=None, explainer : Explainer=None, dataset = None):
         start_time = time.time()
-        counterfactual = explainer.explain(instance_1)
+        counterfactual = explainer.explain(instance)
         end_time = time.time()
         # giving the same id to the counterfactual and the original instance 
-        counterfactual.id = instance_1.id       
+        counterfactual.id = instance.id       
         
         return (end_time - start_time), counterfactual

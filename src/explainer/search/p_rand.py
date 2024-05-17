@@ -1,16 +1,10 @@
-import random
 import itertools
 import numpy as np
 import copy
 
 from src.dataset.instances.graph import GraphInstance
-from src.dataset.dataset_base import Dataset
 from src.core.explainer_base import Explainer
-from src.core.oracle_base import Oracle
-from src.core.trainable_base import Trainable
-
-from src.core.factory_base import get_instance_kvargs
-from src.utils.cfg_utils import get_dflts_to_of, init_dflts_to_of, inject_dataset, inject_oracle, retake_oracle, retake_dataset
+from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 
 
 class PRandExplainer(Explainer):
@@ -52,9 +46,15 @@ class PRandExplainer(Explainer):
         adj[sampled_edges[:,0], sampled_edges[:,1]] = 1 - adj[sampled_edges[:,0], sampled_edges[:,1]]
         adj[sampled_edges[:,1], sampled_edges[:,0]] = 1 - adj[sampled_edges[:,1], sampled_edges[:,0]]
     
-        # Encapsulating the perturbating adjacency matrix into a new instance
+        # Encapsulating the perturbated adjacency matrix into a new instance
         result = GraphInstance(id=instance.id,
                                label=0,
                                data=adj,
                                node_features=instance.node_features)
-        return result
+        
+        # Building the explanation instance
+        exp = LocalGraphCounterfactualExplanation(explainer_class=self.name,
+                                                  input_instance=instance,
+                                                  counterfactual_instances=[result]
+                                                 )
+        return exp

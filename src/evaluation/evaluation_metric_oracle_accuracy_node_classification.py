@@ -12,10 +12,10 @@ class OracleAccuracyNodeMetric(EvaluationMetric):
         super().__init__(config_dict)
         self._name = 'Oracle_Accuracy_Node'
 
-    def evaluate(self, instance_1 , instance_2 , oracle : Oracle=None, explainer : Explainer=None, dataset  = None):
-        predicted_label_instance_1 = oracle.predict(instance_1)
+    def evaluate(self, instance , explanation , oracle : Oracle=None, explainer : Explainer=None, dataset  = None):
+        predicted_label_instance_1 = oracle.predict(instance)
         oracle._call_counter -= 1
-        real_label_instance_1 = instance_1.node_labels.get(instance_1.target_node)
+        real_label_instance_1 = instance.node_labels.get(instance.target_node)
 
         result = 1 if (predicted_label_instance_1 == real_label_instance_1) else 0
         

@@ -1,7 +1,7 @@
 from src.evaluation.evaluation_metric_base import EvaluationMetric
 from src.core.oracle_base import Oracle
 from src.core.explainer_base import Explainer
-from src.evaluation.evaluation_metric_ged import GraphEditDistanceMetric
+from src.utils.metrics.ged import GraphEditDistanceMetric
 
 
 class SparsityMetric(EvaluationMetric):
@@ -13,9 +13,11 @@ class SparsityMetric(EvaluationMetric):
         super().__init__(config_dict)
         self._name = 'Sparsity'
 
-    def evaluate(self, instance_1 , instance_2 , oracle : Oracle=None, explainer : Explainer=None, dataset = None):
+    def evaluate(self, instance , explanation , oracle : Oracle=None, explainer : Explainer=None, dataset = None):
+        instance_2 = explanation.top
+
         ged = GraphEditDistanceMetric()
-        return ged.evaluate(instance_1, instance_2, oracle)/self.number_of_structural_features(instance_1)
+        return ged.evaluate(instance, instance_2, oracle)/self.number_of_structural_features(instance)
 
     def number_of_structural_features(self, data_instance) -> float:
         return len(data_instance.get_nx().edges) + len(data_instance.get_nx().nodes)

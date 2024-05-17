@@ -23,7 +23,7 @@ class EvaluationMetric(ABC):
         self._name = new_name
 
     @abstractmethod
-    def evaluate(self, instance_1 , instance_2 , oracle : Oracle=None, explainer : Explainer=None, dataset  = None):
+    def evaluate(self, instance , explanation , oracle : Oracle=None, explainer : Explainer=None, dataset  = None):
         pass
 
     def aggregate(self, measure_list, instances_correctness_list=None):

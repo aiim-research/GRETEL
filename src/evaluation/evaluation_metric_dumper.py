@@ -22,21 +22,23 @@ class InstancesDumper(EvaluationMetric):
             os.makedirs(self._store_path)
         
 
-    def evaluate(self, instance_1 , instance_2 , oracle : Oracle=None, explainer : Explainer=None, dataset = None):
+    def evaluate(self, instance , explanation , oracle : Oracle=None, explainer : Explainer=None, dataset = None):
+        instance_2 = explanation.top
+
         exp_path=os.path.join(self._store_path,dataset.name,explainer.name.replace('fold_id=.*_',''),str(explainer.fold_id))
         if not os.path.exists(exp_path):
             os.makedirs(exp_path)
 
-        correctness = self._correctness.evaluate(instance_1,instance_2,oracle)
+        correctness = self._correctness.evaluate(instance,instance_2,oracle)
         
         info = {
-            "orginal_id":instance_1.id,
+            "orginal_id":instance.id,
             "correctness":correctness,
              "fold": explainer.fold_id,
-            "orginal":instance_1.to_numpy_array(),
+            "orginal":instance.to_numpy_array(),
             "counterfactual": instance_2.to_numpy_array()
         }
-        with open(os.path.join(exp_path,str(instance_1.id)),'w') as dump_file:
+        with open(os.path.join(exp_path,str(instance.id)),'w') as dump_file:
             dump_file.write(jsonpickle.encode(info))
         
         return -1
