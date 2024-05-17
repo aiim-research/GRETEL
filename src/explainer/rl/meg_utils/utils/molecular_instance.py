@@ -35,7 +35,7 @@ class MolecularInstance(GraphInstance):
     @molecule.setter
     def molecule(self, new_molecule):
         self.graph_features["mol"] = new_molecule
-        self._update_from_molecule()
+        self.sync_from_molecule()
 
     @property
     def smiles(self):
@@ -45,13 +45,13 @@ class MolecularInstance(GraphInstance):
     def smiles(self, new_smiles):
         self.graph_features["smile"] = new_smiles
         self.graph_features["string_repp"] = new_smiles
-        self._update_from_smiles()
+        self.sync_from_smiles()
 
-    def _update_from_molecule(self):
+    def sync_from_molecule(self):
         self.smiles = mol2smi(self.molecule, isomericSmiles=False, canonical=True)
         self._update_graph_from_molecule()
 
-    def _update_from_smiles(self):
+    def sync_from_smiles(self):
         self.molecule = smi2mol(self.smiles, sanitize=True)
         self._update_graph_from_molecule()
 
