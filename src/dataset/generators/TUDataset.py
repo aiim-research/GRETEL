@@ -17,13 +17,15 @@ from urllib.request import urlopen
 
 class TUDataset(Generator):
 
+    REPO_URL="https://www.chrsmrrs.com/graphkerneldatasets/"
+
     def prepare_data(self):
         base_path = os.path.join(self.context.working_store_path,self.dataset_name)
         self.context.logger.info("Dataset Data Path:\t" + base_path)
         if not os.path.exists(base_path):
             self.context.logger.info("Downloading " + self.dataset_name + "...")
             os.makedirs(base_path, exist_ok=True)
-            resp = urlopen("https://www.chrsmrrs.com/graphkerneldatasets/"+self.dataset_name+".zip")
+            resp = urlopen(self.REPO_URL+self.dataset_name+".zip")
             zipped = ZipFile(BytesIO(resp.read()))
             zipped.extractall(self.context.working_store_path)
             self.context.logger.info("Extracted in " + self.context.working_store_path)
@@ -32,7 +34,7 @@ class TUDataset(Generator):
     
     def init(self):
         self.dataset_name = self.local_config['parameters']['alias']
-        base_path = self.prepare_data() #self.local_config['parameters']['data_dir']
+        base_path = self.prepare_data()
 
         a = join(base_path, f'{self.dataset_name}_A.txt')
         graph_indicator = join(base_path, f'{self.dataset_name}_graph_indicator.txt')

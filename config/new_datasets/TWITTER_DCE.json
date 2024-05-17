@@ -11,15 +11,14 @@
     },
     "do-pairs":[ 
         {
-            "dataset": { 
+            "dataset": {
                 "class": "src.dataset.dataset_base.Dataset",
                 "parameters": {
                     "generator": {
-                        "class": "src.dataset.generators.twitter_rgp_new.Twitter_RGP", 
-                        "parameters": { "data_dir": "data/datasets/twitter_rgp/" }
+                        "class": "src.dataset.generators.TUDataset.TUDataset",
+                        "parameters": { "alias": "TWITTER-Real-Graph-Partial" }
                     }
-                },
-                "retrain": true
+                }
             },
             "oracle": {
                 "class": "src.oracle.tabulars.svm.SVMOracle",           
