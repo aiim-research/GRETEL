@@ -94,7 +94,10 @@ class CF2Explainer(Trainable, Explainer):
             cf_instance._nx_repr = None
 
             # Building the explanation instance
-            exp = LocalGraphCounterfactualExplanation(explainer_class=self.name,
+            exp = LocalGraphCounterfactualExplanation(context=self.context,
+                                                      dataset=self.dataset,
+                                                      oracle=self.oracle,
+                                                      explainer=self,
                                                       input_instance=instance,
                                                       counterfactual_instances=[cf_instance]
                                                       )

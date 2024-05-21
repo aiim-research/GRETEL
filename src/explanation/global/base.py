@@ -6,13 +6,17 @@ from src.core.configurable import Configurable
 from src.utils.cfg_utils import retake_dataset, retake_oracle
 from src.explanation.base import Explanation
 from src.dataset.instances.base import DataInstance
+from src.utils.context import Context
+from src.dataset.dataset_base import Dataset
+from src.core.oracle_base import Oracle
+from src.core.explainer_base import Explainer
 
 
 class GlobalExplanation(Explanation):
     """The common logic shared between all instance-level explanation types should be in this class"""
     
-    def __init__(self, explainer_class, input_instances: List[DataInstance]) -> None:
-        super().__init__(explainer_class=explainer_class)
+    def __init__(self, context: Context, dataset: Dataset, oracle: Oracle, explainer: Explainer, input_instances: List[DataInstance]) -> None:
+        super().__init__(context=context, dataset=dataset, oracle=oracle, explainer=explainer)
         self._input_instances = input_instances
 
     @property

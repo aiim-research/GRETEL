@@ -88,7 +88,10 @@ class CLEARExplainer(Trainable, Explainer):
                                         node_features=features_reconst.squeeze().to("cpu").detach().numpy())
             
             # Building the explanation instance
-            exp = LocalGraphCounterfactualExplanation(explainer_class=self.name,
+            exp = LocalGraphCounterfactualExplanation(context=self.context,
+                                                      dataset=self.dataset,
+                                                      oracle=self.oracle,
+                                                      explainer=self,
                                                       input_instance=instance,
                                                       counterfactual_instances=[cf_instance]
                                                       )

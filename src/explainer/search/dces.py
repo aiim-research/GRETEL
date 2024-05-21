@@ -46,7 +46,10 @@ class DCESExplainer(Explainer):
                     min_ctf = ctf_candidate
 
         # A Local Graph Counterfactual Explanation is created as the return of the method
-        result = LocalGraphCounterfactualExplanation(explainer_class=self.name,
+        result = LocalGraphCounterfactualExplanation(context=self.context,
+                                                     dataset=self.dataset,
+                                                     oracle=self.oracle,
+                                                     explainer=self,
                                                      input_instance=instance,
                                                      counterfactual_instances=[copy.deepcopy(min_ctf)]
                                                      )

@@ -12,6 +12,7 @@ from src.dataset.instances.graph import GraphInstance
 from src.explainer.ensemble.aggregators.nodes.base import NodeFeatureAggregator
 from src.utils.cfg_utils import init_dflts_to_of, inject_dataset, inject_oracle, retake_oracle, retake_dataset
 from src.utils.utils import pad_adj_matrix
+from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 
 class ExplanationAggregator(Configurable):
 
@@ -44,7 +45,8 @@ class ExplanationAggregator(Configurable):
         super().init()
 
 
-    def aggregate(self, instance: DataInstance, explanations: List[DataInstance]):
+    def aggregate(self, instance: DataInstance, explanations: List[LocalGraphCounterfactualExplanation]):
+        #TODO Update the aggregators to use the new explanation class
         aggregated_instance = self.real_aggregate(instance, explanations)
         # we need to combine:
         # 1) node features
@@ -74,7 +76,7 @@ class ExplanationAggregator(Configurable):
         return cf_candidate
             
             
-    def real_aggregate(self, instance: DataInstance, explanations: List[DataInstance]):
+    def real_aggregate(self, instance: DataInstance, explanations: List[LocalGraphCounterfactualExplanation]):
         # This is the method where the aggregation takes place. It should be implemented by the child classes
         pass
 

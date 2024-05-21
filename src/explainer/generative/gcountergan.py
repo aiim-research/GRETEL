@@ -72,12 +72,18 @@ class GCounteRGAN(PerClassExplainer):
 
             if cf_instance:
                 # Building the explanation instance
-                exp = LocalGraphCounterfactualExplanation(explainer_class=self.name,
+                exp = LocalGraphCounterfactualExplanation(context=self.context,
+                                                          dataset=self.dataset,
+                                                          oracle=self.oracle,
+                                                          explainer=self,
                                                           input_instance=instance,
                                                           counterfactual_instances=[cf_instance])
             else:
                 # Building the default explanation instance
-                exp = LocalGraphCounterfactualExplanation(explainer_class=self.name,
+                exp = LocalGraphCounterfactualExplanation(context=self.context,
+                                                          dataset=self.dataset,
+                                                          oracle=self.oracle,
+                                                          explainer=self,
                                                           input_instance=instance,
                                                           counterfactual_instances=[copy.deepcopy(instance)])
             return exp

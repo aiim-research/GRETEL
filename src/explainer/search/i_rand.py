@@ -59,15 +59,21 @@ class IRandExplainer(Explainer):
                 if l_input_inst != l_cf_cand:
                     result.label = l_cf_cand
 
-                    exp = LocalGraphCounterfactualExplanation(explainer_class=self.name,
+                    exp = LocalGraphCounterfactualExplanation(context=self.context,
+                                                              dataset=self.dataset,
+                                                              oracle=self.oracle,
+                                                              explainer=self,
                                                               input_instance=instance,
                                                               counterfactual_instances=[result])
                     return exp
         
         # If no counterfactual was found return the original instance by convention
-        exp = LocalGraphCounterfactualExplanation(explainer_class=self.name,
-                                                              input_instance=instance,
-                                                              counterfactual_instances=[copy.deepcopy(instance)])
+        exp = LocalGraphCounterfactualExplanation(context=self.context,
+                                                  dataset=self.dataset,
+                                                  oracle=self.oracle,
+                                                  explainer=self,
+                                                  input_instance=instance,
+                                                  counterfactual_instances=[copy.deepcopy(instance)])
         return exp
     
 
