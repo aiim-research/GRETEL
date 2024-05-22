@@ -156,6 +156,15 @@ class Context(object):
     def log_store_path(self):
         return self._get_store_path(inspect.stack()[0][3])
     
+    @property
+    def working_store_path(self):
+        dflt = './data/working/'
+        usr = self._get_store_path(inspect.stack()[0][3])
+        if usr == None:
+            os.makedirs(dflt, exist_ok=True)
+            return dflt
+        return usr
+    
 #context = Context.get_context()
 #context = Context.get_context("config/test/temp.json")
 #print(context)
