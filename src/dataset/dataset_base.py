@@ -267,5 +267,8 @@ class Dataset(Savable):
     
     @property
     def name(self):
-        alias = get_class( self.local_config['parameters']['generator']['class'] ).__name__
+        if 'alias' not in self.local_config['parameters']['generator']['parameters']:
+            alias = get_class( self.local_config['parameters']['generator']['class'] ).__name__
+        else:
+            alias = self.local_config['parameters']['generator']['parameters']['alias']
         return self.context.get_name(self,alias=alias)
