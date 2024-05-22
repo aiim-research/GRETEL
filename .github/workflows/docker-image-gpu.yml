@@ -18,12 +18,23 @@ jobs:
           repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref }}
 
+      - name: Check if secrets exist
+        id: check_secrets
+        run: |
+          if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ] || [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
+            echo "Secrets do not exist"
+            echo "push_image=false" >> $GITHUB_ENV
+          else
+            echo "Secrets exist"
+            echo "push_image=true" >> $GITHUB_ENV
+          fi
+
       - name: Build and Push Docker Image
         uses: ./.github/actions/docker-build
         with:
           dockerfile: "dockerfile.gpu"
           image_tag: "gretelxai/gretel:gpu-latest"
-          push_image: ${{ github.event_name == 'push' }}
+          push_image: ${{ github.event_name == 'push' && env.push_image == 'true' }}
           dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_TOKEN }}
           optimize_space: "true"
