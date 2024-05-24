@@ -6,6 +6,7 @@ from src.dataset.instances.base import DataInstance
 from src.explainer.ensemble.aggregators.base import ExplanationAggregator
 from src.core.factory_base import get_instance_kvargs
 from src.utils.cfg_utils import get_dflts_to_of, init_dflts_to_of, inject_dataset, inject_oracle, retake_oracle, retake_dataset
+from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 
 class ExplanationTopSelect(ExplanationAggregator):
 
@@ -25,16 +26,15 @@ class ExplanationTopSelect(ExplanationAggregator):
                                                     self.local_config['parameters']['distance_metric']['parameters'])
         
 
-    def real_aggregate(self, instance: DataInstance, explanations: List[DataInstance]):
-        # If the correctness filter is active then consider only the correct explanations in the list
-        if self.correctness_filter:
-            filtered_explanations = self.filter_correct_explanations(instance, explanations)
-        else:
-            # Consider all the explanations in the list
-            filtered_explanations = explanations
+    def real_aggregate(self, explanations: List[LocalGraphCounterfactualExplanation]):
+        # unpack the explanations instances
+        exp_data_instances = []
+        for exp_obj in explanations:
+            for exp_inst in exp_obj.counterfactual_instances:
+                exp_data_instances.append(exp_inst)
 
-        if len(filtered_explanations) < 1:
-            return copy.deepcopy(instance)
+        # Get the input instance from any explanation
+        instance = exp_data_instances[0].input_instance
 
         # Initializing the result with the original instance which will be returned if a 
         # counterfactual is not found
@@ -43,7 +43,7 @@ class ExplanationTopSelect(ExplanationAggregator):
 
         # Iterate over the base explanations looking for a correct counterfactual with the lowest GED
         # Note that if one of the base methods returned the original instance this is going to be selected as the GED is zero
-        for exp in filtered_explanations:
+        for exp in exp_data_instances:
             exp_ged = self.distance_metric.evaluate(instance, exp) # Get the counterfactual GED
 
             # If the GED is lower that the best counterfactual so far then replace it with current counterfactual.

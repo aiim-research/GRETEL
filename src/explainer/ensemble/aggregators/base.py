@@ -45,51 +45,80 @@ class ExplanationAggregator(Configurable):
         super().init()
 
 
-    def aggregate(self, instance: DataInstance, explanations: List[LocalGraphCounterfactualExplanation]):
-        #TODO Update the aggregators to use the new explanation class
-        aggregated_instance = self.real_aggregate(instance, explanations)
-        # we need to combine:
-        # 1) node features
-        # 2) edge features
-        # 3) graph features
-        adj = aggregated_instance.data
-        edges = np.nonzero(adj)
-        # if there's at least one edge that the aggreagtor produced
-        # then get the features of the incident nodes
-        if edges[0].size:
-            node_features = self.node_feature_aggregator.aggregate(
-                np.array(list(range(adj.shape[0]))), 
-                explanations
-            )
+    def aggregate(self, explanations: List[LocalGraphCounterfactualExplanation]) -> LocalGraphCounterfactualExplanation:
+        # If the correctness filter parameter is True then keep only the correct explanations
+        filtered_explanations = explanations
+        if self.correctness_filter:
+            filtered_explanations = self.filter_correct_explanations(explanations)
 
-            cf_candidate = GraphInstance(id=instance.id,
-                                        label=1-instance.label,
-                                        data=adj,
-                                        node_features=node_features,
-                                        dataset=instance._dataset)
-
-            for manipulator in cf_candidate._dataset.manipulators:
-                manipulator._process_instance(cf_candidate)
-        else:
-            cf_candidate = deepcopy(instance)
+        if len(filtered_explanations) < 1:
+            # If there was no any base correct explanation then return an instance containing the input instance as explanation
+            incorrect_exp = explanations[0]
+            default_explanation = LocalGraphCounterfactualExplanation(context=incorrect_exp.context,
+                                                                      dataset=incorrect_exp.dataset,
+                                                                      oracle=incorrect_exp.oracle,
+                                                                      explainer=incorrect_exp.explainer,
+                                                                      input_instance=incorrect_exp.input_instance,
+                                                                      counterfactual_instances=[incorrect_exp.input_instance])
+            return default_explanation
         
-        return cf_candidate
+        # we need to combine:
+        # 1) graph features
+        # First an aggregated explanation is produced
+        aggregated_explanation = self.real_aggregate(explanations=filtered_explanations)
+        # 2) node features
+        updated_cf_insts = self.node_feature_aggregator.aggregate(aggregated_explanation, explanations)
+        aggregated_explanation.counterfactual_instances = updated_cf_insts
+        # 3) edge features
+        
+        return aggregated_explanation
             
             
-    def real_aggregate(self, instance: DataInstance, explanations: List[LocalGraphCounterfactualExplanation]):
+    def real_aggregate(self, explanations: List[LocalGraphCounterfactualExplanation]) -> LocalGraphCounterfactualExplanation:
         # This is the method where the aggregation takes place. It should be implemented by the child classes
         pass
 
+
+    def filter_correct_explanations(self, explanations: List[LocalGraphCounterfactualExplanation]) -> List[LocalGraphCounterfactualExplanation]:
+        # Getting a list of all the explanations where invalid counterfactual examples where removed from the explanation
+        # If the explanation does not contain any correct counterfactual it is considered invalid
+        verified_explanations = [self._filter_explanation(exp) for exp in explanations]
+        # Removing all invalid explanations from the list
+        filtered_explanations = [exp for (exp_validity, exp) in verified_explanations if exp_validity]
+
+        # Returning the list of valid explanations
+        return filtered_explanations
     
-    def filter_correct_explanations(self, instance: DataInstance, explanations: List[DataInstance]):
-        # Get the label of the original instance
-        org_instance_label = self.oracle.predict(instance)
 
-        # Create a list with all the explanations that are correct counterfactuals (have a different label than the original instance)
-        result = [exp_instance for exp_instance in explanations if self.oracle.predict(exp_instance) != org_instance_label]
+    def _filter_explanation(self, explanation: LocalGraphCounterfactualExplanation) -> tuple[bool, LocalGraphCounterfactualExplanation]:
+        # Filtering the counterfactual instances of the explanation
+        org_instance_label = self.oracle.predict(explanation.input_instance)
+        filtered_cf_instances = [cf_instance for cf_instance in explanation.counterfactual_instances if self.oracle.predict(cf_instance) != org_instance_label]
 
-        # Return the filtered list
-        return result
+        # Check if the explanation contains any correct counterfactual instance
+        if len(filtered_cf_instances) > 0:
+            filtered_exp = LocalGraphCounterfactualExplanation(context=explanation.context,
+                                                            dataset=explanation.dataset,
+                                                            oracle=explanation.oracle,
+                                                            explainer=explanation.explainer,
+                                                            input_instance=explanation.input_instance,
+                                                            counterfactual_instances=filtered_cf_instances)
+            # returns is_valid_explanation, new_explanation
+            return True, filtered_exp
+
+        # returns False is the new explanation does not contain any correct counterfactual instance
+        return False, None
+    
+    
+    # def filter_correct_explanations(self, instance: DataInstance, explanations: List[DataInstance]):
+    #     # Get the label of the original instance
+    #     org_instance_label = self.oracle.predict(instance)
+
+    #     # Create a list with all the explanations that are correct counterfactuals (have a different label than the original instance)
+    #     result = [exp_instance for exp_instance in explanations if self.oracle.predict(exp_instance) != org_instance_label]
+
+    #     # Return the filtered list
+    #     return result
     
 
     def get_edge_differences(self, instance: DataInstance, cf_instance: DataInstance):
