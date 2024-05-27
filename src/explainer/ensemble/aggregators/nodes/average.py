@@ -14,7 +14,7 @@ class AverageAggregator(NodeFeatureAggregator):
         result = []
         instances = aggregated_explanation.counterfactual_instances
 
-        for i in range(instances):
+        for i in range(len(instances)):
             cf_instance = instances[i]
             adj = cf_instance.data
             edges = np.nonzero(adj)

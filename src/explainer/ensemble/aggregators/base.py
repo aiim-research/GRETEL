@@ -67,7 +67,7 @@ class ExplanationAggregator(Configurable):
         # First an aggregated explanation is produced
         aggregated_explanation = self.real_aggregate(explanations=filtered_explanations)
         # 2) node features
-        updated_cf_insts = self.node_feature_aggregator.aggregate(aggregated_explanation, explanations)
+        updated_cf_insts = self.node_feature_aggregator.aggregate(aggregated_explanation, base_explanations=filtered_explanations)
         aggregated_explanation.counterfactual_instances = updated_cf_insts
         # 3) edge features
         

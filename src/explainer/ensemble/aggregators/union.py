@@ -6,34 +6,35 @@ from src.dataset.instances.graph import GraphInstance
 from src.dataset.instances.base import DataInstance
 from src.explainer.ensemble.aggregators.base import ExplanationAggregator
 from src.utils.utils import pad_adj_matrix
+from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
+import src.utils.explanations.functions as exp_tools
 
 
 class ExplanationUnion(ExplanationAggregator):
 
-    def real_aggregate(self, instance: DataInstance, explanations: List[DataInstance]):
-        # If the correctness filter is active then consider only the correct explanations in the list
-        if self.correctness_filter:
-            filtered_explanations = self.filter_correct_explanations(instance, explanations)
-        else:
-            # Consider all the explanations in the list
-            filtered_explanations = explanations
-
-        if len(filtered_explanations) < 1:
-            return copy.deepcopy(instance)
-
+    def real_aggregate(self, explanations: List[LocalGraphCounterfactualExplanation]) -> LocalGraphCounterfactualExplanation:
         # Get the number of nodes of the bigger explanation instance
-        max_dim = max(instance.data.shape[0], max([exp.data.shape[0] for exp in filtered_explanations]))
+        input_inst = explanations[0].input_instance
+        cf_instances = exp_tools.unpack_cf_instances(explanations)
+        max_dim = max(input_inst.data.shape[0], max([cf.data.shape[0] for cf in cf_instances]))
 
         # Get all the changes in all explanations
-        mod_edges, _, _ = self.get_all_edge_differences(instance, filtered_explanations)
+        mod_edges, _, _ = self.get_all_edge_differences(input_inst, cf_instances)
         # Apply those changes to the original matrix
-        union_matrix = pad_adj_matrix(copy.deepcopy(instance.data), max_dim)
+        union_matrix = pad_adj_matrix(copy.deepcopy(input_inst.data), max_dim)
         for edge in mod_edges:
             union_matrix[edge[0], edge[1]] = abs(union_matrix[edge[0], edge[1]] - 1 )
 
         # Create the aggregated explanation
-        aggregated_explanation = GraphInstance(id=instance.id, label=1-instance.label, data=union_matrix)
-        self.dataset.manipulate(aggregated_explanation)
-        aggregated_explanation.label = self.oracle.predict(aggregated_explanation)
+        aggregated_instance = GraphInstance(id=input_inst.id, label=1-input_inst.label, data=union_matrix)
+        self.dataset.manipulate(aggregated_instance)
+        aggregated_instance.label = self.oracle.predict(aggregated_instance)
+
+        aggregated_explanation = LocalGraphCounterfactualExplanation(context=self.context,
+                                                                    dataset=self.dataset,
+                                                                    oracle=self.oracle,
+                                                                    explainer=None, # Will be added later by the ensemble
+                                                                    input_instance=input_inst,
+                                                                    counterfactual_instances=[aggregated_instance])
 
         return aggregated_explanation
