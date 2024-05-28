@@ -7,6 +7,8 @@ from src.dataset.instances.base import DataInstance
 from src.dataset.instances.graph import GraphInstance
 from src.explainer.ensemble.aggregators.base import ExplanationAggregator
 from src.utils.utils import pad_adj_matrix, pad_features
+from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
+import src.utils.explanations.functions as exp_tools
 
 class ExplanationRandom(ExplanationAggregator):
 
@@ -23,27 +25,22 @@ class ExplanationRandom(ExplanationAggregator):
         self.runs = self.local_config['parameters']['runs']
 
 
-    def real_aggregate(self, instance: DataInstance, explanations: List[DataInstance]):
-        # If the correctness filter is active then consider only the correct explanations in the list
-        if self.correctness_filter:
-            filtered_explanations = self.filter_correct_explanations(instance, explanations)
-        else:
-            # Consider all the explanations in the list
-            filtered_explanations = explanations
+    def real_aggregate(self, explanations: List[LocalGraphCounterfactualExplanation]) -> LocalGraphCounterfactualExplanation:
+        # calculating the frequency threshold
+        input_inst = explanations[0].input_instance
+        cf_instances = exp_tools.unpack_cf_instances(explanations)
+        # n_exp = len(cf_instances)
 
-        if len(filtered_explanations) < 1:
-            return copy.deepcopy(instance)
-        
         # Getting the label of the original instance
-        inst_lbl = self.oracle.predict(instance)
+        inst_lbl = self.oracle.predict(input_inst)
 
-        change_edges, min_changes, change_freq_matrix = self.get_all_edge_differences(instance, filtered_explanations)
+        change_edges, min_changes, change_freq_matrix = self.get_all_edge_differences(input_inst, cf_instances)
 
         # Perform r runs repeating the random search process
         # aggregated_explanation = copy.deepcopy(instance)
         for i in range(0, self.runs):
             # The working matrix for each run is a new copy of the instance adjacency matrix
-            adj_matrix = copy.deepcopy(instance.data)
+            adj_matrix = copy.deepcopy(input_inst.data)
             # Randomly sample a number of edges equivalent to the smallest base explanation
             sampled_edges = random.sample(change_edges, min_changes)
 
@@ -52,18 +49,29 @@ class ExplanationRandom(ExplanationAggregator):
                 adj_matrix[edge[0], edge[1]] = abs( adj_matrix[edge[0], edge[1]] - 1 )
 
                 # Creating an instance with the modified adjacency matrix
-                aggregated_explanation = GraphInstance(id=instance.id,
+                aggregated_instance = GraphInstance(id=input_inst.id,
                                                        label=0,
                                                        data=adj_matrix)
-                self.dataset.manipulate(aggregated_explanation)
-
+                self.dataset.manipulate(aggregated_instance)
                 # Predicting the label of the instance
-                exp_lbl = self.oracle.predict(aggregated_explanation)
-                aggregated_explanation.label = exp_lbl
+                aggregated_instance.label = self.oracle.predict(aggregated_instance)
 
                 # If a counterfactual has been found return it
-                if exp_lbl != inst_lbl:
+                if aggregated_instance.label != inst_lbl:
+                    aggregated_explanation = LocalGraphCounterfactualExplanation(context=self.context,
+                                                                    dataset=self.dataset,
+                                                                    oracle=self.oracle,
+                                                                    explainer=None, # Will be added later by the ensemble
+                                                                    input_instance=input_inst,
+                                                                    counterfactual_instances=[aggregated_instance])
+
                     return aggregated_explanation
 
         # If no counterfactual was found, return the original instance
-        return copy.deepcopy(instance)
+        no_explanation = LocalGraphCounterfactualExplanation(context=self.context,
+                                                             dataset=self.dataset,
+                                                             oracle=self.oracle,
+                                                             explainer=None, # Will be added later by the ensemble
+                                                             input_instance=input_inst,
+                                                             counterfactual_instances=[copy.deepcopy(input_inst)])
+        return no_explanation
