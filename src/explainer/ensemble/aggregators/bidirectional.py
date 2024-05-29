@@ -12,6 +12,8 @@ from src.dataset.instances.graph import GraphInstance
 from src.dataset.instances.base import DataInstance
 from src.explainer.ensemble.aggregators.base import ExplanationAggregator
 from src.utils.utils import pad_adj_matrix
+from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
+import src.utils.explanations.functions as exp_tools
 
 
 class ExplanationBidirectionalSearch(ExplanationAggregator):
@@ -38,29 +40,21 @@ class ExplanationBidirectionalSearch(ExplanationAggregator):
         self.p = self.local_config['parameters']['action_prob']
 
 
-    def real_aggregate(self, instance: DataInstance, explanations: List[DataInstance]):
-        # If the correctness filter is active then consider only the correct explanations in the list
-        if self.correctness_filter:
-            filtered_explanations = self.filter_correct_explanations(instance, explanations)
-        else:
-            # Consider all the explanations in the list
-            filtered_explanations = explanations
-
-        if len(filtered_explanations) < 1:
-            self.logger.info(f'No base explanation was correct for instance {instance.id}')
-            return copy.deepcopy(instance)
+    def real_aggregate(self, explanations: List[LocalGraphCounterfactualExplanation]) -> LocalGraphCounterfactualExplanation:
+        input_inst = explanations[0].input_instance
+        cf_instances = exp_tools.unpack_cf_instances(explanations)
 
         e_add = []
         e_rem = []
-        change_edges, min_changes, change_freq_matrix = self.get_all_edge_differences(instance, filtered_explanations)
+        change_edges, min_changes, change_freq_matrix = self.get_all_edge_differences(input_inst, cf_instances)
         for x, y in change_edges:
-            if instance.data[x,y] > 0:
+            if input_inst.data[x,y] > 0:
                 e_rem.append((x,y)) # Add existing edges to the remove list
             else:
                 e_add.append((x,y)) # Add non-existing edges to the add list
         
         # Try to get a first counterfactual with the greedy "Oblivious Forward Search"
-        initial_cf, used_oc = self.oblivious_forward_search(instance=instance, 
+        initial_cf, used_oc = self.oblivious_forward_search(instance=input_inst, 
                                                             e_add=e_add,
                                                             e_rem=e_rem,
                                                             k=self.k,
@@ -68,19 +62,32 @@ class ExplanationBidirectionalSearch(ExplanationAggregator):
                                                             p=self.p)
         
         # If the first step was unable to find a counterfactual
-        if initial_cf.label == instance.label:
-            self.logger.info(f'No counterfactual was found for instance {instance.id} in the forward search')
-            return copy.deepcopy(instance)
+        if initial_cf.label == input_inst.label:
+            self.logger.info(f'No counterfactual was found for instance {input_inst.id} in the forward search')
+            no_explanation = LocalGraphCounterfactualExplanation(context=self.context,
+                                                             dataset=self.dataset,
+                                                             oracle=self.oracle,
+                                                             explainer=None, # Will be added later by the ensemble
+                                                             input_instance=input_inst,
+                                                             counterfactual_instances=[copy.deepcopy(input_inst)])
+            return no_explanation
         
         # If a counterfactual was found in the first step then try to reduce the number of changes in the second step
-        changed_edges, _, _ = self.get_all_edge_differences(instance, [initial_cf])
-        final_cf  = self.oblivious_backward_search(instance=instance,
-                                                               cf_instance=initial_cf,
-                                                               changed_edges=changed_edges,
-                                                               k=self.k,
-                                                               maximum_oracle_calls=self.oc_limit - used_oc)
+        changed_edges, _, _ = self.get_all_edge_differences(input_inst, [initial_cf])
+        final_cf  = self.oblivious_backward_search(instance=input_inst,
+                                                   cf_instance=initial_cf,
+                                                   changed_edges=changed_edges,
+                                                   k=self.k,
+                                                   maximum_oracle_calls=self.oc_limit - used_oc)
+        
+        aggregated_explanation = LocalGraphCounterfactualExplanation(context=self.context,
+                                                                    dataset=self.dataset,
+                                                                    oracle=self.oracle,
+                                                                    explainer=None, # Will be added later by the ensemble
+                                                                    input_instance=input_inst,
+                                                                    counterfactual_instances=[final_cf])
 
-        return final_cf
+        return aggregated_explanation
 
         
     def oblivious_forward_search(self, instance, e_add, e_rem, k=5, maximum_oracle_calls=2000, p=0.5):
