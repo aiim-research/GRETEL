@@ -90,7 +90,7 @@ class ExplanationAggregator(Configurable):
         return filtered_explanations
     
 
-    def _filter_explanation(self, explanation: LocalGraphCounterfactualExplanation) -> tuple[bool, LocalGraphCounterfactualExplanation]:
+    def _filter_explanation(self, explanation: LocalGraphCounterfactualExplanation):
         # Filtering the counterfactual instances of the explanation
         org_instance_label = self.oracle.predict(explanation.input_instance)
         filtered_cf_instances = [cf_instance for cf_instance in explanation.counterfactual_instances if self.oracle.predict(cf_instance) != org_instance_label]

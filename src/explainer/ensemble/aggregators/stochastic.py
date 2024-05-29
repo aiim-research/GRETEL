@@ -1,24 +1,25 @@
-from copy import deepcopy
+import copy
 from typing import List
-
+import numpy as np
 import torch
 
 from src.dataset.instances.graph import GraphInstance
 from src.explainer.ensemble.aggregators.base import ExplanationAggregator
 from src.utils.samplers.abstract_sampler import Sampler
-import numpy as np
-
 from src.core.factory_base import get_instance_kvargs
 from src.utils.cfg_utils import init_dflts_to_of
+from src.utils.utils import pad_adj_matrix
+from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
+import src.utils.explanations.functions as exp_tools
 
 
-class StochasticAggregator(ExplanationAggregator):
+class ExplanationStochasticAggregator(ExplanationAggregator):
 
     def check_configuration(self):
         super().check_configuration()
         self.logger= self.context.logger
 
-        dst_metric = 'src.evaluation.evaluation_metric_ged.GraphEditDistanceMetric'
+        dst_metric = 'src.utils.metrics.ged.GraphEditDistanceMetric'
         dflt_sampler = 'src.utils.samplers.bernoulli.Bernoulli'
 
         #Check if the distance metric exist or build with its defaults:
@@ -40,26 +41,49 @@ class StochasticAggregator(ExplanationAggregator):
                                                     self.local_config['parameters']['sampler']['parameters'])
         
 
-    def real_aggregate(self, instance: GraphInstance, explanations: List[GraphInstance]):
-        label = self.oracle.predict(instance)
-        max_dim = max([exp.data.shape[0] for exp in explanations])
-        edge_freq_matrix = np.zeros((max_dim, max_dim))
-        for exp in explanations:
-            # Getting the perturbation matrices of all the explanations that are valid counterfactuals
-            if self.oracle.predict(exp) != label:
-                edge_freq_matrix[:exp.data.shape[0], :exp.data.shape[0]] += exp.data
+    def real_aggregate(self, explanations: List[LocalGraphCounterfactualExplanation]) -> LocalGraphCounterfactualExplanation:
+        # Extract the original instance and the counterfactual instances from the explanations
+        input_inst = explanations[0].input_instance
+        cf_instances = exp_tools.unpack_cf_instances(explanations)
+        # Get the number of nodes of the bigger explanation instance
+        max_dim = max(input_inst.data.shape[0], max([cf.data.shape[0] for cf in cf_instances]))
 
+        # Adding the edges of all the counterfactual instances
+        edge_freq_matrix = np.zeros((max_dim, max_dim))
+        for cf in cf_instances:
+            edge_freq_matrix[:cf.data.shape[0], :cf.data.shape[0]] += cf.data
+
+        # Normalizing the frequency of appearance of each edge
         norm_edge_freqs = edge_freq_matrix / np.max(edge_freq_matrix)
 
+        # Check that there are edges in the combined graph
         if np.any(edge_freq_matrix):
-            embedded_features = { label:torch.from_numpy(instance.node_features) for label in range(self.dataset.num_classes) }
+            embedded_features = { label:torch.from_numpy(input_inst.node_features) for label in range(self.dataset.num_classes) }
             edge_probabilities = { label:torch.from_numpy(norm_edge_freqs) for label in range(self.dataset.num_classes) }
             
-            cf_candidate = self.sampler.sample(instance, self.oracle,
+            aggregated_instance = self.sampler.sample(input_inst, self.oracle,
                                                embedded_features=embedded_features,
                                                edge_probabilities=edge_probabilities)
             
-            return deepcopy(instance) if not cf_candidate else cf_candidate
-        else:
-            return deepcopy(instance)
+            if aggregated_instance:
+                self.dataset.manipulate(aggregated_instance)
+                aggregated_instance.label = self.oracle.predict(aggregated_instance)
+            
+                aggregated_explanation = LocalGraphCounterfactualExplanation(context=self.context,
+                                                                    dataset=self.dataset,
+                                                                    oracle=self.oracle,
+                                                                    explainer=None, # Will be added later by the ensemble
+                                                                    input_instance=input_inst,
+                                                                    counterfactual_instances=[aggregated_instance])
+
+                return aggregated_explanation
+        
+        # The default behavior if an explanation was not produced is to return the input instance as explanation
+        no_explanation = LocalGraphCounterfactualExplanation(context=self.context,
+                                                            dataset=self.dataset,
+                                                            oracle=self.oracle,
+                                                            explainer=None, # Will be added later by the ensemble
+                                                            input_instance=input_inst,
+                                                            counterfactual_instances=[copy.deepcopy(input_inst)])
+        return no_explanation
         
