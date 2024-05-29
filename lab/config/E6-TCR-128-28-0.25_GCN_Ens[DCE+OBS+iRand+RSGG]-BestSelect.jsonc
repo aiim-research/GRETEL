@@ -27,7 +27,12 @@
                                                 ],
                                     "aggregator": {
                                         "class": "src.explainer.ensemble.aggregators.top_select.ExplanationTopSelect",
-                                        "parameters": {}
+                                        "parameters": {
+                                            "node_feature_aggregator":{
+                                                "class": "src.explainer.ensemble.aggregators.nodes.base.NodeFeatureAggregator",
+                                                "parameters": {}
+                                            }
+                                        }
                                     }
                                     }
                     }

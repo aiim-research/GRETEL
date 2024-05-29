@@ -13,6 +13,7 @@ from src.explainer.ensemble.aggregators.nodes.base import NodeFeatureAggregator
 from src.utils.cfg_utils import init_dflts_to_of, inject_dataset, inject_oracle, retake_oracle, retake_dataset
 from src.utils.utils import pad_adj_matrix
 from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
+from src.explainer.ensemble.aggregators.filters.base import ExplanationFilter
 
 class ExplanationAggregator(Configurable):
 
@@ -24,32 +25,36 @@ class ExplanationAggregator(Configurable):
                              'node_feature_aggregator',
                              'src.explainer.ensemble.aggregators.nodes.average.AverageAggregator')
             
-        if 'correctness_filter' not in self.local_config['parameters']:
-            self.local_config['parameters']['correctness_filter'] = True
-
+        if 'explanation_filter' not in self.local_config['parameters']:
+            init_dflts_to_of(self.local_config,
+                             'explanation_filter',
+                             'src.explainer.ensemble.aggregators.filters.correctness.CorrectnessFilter')
+            
 
     def init(self):
         self.dataset: Dataset = retake_dataset(self.local_config)
         self.oracle: Oracle = retake_oracle(self.local_config)
         
+        # Injecting oracle and dataset in the ancillary classes
         inject_dataset(self.local_config['parameters']['node_feature_aggregator'], self.dataset)
         inject_oracle(self.local_config['parameters']['node_feature_aggregator'], self.oracle)
+
+        inject_dataset(self.local_config['parameters']['explanation_filter'], self.dataset)
+        inject_oracle(self.local_config['parameters']['explanation_filter'], self.oracle)
         
         
         self.node_feature_aggregator: NodeFeatureAggregator = get_instance_kvargs(self.local_config['parameters']['node_feature_aggregator']['class'],
                                                                                   {'context':self.context,'local_config': self.local_config['parameters']['node_feature_aggregator']})
         
-        # Will be used to decide if the aggregator will consider only correct explanations or will also consider incorrect ones
-        self.correctness_filter = self.local_config['parameters']['correctness_filter']
+        self.explanation_filter: ExplanationFilter = get_instance_kvargs(self.local_config['parameters']['explanation_filter']['class'],
+                                                                                  {'context':self.context,'local_config': self.local_config['parameters']['explanation_filter']})
 
         super().init()
 
 
     def aggregate(self, explanations: List[LocalGraphCounterfactualExplanation]) -> LocalGraphCounterfactualExplanation:
-        # If the correctness filter parameter is True then keep only the correct explanations
-        filtered_explanations = explanations
-        if self.correctness_filter:
-            filtered_explanations = self.filter_correct_explanations(explanations)
+        # First let's filter the base explanations to ensure only those with the desired properties are used
+        filtered_explanations = self.explanation_filter.filter(explanations)
 
         if len(filtered_explanations) < 1:
             # If there was no any base correct explanation then return an instance containing the input instance as explanation
@@ -77,48 +82,6 @@ class ExplanationAggregator(Configurable):
     def real_aggregate(self, explanations: List[LocalGraphCounterfactualExplanation]) -> LocalGraphCounterfactualExplanation:
         # This is the method where the aggregation takes place. It should be implemented by the child classes
         pass
-
-
-    def filter_correct_explanations(self, explanations: List[LocalGraphCounterfactualExplanation]) -> List[LocalGraphCounterfactualExplanation]:
-        # Getting a list of all the explanations where invalid counterfactual examples where removed from the explanation
-        # If the explanation does not contain any correct counterfactual it is considered invalid
-        verified_explanations = [self._filter_explanation(exp) for exp in explanations]
-        # Removing all invalid explanations from the list
-        filtered_explanations = [exp for (exp_validity, exp) in verified_explanations if exp_validity]
-
-        # Returning the list of valid explanations
-        return filtered_explanations
-    
-
-    def _filter_explanation(self, explanation: LocalGraphCounterfactualExplanation):
-        # Filtering the counterfactual instances of the explanation
-        org_instance_label = self.oracle.predict(explanation.input_instance)
-        filtered_cf_instances = [cf_instance for cf_instance in explanation.counterfactual_instances if self.oracle.predict(cf_instance) != org_instance_label]
-
-        # Check if the explanation contains any correct counterfactual instance
-        if len(filtered_cf_instances) > 0:
-            filtered_exp = LocalGraphCounterfactualExplanation(context=explanation.context,
-                                                            dataset=explanation.dataset,
-                                                            oracle=explanation.oracle,
-                                                            explainer=explanation.explainer,
-                                                            input_instance=explanation.input_instance,
-                                                            counterfactual_instances=filtered_cf_instances)
-            # returns is_valid_explanation, new_explanation
-            return True, filtered_exp
-
-        # returns False is the new explanation does not contain any correct counterfactual instance
-        return False, None
-    
-    
-    # def filter_correct_explanations(self, instance: DataInstance, explanations: List[DataInstance]):
-    #     # Get the label of the original instance
-    #     org_instance_label = self.oracle.predict(instance)
-
-    #     # Create a list with all the explanations that are correct counterfactuals (have a different label than the original instance)
-    #     result = [exp_instance for exp_instance in explanations if self.oracle.predict(exp_instance) != org_instance_label]
-
-    #     # Return the filtered list
-    #     return result
     
 
     def get_edge_differences(self, instance: DataInstance, cf_instance: DataInstance):
