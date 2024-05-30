@@ -59,3 +59,36 @@ class Explanation(Base):
     @runtime_info.setter
     def runtime_info(self, new_runtime_info) -> None:
         self._runtime_info = new_runtime_info
+
+    
+    @property
+    def explanation_runtime(self) -> int:
+        if 'explanation_runtime' not in self._runtime_info:
+            return -1
+        return self._runtime_info['explanation_runtime']
+    
+    @explanation_runtime.setter
+    def explanation_runtime(self, new_runtime_info) -> None:
+        self._runtime_info['explanation_runtime'] = new_runtime_info
+
+    
+    @property
+    def explainer_training_runtime(self) -> int:
+        if 'explainer_training_runtime' not in self._runtime_info:
+            return -1
+        return self._runtime_info['explainer_training_runtime']
+    
+    @explainer_training_runtime.setter
+    def explainer_training_runtime(self, new_runtime_info) -> None:
+        self._runtime_info['explainer_training_runtime'] = new_runtime_info
+
+    
+    @property
+    def oracle_training_runtime(self) -> int:
+        if 'oracle_training_runtime' not in self._runtime_info:
+            return -1
+        return self._runtime_info['oracle_training_runtime']
+    
+    @oracle_training_runtime.setter
+    def oracle_training_runtime(self, new_runtime_info) -> None:
+        self._runtime_info['oracle_training_runtime'] = new_runtime_info
