@@ -6,7 +6,6 @@ import torch
 
 from src.core.explainer_base import Explainer
 from src.core.factory_base import get_instance_kvargs
-from src.core.trainable_base import Trainable
 from src.evaluation.evaluation_metric_base import EvaluationMetric
 from src.explainer.rl.meg_utils.environments.base_env import BaseEnvironment
 from src.explainer.rl.meg_utils.utils.encoders import ActionEncoderAB
