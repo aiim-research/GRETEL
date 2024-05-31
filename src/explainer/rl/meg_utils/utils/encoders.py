@@ -29,7 +29,7 @@ class IDActionEncoder(ActionEncoderAB):
         self._name = "meg_id_action_encoder"
 
     def encode(self, action: DataInstance) -> np.array:
-        return action.to_numpy_array()
+        return action.data
 
 
 class MorganBitFingerprintActionEncoder(ActionEncoderAB):
