@@ -51,8 +51,7 @@ class AddRemoveEdgesEnvironment(BaseEnvironment[GraphInstance]):
         Returns: A set of data instances
         """
         # adj_matrix = state.to_numpy_array()
-        adj_matrix = state.data
-        nodes = list(range(adj_matrix.shape[0]))
+        nodes = list(range(state.data.shape[0]))
         valid_actions = []
         # Iterate through each node
         for node in nodes:
@@ -62,10 +61,9 @@ class AddRemoveEdgesEnvironment(BaseEnvironment[GraphInstance]):
                     # Adding/removal of edges
                     state.sync_features_and_weights()
                     temp_inst = copy.deepcopy(state)
-                    temp_inst.id = self.state.id + neighbour + 1
-                    adj_matrix[node][neighbour] = 1 - adj_matrix[node][neighbour]
-                    adj_matrix[neighbour][node] = adj_matrix[node][neighbour]
-                    temp_inst.data = adj_matrix
+                    temp_inst.id = state.id + neighbour + 1
+                    temp_inst.data[node][neighbour] = 1 - temp_inst.data[node][neighbour]
+                    temp_inst.data[neighbour][node] = temp_inst.data[node][neighbour]
                     temp_inst.sync_features_and_weights()
                     valid_actions.append(temp_inst)
                     # temp_inst = DataInstance(self.state._id + neighbour + 1)
