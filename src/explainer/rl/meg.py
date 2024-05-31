@@ -15,7 +15,7 @@ from src.explainer.rl.meg_utils.utils.sorters import SorterSelector
 from src.utils.cfg_utils import init_dflts_to_of
 
 
-class MEGExplainer(Explainer, Trainable):
+class MEGExplainer(Explainer):
     def check_configuration(self):
         super().check_configuration()
         dst_metric = "src.evaluation.evaluation_metric_ged.GraphEditDistanceMetric"
@@ -92,20 +92,20 @@ class MEGExplainer(Explainer, Trainable):
             replay_buffer_size=self.replay_buffer_size,
         )
 
-        self.fit()
+        self.__fit()
         instance = self.dataset.get_instance(instance.id)
 
         with torch.no_grad():
             inst = self.cf_queue.get(0)  # get the best counterfactual
             return inst["next_state"]
 
-    def real_fit(self):
-        explainer_name = f"meg_fit_on_{self.dataset.name}_instance={self.instance.id}_fold_id={self.fold_id}"
-        self.name = explainer_name
+    def __fit(self):
+        # explainer_name = f"meg_fit_on_{self.dataset.name}_instance={self.instance.id}_fold_id={self.fold_id}"
+        # self.name = explainer_name
 
         self.cf_queue = SortedQueue(
             self.num_counterfactuals,
-            sort_predicate=self.sorter_selector.predicate,
+            sort_predicate=self.sorter_selector.predicate(),
         )
         self.environment.set_instance(self.instance)
         self.environment.oracle = self.oracle
@@ -118,7 +118,7 @@ class MEGExplainer(Explainer, Trainable):
         batch_losses = []
         episode = 0
         it = 0
-        while episode < self.num_epochs:
+        while episode < self.epochs:
             steps_left = self.max_steps_per_episode - self.environment.num_steps_taken
             valid_actions = list(self.environment.get_valid_actions())
 
