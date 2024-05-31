@@ -25,7 +25,14 @@ class GraphInstance(DataInstance):
         self.graph_features = graph_features
         self._nx_repr = None
 
+        num_nodes = self.data.shape[0]
+        num_edges = np.count_nonzero(self.data)
+        assert len(self.node_features) == num_nodes
+        assert len(self.edge_features) == num_edges
+        assert len(self.edge_weights) == num_edges
+
     def __deepcopy__(self, memo):
+        self.sync_features_and_weights()
         # Fields that are being shallow copied
         _dataset = self._dataset
 
@@ -70,6 +77,20 @@ class GraphInstance(DataInstance):
     def __init_edge_weights(self, edge_weights):
         edges = np.nonzero(self.data)
         return np.ones(len(edges[0])) if edge_weights is None else edge_weights
+
+    def sync_node_features(self):
+        self.node_features = self.__init_node_features(None)
+
+    def sync_edge_features(self):
+        self.edge_features = self.__init_edge_features(None)
+
+    def sync_edge_weights(self):
+        self.edge_weights = self.__init_edge_weights(None)
+
+    def sync_features_and_weights(self):
+        self.sync_node_features()
+        self.sync_edge_features()
+        self.sync_edge_weights()
 
     def _build_nx(self):
         nx_repr = nx.from_numpy_array(self.data)

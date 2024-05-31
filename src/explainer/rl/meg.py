@@ -78,6 +78,11 @@ class MEGExplainer(Explainer, Trainable):
         self.num_counterfactuals = cast(int, params["num_counterfactuals"])
 
     def explain(self, instance):
+        num_nodes = instance.data.shape[0]
+        num_edges = np.count_nonzero(instance.data)
+        assert len(instance.node_features) == num_nodes
+        assert len(instance.edge_features) == num_edges
+        assert len(instance.edge_weights) == num_edges
         self.instance = instance
         # dataset = self.converter.convert(dataset)
         self.explainer = MEGAgent(
