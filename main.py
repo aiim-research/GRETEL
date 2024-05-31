@@ -14,6 +14,7 @@ os.environ["NUMEXPR_NUM_THREADS"] = "4" # export NUMEXPR_NUM_THREADS=1'''
 
 from src.evaluation.evaluator_manager import EvaluatorManager
 from src.evaluation.evaluator_manager_do import EvaluatorManager as PairedEvaluatorManager
+from src.evaluation.evaluator_manager_triplets import EvaluatorManager as TripletsEvaluatorManager
 
 from src.utils.context import Context
 import sys
@@ -34,6 +35,9 @@ if __name__ == "__main__":
     )
 
     
+    if 'doe-triplets' in context.conf:
+        context.logger.info("Creating the TRIPLET evaluators........................................................")
+        eval_manager = TripletsEvaluatorManager(context)
     if 'do-pairs' in context.conf:
         context.logger.info("Creating the PAIRED evaluators...............................................................")
         eval_manager = PairedEvaluatorManager(context)
