@@ -108,9 +108,9 @@ class TUDataset(Generator):
             attr_size = len(node_attributes[0])
 
             if not self.dataset.node_features_map:
-                self.dataset.edge_features_map = {f"attribute_{i}":i for i in range(0,attr_size)}
+                self.dataset.node_features_map = {f"attribute_{i}":i for i in range(0,attr_size)}
             else:
-                self.dataset.edge_features_map.update({f"attribute_{i}":i for i in range(1,attr_size+1)})
+                self.dataset.node_features_map.update({f"attribute_{i}":i for i in range(1,attr_size+1)})
 
         adjs = []
         edlbs = []
@@ -135,13 +135,15 @@ class TUDataset(Generator):
             edlbs.append(np.zeros((size,size), dtype=np.float64))
             edattr.append(np.zeros((size,size), dtype=np.float64))
 
-            if self._node_labels_file_path  and self._node_attributes_file_path:
-                nodfeat.append(np.zeros((size,size+1), dtype=np.float64))
-                nodfeat[-1][:,0] = np.array([node_labels[x-1] for x in graph_nodes[g]])
+            if self._node_labels_file_path and self._node_attributes_file_path:
+                attrs = np.array([ node_attributes[c-1] for c in graph_nodes[g]])
+                labels = np.array([[node_labels[x-1]] for x in graph_nodes[g]])
+                attrs = np.append(labels, attrs, axis=1)
+                nodfeat.append(attrs)
             elif self._node_labels_file_path:
                 nodfeat.append(np.array([node_labels[x-1] for x in graph_nodes[g]]))
             elif self._node_attributes_file_path:
-                nodfeat.append(np.zeros((size,size), dtype=np.float64))
+                nodfeat.append([ node_attributes[c -1] for c in graph_nodes[g]])
 
         for u,(i, j) in enumerate(a):
             graph = node_graph[i]
@@ -177,10 +179,9 @@ class TUDataset(Generator):
             edge_feat = np.array(edge_feat) if len(edge_feat) else None
 
             # Node Features
-            node_feat = []
-            if node_labels:
-                node_feat.append(nodfeat[i])
-            node_feat = np.array(node_feat) if len(node_feat) else None
+            node_feat = None
+            if node_labels != None or node_attributes != None:
+                node_feat = nodfeat[i]
 
             self.dataset.instances.append(GraphInstance(id = id, 
                                                         label = label, 
