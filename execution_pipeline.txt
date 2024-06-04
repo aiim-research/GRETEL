@@ -1,0 +1,15 @@
+Once the config file is ready, from the GRETEL root folder, execute
+
+python src/utils/generate_folds.py --config_file [config_file_path] --output_folder [output_folder]
+
+Then, execute
+
+sh launchers/experiments_kalifano.sh output_folder
+
+Once all the runs are done, you can run
+
+python src/utils/generate_results.py --source_folder [output/results/[result_folder]] --output_file [results.csv]
+
+and you can also run 
+
+python src/utils/visualize.py to get a visualization (remember to change the name of the result file inside)

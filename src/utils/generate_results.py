@@ -34,6 +34,6 @@ os.chdir(src_dir)
 
 results_path = os.path.join(src_dir, args.source_folder)
 stats_file_path = os.path.join(src_dir, args.output_file)
-res = dan.create_aggregated_dataframe_oldstyle(results_path)
-clean_up(results_path)
+res = dan.create_aggregated_dataframe(results_path)
+#clean_up(results_path)
 res.to_csv(stats_file_path)

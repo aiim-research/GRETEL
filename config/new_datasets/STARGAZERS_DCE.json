@@ -5,7 +5,8 @@
             "lock_release_tout":120,
             "propagate":[
                 {"in_sections" : ["explainers"],"params" : {"fold_id": 0}},
-                {"in_sections" : ["do-pairs/oracle"],"params" : {"fold_id": -1}}
+                {"in_sections" : ["do-pairs/oracle"],"params" : {"fold_id": -1}},
+                {"in_sections":  ["do-pairs/dataset"],"params": { "compose_man" : "config/snippets/datasets/centr_and_weights.json" }}
             ]
         }
     },
@@ -16,19 +17,19 @@
                 "parameters": {
                     "generator": {
                         "class": "src.dataset.generators.TUDataset.TUDataset",
-                        "parameters": { "alias": "TWITTER-Real-Graph-Partial" }
+                        "parameters": { "alias": "github_stargazers" }
                     }
                 }
             },
             "oracle": {
                 "class": "src.oracle.nn.torch.OracleTorch",
                 "parameters": {
-                    "epochs": 2000,
+                    "epochs": 4000,
                     "batch_size": 128,
                     "optimizer": {
                         "class": "torch.optim.RMSprop",
                         "parameters": {
-                            "lr":0.01                
+                            "lr":0.005                
                         }
                       },
                     "loss_fn": {
