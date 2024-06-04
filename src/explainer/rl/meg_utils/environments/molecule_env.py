@@ -7,7 +7,7 @@ state space, action space, and reward function are defined.
 
 import copy
 import itertools
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Dict, List, Optional, Set, Union
 
 import numpy as np
 from rdkit import Chem
@@ -180,7 +180,7 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
                         node_features=self._state.node_features,
                         edge_features=self._state.edge_features,
                         graph_features=self._state.graph_features,
-                        dataset=self._state.dataset,
+                        dataset=self._state._dataset,
                     )
                     data_instance.molecule = new_state_molecule
                     atom_addition.add(data_instance)
@@ -367,7 +367,7 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
 
     def visualize_state(
         self,
-        state: Optional[MolecularInstance | str] = None,
+        state: Optional[Union[MolecularInstance, str]] = None,
         **kwargs,
     ):
         if state is None:
