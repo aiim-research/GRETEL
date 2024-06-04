@@ -5,7 +5,7 @@ if TYPE_CHECKING:
     from src.dataset.dataset_base import Dataset
 
 
-class DataInstance:    
+class DataInstance:
     def __init__(self, id, label, data, dataset: Optional["Dataset"] = None):
         self.id = id
         self.data = data
