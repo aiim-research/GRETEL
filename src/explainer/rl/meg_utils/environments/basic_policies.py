@@ -50,29 +50,21 @@ class AddRemoveEdgesEnvironment(BaseEnvironment[GraphInstance]):
         State: A data instance
         Returns: A set of data instances
         """
-        # adj_matrix = state.to_numpy_array()
         nodes = list(range(state.data.shape[0]))
-        valid_actions = []
+        valid_actions: Set[GraphInstance] = set()
         # Iterate through each node
         for node in nodes:
             # Iterate through neighbouring nodes and check for valid actions
             for neighbour in nodes:
-                if neighbour > node:
-                    # Adding/removal of edges
-                    state.sync_features_and_weights()
-                    temp_inst = copy.deepcopy(state)
-                    temp_inst.id = state.id + neighbour + 1
-                    temp_inst.data[node][neighbour] = 1 - temp_inst.data[node][neighbour]
-                    temp_inst.data[neighbour][node] = temp_inst.data[node][neighbour]
-                    temp_inst.sync_features_and_weights()
-                    valid_actions.append(temp_inst)
-                    # temp_inst = DataInstance(self.state._id + neighbour + 1)
-                    # adj_matrix[node][neighbour] = 1 - adj_matrix[node][neighbour]
-                    # adj_matrix[neighbour][node] = adj_matrix[node][neighbour]
-                    # temp_inst.from_numpy_array(adj_matrix)
-                    # valid_actions.append(temp_inst)
-        state.sync_features_and_weights()
-        return set(valid_actions)
+                if neighbour <= node:
+                    continue
+                # Adding/removal of edges
+                graph_data = copy.deepcopy(state.data)
+                graph_data[node][neighbour] = 1 - graph_data[node][neighbour]
+                graph_data[neighbour][node] = graph_data[node][neighbour]
+                graph = GraphInstance(state.id + neighbour + 1, data=graph_data, label=0)
+                valid_actions.add(graph)
+        return valid_actions
 
     def set_instance(self, new_instance: Optional[GraphInstance]) -> None:
         self._init_instance = new_instance
