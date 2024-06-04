@@ -29,6 +29,7 @@ class InstancesDumper(EvaluationMetric):
             "orginal_id":original.id,
             "correctness":correctness,
             "fold": explainer.fold_id,
+            "counterfactual_label": oracle.predict(counterfactual),
             "counterfactual_adj": counterfactual.data,
             "counterfactual_nodes": counterfactual.node_features,
             "counterfactual_edges": counterfactual.edge_features
