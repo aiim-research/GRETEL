@@ -1,9 +1,30 @@
-{"evaluation_metrics": [ 
-    {"name": "runtime", "parameters": {}},
-    {"name": "graph_edit_distance", "parameters": {}},
-    {"name": "oracle_calls", "parameters": {}},
-    {"name": "correctness", "parameters": {}},
-    {"name": "sparsity", "parameters": {}},
-    {"name": "fidelity", "parameters": {}},
-    {"name": "oracle_accuracy", "parameters": {}}
+{"evaluation_metrics": [
+    {
+        "class": "src.evaluation.metrics.runtime.RuntimeMetric",
+        "parameters": {} 
+    },
+    {
+        "class": "src.evaluation.metrics.ged.GraphEditDistanceMetric",
+        "parameters": {} 
+    },
+    {
+        "class": "src.evaluation.metrics.correctness.CorrectnessMetric",
+        "parameters": {} 
+    },
+    {
+        "class": "src.evaluation.metrics.oracle_calls.OracleCallsMetric",
+        "parameters": {} 
+    },
+    {
+        "class": "src.evaluation.metrics.oracle_accuracy.OracleAccuracyMetric",
+        "parameters": {} 
+    },
+    {
+        "class": "src.evaluation.metrics.sparsity.SparsityMetric",
+        "parameters": {} 
+    },
+    {
+        "class": "src.evaluation.metrics.fidelity.FidelityMetric",
+        "parameters": {} 
+    }
 ]}
