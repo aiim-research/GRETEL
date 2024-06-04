@@ -29,11 +29,8 @@ class InstancesDumper(EvaluationMetric):
             "orginal_id":original.id,
             "correctness":correctness,
             "fold": explainer.fold_id,
-            "orginal_adj":original.data,
             "counterfactual_adj": counterfactual.data,
-            "original_nodes":original.node_features,
             "counterfactual_nodes": counterfactual.node_features,
-            "original_edges": original.edge_features,
             "counterfactual_edges": counterfactual.edge_features
         }
         
