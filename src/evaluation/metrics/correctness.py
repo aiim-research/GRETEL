@@ -1,7 +1,4 @@
-from src.evaluation.evaluation_metric_base import EvaluationMetric
-from src.core.oracle_base import Oracle
-from src.core.explainer_base import Explainer
-from src.utils.metrics.ged import GraphEditDistanceMetric
+from src.evaluation.metrics.base import EvaluationMetric
 from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 
 

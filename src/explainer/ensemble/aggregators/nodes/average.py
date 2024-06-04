@@ -46,6 +46,7 @@ class AverageAggregator(NodeFeatureAggregator):
                             node_features=avg_node_features,
                             dataset=aggregated_explanation.dataset)
 
+                # TODO Check if it has sense to re-apply the manipulators
                 for manipulator in cf_candidate._dataset.manipulators:
                     manipulator._process_instance(cf_candidate)
 

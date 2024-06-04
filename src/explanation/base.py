@@ -14,7 +14,8 @@ class Explanation(Base):
         self._dataset = dataset
         self._oracle = oracle
         self._explainer = explainer
-        self._runtime_info = {}
+        self._stages_info = {}
+        self._runtime_info = {} #TODO Potentially to remove
 
     @property
     def context(self) -> Context:
