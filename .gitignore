@@ -145,6 +145,8 @@ experiments/
 config/Gretel1_AAAI/
 evaluated/*
 data/bardh_cache/*
+old_experiments/
+visualizations/*
 
 # videos
 .mp4

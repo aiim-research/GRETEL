@@ -1,7 +1,7 @@
 #!/bin/bash
 type='sge' # sge | local
 search_dir=$1 # the dir to search
-trgt_scope='methods_comparison_gcn' # scope to be considered
+trgt_scope='ablation_cyclesize' # scope to be considered
 
 #for i in {1..30}
 #do

@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 
 output = os.path.join("visualizations", "methods_comparison_tc28_gcn.png")
 
-results_path = os.path.join("output","processed_results","methods_comparison_tc28_gcn.csv")
+results_path = os.path.join("output","processed_results","tcr_gcn.csv")
 results_file = pd.read_csv(results_path, index_col=0)
-old_results = pd.read_csv( os.path.join("old_results_tcr.csv"), index_col=0 )
+old_results = pd.read_csv( os.path.join("output/old_results_tcr.csv"), index_col=0 )
 
 results_file['dataset'] = results_file['dataset'].str.split("-").str[0]
 results_file['oracle'] = results_file['oracle'].str.split("-").str[0]
@@ -47,9 +47,9 @@ for i, (idx, row) in enumerate(dataset_oracle_pairs.iterrows()):
         ax.set_title(metric.replace('Metric', ''))
         
         # Overlay markers from previous dataset
-        if not prev_pivoted.empty:
-            for k, explainer in enumerate(pivoted.index):
-                ax.scatter(x=k, y=prev_pivoted.loc[explainer], color='black', marker='o', zorder=5)
+        #if not prev_pivoted.empty:
+        #    for k, explainer in enumerate(pivoted.index):
+        #        ax.scatter(x=k, y=prev_pivoted.loc[explainer], color='black', marker='o', zorder=5)
 
         ax.set_xlabel('')
 
