@@ -14,7 +14,7 @@ class FidelityMetric(EvaluationMetric):
 
 
     def init(self):
-        super.__init__()
+        super().init()
         self.name = 'sparsity'
         self.dst = GraphEditDistanceMetric()
 

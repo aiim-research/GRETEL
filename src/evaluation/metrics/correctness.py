@@ -15,8 +15,8 @@ class CorrectnessMetric(EvaluationMetric):
 
 
     def init(self):
+        super().init()
         self.name = 'correctness'
-        super.__init__()
 
 
     def evaluate(self, explanation: LocalGraphCounterfactualExplanation):

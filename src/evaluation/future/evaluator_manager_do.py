@@ -1,7 +1,7 @@
 import random
 from src.dataset.dataset_factory import DatasetFactory
 from src.evaluation.metrics.metric_factory import MetricFactory
-from src.evaluation.evaluator_base import Evaluator
+from src.evaluation.future.evaluator_base import Evaluator
 from src.explainer.explainer_factory import ExplainerFactory
 from src.oracle.embedder_factory import EmbedderFactory
 from src.oracle.oracle_factory import OracleFactory
@@ -21,7 +21,7 @@ class EvaluatorManager:
         self.context.factories['embedders'] = EmbedderFactory(context)
         self.context.factories['oracles'] = OracleFactory(context)
         self.context.factories['explainers'] = ExplainerFactory(context)
-        self.context.factories['metrics'] = MetricFactory(context)
+        self.context.factories['evaluation_metrics'] = MetricFactory(context)
 
         self._create_evaluators()
     
@@ -37,7 +37,6 @@ class EvaluatorManager:
         do_pairs_list = self.context.conf['do-pairs']
         metrics_list = self.context.conf['evaluation_metrics']
         explainers_list = self.context.conf['explainers']
-        metrics_list = self.context.conf['metrics']
         evaluation_metrics = []
 
         # Shuffling dataset_oracles pairs and explainers will enabling by chance
@@ -46,8 +45,7 @@ class EvaluatorManager:
         random.shuffle(explainers_list) 
 
         # Instantiate the evaluation metrics that will be used for the evaluation;
-        for metric_dict in metrics_list:
-            evaluation_metrics.append(self.context.factories['metrics'].get_evaluation_metric_by_name(metric_dict))
+        evaluation_metrics = self.context.factories['evaluation_metrics'].get_metrics(metrics_list)   
 
         for explainer_snippet in explainers_list:
             for do_pair_snippet in do_pairs_list:
@@ -58,9 +56,7 @@ class EvaluatorManager:
                 oracle = self.context.factories['oracles'].get_oracle(do_pair_snippet['oracle'], dataset)                    
 
                 # The get_explainer method returns an (fitted in case is trainable) explainer for the dataset and the oracle;                
-                explainer = self.context.factories['explainers'].get_explainer(explainer_snippet, dataset, oracle)
-
-                evaluation_metrics = self.context.factories['metrics'].get_metrics(metrics_list)          
+                explainer = self.context.factories['explainers'].get_explainer(explainer_snippet, dataset, oracle)       
             
                 # Creating the evaluator
                 evaluator = Evaluator(self.context._scope, dataset, oracle, explainer, evaluation_metrics,

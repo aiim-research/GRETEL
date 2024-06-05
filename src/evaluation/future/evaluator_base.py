@@ -28,7 +28,7 @@ class Evaluator(ABC):
         
        
         # Building the config file to write into disk
-        evaluator_config = {'dataset': clean_cfg(data.local_config), 'oracle': clean_cfg(oracle.local_config), 'explainer': clean_cfg(explainer.local_config), 'metrics': []}
+        evaluator_config = {'dataset': clean_cfg(data.local_config), 'oracle': clean_cfg(oracle.local_config), 'explainer': clean_cfg(explainer.local_config), 'evaluation_metrics': []}
         evaluator_config['scope']=self._scope
         evaluator_config['run_id']=self._run_number
         evaluator_config['fold_id']=self._explainer.fold_id
@@ -38,7 +38,7 @@ class Evaluator(ABC):
         
         
         for metric in evaluation_metrics:
-            evaluator_config['metrics'].append(metric._config_dict)
+            evaluator_config['evaluation_metrics'].append(metric.local_config)
         # creatig the results dictionary with the basic info
         self._results = {}
         self._complete = {'config':evaluator_config, "results":self._results}
@@ -104,11 +104,6 @@ class Evaluator(ABC):
 
 
     def _real_evaluate(self, explanation):
-        is_alt = False
-        if (oracle is None):
-            is_alt = True
-            oracle = self._oracle
-
         for metric in self._evaluation_metrics:     
                 m_result = metric.evaluate(explanation)
                 self._results[Context.get_fullname(metric)].append({"id":str(explanation.input_instance.id),"value":m_result})

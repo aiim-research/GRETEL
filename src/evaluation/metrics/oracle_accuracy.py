@@ -14,7 +14,7 @@ class OracleAccuracyMetric(EvaluationMetric):
 
 
     def init(self):
-        super.__init__()
+        super().init()
         self.name = 'oracle_accuracy'
 
 

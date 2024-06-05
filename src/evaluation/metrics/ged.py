@@ -28,8 +28,8 @@ class GraphEditDistanceMetric(EvaluationMetric):
         
 
     def init(self):
-        self.name = 'correctness'
-        super.__init__()
+        super().init()
+        self.name = 'graph_edit_distance'
 
         node_add_cost = self.local_config['parameters']['node_add_cost']
         node_rem_cost = self.local_config['parameters']['node_rem_cost']

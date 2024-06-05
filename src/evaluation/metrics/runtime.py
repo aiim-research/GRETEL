@@ -8,9 +8,11 @@ class RuntimeMetric(EvaluationMetric):
         super().check_configuration()
         self.logger= self.context.logger
 
+
     def init(self):
+        super().init()
         self.name = 'explanation_runtime'
-        super.__init__()
+        
 
     def evaluate(self, explanation: Explanation):
         return explanation.explanation_runtime

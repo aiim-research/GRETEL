@@ -13,7 +13,7 @@ class OracleCallsMetric(EvaluationMetric):
 
 
     def init(self):
-        super.__init__()
+        super().init()
         self.name = 'oracle_calls'
 
 

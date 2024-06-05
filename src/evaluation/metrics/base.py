@@ -7,6 +7,14 @@ from src.explanation.base import Explanation
 
 class EvaluationMetric(Configurable, metaclass=ABCMeta):
 
+    @abstractmethod
+    def check_configuration(self):
+        pass
+
+    @abstractmethod
+    def init(self):
+        pass
+
     @property
     def name(self):
         return self._name
