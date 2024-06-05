@@ -50,8 +50,8 @@ class SparsityMetric(EvaluationMetric):
             return 0
 
 
-
-    def aggregate(self, measure_list, instances_correctness_list=None):
+    @classmethod
+    def aggregate(cls, measure_list, instances_correctness_list=None):
         # If no correctness list is provided aggregate all the measures
         if instances_correctness_list is None:
             return super().aggregate(measure_list, instances_correctness_list)

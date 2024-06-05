@@ -27,5 +27,6 @@ class EvaluationMetric(Configurable, metaclass=ABCMeta):
     def evaluate(self, explanation : Explanation):
         pass
 
-    def aggregate(self, measure_list, instances_correctness_list=None):
+    @classmethod
+    def aggregate(cls, measure_list, instances_correctness_list=None):
         return np.mean(measure_list),np.std(measure_list)
