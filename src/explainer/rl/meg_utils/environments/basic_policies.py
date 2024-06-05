@@ -14,7 +14,7 @@ class AddRemoveEdgesEnvironment(BaseEnvironment[GraphInstance]):
         record_path: bool = False,
     ):
         super().__init__(target_fn=target_fn, max_steps=max_steps)
-        self._valid_actions: Set[GraphInstance] = {}
+        self._valid_actions: Set[GraphInstance] = set()
         self.record_path = record_path
         self._path: List[GraphInstance] = []
         self.reward_fn = GraphEditDistanceMetric().evaluate

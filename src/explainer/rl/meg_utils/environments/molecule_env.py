@@ -47,7 +47,7 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
         self.allow_no_modification = allow_no_modification
         self.allow_bonds_between_rings = allow_bonds_between_rings
         self.allowed_ring_sizes = allowed_ring_sizes
-        self._valid_actions: Set[MolecularInstance] = {}
+        self._valid_actions: Set[MolecularInstance] = set()
         # The status should be 'terminated' if initialize() is not called.
         self.record_path = record_path
         self._path: List[MolecularInstance] = []
@@ -121,7 +121,7 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
                 for atom in state.molecule.GetAtoms()
                 if atom.GetNumImplicitHs() >= i
             ]
-        valid_actions: Set[MolecularInstance] = {}
+        valid_actions: Set[MolecularInstance] = set()
         valid_actions.update(
             self._atom_additions(
                 state,
@@ -157,7 +157,7 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
             2: Chem.BondType.DOUBLE,
             3: Chem.BondType.TRIPLE,
         }
-        atom_addition: Set[MolecularInstance] = {}
+        atom_addition: Set[MolecularInstance] = set()
         for i in bond_order:
             for atom in atoms_with_free_valence[i]:
                 for element in atom_types:
@@ -200,7 +200,7 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
             Chem.BondType.DOUBLE,
             Chem.BondType.TRIPLE,
         ]
-        bond_addition: Set[MolecularInstance] = {}
+        bond_addition: Set[MolecularInstance] = set()
         for valence, atoms in atoms_with_free_valence.items():
             for atom1, atom2 in itertools.combinations(atoms, 2):
                 # Get the bond from a copy of the molecule so that SetBondType() doesn't
@@ -255,7 +255,7 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
                     node_features=self._state.node_features,
                     edge_features=self._state.edge_features,
                     graph_features=self._state.graph_features,
-                    dataset=self._state.dataset,
+                    dataset=self._state._dataset,
                 )
                 data_instance.molecule = new_state_molecule
                 bond_addition.add(data_instance)
@@ -279,7 +279,7 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
                 bond = Chem.Mol(state.molecule).GetBondBetweenAtoms(
                     bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
                 )
-                if bond.GetBondType() not in bond_orders:
+                if bond is None or bond.GetBondType() not in bond_orders:
                     continue  # Skip aromatic bonds.
                 new_state_molecue = Chem.RWMol(state.molecule)
                 # Kekulize the new state to avoid sanitization errors; note that bonds
@@ -308,7 +308,7 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
                         node_features=self._state.node_features,
                         edge_features=self._state.edge_features,
                         graph_features=self._state.graph_features,
-                        dataset=self._state.dataset,
+                        dataset=self._state._dataset,
                     )
                     data_instance.molecule = new_state_molecue
                     bond_removal.add(data_instance)
@@ -337,7 +337,7 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
                             node_features=self._state.node_features,
                             edge_features=self._state.edge_features,
                             graph_features=self._state.graph_features,
-                            dataset=self._state.dataset,
+                            dataset=self._state._dataset,
                         )
                         data_instance.smiles = parts[-1]
                         bond_removal.add(data_instance)

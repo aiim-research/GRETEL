@@ -59,6 +59,10 @@
                 "env": {
                     "class": "src.explainer.rl.meg_utils.environments.bbbp_env.BBBPEnvironment",
                     "parameters": {}
+                },
+                "action_encoder": {
+                    "class": "src.explainer.rl.meg_utils.utils.encoders.RDKitFingerprintActionEncoder",
+                    "parameters": {}
                 }
             }
         }

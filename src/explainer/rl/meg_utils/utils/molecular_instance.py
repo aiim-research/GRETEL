@@ -47,8 +47,10 @@ class MolecularInstance(GraphInstance):
 
     @molecule.setter
     def molecule(self, new_molecule):
-        self.graph_features["mol"] = new_molecule
-        self.sync_from_molecule()
+        self._update_molecule(new_molecule)
+        smiles = mol2smi(self.molecule, isomericSmiles=False, canonical=True)
+        self._update_smiles(smiles)
+        self._update_graph_from_molecule()
 
     @property
     def smiles(self):
@@ -56,17 +58,17 @@ class MolecularInstance(GraphInstance):
 
     @smiles.setter
     def smiles(self, new_smiles):
+        self._update_smiles(new_smiles)
+        molecule = smi2mol(self.smiles, sanitize=True)
+        self._update_molecule(molecule)
+        self._update_graph_from_molecule()
+
+    def _update_molecule(self, new_molecule):
+        self.graph_features["mol"] = new_molecule
+
+    def _update_smiles(self, new_smiles):
         self.graph_features["smile"] = new_smiles
         self.graph_features["string_repp"] = new_smiles
-        self.sync_from_smiles()
-
-    def sync_from_molecule(self):
-        self.smiles = mol2smi(self.molecule, isomericSmiles=False, canonical=True)
-        self._update_graph_from_molecule()
-
-    def sync_from_smiles(self):
-        self.molecule = smi2mol(self.smiles, sanitize=True)
-        self._update_graph_from_molecule()
 
     def _update_graph_from_molecule(self):
         n_map = self._dataset.node_features_map
@@ -113,6 +115,8 @@ class MolecularInstance(GraphInstance):
         self.data = A
         self.node_features = X
         self.edge_features = W
+        self.edge_weights = np.ones(len(np.nonzero(A)[0]))
+        # self.edge_weights = self.__init_edge_weights(None).astype(np.float32)
 
     def __eq__(self, other):
         if isinstance(other, MolecularInstance):
@@ -121,3 +125,7 @@ class MolecularInstance(GraphInstance):
 
     def __hash__(self):
         return hash(self.molecule)
+
+    def __deepcopy__(self, memo):
+        graph = GraphInstance.__deepcopy__(self, memo)
+        return MolecularInstance.from_graph_instance(graph)
