@@ -271,17 +271,18 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
             Chem.BondType.DOUBLE,
             Chem.BondType.TRIPLE,
         ]
-        bond_removal: Set[MolecularInstance] = {}
+        bond_removal: Set[MolecularInstance] = set()
+        molecule = state.molecule
         for valence in [1, 2, 3]:
-            for bond in state.molecule.GetBonds():
+            for bond in molecule.GetBonds():
                 # Get the bond from a copy of the molecule so that SetBondType() doesn't
                 # modify the original state.
-                bond = Chem.Mol(state.molecule).GetBondBetweenAtoms(
+                bond = Chem.Mol(molecule).GetBondBetweenAtoms(
                     bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
                 )
                 if bond is None or bond.GetBondType() not in bond_orders:
                     continue  # Skip aromatic bonds.
-                new_state_molecue = Chem.RWMol(state.molecule)
+                new_state_molecue = Chem.RWMol(molecule)
                 # Kekulize the new state to avoid sanitization errors; note that bonds
                 # that are aromatic in the original state are not modified (this is
                 # enforced by getting the bond from the original state with
