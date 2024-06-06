@@ -54,8 +54,6 @@ class TUDataset(Generator):
         self._edge_attributes_file_path = edge_attributes if exists(edge_attributes) else None
         self._graph_attributes_file_path = graph_attributes if exists(graph_attributes) else None
 
-        self.dataset.graph_features_map = {'label': 0}
-
         self.generate_dataset()
 
     def generate_dataset(self):
@@ -78,8 +76,10 @@ class TUDataset(Generator):
         with open(self._graph_indicator_file_path, "r") as f:
             graph_indicator = [int(v) for v in f.readlines()]
 
-        with open(self._graph_labels_file_path, "r") as f:
-            graph_labels = [max(int(v),0) for v in f.readlines()]
+        if self._graph_labels_file_path:
+            self.dataset.graph_features_map = {'label': 0}
+            with open(self._graph_labels_file_path, "r") as f:
+                graph_labels = [max(int(v),0) for v in f.readlines()]
         
         # edges
         if self._edge_labels_file_path:
@@ -143,7 +143,7 @@ class TUDataset(Generator):
             elif self._node_labels_file_path:
                 nodfeat.append(np.array([node_labels[x-1] for x in graph_nodes[g]]))
             elif self._node_attributes_file_path:
-                nodfeat.append([ node_attributes[c -1] for c in graph_nodes[g]])
+                nodfeat.append(np.array([ node_attributes[c -1] for c in graph_nodes[g]]))
 
         for u,(i, j) in enumerate(a):
             graph = node_graph[i]
@@ -161,11 +161,14 @@ class TUDataset(Generator):
         
         for i in range(0,graph_index):
             id = i + 1
-            label = graph_labels[i]
+            label = None 
             data = adjs[i]
 
-            # Graph Features
-            graph_feat = [graph_labels[i]]
+            # Graph 
+            graph_feat = []
+            if graph_labels:
+                label = graph_labels[i]
+                graph_feat.append(graph_labels[i])
             if graph_attributes:
                 graph_feat.append(graph_attributes[i])
             graph_feat = np.array(graph_feat)
@@ -180,7 +183,7 @@ class TUDataset(Generator):
 
             # Node Features
             node_feat = None
-            if node_labels != None or node_attributes != None:
+            if node_labels is None or node_attributes is None:
                 node_feat = nodfeat[i]
 
             self.dataset.instances.append(GraphInstance(id = id, 
