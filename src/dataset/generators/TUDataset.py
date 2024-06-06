@@ -113,7 +113,7 @@ class TUDataset(Generator):
                 self.dataset.node_features_map.update({f"attribute_{i}":i for i in range(1,attr_size+1)})
 
         adjs = []
-        edlbs = []
+        edlbs = defaultdict(list)
         edattr = []
         nodfeat = []
 
@@ -132,7 +132,6 @@ class TUDataset(Generator):
         for g in graph_nodes.keys():
             size = len(graph_nodes[g])
             adjs.append(np.zeros((size,size), dtype=np.int32))
-            edlbs.append(np.zeros((size,size), dtype=np.float64))
             edattr.append(np.zeros((size,size), dtype=np.float64))
 
             if self._node_labels_file_path and self._node_attributes_file_path:
@@ -150,7 +149,7 @@ class TUDataset(Generator):
             c = len(graph_nodes[graph])
             adjs[graph-1][i % c ,j % c] = 1
             if edge_labels:
-                edlbs[graph-1][i % c ,j % c] = edge_labels[u]
+                edlbs[graph-1].append(edge_labels[u])
             if edge_attributes:
                 edattr[graph-1][i % c ,j % c] = edge_attributes[u]
     
@@ -174,16 +173,17 @@ class TUDataset(Generator):
             graph_feat = np.array(graph_feat)
 
             # Edge Features
-            edge_feat = []
-            if edge_labels:
-                edge_feat.append(edlbs[i])
-            if edge_attributes:
-                edge_feat.append(edattr[i])
-            edge_feat = np.array(edge_feat) if len(edge_feat) else None
+            edge_feat = None
+            if edge_labels is not None and edge_attributes is not None:
+                edge_feat = np.append(np.array(edlbs[i]), edattr[i])
+            elif edge_labels is not None:
+                edge_feat = np.array(edlbs[i])
+            elif edge_attributes:
+                edge_feat = edattr[i]
 
             # Node Features
             node_feat = None
-            if node_labels is None or node_attributes is None:
+            if node_labels is not None or node_attributes is not None:
                 node_feat = nodfeat[i]
 
             self.dataset.instances.append(GraphInstance(id = id, 
