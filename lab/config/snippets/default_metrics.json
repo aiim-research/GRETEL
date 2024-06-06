@@ -26,5 +26,9 @@
     {
         "class": "src.evaluation.metrics.fidelity.FidelityMetric",
         "parameters": {} 
+    },
+    {
+        "class": "src.evaluation.metrics.instability.InstabilityMetric",
+        "parameters": {} 
     }
 ]}

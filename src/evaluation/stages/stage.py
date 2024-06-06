@@ -5,5 +5,5 @@ from abc import abstractmethod, ABC
 class Stage(Configurable, ABC):
 
     @abstractmethod
-    def process(self, exp: Explanation) -> Explanation:
+    def process(self, explanation: Explanation) -> Explanation:
         pass
