@@ -35,6 +35,6 @@
             }
         } 
  ],
-    "compose_mes" : "config/snippets/default_metrics.json",
+    "compose_mes" : "config/snippets/default_metrics_w_dumper.json",
     "compose_strs" : "config/snippets/default_store_paths.json"
 }

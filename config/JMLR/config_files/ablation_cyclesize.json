@@ -23,6 +23,7 @@
             "parameters": {
                 "epochs": 200,
                 "batch_size": 32,
+                "early_stopping_threshold": 1e-4,
                 "optimizer": {
                     "class": "torch.optim.RMSprop",
                     "parameters": {
@@ -48,6 +49,7 @@
             "parameters": {
                 "epochs": 200,
                 "batch_size": 32,
+                "early_stopping_threshold": 1e-4,
                 "optimizer": {
                     "class": "torch.optim.RMSprop",
                     "parameters": {
@@ -73,6 +75,7 @@
             "parameters": {
                 "epochs": 200,
                 "batch_size": 32,
+                "early_stopping_threshold": 1e-4,
                 "optimizer": {
                     "class": "torch.optim.RMSprop",
                     "parameters": {
@@ -98,6 +101,7 @@
             "parameters": {
                 "epochs": 200,
                 "batch_size": 32,
+                "early_stopping_threshold": 1e-4,
                 "optimizer": {
                     "class": "torch.optim.RMSprop",
                     "parameters": {
@@ -123,6 +127,7 @@
             "parameters": {
                 "epochs": 200,
                 "batch_size": 32,
+                "early_stopping_threshold": 1e-4,
                 "optimizer": {
                     "class": "torch.optim.RMSprop",
                     "parameters": {
@@ -148,6 +153,7 @@
             "parameters": {
                 "epochs": 200,
                 "batch_size": 32,
+                "early_stopping_threshold": 1e-4,
                 "optimizer": {
                     "class": "torch.optim.RMSprop",
                     "parameters": {
@@ -173,6 +179,7 @@
             "parameters": {
                 "epochs": 200,
                 "batch_size": 32,
+                "early_stopping_threshold": 1e-4,
                 "optimizer": {
                     "class": "torch.optim.RMSprop",
                     "parameters": {
@@ -198,6 +205,7 @@
             "parameters": {
                 "epochs": 200,
                 "batch_size": 32,
+                "early_stopping_threshold": 1e-4,
                 "optimizer": {
                     "class": "torch.optim.RMSprop",
                     "parameters": {
@@ -223,6 +231,7 @@
             "parameters": {
                 "epochs": 200,
                 "batch_size": 32,
+                "early_stopping_threshold": 1e-4,
                 "optimizer": {
                     "class": "torch.optim.RMSprop",
                     "parameters": {
@@ -248,6 +257,7 @@
             "parameters": {
                 "epochs": 200,
                 "batch_size": 32,
+                "early_stopping_threshold": 1e-4,
                 "optimizer": {
                     "class": "torch.optim.RMSprop",
                     "parameters": {
@@ -273,6 +283,7 @@
             "parameters": {
                 "epochs": 200,
                 "batch_size": 32,
+                "early_stopping_threshold": 1e-4,
                 "optimizer": {
                     "class": "torch.optim.RMSprop",
                     "parameters": {
@@ -310,6 +321,6 @@
         "weight_decay": 0.00005
     } }
  ],
-    "compose_mes" : "config/snippets/default_metrics.json",
+    "compose_mes" : "config/snippets/default_metrics_w_dumper.json",
     "compose_strs" : "config/snippets/default_store_paths.json"
 }
