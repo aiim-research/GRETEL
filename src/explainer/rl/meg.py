@@ -50,7 +50,9 @@ class MEGExplainer(Explainer):
             ),
         )
         self.context.logger.info("Distance metric initialized.")
+        # Set the context param
         params["env"]["parameters"]["context"] = self.context
+        params["action_encoder"]["parameters"]["context"] = self.context
         self.environment = cast(
             BaseEnvironment,
             get_instance_kvargs(params["env"]["class"], params["env"]["parameters"]),
