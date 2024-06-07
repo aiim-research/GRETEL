@@ -91,7 +91,9 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
         if state is None:
             if self._valid_actions and not force_rebuild:
                 self.context.logger.info("Returning cached valid actions.")
-                return copy.deepcopy(self._valid_actions)
+                deepcopy_valid_actions = copy.deepcopy(self._valid_actions)
+                self.context.logger.info("Valid actions returned from cache.")
+                return deepcopy_valid_actions
             state = self._state
         self._valid_actions = self._get_valid_actions(
             state,

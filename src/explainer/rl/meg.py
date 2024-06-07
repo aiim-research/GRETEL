@@ -134,12 +134,19 @@ class MEGExplainer(Explainer):
             steps_left = self.max_steps_per_episode - self.environment.num_steps_taken
             valid_actions = list(self.environment.get_valid_actions())
 
+            self.context.logger.info(f"Amount of valid actions: {len(valid_actions)}")
+            self.context.logger.info(f"Steps left: {steps_left}")
+
+            self.context.logger.info("Observations being prepared.")
+
             observations = np.vstack(
                 [
                     np.append(self.action_encoder.encode(action), steps_left)
                     for action in valid_actions
                 ]
             )
+
+            self.context.logger.info("Observations prepared.")
 
             observations = torch.as_tensor(observations).float()
             a = self.explainer.action_step(observations, eps)
