@@ -12,6 +12,7 @@ from src.explainer.rl.meg_utils.utils.encoders import ActionEncoderAB
 from src.explainer.rl.meg_utils.utils.queue import SortedQueue
 from src.explainer.rl.meg_utils.utils.sorters import SorterSelector
 from src.utils.cfg_utils import init_dflts_to_of
+from src.utils.context import Context
 
 
 class MEGExplainer(Explainer):
@@ -36,6 +37,7 @@ class MEGExplainer(Explainer):
         params["gamma"] = params.get("gamma", 0.95)
         params["polyak"] = params.get("polyak", 0.995)
         params["num_counterfactuals"] = params.get("num_counterfactuals", 10)
+        self.context.logger.info("Configuration checked and parameters set.")
 
     def init(self):
         super().init()
@@ -47,10 +49,13 @@ class MEGExplainer(Explainer):
                 params["distance_metric"]["parameters"],
             ),
         )
+        self.context.logger.info("Distance metric initialized.")
+        params["env"]["parameters"]["context"] = self.context
         self.environment = cast(
             BaseEnvironment,
             get_instance_kvargs(params["env"]["class"], params["env"]["parameters"]),
         )
+        self.context.logger.info("Environment initialized.")
         self.action_encoder = cast(
             ActionEncoderAB,
             get_instance_kvargs(
@@ -58,6 +63,7 @@ class MEGExplainer(Explainer):
                 params["action_encoder"]["parameters"],
             ),
         )
+        self.context.logger.info("Action encoder initialized.")
         self.sorter_selector = cast(
             SorterSelector,
             get_instance_kvargs(
@@ -65,6 +71,7 @@ class MEGExplainer(Explainer):
                 params["sorter_selector"]["parameters"],
             ),
         )
+        self.context.logger.info("Sorter selector initialized.")
         self.num_input = cast(int, params["num_input"])
         self.batch_size = cast(int, params["batch_size"])
         self.lr = cast(float, params["lr"])
@@ -75,6 +82,7 @@ class MEGExplainer(Explainer):
         self.gamma = cast(float, params["gamma"])
         self.polyak = cast(float, params["polyak"])
         self.num_counterfactuals = cast(int, params["num_counterfactuals"])
+        self.context.logger.info("Initialization complete with all parameters set.")
 
     def explain(self, instance):
         num_nodes = instance.data.shape[0]
@@ -83,8 +91,10 @@ class MEGExplainer(Explainer):
         assert len(instance.edge_features) == num_edges
         assert len(instance.edge_weights) == num_edges
         self.instance = instance
+        self.context.logger.info(f"Explaining instance with {num_nodes} nodes and {num_edges} edges.")
         # dataset = self.converter.convert(dataset)
         self.explainer = MEGAgent(
+            self.context,
             num_input=self.num_input + 1,
             num_output=1,
             lr=self.lr,
@@ -96,6 +106,7 @@ class MEGExplainer(Explainer):
 
         with torch.no_grad():
             inst = self.cf_queue.get(0)  # get the best counterfactual
+            self.context.logger.info("Best counterfactual obtained.")
             return inst["next_state"]
 
     def __fit(self):
@@ -106,10 +117,12 @@ class MEGExplainer(Explainer):
             self.num_counterfactuals,
             sort_predicate=self.sorter_selector.predicate(),
         )
+        self.context.logger.info("Counterfactual queue initialized.")
         self.environment.set_instance(self.instance)
         self.environment.oracle = self.oracle
 
         self.environment.initialize()
+        self.context.logger.info("Environment initialized for fitting.")
         self.__real_fit()
 
     def __real_fit(self):
@@ -131,6 +144,7 @@ class MEGExplainer(Explainer):
             observations = torch.as_tensor(observations).float()
             a = self.explainer.action_step(observations, eps)
             action = valid_actions[a]
+            self.context.logger.info(f"Action taken: {action}")
 
             result = self.environment.step(action)
 
@@ -153,6 +167,7 @@ class MEGExplainer(Explainer):
                 torch.as_tensor(action_embeddings).float(),
                 float(result.terminated),
             )
+            self.context.logger.info("Experience pushed to replay buffer.")
 
             if (
                 it % self.update_interval == 0
@@ -163,14 +178,14 @@ class MEGExplainer(Explainer):
                 )
                 loss = loss.item()
                 batch_losses.append(loss)
+                self.context.logger.info(f"Training step completed. Loss: {loss}")
 
             it += 1
 
             if done:
                 episode += 1
 
-                # print(f'Episode {episode}> Reward = {out["reward"]} (pred: {out["reward_pred"]}, sim: {out["reward_sim"]})')
-                print(f'Episode {episode}> Reward = {out["reward"]}')
+                self.context.logger.info(f'Episode {episode}> Reward = {out["reward"]}')
                 self.cf_queue.insert(
                     {
                         "marker": "cf",
@@ -184,16 +199,19 @@ class MEGExplainer(Explainer):
 
                 batch_losses = []
                 self.environment.initialize()
+                self.context.logger.info(f"Episode {episode} finished. Environment reinitialized.")
 
 
 class MEGAgent:
     def __init__(
         self,
+        context: Context,
         num_input: int = 5,
         num_output: int = 10,
         lr: float = 1e-3,
         replay_buffer_size: int = 10,
     ):
+        self.context = context
         self.num_input = num_input
         self.num_output = num_output
         self.replay_buffer_size = replay_buffer_size
@@ -201,23 +219,26 @@ class MEGAgent:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
         self.dqn, self.target_dqn = (
-            DQN(num_input, num_output).to(self.device),
-            DQN(num_input, num_output).to(self.device),
+            DQN(self.context, num_input, num_output).to(self.device),
+            DQN(self.context, num_input, num_output).to(self.device),
         )
 
         for p in self.target_dqn.parameters():
             p.requires_grad = False
 
-        self.replay_buffer = ReplayMemory(replay_buffer_size)
+        self.replay_buffer = ReplayMemory(self.context, replay_buffer_size)
 
         self.optimizer = torch.optim.Adam(self.dqn.parameters(), lr=lr)
+        self.context.logger.info("MEGAgent initialized with DQN and target DQN.")
 
     def action_step(self, observations, epsilon_threshold):
         if np.random.uniform() < epsilon_threshold:
             action = np.random.randint(0, observations.shape[0])
+            self.context.logger.info("Random action taken due to epsilon threshold.")
         else:
             q_value = self.dqn(observations.to(self.device)).cpu()
             action = torch.argmax(q_value).detach().numpy()
+            self.context.logger.info("Action taken based on Q-values.")
 
         return action
 
@@ -262,14 +283,17 @@ class MEGAgent:
                 target_param.data.mul_(polyak)
                 target_param.data.add_((1 - polyak) * param.data)
 
+        self.context.logger.info(f"Training step: loss = {loss.item()}")
         return loss
 
 
 class ReplayMemory:
-    def __init__(self, capacity: int):
+    def __init__(self, context: Context, capacity: int):
+        self.context = context
         self.capacity = capacity
         self.memory = []
         self.position = 0
+        self.context.logger.info(f"Replay memory initialized with capacity {capacity}.")
 
     def push(self, *args):
         if len(self.memory) < self.capacity:
@@ -277,8 +301,10 @@ class ReplayMemory:
 
         self.memory[self.position] = args
         self.position = (self.position + 1) % self.capacity
+        self.context.logger.info(f"Memory pushed at position {self.position}.")
 
     def sample(self, batch_size: int):
+        self.context.logger.info(f"Sampling {batch_size} experiences from memory.")
         return random_sample(self.memory, batch_size)
 
     def __len__(self):
@@ -288,11 +314,14 @@ class ReplayMemory:
 class DQN(torch.nn.Module):
     def __init__(
         self,
+        context: Context,
         num_input: int,
         num_output: int,
         hidden_state_neurons: list[int] = [1024, 512, 128, 32],
     ):
         super(DQN, self).__init__()
+
+        self.context = context
 
         self.layers = torch.nn.ModuleList([])
 
@@ -307,9 +336,11 @@ class DQN(torch.nn.Module):
             self.layers.append(torch.nn.Linear(dim_input, h_next))
 
         self.out = torch.nn.Linear(hs[-1], num_output)
+        self.context.logger.info(f"DQN initialized with input {num_input}, output {num_output}, and layers {hidden_state_neurons}.")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         for layer in self.layers:
             x = torch.nn.functional.relu(layer(x))
         x = self.out(x)
+        self.context.logger.info("Forward pass through DQN.")
         return x

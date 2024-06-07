@@ -4,6 +4,7 @@ from typing import Any, Callable, List, Optional, Set
 from src.dataset.instances.graph import GraphInstance
 from src.evaluation.evaluation_metric_ged import GraphEditDistanceMetric
 from src.explainer.rl.meg_utils.environments.base_env import BaseEnvironment, Result
+from src.utils.context import Context
 
 
 class AddRemoveEdgesEnvironment(BaseEnvironment[GraphInstance]):
@@ -12,8 +13,9 @@ class AddRemoveEdgesEnvironment(BaseEnvironment[GraphInstance]):
         target_fn: Optional[Callable[[GraphInstance], Any]] = None,
         max_steps: int = 10,
         record_path: bool = False,
+        context: Context = None,
     ):
-        super().__init__(target_fn=target_fn, max_steps=max_steps)
+        super().__init__(context=context, target_fn=target_fn, max_steps=max_steps)
         self._valid_actions: Set[GraphInstance] = set()
         self.record_path = record_path
         self._path: List[GraphInstance] = []

@@ -1,5 +1,6 @@
 from src.explainer.rl.meg_utils.environments.molecule_env import MoleculeEnvironment
 from src.explainer.rl.meg_utils.utils.similarity import get_similarity
+from src.utils.context import Context
 
 
 class BBBPEnvironment(MoleculeEnvironment):
@@ -11,9 +12,10 @@ class BBBPEnvironment(MoleculeEnvironment):
         fp_rad=2,
         weight_sim=0.5,
         similarity_measure="tanimoto",
+        context: Context = None,
         **kwargs,
     ):
-        super(BBBPEnvironment, self).__init__(**kwargs)
+        super(BBBPEnvironment, self).__init__(context=context, **kwargs)
 
         self.discount_factor = discount_factor
         self.oracle = oracle

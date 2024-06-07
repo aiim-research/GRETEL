@@ -6,6 +6,7 @@ from src.explainer.rl.meg_utils.environments.molecule_env import (
 )
 from src.explainer.rl.meg_utils.utils.molecules import mol_to_tox21_pyg
 from src.explainer.rl.meg_utils.utils.similarity import get_similarity
+from src.utils.context import Context
 
 
 class CF_Tox21(MoleculeEnvironment):
@@ -18,9 +19,10 @@ class CF_Tox21(MoleculeEnvironment):
         fp_rad,
         weight_sim=0.5,
         similarity_measure="tanimoto",
+        context: Context = None,
         **kwargs,
     ):
-        super(CF_Tox21, self).__init__(**kwargs)
+        super(CF_Tox21, self).__init__(context=context, **kwargs)
 
         self.class_to_optimize = 1 - original_molecule.y.item()
         self.discount_factor = discount_factor

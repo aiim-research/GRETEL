@@ -17,6 +17,7 @@ from src.explainer.rl.meg_utils.environments.base_env import BaseEnvironment, Re
 from src.explainer.rl.meg_utils.utils.molecular_instance import (
     MolecularInstance,
 )
+from src.utils.context import Context
 
 
 class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
@@ -35,8 +36,10 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
         target_fn: Optional[Callable[[MolecularInstance], Any]] = None,
         max_steps: int = 10,
         record_path: bool = False,
+        context: Context = None,
     ):
         super(MoleculeEnvironment, self).__init__(
+            context=context,
             target_fn=target_fn,
             max_steps=max_steps,
         )
@@ -53,8 +56,10 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
         self._path: List[MolecularInstance] = []
         self._max_bonds = 4
         self.action_counter = 1
+        self.context.logger.info("MoleculeEnvironment initialized with provided parameters.")
 
     def get_path(self) -> List[MolecularInstance]:
+        self.context.logger.info("Returning path.")
         return self._path
 
     def set_instance(self, new_instance: Optional[MolecularInstance]) -> None:
@@ -66,6 +71,7 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
         self._max_new_bonds = dict(
             list(zip(atom_types, self.atom_valences(atom_types)))
         )
+        self.context.logger.info(f"Instance set with atom types: {atom_types}")
 
     def initialize(self) -> None:
         """Resets the MDP to its initial state."""
@@ -75,6 +81,7 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
         self._valid_actions = self.get_valid_actions(force_rebuild=True)
         self._counter = 0
         self.action_counter = 1
+        self.context.logger.info("Environment initialized to initial state.")
 
     def get_valid_actions(
         self,
@@ -83,6 +90,7 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
     ) -> Set[MolecularInstance]:
         if state is None:
             if self._valid_actions and not force_rebuild:
+                self.context.logger.info("Returning cached valid actions.")
                 return copy.deepcopy(self._valid_actions)
             state = self._state
         self._valid_actions = self._get_valid_actions(
@@ -93,6 +101,7 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
             allowed_ring_sizes=self.allowed_ring_sizes,
             allow_bonds_between_rings=self.allow_bonds_between_rings,
         )
+        self.context.logger.info("Valid actions computed.")
         return copy.deepcopy(self._valid_actions)
 
     def _get_valid_actions(
@@ -105,10 +114,10 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
         allow_bonds_between_rings: bool = True,
     ) -> Set[MolecularInstance]:
         if not state:
-            print("I might be here")
+            self.context.logger.info("No state provided, returning atom types.")
             return copy.deepcopy(atom_types)
         if state.molecule is None:
-            raise ValueError(f"Recieved invalid state {state}")
+            raise ValueError(f"Received invalid state {state}")
         atom_valences: Dict[Any, List[Any]] = {
             atom_type: self.atom_valences([atom_type])[0] for atom_type in atom_types
         }
@@ -143,6 +152,7 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
         # add the same state
         if allow_no_modification:
             valid_actions.add(state)
+        self.context.logger.info("Valid actions generated.")
         return valid_actions
 
     def _atom_additions(
@@ -185,6 +195,7 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
                     data_instance.molecule = new_state_molecule
                     atom_addition.add(data_instance)
                     self.action_counter += 1
+                    self.context.logger.info(f"Atom added: {element} with bond order {i}.")
         return atom_addition
 
     def _bond_addition(
@@ -260,6 +271,7 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
                 data_instance.molecule = new_state_molecule
                 bond_addition.add(data_instance)
                 self.action_counter += 1
+                self.context.logger.info(f"Bond added between atoms {atom1} and {atom2} with bond order {valence}.")
         return bond_addition
 
     def _bond_removal(
@@ -314,6 +326,7 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
                     data_instance.molecule = new_state_molecue
                     bond_removal.add(data_instance)
                     self.action_counter += 1
+                    self.context.logger.info(f"Bond of order {bond_order} removed.")
                 elif bond_order == 0:  # Remove this bond entirely.
                     atom1 = bond.GetBeginAtom().GetIdx()
                     atom2 = bond.GetEndAtom().GetIdx()
@@ -343,16 +356,18 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
                         data_instance.smiles = parts[-1]
                         bond_removal.add(data_instance)
                         self.action_counter += 1
+                        self.context.logger.info(f"Bond completely removed between atoms {atom1} and {atom2}.")
         return bond_removal
 
     def reward(self):
+        self.context.logger.info("Calculating reward.")
         return 0.0
 
     def step(self, action: MolecularInstance) -> Result:
         if self._counter >= self.max_steps or self.goal_reached():
             raise ValueError("This episode is terminated.")
         if action.id not in [inst.id for inst in self._valid_actions]:
-            print(action)
+            self.context.logger.error(f"Invalid action attempted: {action}")
             raise ValueError("Invalid action.")
         self._state = action
         if self.record_path:
@@ -364,6 +379,7 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
             reward=self.reward(),
             terminated=(self._counter >= self.max_steps) or self.goal_reached(),
         )
+        self.context.logger.info(f"Step completed. Action taken: {action}, Counter: {self._counter}, Reward: {result.reward}")
         return result
 
     def visualize_state(
@@ -379,11 +395,14 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
             molecule = Chem.MolFromSmiles(state)
         else:
             molecule = state.molecule
+        self.context.logger.info(f"Visualizing state: {state}")
         return Draw.MolToImage(molecule, **kwargs)
 
     def atom_valences(self, atom_types):
         periodic_table = Chem.GetPeriodicTable()
-        return [
+        valences = [
             max(list(periodic_table.GetValenceList(atom_type)))
             for atom_type in atom_types
         ]
+        self.context.logger.info(f"Atom valences calculated: {valences}")
+        return valences

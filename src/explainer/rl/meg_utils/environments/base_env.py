@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable, Generic, Optional, Set, TypeVar
 
 from src.dataset.instances.base import DataInstance
+from src.utils.context import Context
 
 
 class Result(collections.namedtuple("Result", ["state", "reward", "terminated"])):
@@ -23,6 +24,7 @@ class BaseEnvironment(Generic[T], ABC):
         self,
         target_fn: Optional[Callable[[T], Any]] = None,
         max_steps: int = 10,
+        context: Context = None,
     ):
         self._name = "base_environment"
 
@@ -31,6 +33,7 @@ class BaseEnvironment(Generic[T], ABC):
         self._counter = 0
         self.max_steps = max_steps
         self._target_fn = target_fn
+        self.context = context
 
     @property
     def init_instance(self) -> Optional[T]:
