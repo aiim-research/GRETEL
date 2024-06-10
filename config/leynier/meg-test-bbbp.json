@@ -61,7 +61,7 @@
                     "parameters": {}
                 },
                 "action_encoder": {
-                    "class": "src.explainer.rl.meg_utils.utils.encoders.RDKitFingerprintActionEncoder",
+                    "class": "src.explainer.rl.meg_utils.utils.encoders.MorganCountFingerprintActionEncoder",
                     "parameters": {}
                 }
             }

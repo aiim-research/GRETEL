@@ -41,7 +41,7 @@ class GraphInstance(DataInstance):
         _edge_features = deepcopy(self.edge_features, memo)
         _edge_weights = deepcopy(self.edge_weights, memo)
         _graph_features = deepcopy(self.graph_features, memo)
-        return GraphInstance(_new_id, _new_label, _data, _node_features, _edge_features, _edge_weights, _graph_features)
+        return GraphInstance(_new_id, _new_label, _data, _node_features, _edge_features, _edge_weights, _graph_features, _dataset)
 
     def get_nx(self):
         if not self._nx_repr:

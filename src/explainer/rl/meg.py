@@ -87,6 +87,8 @@ class MEGExplainer(Explainer):
         self.context.logger.info("Initialization complete with all parameters set.")
 
     def explain(self, instance):
+        if instance._dataset is None:
+            instance._dataset = self.dataset
         num_nodes = instance.data.shape[0]
         num_edges = np.count_nonzero(instance.data)
         assert len(instance.node_features) == num_nodes
