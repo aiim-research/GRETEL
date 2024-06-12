@@ -79,7 +79,9 @@ class TUDataset(Generator):
         if self._graph_labels_file_path:
             self.dataset.graph_features_map = {'label': 0}
             with open(self._graph_labels_file_path, "r") as f:
-                graph_labels = [max(int(v),0) for v in f.readlines()]
+                graph_labels = np.array( [max(int(v),0) for v in f.readlines()] )
+
+            graph_labels  = graph_labels - min(graph_labels)
         
         # edges
         if self._edge_labels_file_path:
@@ -158,6 +160,7 @@ class TUDataset(Generator):
                 graph_attributes = [max(float(v),0) for v in f.readlines()]
             self.dataset.graph_features_map['attribute'] = 1
         
+
         for i in range(0,graph_index):
             id = i + 1
             label = None 
@@ -165,7 +168,7 @@ class TUDataset(Generator):
 
             # Graph 
             graph_feat = []
-            if graph_labels:
+            if graph_labels.any():
                 label = graph_labels[i]
                 graph_feat.append(graph_labels[i])
             if graph_attributes:
