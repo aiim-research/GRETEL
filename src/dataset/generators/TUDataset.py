@@ -14,6 +14,7 @@ from io import BytesIO
 from zipfile import ZipFile
 from urllib.request import urlopen
 
+GRAPH, EDGE, NODE = 1,2,3
 
 class TUDataset(Generator):
 
@@ -60,12 +61,46 @@ class TUDataset(Generator):
         if not len(self.dataset.instances):
             self.populate()
 
+    def _read_labels_and_attributes(self, label_path, attribute_path, kind):
+        labels = None
+        attributes = None
+        general = None
+        features_map  = None
+
+        if label_path:
+            labels = pd.read_csv(label_path, header=None).values
+            for ind in range(labels.shape[1]):
+                labels[:,ind]  = labels[:,ind] - min(labels[:,ind])
+
+        if attribute_path:
+            attributes = pd.read_csv(attribute_path, header=None).values
+
+        if label_path or attribute_path:
+            features_map = {}
+            label_count = len(labels[0]) if label_path else 0
+            attribute_count = len(attributes[0]) if attribute_path else 0
+
+            if label_path:
+                features_map.update({f'label_{i}': i for i in range(label_count)})
+
+            if attribute_path:
+                features_map.update({f'attribute_{i}': i for i in range(label_count, label_count + attribute_count)})
+
+            general = np.array([np.append(labels[i], attributes[i]) for i in range(labels.shape[0])]) if label_path and attribute_path else labels if label_path else attributes
+
+        if features_map is not None:
+            if kind == GRAPH:
+                self.dataset.graph_features_map = features_map
+            elif kind == EDGE:
+                self.dataset.edge_features_map = features_map
+            else:
+                self.dataset.node_features_map = features_map
+
+        return general
+    
     def populate(self):
         a = None
         graph_indicator = None
-        graph_labels = None
-        node_labels = None
-        edge_labels = None
         node_attributes = None
         edge_attributes = None
         graph_attributes = None
@@ -76,51 +111,28 @@ class TUDataset(Generator):
         with open(self._graph_indicator_file_path, "r") as f:
             graph_indicator = [int(v) for v in f.readlines()]
 
-        if self._graph_labels_file_path:
-            self.dataset.graph_features_map = {'label': 0}
-            with open(self._graph_labels_file_path, "r") as f:
-                graph_labels = np.array( [max(int(v),0) for v in f.readlines()] )
-
-            graph_labels  = graph_labels - min(graph_labels)
+        graph_attributes = self._read_labels_and_attributes(
+            self._graph_labels_file_path, 
+            self._graph_attributes_file_path,
+            GRAPH)
         
-        # edges
-        if self._edge_labels_file_path:
-            with open(self._edge_labels_file_path, "r") as f:
-                edge_labels = [max(int(v),0) for v in f.readlines()]
-            self.dataset.edge_features_map = {'label': 0}
+        edge_attributes = self._read_labels_and_attributes(
+            self._edge_labels_file_path,
+            self._edge_attributes_file_path, 
+            EDGE)
         
-        if self._edge_attributes_file_path:
-            with open(self._edge_attributes_file_path, "r") as f:
-                edge_attributes = [max(float(v),0) for v in f.readlines()]
-            
-            if not self.dataset.edge_features_map:
-                self.dataset.edge_features_map = {'attribute': 0}
-            else:
-                self.dataset.edge_features_map['attribute'] = 1
+        node_attributes = self._read_labels_and_attributes(
+            self._node_labels_file_path, 
+            self._node_attributes_file_path, 
+            NODE)
 
-        # nodes
-        if self._node_labels_file_path:
-            with open(self._node_labels_file_path, "r") as f:
-                node_labels = [max(int(v),0) for v in f.readlines()]
-            self.dataset.node_features_map = {'label': 0}      
-
-        if self._node_attributes_file_path:
-            node_attributes = pd.read_csv(self._node_attributes_file_path, header=None).values
-
-            attr_size = len(node_attributes[0])
-
-            if not self.dataset.node_features_map:
-                self.dataset.node_features_map = {f"attribute_{i}":i for i in range(0,attr_size)}
-            else:
-                self.dataset.node_features_map.update({f"attribute_{i}":i for i in range(1,attr_size+1)})
-
-        adjs = []
-        edlbs = defaultdict(list)
-        edattr = []
-        nodfeat = []
-
+        adjs = [np.array([])]
+    
         # Initialize a dictionary to hold the graph nodes
         graph_nodes = defaultdict(list)
+
+        # graph edges 
+        edgs = defaultdict(list)
 
         # Reverse mapping for a given node to know its corresponding graph
         node_graph = defaultdict()
@@ -134,60 +146,21 @@ class TUDataset(Generator):
         for g in graph_nodes.keys():
             size = len(graph_nodes[g])
             adjs.append(np.zeros((size,size), dtype=np.int32))
-            edattr.append(np.zeros((size,size), dtype=np.float64))
 
-            if self._node_labels_file_path and self._node_attributes_file_path:
-                attrs = np.array([ node_attributes[c-1] for c in graph_nodes[g]])
-                labels = np.array([[node_labels[x-1]] for x in graph_nodes[g]])
-                attrs = np.append(labels, attrs, axis=1)
-                nodfeat.append(attrs)
-            elif self._node_labels_file_path:
-                nodfeat.append(np.array([node_labels[x-1] for x in graph_nodes[g]]))
-            elif self._node_attributes_file_path:
-                nodfeat.append(np.array([ node_attributes[c -1] for c in graph_nodes[g]]))
-
-        for u,(i, j) in enumerate(a):
+        for u,(i, j) in enumerate(a, start=1):
             graph = node_graph[i]
             c = len(graph_nodes[graph])
-            adjs[graph-1][i % c ,j % c] = 1
-            if edge_labels:
-                edlbs[graph-1].append(edge_labels[u])
-            if edge_attributes:
-                edattr[graph-1][i % c ,j % c] = edge_attributes[u]
-    
-        if self._graph_attributes_file_path:
-            with open(self._graph_attributes_file_path, "r") as f:
-                graph_attributes = [max(float(v),0) for v in f.readlines()]
-            self.dataset.graph_features_map['attribute'] = 1
-        
+            adjs[graph][i % c ,j % c] = 1
+            edgs[graph].append(u)
 
-        for i in range(0,graph_index):
-            id = i + 1
-            label = None 
+        for i in graph_nodes.keys():
+            id = i
+            label = graph_attributes[i-1][0] if graph_attributes is not None else None 
             data = adjs[i]
 
-            # Graph 
-            graph_feat = []
-            if graph_labels.any():
-                label = graph_labels[i]
-                graph_feat.append(graph_labels[i])
-            if graph_attributes:
-                graph_feat.append(graph_attributes[i])
-            graph_feat = np.array(graph_feat)
-
-            # Edge Features
-            edge_feat = None
-            if edge_labels is not None and edge_attributes is not None:
-                edge_feat = np.append(np.array(edlbs[i]), edattr[i])
-            elif edge_labels is not None:
-                edge_feat = np.array(edlbs[i])
-            elif edge_attributes:
-                edge_feat = edattr[i]
-
-            # Node Features
-            node_feat = None
-            if node_labels is not None or node_attributes is not None:
-                node_feat = nodfeat[i]
+            graph_feat = graph_attributes[i-1] if graph_attributes is not None else None
+            edge_feat = edge_attributes[min(edgs[i])-1:max(edgs[i])] if edge_attributes is not None else None
+            node_feat = node_attributes[min(graph_nodes[i])-1:max(graph_nodes[i])] if node_attributes is not None else None
 
             self.dataset.instances.append(GraphInstance(id = id, 
                                                         label = label, 
