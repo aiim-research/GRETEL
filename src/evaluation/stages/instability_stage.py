@@ -1,16 +1,14 @@
 import sys
 
+from src.explanation.base import Explanation
+from src.evaluation.stages.metric_stage import MetricStage
 from src.core.factory_base import get_instance_kvargs
 from src.utils.cfg_utils import  init_dflts_to_of 
-from src.evaluation.metrics.base import EvaluationMetric
-from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 
 
-
-
-class InstabilityMetric(EvaluationMetric):
+class InstabilityStage(MetricStage):
     """
-    Verifies how much is the variation in the produced counterfactuals in relation to the variation in the input
+    Verifies that the class from the counterfactual example is different from that of the original instance
     """
 
     def check_configuration(self):
@@ -26,13 +24,11 @@ class InstabilityMetric(EvaluationMetric):
     def init(self):
         super().init()
 
-        self.name = 'instability'
         self.distance_metric = get_instance_kvargs(self.local_config['parameters']['distance_metric']['class'], 
                                                     self.local_config['parameters']['distance_metric']['parameters'])
+        
 
-
-
-    def evaluate(self, explanation: LocalGraphCounterfactualExplanation):
+    def process(self, explanation: Explanation) -> Explanation:
         input_inst = explanation.input_instance
 
         dataset = explanation.dataset
@@ -69,9 +65,11 @@ class InstabilityMetric(EvaluationMetric):
             for closer_inst_cf in closer_inst_explanation.counterfactual_instances:
                 term3 += self.distance_metric.evaluate(input_inst_cf, closer_inst_cf, oracle)
 
-        
-        instability = term1*term2*term3
+        # Calculating the instability value
+        instability_value = term1*term2*term3
 
-        return instability
+        # Writing the metric value into the explanation and returning the explanation
+        self.write_into_explanation(explanation, instability_value)
+        return explanation
 
         

@@ -1,11 +1,9 @@
 from src.evaluation.metrics.base import EvaluationMetric
 from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
-from src.utils.metrics.ged import GraphEditDistanceMetric
 
 
 class OracleAccuracyMetric(EvaluationMetric):
-    """As correctness measures if the algorithm is producing counterfactuals, but in Fidelity measures how faithful they are to the original problem,
-     not just to the problem learned by the oracle. Requires a ground truth in the dataset
+    """Meassures the accuracy of the oracle predictions compared to the ground truth labels in the dataset
     """
 
     def check_configuration(self):

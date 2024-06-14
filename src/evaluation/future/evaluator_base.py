@@ -94,6 +94,7 @@ class Evaluator(ABC):
             explanation = self._explainer.explain(inst)
             end_time = time.time()
             explanation.explanation_runtime = end_time - start_time
+            self._explanations.append(explanation)
 
             self._real_evaluate(explanation)
             self._logger.info('evaluated instance with id %s', str(inst.id))

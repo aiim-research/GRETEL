@@ -1,8 +1,8 @@
 from src.explanation.base import Explanation
-from src.evaluation.stages.measurement_stage import MeasurementStage
+from src.evaluation.stages.metric_stage import MetricStage
 
 
-class CorrectnessStage(MeasurementStage):
+class CorrectnessStage(MetricStage):
     """
     Verifies that the class from the counterfactual example is different from that of the original instance
     """
@@ -13,13 +13,14 @@ class CorrectnessStage(MeasurementStage):
 
         correctness = 0
         for cf in explanation.counterfactual_instances:
+            # Checking if the counterfactual instances are correct
             if explanation.oracle.predict(cf) != input_inst_lbl:
                 correctness += 1
             explanation.oracle._call_counter -= 1
 
         correctness /= len(explanation.counterfactual_instances)
 
-        explanation._stages_info[self.__class__.name] = correctness
+        self.write_into_explanation(explanation, correctness)
 
         return explanation
 

@@ -10,7 +10,7 @@
             ]
         }
     },
-    "do-pairs":[ {"compose_tcr_gcn" : "./lab/config/snippets/do-pairs/TCR-128-32-0.2_GCN.json"}],
+    "do-pairs":[ {"compose_tcr_gcn" : "./lab/config/snippets/do-pairs/TCR-128-28-0.25_TCO.json"}],
     
     "explainers": [{"class": "src.explainer.heuristic.obs.ObliviousBidirectionalSearchExplainer",
                     "parameters":{"fold_id": 9}}],

@@ -1,23 +1,13 @@
-from src.evaluation.metrics.base import EvaluationMetric
-from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
+from src.explanation.base import Explanation
+from src.evaluation.stages.metric_stage import MetricStage
 
 
-class FidelityMetric(EvaluationMetric):
+class FidelityStage(MetricStage):
     """Similar to correctness measures if the algorithm is producing proper counterfactuals. However, Fidelity measures how faithful they are to the original problem,
        not just to the problem learned by the oracle. It requires a ground truth to be present in the dataset
     """
 
-    def check_configuration(self):
-        super().check_configuration()
-        self.logger= self.context.logger
-
-
-    def init(self):
-        super().init()
-        self.name = 'Fidelity'
-
-
-    def evaluate(self, explanation: LocalGraphCounterfactualExplanation):
+    def process(self, explanation: Explanation) -> Explanation:
         oracle = explanation.oracle
         input_instance = explanation.input_instance
         lbl_input_instance = oracle.predict(input_instance)
@@ -38,4 +28,11 @@ class FidelityMetric(EvaluationMetric):
 
             aggregated_fidelity += cf_fidelity
         
-        return aggregated_fidelity / num_instances
+        # Calculating the average fidelity value
+        fidelity_value = aggregated_fidelity / num_instances
+
+        # Writing the metric value into the explanation and returning the explanation
+        self.write_into_explanation(explanation, fidelity_value)
+        return explanation
+
+        

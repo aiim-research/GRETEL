@@ -15,6 +15,7 @@ class Explanation(Base):
         self._oracle = oracle
         self._explainer = explainer
         self._stages_info = {}
+        self._metrics_info = {}
         self._runtime_info = {} #TODO Potentially to remove
 
     @property
