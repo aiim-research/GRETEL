@@ -2,12 +2,19 @@ import pandas as pd
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+import argparse
 
-output = os.path.join("visualizations", "methods_comparison_tc28_gcn.png")
+parser = argparse.ArgumentParser(description='Visualize processed results')
+parser.add_argument('--results_file', type=str, help='results file')
+parser.add_argument('--output_file', type=str, help='output file')
 
-results_path = os.path.join("output","processed_results","methods_comparison_tc28_gcn.csv")
+args = parser.parse_args()
+
+results_path = args.results_file
+output = args.output_file
+
 results_file = pd.read_csv(results_path, index_col=0)
-old_results = pd.read_csv( os.path.join("old_results_tcr.csv"), index_col=0 )
+old_results = pd.read_csv( os.path.join("output/old_results_tcr.csv"), index_col=0 )
 
 results_file['dataset'] = results_file['dataset'].str.split("-").str[0]
 results_file['oracle'] = results_file['oracle'].str.split("-").str[0]
@@ -47,9 +54,9 @@ for i, (idx, row) in enumerate(dataset_oracle_pairs.iterrows()):
         ax.set_title(metric.replace('Metric', ''))
         
         # Overlay markers from previous dataset
-        if not prev_pivoted.empty:
-            for k, explainer in enumerate(pivoted.index):
-                ax.scatter(x=k, y=prev_pivoted.loc[explainer], color='black', marker='o', zorder=5)
+        #if not prev_pivoted.empty:
+        #    for k, explainer in enumerate(pivoted.index):
+        #        ax.scatter(x=k, y=prev_pivoted.loc[explainer], color='black', marker='o', zorder=5)
 
         ax.set_xlabel('')
 

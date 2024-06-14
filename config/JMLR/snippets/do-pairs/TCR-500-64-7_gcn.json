@@ -1,11 +1,11 @@
 {
-    "dataset" : {"compose_gcn" : "config/JMLR/snippets/datasets/TCR-500-28-7.json"},
-      "oracle": {
+    "dataset" : {"compose_gcn" : "config/JMLR/snippets/datasets/TCR-500-64-7.json"},
+    "oracle": {
         "class": "src.oracle.nn.torch.OracleTorch",
         "parameters": {
-            "epochs": 50,
+            "epochs": 200,
             "batch_size": 32,
-            "early_stopping_threshold": 1e-4,
+            "early_stopping_threshold" : 1e-4,
             "optimizer": {
                 "class": "torch.optim.RMSprop",
                 "parameters": {
@@ -24,4 +24,4 @@
           } 
         }   
     }
-  }
+}

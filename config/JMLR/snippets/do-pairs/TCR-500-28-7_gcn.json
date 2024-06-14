@@ -5,6 +5,7 @@
         "parameters": {
             "epochs": 200,
             "batch_size": 32,
+            "early_stopping_threshold" : 1e-4,
             "optimizer": {
                 "class": "torch.optim.RMSprop",
                 "parameters": {
