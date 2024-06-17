@@ -7,7 +7,9 @@ from src.core.factory_base import get_class
 def pprint(dic):
     print(json.dumps(dic, indent=4))
 
-
+def inject_explainer(cfg, explainer):
+    cfg['explainer'] = explainer
+    
 def inject_dataset(cfg, dataset):
     cfg['dataset']= dataset
 
@@ -19,6 +21,9 @@ def retake_dataset(cfg):
 
 def retake_oracle(cfg):
     return cfg['oracle']
+
+def retake_explainer(cfg):
+    return cfg['explainer']
 
 
 def add_init_defaults_params(snippet, **kwargs):

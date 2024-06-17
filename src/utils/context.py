@@ -24,7 +24,8 @@ class Context(object):
             "embedders": None,
             "oracles": None,
             "explainers": None,
-            "metrics": None
+            "metrics": None,
+            "plotters": None
         }
         self.lock_release_tout : None
         self.lock_timeout = None
