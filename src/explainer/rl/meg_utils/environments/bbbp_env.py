@@ -24,9 +24,14 @@ class BBBPEnvironment(MoleculeEnvironment):
         self.similarity, self.make_encoding = get_similarity(
             similarity_measure, oracle, fp_len, fp_rad
         )
+        self.pred_score_init = None
 
     def reward(self):
-        pred_score = self.oracle.predict_proba(self._state)
+        class_index = self.init_instance.label
+        if self.pred_score_init is None:
+            self.pred_score_init = self.oracle.predict_proba(self.init_instance)
+        pred_score_current = self.oracle.predict_proba(self._state)
+        pred_score = (pred_score_current[class_index] - self.pred_score_init[class_index]).item()
 
         sim_score = self.similarity(
             self.make_encoding(self._state).fp,
