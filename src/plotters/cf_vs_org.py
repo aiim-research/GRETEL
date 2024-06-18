@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
+
 from jsonpickle import decode
 import os
 
@@ -14,8 +16,7 @@ class CfVSOrg(Plotter):
                 filepath = os.path.join(subdir, file)
                 filepaths.append(filepath)
         
-        originals = dict()
-        counterfactuals = dict()
+        pairs = {i: {} for i in range(self.dataset.num_classes)}
     
         for file in filepaths:
             with open(file, 'r') as f:
@@ -23,27 +24,29 @@ class CfVSOrg(Plotter):
                 original_id = data['original_id']
                 
                 cf = data['counterfactual_adj']
-                original = self.dataset.get_instance(original_id).data
+                instance = self.dataset.get_instance(original_id)
+                original = instance.data
                 
                 if not data['correctness']:
                     cf = np.array([])
                     
-                originals[original_id] = original
-                counterfactuals[original_id] = cf
+                pairs[instance.label].update({original_id: [original, cf]})
             
-        all_changes = list()    
-        for id in originals.keys():
-            changes = self.__plot_matrix_changes(originals[id], counterfactuals[id])
-            all_changes.append(changes)
+        all_changes = {i: [] for i in range(self.dataset.num_classes)}
+        for label in pairs:
+            for id in pairs[label]:
+                changes = self.__changes(pairs[label][id][0], pairs[label][id][1])
+                all_changes[label].append(changes)
             
         self.plot_matrices_in_row(all_changes, 
-                                  save_path=os.path.join(self.dump_path, self.dataset.name, self.oracle.name, self.explainer.name))
+                                  save_path=os.path.join(self.dump_path, self.dataset.name, 
+                                                         self.oracle.name, self.explainer.name))
     
     
-    def __plot_matrix_changes(self, A, B):
+    def __changes(self, A, B):
         if not len(B):
             changes_matrix = np.ones((A.shape[0], A.shape[1], 3), dtype=np.uint8)
-            changes_matrix *= [255, 255, 255]
+            changes_matrix *= 255
         else:
             n = max(A.shape[0], B.shape[0])
             changes_matrix = np.zeros((n, n, 3), dtype=np.uint8)
@@ -66,24 +69,51 @@ class CfVSOrg(Plotter):
         return changes_matrix
 
     def plot_matrices_in_row(self, matrices, save_path=None):
-        num_matrices = len(matrices)
+        lengths = list(map(len, matrices.values()))
+        max_instances = max(lengths)
+        num_images_per_row = min(10, max_instances)  # Adjust the number of columns based on the maximum instances
 
-        fig, axes = plt.subplots(1, num_matrices, figsize=(4 * num_matrices, 4))
+        # Calculate the total number of rows needed for all images
+        total_rows = 0
+        for length in lengths:
+            total_rows += (length + num_images_per_row - 1) // num_images_per_row
+        total_rows += len(lengths) - 1  # Additional rows for the horizontal lines between groups
 
-        for i in range(num_matrices):
-            try:
-                ax = axes[i] if num_matrices > 1 else axes  # Handle the case with only one matrix
-                ax.imshow(matrices[i], vmin=0, vmax=255)
+        fig_height = total_rows * 2  # Adjust figure height based on total rows
+        fig = plt.figure(figsize=(2 * num_images_per_row, fig_height))
+        gs = GridSpec(total_rows, num_images_per_row, figure=fig, wspace=.05, hspace=.03)
+
+        current_row = 0
+        for label, matrix_list in matrices.items():
+            num_rows_for_label = (len(matrix_list) + num_images_per_row - 1) // num_images_per_row
+            for i, change_matrix in enumerate(matrix_list):
+                row = current_row + (i // num_images_per_row)
+                col = i % num_images_per_row
+                ax = fig.add_subplot(gs[row, col])
+                ax.imshow(change_matrix, vmin=0, vmax=255)
                 ax.set_xticks([])  # Hide x-axis ticks
-                ax.set_yticks([])  # Hide y-axis 
-            except:
-                print(f'Skipping {i}-th matrix of changes')
-            
+                ax.set_yticks([])  # Hide y-axis ticks
+
+            current_row += num_rows_for_label
+
+            # Add a horizontal line below each group of images
+            if label < self.dataset.num_classes - 1:
+                line_row = current_row
+                ax = fig.add_subplot(gs[line_row, :])
+                #ax.axhline(y=0, color='black', linewidth=2)
+                ax.axis('off')  # Hide this subplot
+                current_row += 1  # Move to the next row after the line
+
         if save_path:
             os.makedirs(save_path, exist_ok=True)
             plt.savefig(os.path.join(save_path, 'cf_vs_org.svg'), format='svg', bbox_inches='tight')
         else:
             plt.show()
+
+
+
+
+
         
         
     
