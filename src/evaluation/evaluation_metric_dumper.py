@@ -26,7 +26,7 @@ class InstancesDumper(EvaluationMetric):
         correctness = self._correctness.evaluate(original, counterfactual, oracle)
         
         info = {
-            "orginal_id":original.id,
+            "original_id":original.id,
             "correctness":correctness,
             "fold": explainer.fold_id,
             "counterfactual_label": oracle.predict(counterfactual),
