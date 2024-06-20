@@ -33,7 +33,10 @@ class ExplanationMultiCriteriaAggregator(ExplanationAggregator):
         ]
         self.distance: BaseDistance = get_instance_kvargs(
             self.local_config["parameters"]["distance"]["class"],
-            self.local_config["parameters"]["distance"]["parameters"],
+            {
+                "context": self.context,
+                "local_config": self.local_config["parameters"]["distance"],
+            },
         )
 
     def real_aggregate(
@@ -44,14 +47,11 @@ class ExplanationMultiCriteriaAggregator(ExplanationAggregator):
         cf_instances = [
             cf for exp in explanations for cf in exp.counterfactual_instances
         ]
-        criteria_matrix = (
-            np.array(
-                [
-                    [criteria.evaluate(input_inst, cf) for criteria in self.criterias]
-                    for cf in cf_instances
-                ]
-            ),
-            np.array([criteria.gain_direction().value for criteria in self.criterias]),
+        criteria_matrix = np.array(
+            [
+                [criteria.calculate(input_inst, cf) for criteria in self.criterias]
+                for cf in cf_instances
+            ]
         )
         gain_directions = np.array(
             [criteria.gain_direction().value for criteria in self.criterias]
