@@ -4,9 +4,13 @@ import numpy as np
 
 from src.core.factory_base import get_instance_kvargs
 from src.explainer.ensemble.aggregators.base import ExplanationAggregator
-from src.explainer.ensemble.aggregators.criterias.base_criteria import BaseCriteria
-from src.explainer.ensemble.aggregators.distances.base_distance import BaseDistance
-from src.explainer.ensemble.aggregators.multi_criteria_algorithm import find_best
+from src.explainer.ensemble.aggregators.multi_criteria.algorithm import find_best
+from src.explainer.ensemble.aggregators.multi_criteria.criterias.base_criteria import (
+    BaseCriteria,
+)
+from src.explainer.ensemble.aggregators.multi_criteria.distances.base_distance import (
+    BaseDistance,
+)
 from src.explanation.local.graph_counterfactual import (
     LocalGraphCounterfactualExplanation,
 )
@@ -16,7 +20,7 @@ from src.utils.cfg_utils import init_dflts_to_of
 class ExplanationMultiCriteriaAggregator(ExplanationAggregator):
     def check_configuration(self):
         super().check_configuration()
-        default_distance = "src.explainer.ensemble.aggregators.distances.euclidean_distance.EuclideanDistance"
+        default_distance = "src.explainer.ensemble.aggregators.multi_criteria.distances.euclidean_distance.EuclideanDistance"
         init_dflts_to_of(self.local_config, "distance", default_distance)
 
     def init(self):

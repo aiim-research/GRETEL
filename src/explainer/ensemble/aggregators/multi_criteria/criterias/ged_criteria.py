@@ -1,8 +1,12 @@
 import numpy as np
 
 from src.dataset.instances.graph import GraphInstance
-from src.explainer.ensemble.aggregators.criterias.base_criteria import BaseCriteria
-from src.explainer.ensemble.aggregators.criterias.gain_direction import GainDirection
+from src.explainer.ensemble.aggregators.multi_criteria.criterias.base_criteria import (
+    BaseCriteria,
+)
+from src.explainer.ensemble.aggregators.multi_criteria.criterias.gain_direction import (
+    GainDirection,
+)
 
 
 class GraphEditDistanceCriteria(BaseCriteria[GraphInstance]):

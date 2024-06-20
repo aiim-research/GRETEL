@@ -3,7 +3,9 @@ from typing import Generic, TypeVar
 
 from src.core.configurable import Configurable
 from src.dataset.instances.base import DataInstance
-from src.explainer.ensemble.aggregators.criterias.gain_direction import GainDirection
+from src.explainer.ensemble.aggregators.multi_criteria.criterias.gain_direction import (
+    GainDirection,
+)
 
 T = TypeVar("T", bound=DataInstance)
 

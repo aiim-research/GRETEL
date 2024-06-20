@@ -1,6 +1,8 @@
 import numpy as np
 
-from src.explainer.ensemble.aggregators.distances.base_distance import BaseDistance
+from src.explainer.ensemble.aggregators.multi_criteria.distances.base_distance import (
+    BaseDistance,
+)
 
 
 class EuclideanDistance(BaseDistance):
