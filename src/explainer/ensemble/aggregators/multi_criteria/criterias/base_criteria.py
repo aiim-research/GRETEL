@@ -22,3 +22,6 @@ class BaseCriteria(Generic[T], Configurable, metaclass=ABCMeta):
         second_instance: T,
     ) -> float:
         raise NotImplementedError
+
+    def init(self):
+        super().init()
