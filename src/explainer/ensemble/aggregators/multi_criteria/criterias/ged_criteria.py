@@ -19,8 +19,8 @@ class GraphEditDistanceCriteria(BaseCriteria[GraphInstance]):
         second_instance: GraphInstance,
     ) -> float:
         # Implementation for numpy matrices
-        A_g1 = first_instance
-        A_g2 = second_instance
+        A_g1 = first_instance.data
+        A_g2 = second_instance.data
 
         # Get the difference in the number of nodes
         nodes_diff_count = abs(A_g1.shape[0] - A_g2.shape[0])
@@ -60,7 +60,7 @@ class GraphEditDistanceCriteria(BaseCriteria[GraphInstance]):
                         edges_diff.append((i, j))
 
         edges_diff_count = len(edges_diff)
-        if self.undirected:
+        if not first_instance.directed:
             edges_diff_count /= 2
 
         return nodes_diff_count + edges_diff_count
