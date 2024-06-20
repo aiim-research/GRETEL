@@ -13,3 +13,6 @@ class BaseDistance(Configurable, metaclass=ABCMeta):
         vector: np.ndarray,
     ) -> np.ndarray:
         raise NotImplementedError
+
+    def init(self):
+        super().init()
