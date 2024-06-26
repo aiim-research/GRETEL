@@ -1,7 +1,7 @@
 #!/bin/bash
 # Schedule multiple runs of all the configurations contained in the searchdir
 
-search_dir=./config/ensembles/TCR_512_32_0.25-TCO-BaselineEnsembles/25-TCO-Ens[OBS+2xiRand+2xRSGG]-Baselines_do0_e4
+search_dir=./lab/config/ensembles/base_irand
 MINWAIT=1
 MAXWAIT=10
 
@@ -11,6 +11,6 @@ do
     for entry in "$search_dir"/*.json
     do
        sleep $((MINWAIT+RANDOM % (MAXWAIT-MINWAIT)))
-       sbatch launchers/m_launch.sh main.py $entry $i
+       sbatch launchers/m_launch.sh future_main.py $entry $i
     done
 done
