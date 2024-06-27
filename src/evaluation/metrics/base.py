@@ -1,7 +1,7 @@
 import numpy as np
+from abc import ABCMeta, abstractmethod
 
 from src.core.configurable import Configurable
-from abc import ABCMeta, abstractmethod
 from src.utils.context import Context
 from src.explanation.base import Explanation
 
