@@ -154,7 +154,7 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
         # add the same state
         if allow_no_modification:
             valid_actions.add(state)
-        self.context.logger.info("Valid actions generated.")
+        self.context.logger.info(f"Valid actions generated. Number of actions: {len(valid_actions)}")
         return valid_actions
 
     def _atom_additions(
@@ -185,19 +185,14 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
                     if sanitization_result:
                         continue
                     data_instance_id = self._state.id + self.action_counter
-                    data_instance = MolecularInstance(
-                        id=data_instance_id,
-                        label=int(data_instance_id),
-                        data=self._state.data,
-                        node_features=self._state.node_features,
-                        edge_features=self._state.edge_features,
-                        graph_features=self._state.graph_features,
-                        dataset=self._state._dataset,
-                    )
+                    data_instance = copy.deepcopy(self._state)
+                    data_instance.id = data_instance_id
+                    data_instance.label = int(data_instance_id)
                     data_instance.molecule = new_state_molecule
                     atom_addition.add(data_instance)
                     self.action_counter += 1
                     self.context.logger.info(f"Atom added: {element} with bond order {i}.")
+        self.context.logger.info(f"Number of actions generated for atom addition: {len(atom_addition)}")
         return atom_addition
 
     def _bond_addition(
@@ -261,19 +256,14 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
                 if sanitization_result:
                     continue
                 data_instance_id = self._state.id + self.action_counter
-                data_instance = MolecularInstance(
-                    id=data_instance_id,
-                    label=int(data_instance_id),
-                    data=self._state.data,
-                    node_features=self._state.node_features,
-                    edge_features=self._state.edge_features,
-                    graph_features=self._state.graph_features,
-                    dataset=self._state._dataset,
-                )
+                data_instance = copy.deepcopy(self._state)
+                data_instance.id = data_instance_id
+                data_instance.label = int(data_instance_id)
                 data_instance.molecule = new_state_molecule
                 bond_addition.add(data_instance)
                 self.action_counter += 1
                 self.context.logger.info(f"Bond added between atoms {atom1} and {atom2} with bond order {valence}.")
+        self.context.logger.info(f"Number of actions generated for bond addition: {len(bond_addition)}")
         return bond_addition
 
     def _bond_removal(
@@ -316,15 +306,9 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
                     if sanitization_result:
                         continue
                     data_instance_id = self._state.id + self.action_counter
-                    data_instance = MolecularInstance(
-                        id=data_instance_id,
-                        label=int(data_instance_id),
-                        data=self._state.data,
-                        node_features=self._state.node_features,
-                        edge_features=self._state.edge_features,
-                        graph_features=self._state.graph_features,
-                        dataset=self._state._dataset,
-                    )
+                    data_instance = copy.deepcopy(self._state)
+                    data_instance.id = data_instance_id
+                    data_instance.label = int(data_instance_id)
                     data_instance.molecule = new_state_molecue
                     bond_removal.add(data_instance)
                     self.action_counter += 1
@@ -346,19 +330,14 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
                     # molecule, or a molecule and an atom.
                     if len(parts) == 1 or len(parts[0]) == 1:
                         data_instance_id = self._state.id + self.action_counter
-                        data_instance = MolecularInstance(
-                            id=data_instance_id,
-                            label=int(data_instance_id),
-                            data=self._state.data,
-                            node_features=self._state.node_features,
-                            edge_features=self._state.edge_features,
-                            graph_features=self._state.graph_features,
-                            dataset=self._state._dataset,
-                        )
+                        data_instance = copy.deepcopy(self._state)
+                        data_instance.id = data_instance_id
+                        data_instance.label = int(data_instance_id)
                         data_instance.smiles = parts[-1]
                         bond_removal.add(data_instance)
                         self.action_counter += 1
                         self.context.logger.info(f"Bond completely removed between atoms {atom1} and {atom2}.")
+        self.context.logger.info(f"Number of actions generated for bond removal: {len(bond_removal)}")
         return bond_removal
 
     def reward(self):

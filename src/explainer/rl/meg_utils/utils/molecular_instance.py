@@ -1,4 +1,6 @@
 import numpy as np
+
+from rdkit import Chem
 from rdkit.Chem import MolFromSmiles as smi2mol  # type: ignore
 from rdkit.Chem import MolToSmiles as mol2smi  # type: ignore
 
@@ -128,4 +130,6 @@ class MolecularInstance(GraphInstance):
 
     def __deepcopy__(self, memo):
         graph = GraphInstance.__deepcopy__(self, memo)
-        return MolecularInstance.from_graph_instance(graph)
+        graph = MolecularInstance.from_graph_instance(graph)
+        graph.molecule = Chem.RWMol(self.molecule)
+        return graph
