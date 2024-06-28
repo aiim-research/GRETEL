@@ -1,5 +1,25 @@
 import numpy as np
 
+from src.core.explainer_base import Explainer
+from src.core.oracle_base import Oracle
+from src.dataset.instances.graph import GraphInstance
+
+class GraphEditDistanceMetric:
+    def evaluate(
+        self,
+        instance_1: GraphInstance,
+        instance_2: GraphInstance,
+        oracle: Oracle=None,
+        explainer: Explainer=None,
+        dataset=None,
+    ) -> float:
+        return graph_edit_distance_metric(
+            instance_1.data,
+            instance_2.data,
+            instance_1.directed and instance_2.directed
+        )
+
+
 
 def graph_edit_distance_metric(matrix_1: np.ndarray, matrix_2: np.ndarray, directed: bool) -> float:
     """

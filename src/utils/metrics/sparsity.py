@@ -1,5 +1,19 @@
+from src.core.explainer_base import Explainer
+from src.core.oracle_base import Oracle
 from src.dataset.instances.graph import GraphInstance
 from src.utils.metrics.ged import graph_edit_distance_metric
+
+
+class SparsityMetric:
+    def evaluate(
+        self,
+        instance_1: GraphInstance,
+        instance_2: GraphInstance,
+        oracle: Oracle=None,
+        explainer: Explainer=None,
+        dataset=None,
+    ) -> float:
+        return sparsity_metric(instance_1, instance_2)
 
 
 def sparsity_metric(instance_1: GraphInstance, instance_2: GraphInstance) -> float:
