@@ -2,7 +2,7 @@ import numpy as np
 
 from src.explanation.base import Explanation
 from src.evaluation.stages.metric_stage import MetricStage
-from src.utils.metrics.ged import graph_edit_distance_metric
+from src.utils.metrics.sparsity import sparsity_metric
 
 
 class SparsityStage(MetricStage):
@@ -20,33 +20,20 @@ class SparsityStage(MetricStage):
     def process(self, explanation: Explanation) -> Explanation:
         # Get the input instance from the explanation and get its label
         input_inst = explanation.input_instance
-
         aggregated_sparsity = 0
         correct_instances = 0
-
         for cf in explanation.counterfactual_instances:
-           cf_ged = graph_edit_distance_metric(input_inst.data, cf.data, input_inst.directed and cf.directed)
-
-           if cf_ged > 0:
-            cf_nodes = cf.data.shape[0]
-            cf_edges = np.count_nonzero(cf.data)
-            if not cf.directed:
-                cf_edges /= 2
-
-            cf_struct_features = cf_nodes +cf_edges
-
-            aggregated_sparsity += cf_ged/cf_struct_features
-            correct_instances += 1
-
+            sparsity = sparsity_metric(input_inst, cf)
+            if sparsity > 0:
+                aggregated_sparsity += sparsity
+                correct_instances += 1
         # Aggregating the sparsity, considering only correct counterfactual instances
-        sparsity_metric = 0.0
+        sparsity_value = 0.0
         if correct_instances > 0:
-            sparsity_metric = aggregated_sparsity / correct_instances
-
+            sparsity_value = aggregated_sparsity / correct_instances
         # Saving the sparsity value in the explanation and returning the explanation
-        self.write_into_explanation(explanation, sparsity_metric)
+        self.write_into_explanation(explanation, sparsity_value)
         return explanation
-    
 
     @classmethod
     def aggregate(cls, measure_list, instances_correctness_list=None):
