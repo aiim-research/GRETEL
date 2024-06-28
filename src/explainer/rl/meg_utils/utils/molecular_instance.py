@@ -50,8 +50,11 @@ class MolecularInstance(GraphInstance):
     @molecule.setter
     def molecule(self, new_molecule):
         self._update_molecule(new_molecule)
-        smiles = mol2smi(self.molecule, isomericSmiles=False, canonical=True)
-        self._update_smiles(smiles)
+        try:
+            smiles = mol2smi(self.molecule, isomericSmiles=False, canonical=True)
+            self._update_smiles(smiles)
+        except RuntimeError as e:
+            pass
         self._update_graph_from_molecule()
 
     @property

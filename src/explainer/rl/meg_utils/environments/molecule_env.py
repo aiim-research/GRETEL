@@ -323,7 +323,10 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
                     # When sanitization fails
                     if sanitization_result:
                         continue
-                    smiles = Chem.MolToSmiles(new_state_molecue)
+                    try:
+                        smiles = Chem.MolToSmiles(new_state_molecue)
+                    except Exception:
+                        continue
                     parts = sorted(smiles.split("."), key=len)
                     # We define the valid bond removing action set as the actions
                     # that remove an existing bond, generating only one independent
