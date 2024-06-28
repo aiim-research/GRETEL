@@ -62,6 +62,10 @@
                             {
                                 "class": "src.explainer.ensemble.aggregators.multi_criteria.criterias.ged_criteria.GraphEditDistanceCriteria",
                                 "parameters": {}
+                            },
+                            {
+                                "class": "src.explainer.ensemble.aggregators.multi_criteria.criterias.sparsity_criteria.SparsityCriteria",
+                                "parameters": {}
                             }
                         ]
                     }
