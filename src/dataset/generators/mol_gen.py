@@ -2,13 +2,15 @@ from os.path import join
 
 import numpy as np
 import pandas as pd
-import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import MolFromSmiles as smi2mol
 from rdkit.Chem import MolToSmiles as mol2smi
 
 from src.dataset.generators.base import Generator
-from src.dataset.instances.graph import GraphInstance
+from src.explainer.rl.meg_utils.utils.molecular_instance import (
+    MolecularInstance,
+)
+
 
 class MolGenerator(Generator):
 
@@ -65,7 +67,7 @@ def smile2graph(id, smile, label, dataset):
     g = None
     if sanitized:
         A,X,W = mol_to_matrices(mol, dataset)
-        g = GraphInstance(id=id, 
+        g = MolecularInstance(id=id, 
                         label=int(label), 
                         data=A, 
                         node_features=X, 

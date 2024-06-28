@@ -1,13 +1,17 @@
 from rdkit import DataStructs
-from torch.nn import functional as F
 from rdkit.Chem import AllChem
+from torch.nn import functional as F
+
 from src.explainer.rl.meg_utils.utils.fingerprints import Fingerprint
+
 
 def tanimoto_similarity(fp1, fp2):
     return DataStructs.TanimotoSimilarity(fp1, fp2)
 
+
 def cosine_similarity(encoding_a, encoding_b):
     return F.cosine_similarity(encoding_a, encoding_b).item()
+
 
 def rescaled_cosine_similarity(molecule_a, molecule_b, S, scale="mean"):
     value = cosine_similarity(molecule_a, molecule_b)
@@ -17,10 +21,13 @@ def rescaled_cosine_similarity(molecule_a, molecule_b, S, scale="mean"):
 
     return (value - min_) / (max_ - min_)
 
+
 def get_similarity(name, model, fp_len=None, fp_rad=None):
     if name == "tanimoto":
-        similarity = lambda x, y: tanimoto_similarity(x, y)
-        make_encoding = lambda x: Fingerprint(AllChem.GetMorganFingerprintAsBitVect(x.molecule, fp_len, fp_rad), fp_len)
+        similarity = lambda x, y: tanimoto_similarity(x, y)  # noqa: E731
+        make_encoding = lambda x: Fingerprint(  # noqa: E731
+            AllChem.GetMorganFingerprintAsBitVect(x.molecule, fp_len, fp_rad), fp_len
+        )
 
     """elif name == "rescaled_neural_encoding":
         similarity = lambda x, y: rescaled_cosine_similarity(x, y, similarity_set)

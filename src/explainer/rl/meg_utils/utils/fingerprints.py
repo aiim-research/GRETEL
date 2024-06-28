@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from rdkit.DataStructs import ConvertToNumpyArray
 
+
 class Fingerprint:
     def __init__(self, fingerprint, fp_length):
         self.fp = fingerprint
@@ -17,4 +18,3 @@ class Fingerprint:
 
     def tensor(self):
         return torch.as_tensor(self.numpy())
-    

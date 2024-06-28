@@ -19,7 +19,20 @@ from src.evaluation.evaluator_manager_triplets import EvaluatorManager as Triple
 from src.utils.context import Context
 import sys
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except:
+    pass
+
 if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        # If no arguments are passed, try to find GRETEL_CONFIG_FILE in the environment
+        if "GRETEL_CONFIG_FILE" in os.environ:
+            sys.argv.append(os.environ["GRETEL_CONFIG_FILE"])
+        else:
+            print("Usage: python main.py <config_file> [run_number]")
+            sys.exit(1)
     print(f"Generating context for: {sys.argv[1]}")
     context = Context.get_context(sys.argv[1])
     context.run_number = int(sys.argv[2]) if len(sys.argv) == 3 else -1
