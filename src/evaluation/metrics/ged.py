@@ -2,7 +2,7 @@ import numpy as np
 
 from src.evaluation.metrics.base import EvaluationMetric
 from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
-from src.utils.metrics.ged import GraphEditDistanceMetric as ged
+from src.utils.metrics.ged import graph_edit_distance_metric
 
 
 class GraphEditDistanceMetric(EvaluationMetric):
@@ -14,34 +14,9 @@ class GraphEditDistanceMetric(EvaluationMetric):
         super().check_configuration()
         self.logger= self.context.logger
 
-        if 'node_add_cost' not in self.local_config['parameters']:
-            self.local_config['parameters']['node_add_cost'] = 1.0
-        
-        if 'node_rem_cost' not in self.local_config['parameters']:
-            self.local_config['parameters']['node_rem_cost'] = 1.0
-
-        if 'edge_add_cost' not in self.local_config['parameters']:
-            self.local_config['parameters']['edge_add_cost'] = 1.0
-        
-        if 'edge_rem_cost' not in self.local_config['parameters']:
-            self.local_config['parameters']['edge_rem_cost'] = 1.0
-        
-
     def init(self):
         super().init()
         self.name = 'graph_edit_distance'
-
-        node_add_cost = self.local_config['parameters']['node_add_cost']
-        node_rem_cost = self.local_config['parameters']['node_rem_cost']
-        edge_add_cost = self.local_config['parameters']['edge_add_cost']
-        edge_rem_cost = self.local_config['parameters']['edge_rem_cost']
-
-        self.dst = ged(node_insertion_cost=node_add_cost, 
-                       node_deletion_cost=node_rem_cost,
-                       edge_insertion_cost=edge_add_cost,
-                       edge_deletion_cost=edge_rem_cost,
-                       undirected=True)
-        
 
     def evaluate(self, explanation: LocalGraphCounterfactualExplanation):
         # Get the input instance from the explanation and get its label
@@ -49,18 +24,11 @@ class GraphEditDistanceMetric(EvaluationMetric):
         input_inst_lbl = explanation.oracle.predict(input_inst)
         explanation.oracle._call_counter -= 1
 
-        # Set in the edit distance function if the graph is directed or not based on the input instance
-        self.dst.undirected = not input_inst.directed
-
         # Iterate over the counterfactual examples and calculate the mean ged of the explanation
         aggregated_ged = 0.0
         correct_instances = 0.0
         for cf in explanation.counterfactual_instances:
-            cf_ged = self.dst.evaluate(instance_1=input_inst, 
-                                       instance_2=cf, 
-                                       oracle=explanation.oracle, 
-                                       explainer=explanation.explainer, 
-                                       dataset=explanation.dataset)
+            cf_ged = graph_edit_distance_metric(input_inst.data, cf.data, input_inst.directed and cf.directed)
          
             cf_lbl = explanation.oracle.predict(cf)
             explanation.oracle._call_counter -= 1

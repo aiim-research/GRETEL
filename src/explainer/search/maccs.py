@@ -12,7 +12,6 @@ from src.core.oracle_base import Oracle
 from src.core.trainable_base import Trainable
 from src.core.factory_base import get_instance_kvargs
 from src.utils.cfg_utils import get_dflts_to_of, init_dflts_to_of, inject_dataset, inject_oracle, retake_oracle, retake_dataset
-from src.utils.metrics.ged import GraphEditDistanceMetric
 
 class MACCSExplainer(Explainer):
     """Model Agnostic Counterfactual Compounds with STONED (MACCS)"""
