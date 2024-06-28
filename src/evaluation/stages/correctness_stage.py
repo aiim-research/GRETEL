@@ -7,6 +7,15 @@ class CorrectnessStage(MetricStage):
     Verifies that the class from the counterfactual example is different from that of the original instance
     """
 
+    def check_configuration(self):
+        super().check_configuration()
+        self.logger= self.context.logger
+
+
+    def init(self):
+        super().init()
+
+
     def process(self, explanation: Explanation) -> Explanation:
         input_inst_lbl = explanation.oracle.predict(explanation.input_instance)
         explanation.oracle._call_counter -= 1

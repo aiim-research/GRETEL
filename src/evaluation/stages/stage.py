@@ -12,4 +12,4 @@ class Stage(Configurable, metaclass=ABCMeta):
 
 
     def write_into_explanation(self, exp: Explanation, value):
-        exp._stages_info[self.__class__.name] = value
+        exp._stages_info[self.context.get_fullname(self)] = value

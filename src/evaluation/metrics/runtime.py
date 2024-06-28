@@ -6,7 +6,7 @@ class RuntimeMetric(EvaluationMetric):
 
     def check_configuration(self):
         super().check_configuration()
-        self.logger= self.context.logger
+        self.logger = self.context.logger
 
 
     def init(self):

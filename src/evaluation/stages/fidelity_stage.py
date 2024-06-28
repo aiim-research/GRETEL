@@ -7,6 +7,15 @@ class FidelityStage(MetricStage):
        not just to the problem learned by the oracle. It requires a ground truth to be present in the dataset
     """
 
+    def check_configuration(self):
+        super().check_configuration()
+        self.logger= self.context.logger
+
+
+    def init(self):
+        super().init()
+
+
     def process(self, explanation: Explanation) -> Explanation:
         oracle = explanation.oracle
         input_instance = explanation.input_instance

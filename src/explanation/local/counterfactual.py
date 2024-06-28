@@ -19,9 +19,6 @@ class LocalCounterfactualExplanation(LocalExplanation):
                  input_instance: DataInstance, 
                  counterfactual_instances: List[DataInstance]) -> None:
         super().__init__(context=context, dataset=dataset, oracle=oracle, explainer=explainer, input_instance=input_instance)
-
-        if len(counterfactual_instances) < 1:
-            raise ValueError('The number of explanations instances in an explanation should be grater than 0')
         
         self._counterfactual_instances = counterfactual_instances
 

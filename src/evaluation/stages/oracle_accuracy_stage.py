@@ -3,8 +3,18 @@ from src.evaluation.stages.metric_stage import MetricStage
 
 
 class OracleAccuracyStage(MetricStage):
-    """Meassures the accuracy of the oracle predictions compared to the ground truth labels in the dataset
     """
+    Meassures the accuracy of the oracle predictions compared to the ground truth labels in the dataset
+    """
+
+    def check_configuration(self):
+        super().check_configuration()
+        self.logger= self.context.logger
+
+
+    def init(self):
+        super().init()
+
 
     def process(self, explanation: Explanation) -> Explanation:
         # Unpacking the input instance from te explanation

@@ -47,7 +47,11 @@ class Pipeline(Configurable, metaclass=ABCMeta):
         
        
         # Building the config file to write into disk
-        evaluator_config = {'dataset': clean_cfg(dataset.local_config), 'oracle': clean_cfg(oracle.local_config), 'explainer': clean_cfg(explainer.local_config), 'evaluation_metrics': []}
+        evaluator_config = {'dataset': clean_cfg(dataset.local_config), 
+                            'oracle': clean_cfg(oracle.local_config), 
+                            'explainer': clean_cfg(explainer.local_config), 
+                            'stages': []}
+        
         evaluator_config['scope']=self._scope
         evaluator_config['run_id']=self._run_number
         evaluator_config['fold_id']=self._explainer.fold_id
@@ -57,7 +61,7 @@ class Pipeline(Configurable, metaclass=ABCMeta):
         
         
         for stage in stages:
-            evaluator_config['evaluation_metrics'].append(stage.local_config)
+            evaluator_config['stages'].append(stage.local_config)
         # creatig the results dictionary with the basic info
         self._results = {}
         self._complete = {'config':evaluator_config, "results":self._results}
@@ -128,8 +132,8 @@ class Pipeline(Configurable, metaclass=ABCMeta):
         
         for stage in self._stages:     
                 explanation = stage.process(explanation)
-                self._results[type(stage).__name__].append({"id":str(explanation.input_instance.id),
-                                                            "value":explanation._stages_info[[type(stage).__name__]]})
+                self._results[Context.get_fullname(stage)].append({"id":str(explanation.input_instance.id),
+                                                            "value":explanation._stages_info[Context.get_fullname(stage)]})
 
 
     def write_results(self,fold_id):

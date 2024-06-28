@@ -1,0 +1,34 @@
+{"stages": [
+    {
+        "class": "src.evaluation.stages.runtime_stage.RuntimeStage",
+        "parameters": {}
+    },
+    {
+        "class": "src.evaluation.stages.ged_stage.GraphEditDistanceStage",
+        "parameters": {} 
+    },
+    {
+        "class": "src.evaluation.stages.correctness_stage.CorrectnessStage",
+        "parameters": {} 
+    },
+    {
+        "class": "src.evaluation.stages.oracle_calls_stage.OracleCallsStage",
+        "parameters": {} 
+    },
+    {
+        "class": "src.evaluation.stages.oracle_accuracy_stage.OracleAccuracyStage",
+        "parameters": {} 
+    },
+    {
+        "class": "src.evaluation.stages.sparsity_stage.SparsityStage",
+        "parameters": {} 
+    },
+    {
+        "class": "src.evaluation.stages.fidelity_stage.FidelityStage",
+        "parameters": {} 
+    },
+    {
+        "class": "src.evaluation.stages.instability_stage.InstabilityStage",
+        "parameters": {} 
+    }
+]}

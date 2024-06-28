@@ -6,6 +6,15 @@ from src.explanation.base import Explanation
 
 class RuntimeStage(MetricStage):
 
+    def check_configuration(self):
+        super().check_configuration()
+        self.logger= self.context.logger
+
+
+    def init(self):
+        super().init()
+
+
     def process(self, explanation: Explanation) -> Explanation:
         explainer = explanation.explainer
         # Creating the counterfactual explanation and calculating the runtime
