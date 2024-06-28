@@ -2,7 +2,7 @@ import numpy as np
 
 from src.explanation.base import Explanation
 from src.evaluation.stages.metric_stage import MetricStage
-from src.utils.metrics.ged import GraphEditDistanceMetric
+from src.utils.metrics.ged import graph_edit_distance_metric
 
 
 class SparsityStage(MetricStage):
@@ -14,11 +14,8 @@ class SparsityStage(MetricStage):
         super().check_configuration()
         self.logger= self.context.logger
 
-
     def init(self):
         super().init()
-        self.dst = GraphEditDistanceMetric()
-
 
     def process(self, explanation: Explanation) -> Explanation:
         # Get the input instance from the explanation and get its label
@@ -27,9 +24,8 @@ class SparsityStage(MetricStage):
         aggregated_sparsity = 0
         correct_instances = 0
 
-        self.dst.undirected = not input_inst.directed
         for cf in explanation.counterfactual_instances:
-           cf_ged = self.dst.evaluate(input_inst, cf, explanation.oracle, explanation.explainer, explanation.dataset)
+           cf_ged = graph_edit_distance_metric(input_inst.data, cf.data, input_inst.directed and cf.directed)
 
            if cf_ged > 0:
             cf_nodes = cf.data.shape[0]

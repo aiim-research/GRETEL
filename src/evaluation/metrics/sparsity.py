@@ -2,7 +2,7 @@ import numpy as np
 
 from src.evaluation.metrics.base import EvaluationMetric
 from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
-from src.utils.metrics.ged import GraphEditDistanceMetric
+from src.utils.metrics.ged import graph_edit_distance_metric
 
 
 class SparsityMetric(EvaluationMetric):
@@ -14,12 +14,9 @@ class SparsityMetric(EvaluationMetric):
         super().check_configuration()
         self.logger= self.context.logger
 
-
     def init(self):
         super().init()
         self.name = 'sparsity'
-        self.dst = GraphEditDistanceMetric()
-
 
     def evaluate(self, explanation: LocalGraphCounterfactualExplanation):
         # Get the input instance from the explanation and get its label
@@ -29,8 +26,7 @@ class SparsityMetric(EvaluationMetric):
         correct_instances = 0
 
         for cf in explanation.counterfactual_instances:
-           #TODO Check if this metric is considering the directed/undirected nature of the graph
-           cf_ged = self.dst.evaluate(input_inst, cf, explanation.oracle, explanation.explainer, explanation.dataset)
+           cf_ged = graph_edit_distance_metric(input_inst.data, cf.data, input_inst.directed and cf.directed)
 
            if cf_ged > 0:
             cf_nodes = cf.data.shape[0]
@@ -49,7 +45,6 @@ class SparsityMetric(EvaluationMetric):
         else:
             return 0
 
-
     @classmethod
     def aggregate(cls, measure_list, instances_correctness_list=None):
         # If no correctness list is provided aggregate all the measures
@@ -63,5 +58,3 @@ class SparsityMetric(EvaluationMetric):
                 return np.mean(filtered_measure_list), np.std(filtered_measure_list)
             else:
                 return 0.0, 0.0
-
-    
