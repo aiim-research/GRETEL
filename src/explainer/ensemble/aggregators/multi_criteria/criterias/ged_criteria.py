@@ -1,3 +1,6 @@
+from src.core.explainer_base import Explainer
+from src.core.oracle_base import Oracle
+from src.dataset.dataset_base import Dataset
 from src.dataset.instances.graph import GraphInstance
 from src.explainer.ensemble.aggregators.multi_criteria.criterias.base_criteria import (
     BaseCriteria,
@@ -16,6 +19,9 @@ class GraphEditDistanceCriteria(BaseCriteria[GraphInstance]):
         self,
         first_instance: GraphInstance,
         second_instance: GraphInstance,
+        oracle: Oracle,
+        explainer: Explainer,
+        dataset: Dataset,
     ) -> float:
         return graph_edit_distance_metric(
             first_instance.data,

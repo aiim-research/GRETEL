@@ -2,6 +2,9 @@ from abc import ABCMeta, abstractmethod
 from typing import Generic, TypeVar
 
 from src.core.configurable import Configurable
+from src.core.explainer_base import Explainer
+from src.core.oracle_base import Oracle
+from src.dataset.dataset_base import Dataset
 from src.dataset.instances.base import DataInstance
 from src.explainer.ensemble.aggregators.multi_criteria.criterias.gain_direction import (
     GainDirection,
@@ -20,6 +23,9 @@ class BaseCriteria(Generic[T], Configurable, metaclass=ABCMeta):
         self,
         first_instance: T,
         second_instance: T,
+        oracle: Oracle,
+        explainer: Explainer,
+        dataset: Dataset,
     ) -> float:
         raise NotImplementedError
 

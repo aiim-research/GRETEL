@@ -47,10 +47,19 @@ class ExplanationMultiCriteriaAggregator(ExplanationAggregator):
         cf_instances = [
             cf for exp in explanations for cf in exp.counterfactual_instances
         ]
+        cf_oracles = [
+            exp.oracle for exp in explanations for cf in exp.counterfactual_instances
+        ]
+        cf_explainers = [
+            exp.explainer for exp in explanations for cf in exp.counterfactual_instances
+        ]
+        cf_datasets = [
+            exp.dataset for exp in explanations for cf in exp.counterfactual_instances
+        ]
         criteria_matrix = np.array(
             [
-                [criteria.calculate(input_inst, cf) for criteria in self.criterias]
-                for cf in cf_instances
+                [criteria.calculate(input_inst, cf, oracle, explainer, dataset) for criteria in self.criterias]
+                for cf, oracle, explainer, dataset in zip(cf_instances, cf_oracles, cf_explainers, cf_datasets)
             ]
         )
         gain_directions = np.array(
