@@ -20,7 +20,7 @@
                 "parameters": {
                     "generator": {
                         "class": "src.dataset.generators.TUDataset.TUDataset",
-                        "parameters": { "alias": "PROTEINS_full" }
+                        "parameters": { "alias": "reddit_threads" }
                     }
                 }
             },
