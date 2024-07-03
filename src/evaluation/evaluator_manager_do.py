@@ -41,7 +41,7 @@ class EvaluatorManager:
         do_pairs_list = self.context.conf['do-pairs']
         metrics_list = self.context.conf['evaluation_metrics']
         explainers_list = self.context.conf['explainers']
-        self._plotters = self.context.conf['plotters']
+        self._plotters = self.context.conf.get('plotters', None)
         self._evaluation_metrics = []
 
         # Shuffling dataset_oracles pairs and explainers will enabling by chance
@@ -83,22 +83,23 @@ class EvaluatorManager:
         """
         for evaluator in self._evaluators:
             evaluator.evaluate()
-        
+
         for evaluator in self._evaluators:
-                dataset = evaluator.dataset
-                oracle = evaluator._oracle
-                explainer = evaluator._explainer
-                
+            dataset = evaluator.dataset
+            oracle = evaluator._oracle
+            explainer = evaluator._explainer
+            
+            if self._plotters:
                 for plotter_snippet in self._plotters:
                     # TODO: fix this hardcoded stuff...
                     read_path = os.path.join('output', 'counterfactuals', 'InstancesDumper', 
-                                             self.context._scope, dataset.name, 
-                                             oracle.name, explainer.name, 
-                                             str(explainer.fold_id), str(self.context.run_number))
+                                            self.context._scope, dataset.name, 
+                                            oracle.name, explainer.name, 
+                                            str(explainer.fold_id), str(self.context.run_number))
                     
                     plotter = self.context.factories['plotters'].get_plotter(plotter_snippet, dataset, oracle, explainer)
                     plotter.plot(read_path)
-        
+            
     def evaluate_multiple_runs(self, n_runs):
         """Evaluates each combination of dataset-oracle-explainer using the chosen evaluation metrics.
         Each evaluator is run "n_runs" times
