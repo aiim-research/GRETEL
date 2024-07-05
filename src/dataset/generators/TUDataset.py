@@ -61,6 +61,17 @@ class TUDataset(Generator):
         if not len(self.dataset.instances):
             self.populate()
 
+    def normalize_labels(self, labels):
+        original_shape = labels.shape  
+        flattened_labels = labels.flatten()  
+        sorted_labels = np.unique(sorted(flattened_labels))  
+
+        index_map = {value: index for index, value in enumerate(sorted_labels)}  
+        new_labels = np.array([index_map[value] for value in flattened_labels])  
+        new_labels = new_labels.reshape(original_shape)  
+        
+        return new_labels
+
     def _read_labels_and_attributes(self, label_path, attribute_path, kind):
         labels = None
         attributes = None
@@ -69,8 +80,9 @@ class TUDataset(Generator):
 
         if label_path:
             labels = pd.read_csv(label_path, header=None).values
-            for ind in range(labels.shape[1]):
-                labels[:,ind]  = labels[:,ind] - min(labels[:,ind])
+            labels = self.normalize_labels(labels)
+            #for ind in range(labels.shape[1]):
+            #    labels[:,ind]  = labels[:,ind] - min(labels[:,ind])
 
         if attribute_path:
             attributes = pd.read_csv(attribute_path, header=None).values
@@ -80,8 +92,8 @@ class TUDataset(Generator):
             label_count = len(labels[0]) if label_path else 0
             attribute_count = len(attributes[0]) if attribute_path else 0
 
-            if label_path:
-                features_map.update({f'label_{i}': i for i in range(label_count)})
+            #if label_path:
+            #    features_map.update({f'label_{i}': i for i in range(label_count)})
 
             if attribute_path:
                 features_map.update({f'attribute_{i}': i for i in range(label_count, label_count + attribute_count)})
