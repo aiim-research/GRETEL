@@ -7,6 +7,14 @@ class OracleCallsStage(MetricStage):
        a counterfactual example
     """
 
+    def check_configuration(self):
+        super().check_configuration()
+        self.logger= self.context.logger
+
+
+    def init(self):
+        super().init()
+
     def process(self, explanation: Explanation) -> Explanation:
         # Getting the number of oracle calls from the Oracle object
         oracle = explanation.oracle
