@@ -2,7 +2,7 @@ from src.explanation.base import Explanation
 from src.evaluation.stages.metric_stage import MetricStage
 
 
-class CorrectnessStage(MetricStage):
+class Correctness(MetricStage):
     """
     Verifies that the class from the counterfactual example is different from that of the original instance
     """

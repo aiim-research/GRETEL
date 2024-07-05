@@ -4,7 +4,7 @@ from src.evaluation.stages.metric_stage import MetricStage
 from src.explanation.base import Explanation
 
 
-class RuntimeStage(MetricStage):
+class Runtime(MetricStage):
 
     def check_configuration(self):
         super().check_configuration()

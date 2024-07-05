@@ -5,7 +5,7 @@ from src.explanation.base import Explanation
 from src.evaluation.stages.metric_stage import MetricStage
 
 
-class GraphEditDistanceStage(MetricStage):
+class GraphEditDistance(MetricStage):
     """Provides a graph edit distance function for graphs where nodes are already matched, 
     thus eliminating the need of performing an NP-Complete graph matching.
     """
