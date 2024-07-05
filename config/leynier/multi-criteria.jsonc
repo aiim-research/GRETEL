@@ -29,7 +29,13 @@
                         "compose_man": "config/snippets/datasets/centr_and_weights.json"
                     }
                 }
-            ]
+            ],
+            "expand": {
+                "folds": [
+                    "explainers"
+                ],
+                "triplets": true
+            }
         }
     },
     "do-pairs": [
@@ -38,15 +44,17 @@
                 "class": "src.dataset.dataset_base.Dataset",
                 "parameters": {
                     "generator": {
-                        "class": "src.dataset.generators.asd.ASD",
+                        "class": "src.dataset.generators.treecycles_rand.TreeCyclesRand",
                         "parameters": {
-                            "data_dir": "data/datasets/autism/"
+                            "num_instances": 128,
+                            "num_nodes_per_instance": 28,
+                            "ratio_nodes_in_cycles": 0.25
                         }
                     }
                 }
             },
             "oracle": {
-                "class": "src.oracle.custom.oracle_asd_custom.ASDOracle",
+                "class": "src.oracle.custom.oracle_tree_cycles.TreeCyclesOracle",
                 "parameters": {}
             }
         }
@@ -79,6 +87,18 @@
                 "aggregator": {
                     "class": "src.explainer.ensemble.aggregators.top_select.ExplanationTopSelect",
                     "parameters": {}
+                },
+                "compose_explainers": "config/leynier/multi-criteria-explainers-snippet.jsonc"
+            }
+        },
+        {
+            "class": "src.explainer.ensemble.explainer_ensemble_base.ExplainerEnsemble",
+            "parameters": {
+                "aggregator": {
+                    "class": "src.explainer.ensemble.aggregators.bidirectional.ExplanationBidirectionalSearch",
+                    "parameters": {
+                        "oc_limit": 1000
+                    }
                 },
                 "compose_explainers": "config/leynier/multi-criteria-explainers-snippet.jsonc"
             }
