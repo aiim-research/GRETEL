@@ -15,17 +15,18 @@
                         "class": "src.dataset.generators.bbbp.BBBP",
                         "parameters": {
                             "data_dir": "data/datasets/bbbp/",
-                            "data_file_name": "BBBP.csv",
+                            "data_file_name": "BBBP-reduced.csv",
                             "data_label_name": "p_np"
                         }
-                    }
+                    },
+                    "n_splits": 2
                 }
             },
             "oracle": {
                 "class": "src.oracle.nn.torch.OracleTorch",
                 "parameters": {
                     "epochs": 50,
-                    "batch_size": 64,
+                    "batch_size": 2,
                     "optimizer": {
                         "class": "torch.optim.RMSprop",
                         "parameters": {
@@ -66,6 +67,10 @@
                     "parameters": {}
                 }
             }
+        },
+        {
+            "class": "src.explainer.search.dces.DCESExplainer",
+            "parameters": {}
         }
     ],
     "compose_mes": "config/snippets/default_metrics.json",
