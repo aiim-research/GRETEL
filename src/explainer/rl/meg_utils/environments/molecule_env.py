@@ -56,7 +56,9 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
         self._path: List[MolecularInstance] = []
         self._max_bonds = 4
         self.action_counter = 1
-        self.context.logger.info("MoleculeEnvironment initialized with provided parameters.")
+        self.context.logger.info(
+            "MoleculeEnvironment initialized with provided parameters."
+        )
 
     def get_path(self) -> List[MolecularInstance]:
         self.context.logger.info("Returning path.")
@@ -154,7 +156,9 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
         # add the same state
         if allow_no_modification:
             valid_actions.add(state)
-        self.context.logger.info(f"Valid actions generated. Number of actions: {len(valid_actions)}")
+        self.context.logger.info(
+            f"Valid actions generated. Number of actions: {len(valid_actions)}"
+        )
         return valid_actions
 
     def _atom_additions(
@@ -191,8 +195,12 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
                     data_instance.molecule = new_state_molecule
                     atom_addition.add(data_instance)
                     self.action_counter += 1
-                    self.context.logger.info(f"Atom added: {element} with bond order {i}.")
-        self.context.logger.info(f"Number of actions generated for atom addition: {len(atom_addition)}")
+                    self.context.logger.info(
+                        f"Atom added: {element} with bond order {i}."
+                    )
+        self.context.logger.info(
+            f"Number of actions generated for atom addition: {len(atom_addition)}"
+        )
         return atom_addition
 
     def _bond_addition(
@@ -262,8 +270,12 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
                 data_instance.molecule = new_state_molecule
                 bond_addition.add(data_instance)
                 self.action_counter += 1
-                self.context.logger.info(f"Bond added between atoms {atom1} and {atom2} with bond order {valence}.")
-        self.context.logger.info(f"Number of actions generated for bond addition: {len(bond_addition)}")
+                self.context.logger.info(
+                    f"Bond added between atoms {atom1} and {atom2} with bond order {valence}."
+                )
+        self.context.logger.info(
+            f"Number of actions generated for bond addition: {len(bond_addition)}"
+        )
         return bond_addition
 
     def _bond_removal(
@@ -339,8 +351,12 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
                         data_instance.smiles = parts[-1]
                         bond_removal.add(data_instance)
                         self.action_counter += 1
-                        self.context.logger.info(f"Bond completely removed between atoms {atom1} and {atom2}.")
-        self.context.logger.info(f"Number of actions generated for bond removal: {len(bond_removal)}")
+                        self.context.logger.info(
+                            f"Bond completely removed between atoms {atom1} and {atom2}."
+                        )
+        self.context.logger.info(
+            f"Number of actions generated for bond removal: {len(bond_removal)}"
+        )
         return bond_removal
 
     def reward(self):
@@ -363,7 +379,9 @@ class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
             reward=self.reward(),
             terminated=(self._counter >= self.max_steps) or self.goal_reached(),
         )
-        self.context.logger.info(f"Step completed. Action taken: {action}, Counter: {self._counter}, Reward: {result.reward}")
+        self.context.logger.info(
+            f"Step completed. Action taken: {action}, Counter: {self._counter}, Reward: {result.reward}"
+        )
         return result
 
     def visualize_state(

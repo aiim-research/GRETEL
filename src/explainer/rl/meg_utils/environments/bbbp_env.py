@@ -31,7 +31,8 @@ class BBBPEnvironment(MoleculeEnvironment):
         if self.pred_score_init is None:
             self.pred_score_init = self.oracle.predict_proba(self.init_instance)
         pred_score_current = self.oracle.predict_proba(self._state)
-        pred_score = (pred_score_current[class_index] - self.pred_score_init[class_index]).item()
+        pred_score = pred_score_current[class_index] - self.pred_score_init[class_index]
+        pred_score = pred_score.item()
 
         sim_score = self.similarity(
             self.make_encoding(self._state).fp,

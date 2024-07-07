@@ -1,5 +1,4 @@
 import numpy as np
-
 from rdkit import Chem
 from rdkit.Chem import MolFromSmiles as smi2mol  # type: ignore
 from rdkit.Chem import MolToSmiles as mol2smi  # type: ignore
@@ -53,7 +52,7 @@ class MolecularInstance(GraphInstance):
         try:
             smiles = mol2smi(self.molecule, isomericSmiles=False, canonical=True)
             self._update_smiles(smiles)
-        except RuntimeError as e:
+        except RuntimeError:
             pass
         self._update_graph_from_molecule()
 

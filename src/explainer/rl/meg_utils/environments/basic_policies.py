@@ -64,7 +64,11 @@ class AddRemoveEdgesEnvironment(BaseEnvironment[GraphInstance]):
                 graph_data = copy.deepcopy(state.data)
                 graph_data[node][neighbour] = 1 - graph_data[node][neighbour]
                 graph_data[neighbour][node] = graph_data[node][neighbour]
-                graph = GraphInstance(state.id + neighbour + 1, data=graph_data, label=0)
+                graph = GraphInstance(
+                    state.id + neighbour + 1,
+                    data=graph_data,
+                    label=0,
+                )
                 valid_actions.add(graph)
         return valid_actions
 

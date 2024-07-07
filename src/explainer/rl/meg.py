@@ -101,7 +101,9 @@ class MEGExplainer(Explainer):
         assert len(instance.edge_features) == num_edges
         assert len(instance.edge_weights) == num_edges
         self.instance = instance
-        self.context.logger.info(f"Explaining instance with {num_nodes} nodes and {num_edges} edges.")
+        self.context.logger.info(
+            f"Explaining instance with {num_nodes} nodes and {num_edges} edges."
+        )
         # dataset = self.converter.convert(dataset)
         self.explainer = MEGAgent(
             self.context,
@@ -216,7 +218,9 @@ class MEGExplainer(Explainer):
 
                 batch_losses = []
                 self.environment.initialize()
-                self.context.logger.info(f"Episode {episode} finished. Environment reinitialized.")
+                self.context.logger.info(
+                    f"Episode {episode} finished. Environment reinitialized."
+                )
 
 
 class MEGAgent:
@@ -353,7 +357,9 @@ class DQN(torch.nn.Module):
             self.layers.append(torch.nn.Linear(dim_input, h_next))
 
         self.out = torch.nn.Linear(hs[-1], num_output)
-        self.context.logger.info(f"DQN initialized with input {num_input}, output {num_output}, and layers {hidden_state_neurons}.")
+        self.context.logger.info(
+            f"DQN initialized with input {num_input}, output {num_output}, and layers {hidden_state_neurons}."
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         for layer in self.layers:
