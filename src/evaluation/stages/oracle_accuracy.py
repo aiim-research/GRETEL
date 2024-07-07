@@ -2,7 +2,7 @@ from src.explanation.base import Explanation
 from src.evaluation.stages.metric_stage import MetricStage
 
 
-class OracleAccuracyStage(MetricStage):
+class OracleAccuracy(MetricStage):
     """
     Meassures the accuracy of the oracle predictions compared to the ground truth labels in the dataset
     """

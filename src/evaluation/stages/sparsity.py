@@ -5,7 +5,7 @@ from src.evaluation.stages.metric_stage import MetricStage
 from src.utils.metrics.sparsity import sparsity_metric
 
 
-class SparsityStage(MetricStage):
+class Sparsity(MetricStage):
     """Provides the ratio between the number of features modified to obtain the counterfactual example
        and the number of features in the original instance. Only considers structural features.
     """

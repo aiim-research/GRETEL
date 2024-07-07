@@ -6,7 +6,7 @@ from src.core.factory_base import get_instance_kvargs
 from src.utils.cfg_utils import  init_dflts_to_of 
 
 
-class InstabilityStage(MetricStage):
+class Instability(MetricStage):
     """
     Verifies that the class from the counterfactual example is different from that of the original instance
     """

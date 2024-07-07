@@ -2,7 +2,7 @@ from src.explanation.base import Explanation
 from src.evaluation.stages.metric_stage import MetricStage
 
 
-class OracleCallsStage(MetricStage):
+class OracleCalls(MetricStage):
     """Provides the number of calls to the oracle an explainer has to perform in order to generate
        a counterfactual example
     """

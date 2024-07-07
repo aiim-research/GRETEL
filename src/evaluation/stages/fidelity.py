@@ -3,7 +3,7 @@ from src.evaluation.stages.metric_stage import MetricStage
 from src.utils.metrics.fidelity import fidelity_metric_with_predictions
 
 
-class FidelityStage(MetricStage):
+class Fidelity(MetricStage):
     """Similar to correctness measures if the algorithm is producing proper counterfactuals. However, Fidelity measures how faithful they are to the original problem,
        not just to the problem learned by the oracle. It requires a ground truth to be present in the dataset
     """
