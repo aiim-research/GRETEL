@@ -21,8 +21,9 @@ import sys
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
-except:
+except Exception:
     pass
 
 if __name__ == "__main__":
