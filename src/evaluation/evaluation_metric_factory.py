@@ -110,4 +110,3 @@ class EvaluationMetricFactory:
     def get_smiles_levenshtein_metric(self, config_dict=None) -> EvaluationMetric:
         result = SmilesLevenshteinMetric(config_dict)
         return result
-

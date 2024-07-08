@@ -12,7 +12,7 @@ class OracleCallsMetric(EvaluationMetric):
         super().__init__(config_dict)
         self._name = 'Oracle_Calls'
 
-    def evaluate(self, instance , explanation , oracle : Oracle=None, explainer : Explainer=None, dataset = None):
+    def evaluate(self, instance_1 , instance_2 , oracle : Oracle=None, explainer : Explainer=None, dataset = None):
         result = oracle.get_calls_count()
         oracle.reset_call_count()
         return result

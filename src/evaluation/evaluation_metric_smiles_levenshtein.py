@@ -14,10 +14,8 @@ class SmilesLevenshteinMetric(EvaluationMetric):
         super().__init__(config_dict)
         self._name = 'Smiles-Levenshtein'
 
-    def evaluate(self, instance , explanation , oracle : Oracle=None, explainer : Explainer=None, dataset  = None):
-        instance_2 = explanation.top
-        
-        return self.lev_dist(instance.smiles, instance_2.smiles)
+    def evaluate(self, instance_1 , instance_2 , oracle : Oracle=None, explainer : Explainer=None, dataset  = None):
+        return self.lev_dist(instance_1.smiles, instance_2.smiles)
 
     def lev_dist(self, a, b):
         '''

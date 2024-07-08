@@ -1,21 +1,16 @@
 import os
-os.environ["OMP_NUM_THREADS"] = os.environ["SLURM_CPUS_PER_TASK"] # export OMP_NUM_THREADS=1
-os.environ["OPENBLAS_NUM_THREADS"] = "4" # export OPENBLAS_NUM_THREADS=1 
-os.environ["MKL_NUM_THREADS"] = "4" # export MKL_NUM_THREADS=1
-os.environ["VECLIB_MAXIMUM_THREADS"] = "4" # export VECLIB_MAXIMUM_THREADS=1
-os.environ["NUMEXPR_NUM_THREADS"] = "4" # export NUMEXPR_NUM_THREADS=1
-
-
 import torch
 #torch.manual_seed(5)#3,5
 import random
 #random.seed(0)
-from multiprocessing import Pool
-import psutil
-import numpy
 import numpy as np
 #np.random.seed(0)
 
+'''os.environ["OMP_NUM_THREADS"] = "4" # export OMP_NUM_THREADS=1
+os.environ["OPENBLAS_NUM_THREADS"] = "4" # export OPENBLAS_NUM_THREADS=1 
+os.environ["MKL_NUM_THREADS"] = "4" # export MKL_NUM_THREADS=1
+os.environ["VECLIB_MAXIMUM_THREADS"] = "4" # export VECLIB_MAXIMUM_THREADS=1
+os.environ["NUMEXPR_NUM_THREADS"] = "4" # export NUMEXPR_NUM_THREADS=1'''
 
 from src.evaluation.evaluator_manager import EvaluatorManager
 from src.evaluation.evaluator_manager_do import EvaluatorManager as PairedEvaluatorManager
@@ -32,7 +27,6 @@ except Exception:
     pass
 
 if __name__ == "__main__":
-
     if len(sys.argv) < 2:
         # If no arguments are passed, try to find GRETEL_CONFIG_FILE in the environment
         if "GRETEL_CONFIG_FILE" in os.environ:
@@ -40,7 +34,6 @@ if __name__ == "__main__":
         else:
             print("Usage: python main.py <config_file> [run_number]")
             sys.exit(1)
-
     print(f"Generating context for: {sys.argv[1]}")
     context = Context.get_context(sys.argv[1])
     context.run_number = int(sys.argv[2]) if len(sys.argv) == 3 else -1

@@ -12,11 +12,11 @@ class OracleAccuracyMetric(EvaluationMetric):
         super().__init__(config_dict)
         self._name = 'Oracle_Accuracy'
 
-    def evaluate(self, instance , explanation , oracle : Oracle=None, explainer : Explainer=None, dataset = None):
+    def evaluate(self, instance_1 , instance_2 , oracle : Oracle=None, explainer : Explainer=None, dataset = None):
 
-        predicted_label_instance_1 = oracle.predict(instance)
+        predicted_label_instance_1 = oracle.predict(instance_1)
         oracle._call_counter -= 1
-        real_label_instance_1 = instance.label
+        real_label_instance_1 = instance_1.label
 
         result = 1 if (predicted_label_instance_1 == real_label_instance_1) else 0
         

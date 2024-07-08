@@ -12,16 +12,15 @@ class FidelityNodeMetric(EvaluationMetric):
         super().__init__(config_dict)
         self._name = 'FidelityNode'
 
-    def evaluate(self, instance , explanation , oracle : Oracle=None, explainer : Explainer=None, dataset  = None):
-        instance_2 = explanation.top
+    def evaluate(self, instance_1 , instance_2 , oracle : Oracle=None, explainer : Explainer=None, dataset  = None):
 
-        label_instance_1 = oracle.predict(instance)
+        label_instance_1 = oracle.predict(instance_1)
         label_instance_2 = oracle.predict(instance_2)
         oracle._call_counter -= 2
 
-        prediction_fidelity = 1 if (label_instance_1 == instance.node_labels.get(instance.target_node)) else 0
+        prediction_fidelity = 1 if (label_instance_1 == instance_1.node_labels.get(instance_1.target_node)) else 0
         
-        counterfactual_fidelity = 1 if (label_instance_2 == instance.node_labels.get(instance.target_node)) else 0
+        counterfactual_fidelity = 1 if (label_instance_2 == instance_1.node_labels.get(instance_1.target_node)) else 0
 
         result = prediction_fidelity - counterfactual_fidelity
         
