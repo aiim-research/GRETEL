@@ -8,3 +8,5 @@
 #SBATCH -p normal
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
+
+srun python "$@"
