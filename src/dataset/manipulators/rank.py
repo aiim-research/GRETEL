@@ -2,15 +2,13 @@ import networkx as nx
 import numpy as np
 
 from src.dataset.manipulators.base import BaseManipulator
-from src.utils.metrics.ged import GraphEditDistanceMetric
+from src.utils.metrics.ged import graph_edit_distance_metric
 
 
 class RankManipulator(BaseManipulator):
     def graph_info(self, instance):
 
-        distance = GraphEditDistanceMetric()
-
-        result = [ (distance.evaluate(instance, x), x.id) for x in self.dataset.instances]
+        result = [ (graph_edit_distance_metric(instance.data, x.data, instance.directed and x.directed), x.id) for x in self.dataset.instances]
 
         result.sort(key=lambda x: x[0])
 
