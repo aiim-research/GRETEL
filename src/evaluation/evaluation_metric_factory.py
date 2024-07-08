@@ -65,7 +65,7 @@ class EvaluationMetricFactory:
         return result
 
     def get_dumper_metric(self, config_dict=None) -> EvaluationMetric:
-        result = InstancesDumper(self._config_dict,config_dict)
+        result = InstancesDumper(config_dict)
         return result
 
     def get_correctness_metric(self, config_dict=None) -> EvaluationMetric:

@@ -1,5 +1,6 @@
 {
     "store_paths": [
+        {"name": "working_store_path", "address": "./data/working/"},
         {"name": "dataset_store_path", "address": "./data/cache/datasets/"},        
         {"name": "oracle_store_path", "address": "./data/cache/oracles/"},
         {"name": "embedder_store_path", "address": "./data/cache/oracles/"},

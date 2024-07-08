@@ -28,10 +28,11 @@ class Trainable(Savable,metaclass=ABCMeta):
     def fit(self):
         stime = time.time()
         self.real_fit()
+        self.training_time = time.time() - stime
         if hasattr(self, 'device') and self.device is not None:
-            self.context.logger.info(self.__class__.__name__+" trained on "+self.device+" in: "+str((time.time()-stime))+" secs")   
+            self.context.logger.info(f'{self.__class__.__name__} trained on {self.device} in: {self.training_time} secs')   
         else:
-            self.context.logger.info(self.__class__.__name__+" trained in: "+str((time.time()-stime))+" secs")  
+            self.context.logger.info(f'{self.__class__.__name__} trained in: {self.training_time} secs')   
         
     def create(self):
         self.fit()

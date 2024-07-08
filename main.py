@@ -19,11 +19,27 @@ import numpy as np
 
 from src.evaluation.evaluator_manager import EvaluatorManager
 from src.evaluation.evaluator_manager_do import EvaluatorManager as PairedEvaluatorManager
+from src.evaluation.evaluator_manager_triplets import EvaluatorManager as TripletsEvaluatorManager
 
 from src.utils.context import Context
 import sys
 
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except Exception:
+    pass
+
 if __name__ == "__main__":
+
+    if len(sys.argv) < 2:
+        # If no arguments are passed, try to find GRETEL_CONFIG_FILE in the environment
+        if "GRETEL_CONFIG_FILE" in os.environ:
+            sys.argv.append(os.environ["GRETEL_CONFIG_FILE"])
+        else:
+            print("Usage: python main.py <config_file> [run_number]")
+            sys.exit(1)
 
     print(f"Generating context for: {sys.argv[1]}")
     context = Context.get_context(sys.argv[1])
@@ -40,6 +56,9 @@ if __name__ == "__main__":
     )
 
     
+    if 'doe-triplets' in context.conf:
+        context.logger.info("Creating the TRIPLET evaluators........................................................")
+        eval_manager = TripletsEvaluatorManager(context)
     if 'do-pairs' in context.conf:
         context.logger.info("Creating the PAIRED evaluators...............................................................")
         eval_manager = PairedEvaluatorManager(context)

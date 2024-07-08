@@ -14,9 +14,10 @@ class ResGenerator(nn.Module):
         
         self.node_features = node_features
         self.num_conv_layers = num_conv_layers
-        self.conv_booster = 1 #conv_booster
+        self.conv_booster = conv_booster #conv_booster
         # encoder with no pooling
         self.encoder = GCN(self.node_features, self.num_conv_layers, self.conv_booster, nn.Identity()).double()
+        self.feature_decoder = GCN(self.node_features * self.conv_booster, self.num_conv_layers, self.conv_booster**-1, nn.Identity()).double()
         # graph autoencoder with inner product decoder
         self.model = GAE(encoder=self.encoder).double()
         self.residuals = residuals
@@ -52,15 +53,17 @@ class ResGenerator(nn.Module):
 
     def forward(self, node_features, edge_list, edge_attr, batch):
         encoded_node_features = self.model.encode(node_features, edge_list, edge_attr, batch)
-        edge_probabilities = self.model.decoder.forward_all(encoded_node_features, sigmoid=False)
-        edge_probabilities = torch.nan_to_num(edge_probabilities, 0)
+        edge_weights = self.model.decoder.forward_all(encoded_node_features, sigmoid=False)
+        edge_weights = torch.nan_to_num(edge_weights, 0)
+        
+        decoded_node_features = self.feature_decoder(node_features, edge_list, edge_attr, batch)
 
         if self.residuals: #TODO: Fix the booster expansion if make sense
-            encoded_node_features = encoded_node_features.repeat(1, node_features.size(1) // encoded_node_features.size(1))
-            encoded_node_features = torch.add(encoded_node_features, node_features)
-            edge_probabilities += rebuild_adj_matrix(len(node_features), edge_list, edge_attr.T,self.device)
+            #decoded_node_features = encoded_node_features.repeat(1, node_features.size(1) // encoded_node_features.size(1))
+            decoded_node_features = torch.add(decoded_node_features, node_features)
+            edge_weights = torch.add(edge_weights, rebuild_adj_matrix(len(node_features), edge_list, edge_attr.T, self.device))
             
-        return encoded_node_features, edge_list, torch.sigmoid(edge_probabilities)
+        return decoded_node_features, edge_list, torch.sigmoid(edge_weights)
     
     @default_cfg
     def grtl_default(kls, node_features):

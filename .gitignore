@@ -132,6 +132,7 @@ dmypy.json
 
 # data folders
 data/cache*
+data/working*
 lab/data/cache*
 lab/results_legacy*
 lab/stats_legacy*
@@ -142,6 +143,10 @@ config/_papers
 .DS_Store
 experiments/
 config/Gretel1_AAAI/
+evaluated/*
+data/bardh_cache/*
+old_experiments/
+visualizations/*
 
 # videos
 .mp4

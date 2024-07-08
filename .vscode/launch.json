@@ -14,6 +14,15 @@
             "args": ["config/_papers/ijcai24/datasets_Ens[components-A]-in.jsonc", "1"],
         },
         {
+            "name": "CLEAR_debug.jsonc",
+            "type": "python",
+            "request": "launch",
+            "program": "main.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["experiments/frankenstein/methods_comparison_frankenstein_do0_e0/methods_comparison_frankenstein_do0_e0_f0.json", "1"],
+        },
+        {
             "name": "TCR-150-100-0.3+TCC+iRand.jsonc",
             "type": "python",
             "request": "launch",
@@ -58,6 +67,15 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": ["config/RSGG_ASD.json", "1"],
-        }       
+        },
+        {
+            "name": "TWITTER_TEST",
+            "type": "python",
+            "request": "launch",
+            "program": "main.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["config/new_datasets/TWITTER_DCE.json", "1"],
+        }             
     ]
 }

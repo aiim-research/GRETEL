@@ -4,63 +4,78 @@ The problem of molecule generation as a Markov decision process, the
 state space, action space, and reward function are defined.
 
 """
+
 import copy
 import itertools
-import numpy as np
+from typing import Any, Callable, Dict, List, Optional, Set, Union
 
+import numpy as np
 from rdkit import Chem
 from rdkit.Chem import Draw
-from src.explainer.rl.meg_utils.utils.molecules import mol_from_smiles
-from src.explainer.rl.meg_utils.environments.base_env import Result, BaseEnvironment          
-          
-class Molecule(BaseEnvironment):
-    
-    """ 
-        Defines the Markov decision process of generating a molecule.
+
+from src.explainer.rl.meg_utils.environments.base_env import BaseEnvironment, Result
+from src.explainer.rl.meg_utils.utils.molecular_instance import (
+    MolecularInstance,
+)
+from src.utils.context import Context
+
+
+class MoleculeEnvironment(BaseEnvironment[MolecularInstance]):
     """
-    
-    def __init__(self,
-                 allow_removal=True,
-                 allow_node_addition=True,
-                 allow_edge_addition=True,
-                 allow_no_modification=True,
-                 allow_bonds_between_rings=True,
-                 allowed_ring_sizes=None,
-                 target_fn=None,
-                 max_steps=10,
-                 record_path=False):
-        
-        super(Molecule, self).__init__(target_fn=target_fn,
-                                       max_steps=max_steps)
-        
+    Defines the Markov decision process of generating a molecule.
+    """
+
+    def __init__(
+        self,
+        allow_removal: bool = True,
+        allow_node_addition: bool = True,
+        allow_edge_addition: bool = True,
+        allow_no_modification: bool = True,
+        allow_bonds_between_rings: bool = True,
+        allowed_ring_sizes: Optional[List[int]] = None,
+        target_fn: Optional[Callable[[MolecularInstance], Any]] = None,
+        max_steps: int = 10,
+        record_path: bool = False,
+        context: Context = None,
+    ):
+        super(MoleculeEnvironment, self).__init__(
+            context=context,
+            target_fn=target_fn,
+            max_steps=max_steps,
+        )
+
         self.allow_removal = allow_removal
         self.allow_node_addition = allow_node_addition
         self.allow_edge_addition = allow_edge_addition
         self.allow_no_modification = allow_no_modification
         self.allow_bonds_between_rings = allow_bonds_between_rings
         self.allowed_ring_sizes = allowed_ring_sizes
-        self._valid_actions = []
+        self._valid_actions: Set[MolecularInstance] = set()
         # The status should be 'terminated' if initialize() is not called.
         self.record_path = record_path
-        self._path = []
+        self._path: List[MolecularInstance] = []
         self._max_bonds = 4
         self.action_counter = 1
+        self.context.logger.info(
+            "MoleculeEnvironment initialized with provided parameters."
+        )
 
-        
-    def get_path(self):
+    def get_path(self) -> List[MolecularInstance]:
+        self.context.logger.info("Returning path.")
         return self._path
-    
-    def set_instance(self, new_instance):
+
+    def set_instance(self, new_instance: Optional[MolecularInstance]) -> None:
         self._init_instance = new_instance
         self.atom_types = np.unique(
-            [x.GetSymbol() for x in mol_from_smiles(self._init_instance.smiles).GetAtoms()]
+            [x.GetSymbol() for x in self._init_instance.molecule.GetAtoms()]
         )
         atom_types = list(self.atom_types)
         self._max_new_bonds = dict(
-            list(zip(atom_types, self.atom_valences(atom_types))))
+            list(zip(atom_types, self.atom_valences(atom_types)))
+        )
+        self.context.logger.info(f"Instance set with atom types: {atom_types}")
 
-    
-    def initialize(self):
+    def initialize(self) -> None:
         """Resets the MDP to its initial state."""
         self._state = self.init_instance
         if self.record_path:
@@ -68,123 +83,151 @@ class Molecule(BaseEnvironment):
         self._valid_actions = self.get_valid_actions(force_rebuild=True)
         self._counter = 0
         self.action_counter = 1
+        self.context.logger.info("Environment initialized to initial state.")
 
-    def get_valid_actions(self, state=None, force_rebuild=False):
+    def get_valid_actions(
+        self,
+        state: Optional[MolecularInstance] = None,
+        force_rebuild: bool = False,
+    ) -> Set[MolecularInstance]:
         if state is None:
             if self._valid_actions and not force_rebuild:
-                return copy.deepcopy(self._valid_actions)
+                self.context.logger.info("Returning cached valid actions.")
+                deepcopy_valid_actions = copy.deepcopy(self._valid_actions)
+                self.context.logger.info("Valid actions returned from cache.")
+                return deepcopy_valid_actions
             state = self._state
-        if isinstance(state, Chem.Mol):
-            state = Chem.MolToSmiles(state)
-        self._valid_actions = self.__get_valid_actions(
+        self._valid_actions = self._get_valid_actions(
             state,
             atom_types=self.atom_types,
             allow_removal=self.allow_removal,
             allow_no_modification=self.allow_no_modification,
             allowed_ring_sizes=self.allowed_ring_sizes,
-            allow_bonds_between_rings=self.allow_bonds_between_rings)
+            allow_bonds_between_rings=self.allow_bonds_between_rings,
+        )
+        self.context.logger.info("Valid actions computed.")
         return copy.deepcopy(self._valid_actions)
-    
-    def __get_valid_actions(self, state, atom_types,
-                            allow_removal=True, allow_no_modification=True,
-                            allowed_ring_sizes=None, allow_bonds_between_rings=True):
+
+    def _get_valid_actions(
+        self,
+        state: Optional[MolecularInstance],
+        atom_types: np.ndarray,
+        allow_removal: bool = True,
+        allow_no_modification: bool = True,
+        allowed_ring_sizes: Optional[List[int]] = None,
+        allow_bonds_between_rings: bool = True,
+    ) -> Set[MolecularInstance]:
         if not state:
-            print("I might be here")
+            self.context.logger.info("No state provided, returning atom types.")
             return copy.deepcopy(atom_types)
-    
-        mol = Chem.MolFromSmiles(state.smiles)
-        if not mol:
-            raise ValueError(f'Recieved invalid state {state}')
-        
-        atom_valences = {
+        if state.molecule is None:
+            raise ValueError(f"Received invalid state {state}")
+        atom_valences: Dict[Any, List[Any]] = {
             atom_type: self.atom_valences([atom_type])[0] for atom_type in atom_types
-            }
-        atoms_with_free_valence = {}
+        }
+        atoms_with_free_valence: Dict[int, List[int]] = {}
         for i in range(1, max(atom_valences.values())):
             # Only atoms that allow us to replace at least one H with a new bond are
             # # enumerated here
             atoms_with_free_valence[i] = [
-                atom.GetIdx() for atom in mol.GetAtoms() if atom.GetNumImplicitHs() >= i
+                atom.GetIdx()
+                for atom in state.molecule.GetAtoms()
+                if atom.GetNumImplicitHs() >= i
             ]
-        
-        valid_actions = set()
+        valid_actions: Set[MolecularInstance] = set()
         valid_actions.update(
             self._atom_additions(
-                mol,
+                state,
                 atom_types=atom_types,
                 atom_valences=atom_valences,
-                atoms_with_free_valence=atoms_with_free_valence
+                atoms_with_free_valence=atoms_with_free_valence,
             )
         )
         valid_actions.update(
             self._bond_addition(
-                mol,
+                state,
                 atoms_with_free_valence=atoms_with_free_valence,
                 allowed_ring_sizes=allowed_ring_sizes,
-                allow_bonds_between_rings=allow_bonds_between_rings
+                allow_bonds_between_rings=allow_bonds_between_rings,
             )
         )
-        
         if allow_removal:
-            valid_actions.update(self._bond_removal(mol))
+            valid_actions.update(self._bond_removal(state))
         # add the same state
         if allow_no_modification:
             valid_actions.add(state)
+        self.context.logger.info(
+            f"Valid actions generated. Number of actions: {len(valid_actions)}"
+        )
         return valid_actions
-    
-    
-    def _atom_additions(self, state, atom_types,
-                        atom_valences, atoms_with_free_valence):
+
+    def _atom_additions(
+        self,
+        state: Optional[MolecularInstance],
+        atom_types: np.ndarray,
+        atom_valences: Dict[Any, List[Any]],
+        atoms_with_free_valence: Dict[int, List[int]],
+    ) -> Set[MolecularInstance]:
         bond_order = {
             1: Chem.BondType.SINGLE,
             2: Chem.BondType.DOUBLE,
-            3: Chem.BondType.TRIPLE
+            3: Chem.BondType.TRIPLE,
         }
-        
-        atom_addition = set()
+        atom_addition: Set[MolecularInstance] = set()
         for i in bond_order:
             for atom in atoms_with_free_valence[i]:
                 for element in atom_types:
-                    if atom_valences[element] >= i:
-                        new_state = Chem.RWMol(state)
-                        idx = new_state.AddAtom(Chem.Atom(element))
-                        new_state.AddBond(atom, idx, bond_order[i])
-                        sanitization_result = Chem.SanitizeMol(new_state, catchErrors=True)
-                        # when sanitization fails
-                        if sanitization_result:
-                            continue
-                        data_instance = MolecularDataInstance(self._state.id + self.action_counter)
-                        data_instance.molecule = new_state
-                        data_instance._max_mol_len = self.init_instance._max_mol_len
-                        data_instance._max_n_atoms = self.init_instance._max_n_atoms
-                        atom_addition.add(data_instance)
-                        self.action_counter += 1
+                    if atom_valences[element] < i:
+                        continue
+                    new_state_molecule = Chem.RWMol(state.molecule)
+                    idx = new_state_molecule.AddAtom(Chem.Atom(element))
+                    new_state_molecule.AddBond(atom, idx, bond_order[i])
+                    sanitization_result = Chem.SanitizeMol(
+                        new_state_molecule, catchErrors=True
+                    )
+                    # when sanitization fails
+                    if sanitization_result:
+                        continue
+                    data_instance_id = self._state.id + self.action_counter
+                    data_instance = copy.deepcopy(self._state)
+                    data_instance.id = data_instance_id
+                    data_instance.label = int(data_instance_id)
+                    data_instance.molecule = new_state_molecule
+                    atom_addition.add(data_instance)
+                    self.action_counter += 1
+                    self.context.logger.info(
+                        f"Atom added: {element} with bond order {i}."
+                    )
+        self.context.logger.info(
+            f"Number of actions generated for atom addition: {len(atom_addition)}"
+        )
         return atom_addition
 
-
-    def _bond_addition(self, state,
-                       atoms_with_free_valence,
-                       allowed_ring_sizes,
-                       allow_bonds_between_rings):
+    def _bond_addition(
+        self,
+        state: Optional[MolecularInstance],
+        atoms_with_free_valence: Dict[int, List[int]],
+        allowed_ring_sizes: Optional[List[int]],
+        allow_bonds_between_rings: bool,
+    ) -> Set[MolecularInstance]:
         bond_orders = [
             None,
             Chem.BondType.SINGLE,
             Chem.BondType.DOUBLE,
             Chem.BondType.TRIPLE,
         ]
-        
-        bond_addition = set()
+        bond_addition: Set[MolecularInstance] = set()
         for valence, atoms in atoms_with_free_valence.items():
             for atom1, atom2 in itertools.combinations(atoms, 2):
                 # Get the bond from a copy of the molecule so that SetBondType() doesn't
                 # modify the original state.
-                bond = Chem.Mol(state).GetBondBetweenAtoms(atom1, atom2)
-                new_state = Chem.RWMol(state)
+                bond = Chem.Mol(state.molecule).GetBondBetweenAtoms(atom1, atom2)
+                new_state_molecule = Chem.RWMol(state.molecule)
                 # Kekulize the new state to avoid sanitization errors; note that bonds
                 # that are aromatic in the original state are not modified (this is
                 # enforced by getting the bond from the original state with
                 # GetBondBetweenAtoms()).
-                Chem.Kekulize(new_state, clearAromaticFlags=True)
+                Chem.Kekulize(new_state_molecule, clearAromaticFlags=True)
                 if bond:
                     if bond.GetBondType() not in bond_orders:
                         continue  # Skip aromatic bonds.
@@ -195,129 +238,173 @@ class Molecule(BaseEnvironment):
                     if bond_order < len(bond_orders):
                         idx = bond.GetIdx()
                         bond.SetBondType(bond_orders[bond_order])
-                        new_state.ReplaceBond(idx, bond)
+                        new_state_molecule.ReplaceBond(idx, bond)
                     else:
                         continue
                 # If do not allow new bonds between atoms already in rings.
-                elif (not allow_bonds_between_rings and
-                        (state.GetAtomWithIdx(atom1).IsInRing() and
-                        state.GetAtomWithIdx(atom2).IsInRing())):
+                elif not allow_bonds_between_rings and (
+                    state.molecule.GetAtomWithIdx(atom1).IsInRing()
+                    and state.molecule.GetAtomWithIdx(atom2).IsInRing()
+                ):
                     continue
                 # If the distance between the current two atoms is not in the
                 # allowed ring sizes
-                elif (allowed_ring_sizes is not None and
-                        len(Chem.rdmolops.GetShortestPath(
-                            state, atom1, atom2)) not in allowed_ring_sizes):
+                elif (
+                    allowed_ring_sizes is not None
+                    and len(Chem.rdmolops.GetShortestPath(state.molecule, atom1, atom2))
+                    not in allowed_ring_sizes
+                ):
                     continue
                 else:
-                    new_state.AddBond(atom1, atom2, bond_orders[valence])
-                sanitization_result = Chem.SanitizeMol(new_state, catchErrors=True)
+                    new_state_molecule.AddBond(atom1, atom2, bond_orders[valence])
+                sanitization_result = Chem.SanitizeMol(
+                    new_state_molecule, catchErrors=True
+                )
                 # When sanitization fails
                 if sanitization_result:
                     continue
-                
-                data_instance = MolecularDataInstance(self._state.id + self.action_counter)
-                data_instance.molecule = new_state
-                data_instance._max_mol_len = self.init_instance._max_mol_len
-                data_instance._max_n_atoms = self.init_instance._max_n_atoms
+                data_instance_id = self._state.id + self.action_counter
+                data_instance = copy.deepcopy(self._state)
+                data_instance.id = data_instance_id
+                data_instance.label = int(data_instance_id)
+                data_instance.molecule = new_state_molecule
                 bond_addition.add(data_instance)
                 self.action_counter += 1
-                
+                self.context.logger.info(
+                    f"Bond added between atoms {atom1} and {atom2} with bond order {valence}."
+                )
+        self.context.logger.info(
+            f"Number of actions generated for bond addition: {len(bond_addition)}"
+        )
         return bond_addition
 
-    def _bond_removal(self, state):
+    def _bond_removal(
+        self, state: Optional[MolecularInstance]
+    ) -> Set[MolecularInstance]:
         bond_orders = [
             None,
             Chem.BondType.SINGLE,
             Chem.BondType.DOUBLE,
             Chem.BondType.TRIPLE,
         ]
-        bond_removal = set()
+        bond_removal: Set[MolecularInstance] = set()
+        molecule = state.molecule
         for valence in [1, 2, 3]:
-            for bond in state.GetBonds():
+            for bond in molecule.GetBonds():
                 # Get the bond from a copy of the molecule so that SetBondType() doesn't
                 # modify the original state.
-                bond = Chem.Mol(state).GetBondBetweenAtoms(bond.GetBeginAtomIdx(),
-                                                            bond.GetEndAtomIdx())
-                if bond.GetBondType() not in bond_orders:
+                bond = Chem.Mol(molecule).GetBondBetweenAtoms(
+                    bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+                )
+                if bond is None or bond.GetBondType() not in bond_orders:
                     continue  # Skip aromatic bonds.
-                new_state = Chem.RWMol(state)
+                new_state_molecue = Chem.RWMol(molecule)
                 # Kekulize the new state to avoid sanitization errors; note that bonds
                 # that are aromatic in the original state are not modified (this is
                 # enforced by getting the bond from the original state with
                 # GetBondBetweenAtoms()).
-                Chem.Kekulize(new_state, clearAromaticFlags=True)
+                Chem.Kekulize(new_state_molecue, clearAromaticFlags=True)
                 # Compute the new bond order as an offset from the current bond order.
                 bond_order = bond_orders.index(bond.GetBondType())
                 bond_order -= valence
                 if bond_order > 0:  # Downgrade this bond.
                     idx = bond.GetIdx()
                     bond.SetBondType(bond_orders[bond_order])
-                    new_state.ReplaceBond(idx, bond)
-                    sanitization_result = Chem.SanitizeMol(new_state, catchErrors=True)
+                    new_state_molecue.ReplaceBond(idx, bond)
+                    sanitization_result = Chem.SanitizeMol(
+                        new_state_molecue, catchErrors=True
+                    )
                     # When sanitization fails
                     if sanitization_result:
                         continue
-                    data_instance = MolecularDataInstance(self._state.id + self.action_counter)
-                    data_instance.molecule = new_state
-                    data_instance._max_mol_len = self.init_instance._max_mol_len
-                    data_instance._max_n_atoms = self.init_instance._max_n_atoms
+                    data_instance_id = self._state.id + self.action_counter
+                    data_instance = copy.deepcopy(self._state)
+                    data_instance.id = data_instance_id
+                    data_instance.label = int(data_instance_id)
+                    data_instance.molecule = new_state_molecue
                     bond_removal.add(data_instance)
                     self.action_counter += 1
+                    self.context.logger.info(f"Bond of order {bond_order} removed.")
                 elif bond_order == 0:  # Remove this bond entirely.
                     atom1 = bond.GetBeginAtom().GetIdx()
                     atom2 = bond.GetEndAtom().GetIdx()
-                    new_state.RemoveBond(atom1, atom2)
-                    sanitization_result = Chem.SanitizeMol(new_state, catchErrors=True)
+                    new_state_molecue.RemoveBond(atom1, atom2)
+                    sanitization_result = Chem.SanitizeMol(
+                        new_state_molecue, catchErrors=True
+                    )
                     # When sanitization fails
                     if sanitization_result:
                         continue
-                    smiles = Chem.MolToSmiles(new_state)
-                    parts = sorted(smiles.split('.'), key=len)
+                    try:
+                        smiles = Chem.MolToSmiles(new_state_molecue)
+                    except Exception:
+                        continue
+                    parts = sorted(smiles.split("."), key=len)
                     # We define the valid bond removing action set as the actions
                     # that remove an existing bond, generating only one independent
                     # molecule, or a molecule and an atom.
                     if len(parts) == 1 or len(parts[0]) == 1:
-                        data_instance = MolecularDataInstance(self._state.id + self.action_counter)
+                        data_instance_id = self._state.id + self.action_counter
+                        data_instance = copy.deepcopy(self._state)
+                        data_instance.id = data_instance_id
+                        data_instance.label = int(data_instance_id)
                         data_instance.smiles = parts[-1]
-                        data_instance._max_mol_len = self.init_instance._max_mol_len
-                        data_instance._max_n_atoms = self.init_instance._max_n_atoms
                         bond_removal.add(data_instance)
                         self.action_counter += 1
+                        self.context.logger.info(
+                            f"Bond completely removed between atoms {atom1} and {atom2}."
+                        )
+        self.context.logger.info(
+            f"Number of actions generated for bond removal: {len(bond_removal)}"
+        )
         return bond_removal
-    
+
     def reward(self):
+        self.context.logger.info("Calculating reward.")
         return 0.0
-    
-    def step(self, action):
+
+    def step(self, action: MolecularInstance) -> Result:
         if self._counter >= self.max_steps or self.goal_reached():
-            raise ValueError('This episode is terminated.')
+            raise ValueError("This episode is terminated.")
         if action.id not in [inst.id for inst in self._valid_actions]:
-            print(action)
-            raise ValueError('Invalid action.')
+            self.context.logger.error(f"Invalid action attempted: {action}")
+            raise ValueError("Invalid action.")
         self._state = action
         if self.record_path:
             self._path.append(self._state)
         self._valid_actions = self.get_valid_actions(force_rebuild=True)
         self._counter += 1
-
         result = Result(
             state=self._state,
             reward=self.reward(),
-            terminated=(self._counter >= self.max_steps) or self.goal_reached())
-        
+            terminated=(self._counter >= self.max_steps) or self.goal_reached(),
+        )
+        self.context.logger.info(
+            f"Step completed. Action taken: {action}, Counter: {self._counter}, Reward: {result.reward}"
+        )
         return result
-    
-    def visualize_state(self, state=None, **kwargs):
+
+    def visualize_state(
+        self,
+        state: Optional[Union[MolecularInstance, str]] = None,
+        **kwargs,
+    ):
         if state is None:
             state = self._state
+        if state is None:
+            raise ValueError("No state provided.")
         if isinstance(state, str):
-            state = Chem.MolFromSmiles(state)
-        return Draw.MolToImage(state, **kwargs)
-    
+            molecule = Chem.MolFromSmiles(state)
+        else:
+            molecule = state.molecule
+        self.context.logger.info(f"Visualizing state: {state}")
+        return Draw.MolToImage(molecule, **kwargs)
+
     def atom_valences(self, atom_types):
         periodic_table = Chem.GetPeriodicTable()
-        return [
+        valences = [
             max(list(periodic_table.GetValenceList(atom_type)))
             for atom_type in atom_types
         ]
+        self.context.logger.info(f"Atom valences calculated: {valences}")
+        return valences

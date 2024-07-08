@@ -229,8 +229,7 @@ class CLEARExplainer(Trainable, Explainer):
         self.local_config['parameters']['beta_x'] =  self.local_config['parameters'].get('beta_x', 10)
         self.local_config['parameters']['beta_adj'] =  self.local_config['parameters'].get('beta_adj', 10)
 
-        n_nodes = max([x.num_nodes for x in self.dataset.instances])
-        self.local_config['parameters']['n_nodes'] = n_nodes
+        self.local_config['parameters']['n_nodes'] = np.max(self.dataset.num_nodes_values)
 
         self.local_config['parameters']['feature_dim'] = len(self.dataset.node_features_map)
     
@@ -489,6 +488,23 @@ class CLEARDataset(TorchDataset):
     @classmethod
     def to_geometric(self, instance: GraphInstance, label=0):   
         adj, x, label = super().to_geometric(instance, label)
+
+
+
+        #### [[0,1]]
+        #### indice: 1 -> err
+        #### label_0, causality
+
+        #### [[1]]
+        #### indice: 0 -> [1]
+        #### causality
+        ## causality = torch.from_numpy(np.array(instance.graph_features[0,instance._dataset.graph_features_map["graph_causality"]]))
+        ## causality = [causality]
+
+        ##### THIS IS A PATCH. TODO: if there is more than a graph feature, it crashes, because the shape is wrong.
+        ##### https://github.com/danielegrattarola/spektral/blob/master/spektral/datasets/tudataset.py#L16
+
         causality = torch.from_numpy(np.array(instance.graph_features[instance._dataset.graph_features_map["graph_causality"]]))
+
 
         return adj, x, label, causality

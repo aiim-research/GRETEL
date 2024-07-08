@@ -19,7 +19,19 @@ class GraphInstance(DataInstance):
         self.directed = directed
 
 
+        num_nodes = self.data.shape[0]
+        num_edges = np.count_nonzero(self.data)
+        assert len(self.node_features) == num_nodes
+        assert len(self.edge_features) == num_edges
+        assert len(self.edge_weights) == num_edges
+
     def __deepcopy__(self, memo):
+        num_nodes = self.data.shape[0]
+        num_edges = np.count_nonzero(self.data)
+        assert len(self.node_features) == num_nodes
+        assert len(self.edge_features) == num_edges
+        assert len(self.edge_weights) == num_edges
+
         # Fields that are being shallow copied
         _dataset = self._dataset
 
@@ -40,8 +52,8 @@ class GraphInstance(DataInstance):
                              edge_features=_edge_features, 
                              edge_weights=_edge_weights, 
                              graph_features=_graph_features, 
-                             directed=_directed)
-
+                             directed=_directed,
+                             dataset=_dataset)
 
     def get_nx(self):
         if not self._nx_repr:

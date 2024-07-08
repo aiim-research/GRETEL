@@ -12,7 +12,8 @@ class RSGG(PerClassExplainer):
     def init(self):
         super().init()
         self.sampler: Sampler = get_instance_kvargs(self.local_config['parameters']['sampler']['class'],
-                                        self.local_config['parameters']['sampler']['parameters'])
+                                                    self.local_config['parameters']['sampler']['parameters'])
+        self.sampler.dataset = self.dataset
                 
     def explain(self, instance):          
         with torch.no_grad():  
@@ -23,7 +24,7 @@ class RSGG(PerClassExplainer):
                 # take the node features and edge probabilities
                 embedded_features[key] = values[0]
                 edge_probs[key] = values[-1]
-
+    
             cf_instance = self.sampler.sample(instance, self.oracle,
                                               embedded_features=embedded_features,
                                               edge_probabilities=edge_probs)

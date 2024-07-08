@@ -20,6 +20,9 @@ class GAN(BaseGAN):
                 yield batch.to(self.device)
                 
     def real_fit(self):
+        ae_features_loss = torch.nn.MSELoss()
+        edge_probs_loss = torch.nn.BCELoss()
+        
         discriminator_loader = self.infinite_data_stream(self.dataset.get_torch_loader(fold_id=self.fold_id, batch_size=self.batch_size, kls=self.explainee_label))
         # TODO: make it multiclass in Datase
         generator_loader = self.infinite_data_stream(self.dataset.get_torch_loader(fold_id=self.fold_id, batch_size=self.batch_size, kls=1-self.explainee_label))
@@ -33,19 +36,19 @@ class GAN(BaseGAN):
             node_features, edge_index, edge_features, _ , real_batch ,_ = next(discriminator_loader)
             # generator data (fake batch)
             fake_node_features, fake_edge_index, fake_edge_features, _ , fake_batch , _  = next(generator_loader)
-            _, fake_edge_index, fake_edge_probs = self.generator(fake_node_features[1], fake_edge_index[1], fake_edge_features[1], fake_batch[1])
+            fake_node_features, fake_edge_index, fake_edge_probs = self.generator(fake_node_features[1], fake_edge_index[1], fake_edge_features[1], fake_batch[1])
             # get the real and fake labels
             y_batch = torch.cat([torch.ones((len(torch.unique(real_batch[1])),)),
                                  torch.zeros(len(torch.unique(fake_batch[1])),)], dim=0).to(self.device)
             #######################################################################
             # get the oracle's predictions
             real_inst = self.retake_batch(node_features[1], edge_index[1], edge_features[1], real_batch[1])
-            fake_inst = self.retake_batch(fake_node_features[1], fake_edge_index, fake_edge_probs, fake_batch[1], counterfactual=True, generator=True)
+            fake_inst = self.retake_batch(fake_node_features, fake_edge_index, fake_edge_probs, fake_batch[1], counterfactual=True, generator=True)
             oracle_scores = self.take_oracle_predictions(real_inst + fake_inst, y_batch)
             #######################################################################
             # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
             real_pred = self.discriminator(node_features[1], edge_index[1], edge_features[1]).expand(1)
-            fake_pred = self.discriminator(fake_node_features[1], fake_edge_index, fake_edge_features[1]).expand(1)
+            fake_pred = self.discriminator(fake_node_features, fake_edge_index, fake_edge_features[1]).expand(1)
             y_pred = torch.cat([real_pred, fake_pred])
             loss = torch.mean(self.loss_fn(y_pred.squeeze().double(), y_batch.double()) * torch.tensor(oracle_scores, dtype=torch.float))
             D_losses.append(loss.item())
@@ -54,11 +57,19 @@ class GAN(BaseGAN):
             #######################################################################
             self.prepare_generator_for_training()
             ## Update G network: maximize log(D(G(z)))
-            fake_features, fake_edge_index, fake_edge_attr, _, fake_batch, _ = next(generator_loader)
-            y_fake = torch.ones((len(torch.unique(fake_batch[1])),)).to(self.device)
-            output = self.discriminator(self.generator(fake_features[1], fake_edge_index[1], fake_edge_attr[1], fake_batch[1])[0], fake_edge_index[1], fake_edge_attr[1])
+            fake_node_features, fake_edge_index, fake_edge_attr, _, fake_batch, _ = next(generator_loader)
+            fake_node_features, fake_edge_index, fake_edge_attr, fake_batch = fake_node_features[1], fake_edge_index[1], fake_edge_attr[1], fake_batch[1]
+            
+            y_fake = torch.ones((len(torch.unique(fake_batch)),)).to(self.device)
+            fake_features_gen, fake_edge_index_gen, fake_edge_probs_gen = self.generator(fake_node_features,
+                                                                                         fake_edge_index,
+                                                                                         fake_edge_attr,
+                                                                                         fake_batch)
+            fake_edge_probs_gen = fake_edge_probs_gen[fake_edge_index[0,:], fake_edge_index[1,:]]
+            output = self.discriminator(fake_features_gen, fake_edge_index_gen, fake_edge_probs_gen)
             # calculate the loss
-            loss = self.loss_fn(output.expand(1).double(), y_fake.double())
+            loss = self.loss_fn(output.expand(1).double(), y_fake.double()) + ae_features_loss(fake_features_gen, fake_node_features)\
+            #        + edge_probs_loss(fake_edge_probs_gen, fake_edge_attr)
             loss.backward()
             G_losses.append(loss.item())
             self.generator_optimizer.step()

@@ -131,6 +131,7 @@ class Dataset(Savable):
     
     def generate_splits(self, n_splits=10, shuffle=True):
         kf = StratifiedKFold(n_splits=n_splits, shuffle=shuffle)
+
         spl = kf.split([g for g in self.instances], [g.label for g in self.instances])
         for train_index, test_index in spl:
             self.splits.append({'train': train_index.tolist(), 'test': test_index.tolist()})
@@ -267,5 +268,8 @@ class Dataset(Savable):
     
     @property
     def name(self):
-        alias = get_class( self.local_config['parameters']['generator']['class'] ).__name__
+        if 'alias' not in self.local_config['parameters']['generator']['parameters']:
+            alias = get_class( self.local_config['parameters']['generator']['class'] ).__name__
+        else:
+            alias = self.local_config['parameters']['generator']['parameters']['alias']
         return self.context.get_name(self,alias=alias)

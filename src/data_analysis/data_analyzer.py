@@ -80,6 +80,8 @@ class DataAnalyzer():
                 # Aggregate the measures
                 aggregated_metrics = []
                 for m_class, m_value in results_dict['results'].items():
+                    if 'Metric' not in m_class:
+                        continue
                     metric_name = m_class.split('.')[-1]
                     if first_iteration: # The metric names are only needed the first time
                          metric_names.append(metric_name)

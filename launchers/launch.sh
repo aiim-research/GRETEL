@@ -5,7 +5,7 @@
 #SBATCH -n 1
 #SBATCH -J RSGG-MAIN
 #SBATCH -c 8
-#SBATCH -p normal
+#SBATCH -p xai
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 

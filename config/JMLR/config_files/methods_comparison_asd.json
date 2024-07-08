@@ -48,18 +48,13 @@
         "n_generator_steps": 2,
         "n_labels": 2,
         "ce_binarization_threshold": 0.5
-    }  } ,{"class": "src.explainer.generative.rsgg.RSGG", "parameters":{
-		"n_nodes": 116,
-		"device": "cpu",
-		"converter": "tree_cycles",
-		"n_labels": 2,
-		"training_iterations": 500,
-		"sampling_iterations": 500,
-		"feature_dim": 8,
-		"lr_generator": 0.001,
-		"lr_discriminator": 0.001
-	}  } 
+    }  } ,
+    {"class": "src.explainer.generative.rsgg.RSGG",
+            "parameters": {
+                "epochs": 500
+            }
+        } 
  ],
-    "compose_mes" : "config/snippets/default_metrics.json",
+    "compose_mes" : "config/snippets/default_metric.json",
     "compose_strs" : "config/snippets/default_store_paths.json"
 }
