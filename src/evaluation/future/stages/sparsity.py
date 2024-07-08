@@ -1,7 +1,7 @@
 import numpy as np
 
 from src.future.explanation.base import Explanation
-from src.evaluation.stages.metric_stage import MetricStage
+from src.evaluation.future.stages.metric_stage import MetricStage
 from src.utils.metrics.sparsity import sparsity_metric
 
 

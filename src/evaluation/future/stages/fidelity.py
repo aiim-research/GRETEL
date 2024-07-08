@@ -1,5 +1,5 @@
 from src.future.explanation.base import Explanation
-from src.evaluation.stages.metric_stage import MetricStage
+from src.evaluation.future.stages.metric_stage import MetricStage
 from src.utils.metrics.fidelity import fidelity_metric_with_predictions
 
 

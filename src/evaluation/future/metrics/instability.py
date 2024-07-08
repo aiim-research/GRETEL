@@ -2,7 +2,7 @@ import sys
 
 from src.core.factory_base import get_instance_kvargs
 from src.utils.cfg_utils import  init_dflts_to_of 
-from src.evaluation.metrics.base import EvaluationMetric
+from src.evaluation.future.metrics.base import EvaluationMetric
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 
 

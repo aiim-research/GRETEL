@@ -1,6 +1,6 @@
 import random
 from src.dataset.dataset_factory import DatasetFactory
-from src.evaluation.stages.stage_factory import StageFactory
+from src.evaluation.future.stages.stage_factory import StageFactory
 from src.evaluation.future.evaluator_base import Evaluator
 from src.explainer.explainer_factory import ExplainerFactory
 from src.oracle.embedder_factory import EmbedderFactory

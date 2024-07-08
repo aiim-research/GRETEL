@@ -2,7 +2,7 @@ from abc import abstractmethod
 import numpy as np
 
 from src.future.explanation.base import Explanation
-from src.evaluation.stages.stage import Stage
+from src.evaluation.future.stages.stage import Stage
 
 class MetricStage(Stage):
 

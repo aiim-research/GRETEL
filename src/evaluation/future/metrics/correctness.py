@@ -1,8 +1,10 @@
-from src.future.explanation.base import Explanation
-from src.evaluation.stages.metric_stage import MetricStage
+from src.evaluation.future.metrics.base import EvaluationMetric
+from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 
 
-class Correctness(MetricStage):
+
+
+class CorrectnessMetric(EvaluationMetric):
     """
     Verifies that the class from the counterfactual example is different from that of the original instance
     """
@@ -14,23 +16,19 @@ class Correctness(MetricStage):
 
     def init(self):
         super().init()
+        self.name = 'correctness'
 
 
-    def process(self, explanation: Explanation) -> Explanation:
+    def evaluate(self, explanation: LocalGraphCounterfactualExplanation):
         input_inst_lbl = explanation.oracle.predict(explanation.input_instance)
         explanation.oracle._call_counter -= 1
 
         correctness = 0
         for cf in explanation.counterfactual_instances:
-            # Checking if the counterfactual instances are correct
             if explanation.oracle.predict(cf) != input_inst_lbl:
                 correctness += 1
             explanation.oracle._call_counter -= 1
 
         correctness /= len(explanation.counterfactual_instances)
 
-        self.write_into_explanation(explanation, correctness)
-
-        return explanation
-
-        
+        return correctness

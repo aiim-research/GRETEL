@@ -1,4 +1,4 @@
-from src.evaluation.metrics.base import EvaluationMetric
+from src.evaluation.future.metrics.base import EvaluationMetric
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.metrics.fidelity import fidelity_metric_with_predictions
 
