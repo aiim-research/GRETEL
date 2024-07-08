@@ -1,0 +1,9 @@
+{
+    "class": "src.dataset.dataset_base.Dataset",
+    "parameters": {
+        "generator": {
+            "class": "src.dataset.generators.treecycles_rand.TreeCyclesRand", 
+            "parameters": { "num_instances": 256, "num_nodes_per_instance": 64, "ratio_nodes_in_cycles": 0.25}
+        }
+    } 
+}
