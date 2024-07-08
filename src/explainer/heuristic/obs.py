@@ -1,11 +1,13 @@
 import random
+import itertools
 import numpy as np
+import copy
 
 from src.core.explainer_base import Explainer
 from src.core.factory_base import get_instance_kvargs
 from src.utils.cfg_utils import init_dflts_to_of
 from src.dataset.instances.graph import GraphInstance
-from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
+
 
 class ObliviousBidirectionalSearchExplainer(Explainer):
     """
@@ -53,17 +55,8 @@ class ObliviousBidirectionalSearchExplainer(Explainer):
                                label=0, 
                                data=final_counterfactual, 
                                node_features=instance.node_features)
-        
-        # Building the explanation instance
-        exp = LocalGraphCounterfactualExplanation(context=self.context,
-                                                  dataset=self.dataset,
-                                                  oracle=self.oracle,
-                                                  explainer=self,
-                                                  input_instance=instance,
-                                                  counterfactual_instances=[result]
-                                                 )
 
-        return exp
+        return result
 
 
 
@@ -202,4 +195,3 @@ class ObliviousBidirectionalSearchExplainer(Explainer):
                 if g_diff[i][j]==1:
                     edges.append((i,j))
         return edges
-

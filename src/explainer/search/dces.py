@@ -1,11 +1,11 @@
 import copy
 import sys
-import numpy as np
 
 from src.core.explainer_base import Explainer
+import numpy as np
+
 from src.core.factory_base import get_instance_kvargs
 from src.utils.cfg_utils import  init_dflts_to_of 
-from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 
 class DCESExplainer(Explainer):
     """The Distribution Compliant Explanation Search Explainer performs a search of 
@@ -15,7 +15,7 @@ class DCESExplainer(Explainer):
     def check_configuration(self):
         super().check_configuration()
 
-        dst_metric='src.utils.metrics.ged.GraphEditDistanceMetric'  
+        dst_metric='src.evaluation.evaluation_metric_ged.GraphEditDistanceMetric'  
 
         #Check if the distance metric exist or build with its defaults:
         init_dflts_to_of(self.local_config, 'distance_metric', dst_metric)
@@ -45,12 +45,7 @@ class DCESExplainer(Explainer):
                     min_ctf_dist = ctf_distance
                     min_ctf = ctf_candidate
 
-        # A Local Graph Counterfactual Explanation is created as the return of the method
-        result = LocalGraphCounterfactualExplanation(context=self.context,
-                                                     dataset=self.dataset,
-                                                     oracle=self.oracle,
-                                                     explainer=self,
-                                                     input_instance=instance,
-                                                     counterfactual_instances=[copy.deepcopy(min_ctf)]
-                                                     )
+        result = copy.deepcopy(min_ctf)
+        result.id = instance.id
+
         return result

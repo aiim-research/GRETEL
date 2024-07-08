@@ -14,7 +14,6 @@ class Explainer(Configurable, metaclass=ABCMeta):
     @abstractmethod
     def explain(self, instance):
         pass
-    
 
     def check_configuration(self):
         super().check_configuration()

@@ -11,7 +11,7 @@ from src.utils.context import Context,clean_cfg
 from src.utils.logger import GLogger
 from src.evaluation.stages.stage import Stage
 from src.dataset.instances.base import DataInstance
-from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
+from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.dataset.dataset_base import Dataset
 
 

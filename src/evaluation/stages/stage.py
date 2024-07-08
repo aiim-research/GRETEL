@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 
-from src.explanation.base import Explanation
+from src.future.explanation.base import Explanation
 from src.core.configurable import Configurable
 
 

@@ -1,6 +1,6 @@
 from typing import List
 
-from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
+from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.dataset.instances.graph import GraphInstance
 
 

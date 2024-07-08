@@ -1,11 +1,9 @@
 import torch
-import copy
 
 from src.core.factory_base import get_instance_kvargs
 from src.explainer.per_cls_explainer import PerClassExplainer
 from src.utils.samplers.abstract_sampler import Sampler
 from src.utils.cfg_utils import init_dflts_to_of
-from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 
 class GCounteRGAN(PerClassExplainer):
     """
@@ -69,24 +67,7 @@ class GCounteRGAN(PerClassExplainer):
             cf_instance = self.sampler.sample(
                 instance, self.oracle, **{'embedded_features': embedded_features, 'edge_probabilities': edge_probs}
             )
-
-            if cf_instance:
-                # Building the explanation instance
-                exp = LocalGraphCounterfactualExplanation(context=self.context,
-                                                          dataset=self.dataset,
-                                                          oracle=self.oracle,
-                                                          explainer=self,
-                                                          input_instance=instance,
-                                                          counterfactual_instances=[cf_instance])
-            else:
-                # Building the default explanation instance
-                exp = LocalGraphCounterfactualExplanation(context=self.context,
-                                                          dataset=self.dataset,
-                                                          oracle=self.oracle,
-                                                          explainer=self,
-                                                          input_instance=instance,
-                                                          counterfactual_instances=[copy.deepcopy(instance)])
-            return exp
+        return cf_instance if cf_instance else instance
 
     def check_configuration(self) -> None:
         """

@@ -1,5 +1,5 @@
 from src.evaluation.metrics.base import EvaluationMetric
-from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
+from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 
 
 class OracleAccuracyMetric(EvaluationMetric):

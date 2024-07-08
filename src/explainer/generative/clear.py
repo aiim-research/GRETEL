@@ -14,7 +14,6 @@ from src.core.trainable_base import Trainable
 from src.dataset.utils.dataset_torch import TorchDataset
 from src.utils.logger import GLogger
 from src.utils.utils import pad_adj_matrix
-from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 
 
 class CLEARExplainer(Trainable, Explainer):
@@ -87,16 +86,7 @@ class CLEARExplainer(Trainable, Explainer):
                                         data=adj_reconst_binary.to("cpu").detach().numpy(),
                                         node_features=features_reconst.squeeze().to("cpu").detach().numpy())
             
-            # Building the explanation instance
-            exp = LocalGraphCounterfactualExplanation(context=self.context,
-                                                      dataset=self.dataset,
-                                                      oracle=self.oracle,
-                                                      explainer=self,
-                                                      input_instance=instance,
-                                                      counterfactual_instances=[cf_instance]
-                                                      )
-            return exp
-        
+            return cf_instance
 
     def real_fit(self):
         train_loader = DataLoader(

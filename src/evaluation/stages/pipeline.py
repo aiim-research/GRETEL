@@ -11,10 +11,10 @@ from src.utils.context import Context,clean_cfg
 from src.utils.logger import GLogger
 from src.evaluation.stages.stage import Stage
 from src.dataset.instances.base import DataInstance
-from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
+from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.dataset.dataset_base import Dataset
 from src.core.factory_base import get_class, get_instance_kvargs
-from src.explanation.base import Explanation
+from src.future.explanation.base import Explanation
 
 
 class Pipeline(Stage):

@@ -1,3 +1,4 @@
+import random
 import itertools
 import numpy as np
 import copy
@@ -5,7 +6,6 @@ import copy
 
 from src.core.explainer_base import Explainer
 from src.dataset.instances.graph import GraphInstance
-from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 
 
 class IRandExplainer(Explainer):
@@ -58,23 +58,10 @@ class IRandExplainer(Explainer):
                 l_cf_cand = self.oracle.predict(result)
                 if l_input_inst != l_cf_cand:
                     result.label = l_cf_cand
-
-                    exp = LocalGraphCounterfactualExplanation(context=self.context,
-                                                              dataset=self.dataset,
-                                                              oracle=self.oracle,
-                                                              explainer=self,
-                                                              input_instance=instance,
-                                                              counterfactual_instances=[result])
-                    return exp
+                    return result
         
         # If no counterfactual was found return the original instance by convention
-        exp = LocalGraphCounterfactualExplanation(context=self.context,
-                                                  dataset=self.dataset,
-                                                  oracle=self.oracle,
-                                                  explainer=self,
-                                                  input_instance=instance,
-                                                  counterfactual_instances=[copy.deepcopy(instance)])
-        return exp
+        return copy.deepcopy(instance)
     
 
     def real_fit(self):
