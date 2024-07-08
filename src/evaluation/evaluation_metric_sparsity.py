@@ -19,3 +19,4 @@ class SparsityMetric(EvaluationMetric):
 
     def number_of_structural_features(self, data_instance) -> float:
         return len(data_instance.get_nx().edges) + len(data_instance.get_nx().nodes)
+
