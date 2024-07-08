@@ -1,10 +1,11 @@
 import torch
+import copy
 
 from src.core.factory_base import get_instance_kvargs
 from src.explainer.per_cls_explainer import PerClassExplainer
-
 from src.utils.cfg_utils import init_dflts_to_of
 from src.utils.samplers.abstract_sampler import Sampler
+from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 
 class RSGG(PerClassExplainer):
 
@@ -28,7 +29,24 @@ class RSGG(PerClassExplainer):
                                               embedded_features=embedded_features,
                                               edge_probabilities=edge_probs)
             
-        return cf_instance if cf_instance else instance
+            if cf_instance:
+                # Building the explanation instance
+                exp = LocalGraphCounterfactualExplanation(context=self.context,
+                                                          dataset=self.dataset,
+                                                          oracle=self.oracle,
+                                                          explainer=self,
+                                                          input_instance=instance,
+                                                          counterfactual_instances=[cf_instance])
+            else:
+                # Building the default explanation instance
+                exp = LocalGraphCounterfactualExplanation(context=self.context,
+                                                          dataset=self.dataset,
+                                                          oracle=self.oracle,
+                                                          explainer=self,
+                                                          input_instance=instance,
+                                                          counterfactual_instances=[copy.deepcopy(instance)])
+            return exp
+            
     
     def check_configuration(self):
         self.set_proto_kls('src.explainer.generative.gans.graph.model.GAN')

@@ -1,14 +1,13 @@
-import copy
-import sys
-from abc import ABC
 from typing import List
+import copy
 
 from src.dataset.instances.graph import GraphInstance
+from src.dataset.instances.base import DataInstance
 from src.explainer.ensemble.aggregators.base import ExplanationAggregator
-import numpy as np
+from src.utils.utils import pad_adj_matrix
+from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
+import src.utils.explanations.functions as exp_tools
 
-from src.core.factory_base import get_instance_kvargs
-from src.utils.cfg_utils import init_dflts_to_of
 
 class ExplanationFrequency(ExplanationAggregator):
 
@@ -16,62 +15,54 @@ class ExplanationFrequency(ExplanationAggregator):
         super().check_configuration()
         self.logger= self.context.logger
 
-        dst_metric='src.evaluation.evaluation_metric_ged.GraphEditDistanceMetric'  
+        if 'frequency_threshold' not in self.local_config['parameters']:
+            self.local_config['parameters']['frequency_threshold'] = 0.3
 
-        #Check if the distance metric exist or build with its defaults:
-        init_dflts_to_of(self.local_config, 'distance_metric', dst_metric)       
-
-        if not 'ft' in self.local_config['parameters']:
-            self.local_config['parameters']['ft'] = 3
-
-        if not 'to_be_correct' in self.local_config['parameters']:
-            self.local_config['parameters']['to_be_correct'] = False
+        if self.local_config['parameters']['frequency_threshold'] < 0:
+            self.local_config['parameters']['frequency_threshold'] = 0
+        elif self.local_config['parameters']['frequency_threshold'] > 1.0:
+            self.local_config['parameters']['frequency_threshold'] = 1.0
 
 
     def init(self):
-        super().init()       
+        super().init()
 
-        self.distance_metric = get_instance_kvargs(self.local_config['parameters']['distance_metric']['class'], 
-                                                    self.local_config['parameters']['distance_metric']['parameters'])
-        
-        self.ft = self.local_config['parameters']['ft']
-        self.if_correct = self.local_config['parameters']['to_be_correct']
+        self.freq_t = self.local_config['parameters']['frequency_threshold']
         
 
-    def real_aggregate(self, org_instance: GraphInstance, explanations: List[GraphInstance]):
-        org_lbl = self.oracle.predict(org_instance)
+    def real_aggregate(self, explanations: List[LocalGraphCounterfactualExplanation]) -> LocalGraphCounterfactualExplanation:
+        # calculating the frequency threshold
+        input_inst = explanations[0].input_instance
+        cf_instances = exp_tools.unpack_cf_instances(explanations)
+        n_exp = len(cf_instances)
 
-        # Getting the perturbation matrices of all the explanations that are valid counterfactuals
-        explanations_perturbation_list = [exp.data for exp in explanations if (not self.if_correct or self.oracle.predict(exp) != org_lbl)]
-        # Getting the frequency with which each edge is modified
-        pert_freq = self.union_arrays(explanations_perturbation_list)
+        freq_threshold = int(n_exp * self.freq_t)
+        # In case the given threshold falls below 0 then default to the minimum value of 1 and produce the union
+        if freq_threshold < 1:
+            freq_threshold = 1
 
-        # Getting all the edges above the frequency threshold
-        sampled_edges = []
-        for i in range(pert_freq.shape[0]):
-            for j in range(pert_freq.shape[1]):
-                if pert_freq[i,j] >= self.ft:
-                    # sampled_edges.append([i, j])
-                    pert_freq[i,j] = 1
-                else:
-                    pert_freq[i,j] = 0
-                            
-        cf_candidate = GraphInstance(id=org_instance.id,
-                                    label=0,
-                                    data=pert_freq,
-                                    node_features=org_instance.node_features)
-        
-        for manipulator in org_instance._dataset.manipulators:
-            manipulator._process_instance(cf_candidate)
+        # Get the number of nodes of the bigger explanation instance
+        max_dim = max(input_inst.data.shape[0], max([cf.data.shape[0] for cf in cf_instances]))
 
-        return cf_candidate
-        
-        # If no counterfactual was found return the original instance by convention
-        # return copy.deepcopy(org_instance)
+        # Get all the changes in all explanations
+        mod_edges, _, mod_freq_matrix = self.get_all_edge_differences(input_inst, cf_instances)
+        # Apply to the original matrix those changes that where performed by all explanations
+        intersection_matrix = pad_adj_matrix(copy.deepcopy(input_inst.data), max_dim)
+        for edge in mod_edges:
+            if mod_freq_matrix[edge[0], edge[1]] >= freq_threshold:
+                intersection_matrix[edge[0], edge[1]] = abs(intersection_matrix[edge[0], edge[1]] - 1 )
+
+        # Create the aggregated explanation
+        aggregated_instance = GraphInstance(id=input_inst.id, label=1-input_inst.label, data=intersection_matrix)
+        self.dataset.manipulate(aggregated_instance)
+        aggregated_instance.label = self.oracle.predict(aggregated_instance)
+
+        aggregated_explanation = LocalGraphCounterfactualExplanation(context=self.context,
+                                                                    dataset=self.dataset,
+                                                                    oracle=self.oracle,
+                                                                    explainer=None, # Will be added later by the ensemble
+                                                                    input_instance=input_inst,
+                                                                    counterfactual_instances=[aggregated_instance])
+
+        return aggregated_explanation
     
-
-    def union_arrays(self, arrays):
-        result = np.zeros_like(arrays[0])
-        for arr in arrays:
-            result += arr
-        return result

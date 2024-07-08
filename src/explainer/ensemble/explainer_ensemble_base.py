@@ -26,7 +26,8 @@ class ExplainerEnsemble(Explainer, Trainable):
             exp.producer = explainer
             explanations.append(exp)
 
-        result = self.explanation_aggregator.aggregate(instance, explanations)
+        result = self.explanation_aggregator.aggregate(explanations)
+        result.explainer = self
 
         return result
     

@@ -1,32 +1,42 @@
+from typing import List
 import copy
-import sys
-from abc import ABC
-
-from src.core.explainer_base import Explainer
-from src.dataset.instances.graph import GraphInstance
-from src.explainer.ensemble.aggregators.base import ExplanationAggregator
-from src.evaluation.evaluation_metric_ged import GraphEditDistanceMetric
 import numpy as np
 
-from src.core.factory_base import get_instance_kvargs
-from src.utils.cfg_utils import get_dflts_to_of, init_dflts_to_of, inject_dataset, inject_oracle, retake_oracle, retake_dataset
+from src.dataset.instances.graph import GraphInstance
+from src.dataset.instances.base import DataInstance
+from src.explainer.ensemble.aggregators.base import ExplanationAggregator
 from src.utils.utils import pad_adj_matrix
+from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
+import src.utils.explanations.functions as exp_tools
 
 
 class ExplanationIntersection(ExplanationAggregator):
 
-    def real_aggregate(self, instance, explanations):
-        
-        label = self.oracle.predict(instance)
+    def real_aggregate(self, explanations: List[LocalGraphCounterfactualExplanation]) -> LocalGraphCounterfactualExplanation:
+        # Get the number of nodes of the bigger explanation instance
+        input_inst = explanations[0].input_instance
+        cf_instances = exp_tools.unpack_cf_instances(explanations)
+        max_dim = max(input_inst.data.shape[0], max([cf.data.shape[0] for cf in cf_instances]))
+        exp_count = len(cf_instances)
 
-        max_dim = max([exp.data.shape[0] for exp in explanations])
-        edge_freq_matrix = np.ones((max_dim, max_dim))
+        # Get all the changes in all explanations
+        mod_edges, _, mod_freq_matrix = self.get_all_edge_differences(input_inst, cf_instances)
+        # Apply to the original matrix those changes that where performed by all explanations
+        intersection_matrix = pad_adj_matrix(copy.deepcopy(input_inst.data), max_dim)
+        for edge in mod_edges:
+            if mod_freq_matrix[edge[0], edge[1]] == exp_count:
+                intersection_matrix[edge[0], edge[1]] = abs(intersection_matrix[edge[0], edge[1]] - 1 )
 
-        for exp in explanations:
-            if self.oracle.predict(exp) != label:
-                edge_freq_matrix = edge_freq_matrix * pad_adj_matrix(exp.data, max_dim)
+        # Create the aggregated explanation
+        aggregated_instance = GraphInstance(id=input_inst.id, label=1-input_inst.label, data=intersection_matrix)
+        self.dataset.manipulate(aggregated_instance)
+        aggregated_instance.label = self.oracle.predict(aggregated_instance)
 
-        adj = np.where(edge_freq_matrix > 0, 1, 0)
+        aggregated_explanation = LocalGraphCounterfactualExplanation(context=self.context,
+                                                                    dataset=self.dataset,
+                                                                    oracle=self.oracle,
+                                                                    explainer=None, # Will be added later by the ensemble
+                                                                    input_instance=input_inst,
+                                                                    counterfactual_instances=[aggregated_instance])
 
-        return GraphInstance(id=instance.id, data=adj, label=1-instance.label)
-        
+        return aggregated_explanation

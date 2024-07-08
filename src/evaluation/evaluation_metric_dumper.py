@@ -16,6 +16,7 @@ class InstancesDumper(EvaluationMetric):
         super().__init__(config_dict)
         self._name = 'Dumper'
         self._correctness = CorrectnessMetric()
+
         self._store_path = join(config_dict['parameters']['store_path'], self.__class__.__name__)
         makedirs(self._store_path, exist_ok=True)
 

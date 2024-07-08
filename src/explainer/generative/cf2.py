@@ -2,10 +2,12 @@ import math
 import numpy as np
 import torch
 from copy import deepcopy
+
 from src.dataset.instances.graph import GraphInstance
 from src.core.explainer_base import Explainer
 from src.core.trainable_base import Trainable
 from src.core.oracle_base import Oracle
+from src.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 
 
 class CF2Explainer(Trainable, Explainer):
@@ -90,8 +92,17 @@ class CF2Explainer(Trainable, Explainer):
             cf_instance.edge_weights = weights
             # avoid the old nx representation
             cf_instance._nx_repr = None
+
+            # Building the explanation instance
+            exp = LocalGraphCounterfactualExplanation(context=self.context,
+                                                      dataset=self.dataset,
+                                                      oracle=self.oracle,
+                                                      explainer=self,
+                                                      input_instance=instance,
+                                                      counterfactual_instances=[cf_instance]
+                                                      )
 			
-            return cf_instance
+            return exp
 
 
 class ExplainModelGraph(torch.nn.Module):
