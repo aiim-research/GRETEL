@@ -50,3 +50,8 @@ class Pipeline(Stage):
                 explanation = stage.process(explanation)
         
         return explanation
+    
+    
+    @property
+    def stages(self):
+        return self._stages
