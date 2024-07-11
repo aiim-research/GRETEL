@@ -23,12 +23,12 @@ class ExplanationAggregator(Configurable):
         if 'node_feature_aggregator' not in self.local_config['parameters']:
             init_dflts_to_of(self.local_config,
                              'node_feature_aggregator',
-                             'src.explainer.ensemble.aggregators.nodes.average.AverageAggregator')
+                             'src.explainer.future.ensemble.aggregators.nodes.average.AverageAggregator')
             
         if 'explanation_filter' not in self.local_config['parameters']:
             init_dflts_to_of(self.local_config,
                              'explanation_filter',
-                             'src.explainer.ensemble.aggregators.filters.correctness.CorrectnessFilter')
+                             'src.explainer.future.ensemble.aggregators.filters.correctness.CorrectnessFilter')
             
 
     def init(self):

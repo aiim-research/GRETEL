@@ -1,34 +1,34 @@
 {"evaluation_metrics": [
     {
-        "class": "src.evaluation.metrics.runtime.RuntimeMetric",
+        "class": "src.evaluation.future.metrics.runtime.RuntimeMetric",
         "parameters": {} 
     },
     {
-        "class": "src.evaluation.metrics.ged.GraphEditDistanceMetric",
+        "class": "src.evaluation.future.metrics.ged.GraphEditDistanceMetric",
         "parameters": {} 
     },
     {
-        "class": "src.evaluation.metrics.correctness.CorrectnessMetric",
+        "class": "src.evaluation.future.metrics.correctness.CorrectnessMetric",
         "parameters": {} 
     },
     {
-        "class": "src.evaluation.metrics.oracle_calls.OracleCallsMetric",
+        "class": "src.evaluation.future.metrics.oracle_calls.OracleCallsMetric",
         "parameters": {} 
     },
     {
-        "class": "src.evaluation.metrics.oracle_accuracy.OracleAccuracyMetric",
+        "class": "src.evaluation.future.metrics.oracle_accuracy.OracleAccuracyMetric",
         "parameters": {} 
     },
     {
-        "class": "src.evaluation.metrics.sparsity.SparsityMetric",
+        "class": "src.evaluation.future.metrics.sparsity.SparsityMetric",
         "parameters": {} 
     },
     {
-        "class": "src.evaluation.metrics.fidelity.FidelityMetric",
+        "class": "src.evaluation.future.metrics.fidelity.FidelityMetric",
         "parameters": {} 
     },
     {
-        "class": "src.evaluation.metrics.instability.InstabilityMetric",
+        "class": "src.evaluation.future.metrics.instability.InstabilityMetric",
         "parameters": {} 
     }
 ]}

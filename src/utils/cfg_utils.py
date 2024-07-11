@@ -16,6 +16,15 @@ def inject_dataset(cfg, dataset):
 def inject_oracle(cfg, oracle):
     cfg['oracle']= oracle
 
+def inject_scope(cfg, scope):
+    cfg['scope']= scope
+
+def inject_results_store_path(cfg, results_store_path):
+    cfg['results_store_path'] = results_store_path
+
+def inject_run_number(cfg, run_number):
+    cfg['run_number'] = run_number
+
 def retake_dataset(cfg):
     return cfg['dataset']
 
@@ -24,6 +33,15 @@ def retake_oracle(cfg):
 
 def retake_explainer(cfg):
     return cfg['explainer']
+
+def retake_scope(cfg):
+    return cfg['scope']
+
+def retake_results_store_path(cfg):
+    return cfg['results_store_path']
+
+def retake_run_number(cfg):
+    return cfg['run_number']
 
 
 def add_init_defaults_params(snippet, **kwargs):
