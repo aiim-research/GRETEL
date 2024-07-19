@@ -13,6 +13,8 @@ class EmbeddingDiscriminator(nn.Module):
         self.dropout = dropout
         self.training = False
         self.fc = nn.Linear(num_nodes * dim, 1).double()
+
+        self.training = True
         
         self.device = (
             "cuda"
@@ -47,10 +49,10 @@ class EmbeddingDiscriminator(nn.Module):
         if self.training:
             x = self.add_gaussian_noise(x)
 
-        x = torch.flatten(x)
+        x = x.flatten()
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.fc(x)
-        x = torch.sigmoid(x).squeeze()
+        x = torch.sigmoid(x)
 
         return x
     

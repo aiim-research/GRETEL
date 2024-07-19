@@ -9,18 +9,18 @@ class TranslatingGenerator(nn.Module):
     def __init__(self, k: int, node_features: int, 
                  in_embed_dim: int=2, 
                  out_embed_dim: int=2, num_translator_layers: int=2) -> None:
+        super(TranslatingGenerator, self).__init__()
+        self.embedder = GraphEmbedder(k, node_features, in_embed_dim)
         
-        self.embedder = GraphEmbedder(k, node_features, out_embed_dim)
-        
-        translator_layers = []
-        emb_dim = out_embed_dim
+        self.translator = nn.Sequential()
+        emb_dim = in_embed_dim
         for _ in range(num_translator_layers):
-            translator_layers.append(nn.Linear(emb_dim, in_embed_dim))
-            translator_layers.append(nn.ReLU())
-            emb_dim = in_embed_dim
+            self.translator.append(nn.Linear(emb_dim, out_embed_dim))
+            self.translator.append(nn.ReLU())
+            emb_dim = out_embed_dim
 
-        self.translator = nn.Sequential(**translator_layers)
-
+        self.training = True
+        
         self.device = (
                     "cuda"
                     if torch.cuda.is_available()
@@ -47,10 +47,13 @@ class TranslatingGenerator(nn.Module):
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
 
-    def forward(self, node_features, edge_list, edge_weights):
-        cf_node_embeddings = self.embedder(node_features, edge_list, edge_weights)
+    def forward(self, node_features, edge_list, edge_weights, batch=None):
+        cf_node_embeddings = self.embedder(node_features, edge_list, edge_weights, batch)
         f_node_embeddings = self.translator(cf_node_embeddings)
         return f_node_embeddings
+    
+    def set_training(self, training):
+        self.training = training
     
 
     @default_cfg

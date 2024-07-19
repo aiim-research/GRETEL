@@ -40,30 +40,22 @@ class GraphEmbedder(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
-                nn.init.normal_(m.weight, 0, 0.01)
+                torch.nn.init.xavier_uniform_(m.weight)
                 if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
+                    torch.nn.init.zeros_(m.bias)
+
         
     def set_training(self, training):
         self.training = training
 
-    def forward(self, x, edge_list, edge_attr):
+    def forward(self, x, edge_list, edge_attr, batch=None):
         x = x.double()
         edge_attr = edge_attr.double()
         x = self.conv(x, edge_list, edge_attr)
-        
-        if self.training:
-            x = self.add_gaussian_noise(x)
         x = F.relu(x)
-        x, _, _, _, _, _ = self.pool(x, edge_list, edge_attr)
-        x = F.relu(x)
-
+        x, _, _, _, _, _ = self.pool(x, edge_list, edge_attr, batch)
         return x
     
-    def add_gaussian_noise(self, x, sttdev=0.2):
-        noise = torch.randn(x.size(), device=self.device).mul_(sttdev)
-        return x + noise
-        
     @default_cfg
     def grtl_default(kls, num_nodes, node_feature_dim, dim=2):
         return {"class": kls,
@@ -74,36 +66,54 @@ class GraphEmbedder(nn.Module):
                         }
         }
         
-class PreDiscriminatorEmbedder(nn.Module):
+
+class EdgeExistanceModule(nn.Module):
+
+    def __init__(self, dim=2) -> None:
+        super(EdgeExistanceModule, self).__init__()
+        # decodes the edge embeddings (concatenation of two node vectors)
+        self.edge_decoder = nn.Linear(2 * dim, 1)
+
+    def forward(self, emb_nodes, edge_list) -> Tuple[torch.Tensor,
+                                                     torch.Tensor,
+                                                     torch.Tensor]:
+        def tensor_in_list(tensor, tensor_list):
+            return any(torch.equal(tensor, t) for t in tensor_list)
+        
+        # repeat the node embeddings n times where n is the number of nodes 
+        interleaved = torch.repeat_interleave(emb_nodes, repeats=emb_nodes.shape[0], dim=0)
+        repeated = emb_nodes.repeat(emb_nodes.shape[0], 1)
+        # where all rows are zero, then there's a self-loop, which we need to delete
+        loops = interleaved - repeated
+        non_empty_mask = loops.abs().sum(dim=1).bool()
+        # Initialize the real edges tensor
+        real_edges = []
+        for node1, node2 in list(zip(edge_list[0], edge_list[1])):
+            real_edges.append(torch.concat((emb_nodes[node1], emb_nodes[node2])))
+        # create edge embeddings
+        edge_embeddings = torch.concat([interleaved, repeated], dim=1)
+        # check if the edge exists
+        edge_logits = self.edge_decoder(edge_embeddings)
+        #new_edge_logits = edge_logits.clone()
+        #new_edge_logits[non_empty_mask] = 0
+
+        true_edges = torch.empty(size=(edge_embeddings.shape[0], 1))
+    
+        for i, edge_embedding in enumerate(edge_embeddings):
+            true_edges[i] = 1 if tensor_in_list(edge_embedding, real_edges) else 0
+        
+        return edge_embeddings, edge_logits.squeeze(), true_edges.squeeze()
+    
+
+class NodeDecoderModule(nn.Module):
 
     def __init__(self, num_nodes, node_feature_dim, dim=2) -> None:
+        super(NodeDecoderModule, self).__init__()
         # embeds the graph into node vectors
         self.embedder = GraphEmbedder(num_nodes, node_feature_dim, dim)
         # decodes the embedded node vectors into the original node feature space
         self.node_decoder = nn.Linear(dim, node_feature_dim)
-        # decodes the edge embeddings (concatenation of two node vectors)
-        self.edge_decoder = nn.Linear(2 * dim, 1)
 
-    def forward(self, node_features, edge_list, edge_attrs) -> Tuple[torch.Tensor, 
-                                                                     torch.Tensor,
-                                                                     torch.Tensor,
-                                                                     torch.Tensor]:
-        emb_nodes: torch.Tensor = self.embedder(node_features, edge_list, edge_attrs)
-        # repeat the node embeddings n times where n is the number of nodes 
-        interleaved = torch.repeat_interleave(emb_nodes, repeats=emb_nodes.shape[0], dim=0)
-        repeated = emb_nodes.repeat(emb_nodes.shape[0])
-        # where all rows are zero, then there's a self-loop, which we need to delete
-        loops = interleaved - repeated
-        non_empty_mask = loops.abs().sum(dim=0).bool()
-        # remove the self-loops
-        interleaved, repeated = interleaved[:,non_empty_mask], repeated[:,non_empty_mask]
-        # create edge embeddings
-        edge_embeddings = torch.concat([interleaved, repeated], dim=1)
-        # check if the edge exists
-        edge_exists = torch.empty(size=(edge_embeddings.shape[0], 1))
-        for i, edge_embedding in enumerate(edge_embeddings):
-            edge_exists[i] = torch.sigmoid(self.edge_decoder(edge_embedding))
-        # reconstruct the node features
-        recons_nodes = self.node_decoder(emb_nodes)
-        return emb_nodes, recons_nodes, edge_embeddings, edge_exists
-    
+    def forward(self, emb_nodes) -> torch.Tensor:
+        return self.node_decoder(emb_nodes)
+   

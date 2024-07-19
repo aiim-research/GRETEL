@@ -68,4 +68,3 @@ class ResGenerator(nn.Module):
     @default_cfg
     def grtl_default(kls, node_features):
         return {"class": kls, "parameters": { "node_features": node_features } }
-    
