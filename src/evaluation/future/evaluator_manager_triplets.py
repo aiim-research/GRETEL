@@ -33,35 +33,30 @@ class EvaluatorManager:
 
     def _create_evaluators(self):
         # Get the lists of main componets from the main configuration file.
-        '''datasets_list = self.context.conf['datasets']
-        oracles_list = self.context.conf['oracles']'''
 
         triplets_list = self.context.conf['doe-triplets']
-        metrics_list = self.context.conf['evaluation_metrics']
-        explainers_list = self.context.conf['explainers']
         evaluator_conf = self.context.conf['evaluator']
-        evaluation_metrics = []
+        experiment_scope = self.context.conf['experiment']['scope']
+        # results_store_path = self.context.conf['']
 
         # Shuffling dataset_oracles pairs and explainers will enabling by chance
         # parallel distributed cration and training.
 
         #shuffle triplets
         random.shuffle(triplets_list)
-        random.shuffle(explainers_list) 
-
-        # Instantiate the evaluation metrics that will be used for the evaluation;
-        for metric_dict in metrics_list:
-            evaluation_metrics.append(self.context.factories['metrics'].get_evaluation_metric_by_name(metric_dict))
 
         for triplet_snippet in triplets_list:
 
             dataset = self.context.factories['datasets'].get_dataset(triplet_snippet['dataset'])
             oracle = self.context.factories['oracles'].get_oracle(triplet_snippet['oracle'], dataset)
             explainer = self.context.factories['explainers'].get_explainer(triplet_snippet['explainer'], dataset, oracle)
-            evaluator = self.context.factories['evaluators'].get_evaluator(evaluator_conf, )
-
-            evaluator = Evaluator(self.context._scope, dataset, oracle, explainer, evaluation_metrics,
-                                        self._output_store_path, self.context.run_number)
+            evaluator = self.context.factories['evaluators'].get_evaluator(evaluator_snippet=evaluator_conf, 
+                                                                           dataset=dataset, 
+                                                                           oracle=oracle,
+                                                                           explainer=explainer,
+                                                                           scope=experiment_scope,
+                                                                           results_store_path=self._output_store_path,
+                                                                           run_number=self.context.run_number)
 
             self._evaluators.append(evaluator)
 
