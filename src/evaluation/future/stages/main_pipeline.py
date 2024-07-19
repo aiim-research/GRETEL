@@ -1,23 +1,14 @@
-import os
-import time
-from abc import ABCMeta, abstractmethod
-import jsonpickle
 from typing import List
 
-from src.core.configurable import Configurable
-from src.core.explainer_base import Explainer
-from src.core.oracle_base import Oracle
 from src.utils.context import Context,clean_cfg
 from src.utils.logger import GLogger
-from src.evaluation.future.stages.stage import Stage
-from src.dataset.instances.base import DataInstance
-from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
-from src.dataset.dataset_base import Dataset
 from src.core.factory_base import get_class, get_instance_kvargs
 from src.future.explanation.base import Explanation
+from src.evaluation.future.stages.pipeline import Pipeline
+from src.evaluation.future.stages.runtime import Runtime
 
 
-class Pipeline(Stage):
+class MainPipeline(Pipeline):
     """
     This class defines a pipeline of actions (stages) to be performed on a data instance
     For each input instance the pipeline creates an explanation object.
@@ -34,6 +25,12 @@ class Pipeline(Stage):
 
 
     def check_configuration(self):
+        if len(self.local_config['parameters']['stages']) < 1:
+             raise ValueError('The pipeline cannot be empty')
+        
+        # if self.local_config['parameters']['stages'][0]['class'] != Runtime.__name__:
+        #      raise ValueError('The first stage of a Main Pipeline should be a Runtime stage')
+        
         super().check_configuration()
         self.logger= self.context.logger
 
@@ -50,8 +47,3 @@ class Pipeline(Stage):
                 explanation = stage.process(explanation)
         
         return explanation
-    
-    
-    @property
-    def stages(self):
-        return self._stages

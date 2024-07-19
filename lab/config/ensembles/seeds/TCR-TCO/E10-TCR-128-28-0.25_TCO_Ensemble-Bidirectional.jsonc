@@ -13,11 +13,11 @@
     },
     "do-pairs":[{"compose_tcr_gcn" : "./lab/config/snippets/do-pairs/TCR-128-28-0.25_TCO.json"}],
     "explainers": [
-        {"class": "src.explainer.ensemble.explainer_ensemble_base.ExplainerEnsemble",
+        {"class": "src.explainer.future.ensemble.explainer_ensemble_base.ExplainerEnsemble",
          "parameters": {
                         "compose_exp": "./lab/config/snippets/base_explainers.json",
                         "aggregator": {
-                            "class": "src.explainer.ensemble.aggregators.bidirectional.ExplanationBidirectionalSearch",
+                            "class": "src.explainer.future.ensemble.aggregators.bidirectional.ExplanationBidirectionalSearch",
                             "parameters": {"oc_limit": 1000}
                         }
                         }

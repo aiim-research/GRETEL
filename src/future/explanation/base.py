@@ -15,8 +15,10 @@ class Explanation(Base):
         self._oracle = oracle
         self._explainer = explainer
         self._stages_info = {}
+
+        #TODO Deprecate this dictionaries
         self._metrics_info = {}
-        self._runtime_info = {} #TODO Potentially to remove
+        self._runtime_info = {} 
 
     @property
     def context(self) -> Context:
@@ -53,7 +55,11 @@ class Explanation(Base):
     def explainer(self, new_explainer) -> None:
         self._explainer = new_explainer
         
-
+    @property
+    def stages_info(self) -> dict:
+        return self._stages_info
+    
+    # TODO Deprecate this properties
     @property
     def runtime_info(self) -> dict:
         return self._runtime_info
@@ -74,23 +80,3 @@ class Explanation(Base):
         self._runtime_info['explanation_runtime'] = new_runtime_info
 
     
-    @property
-    def explainer_training_runtime(self) -> int:
-        if 'explainer_training_runtime' not in self._runtime_info:
-            return -1
-        return self._runtime_info['explainer_training_runtime']
-    
-    @explainer_training_runtime.setter
-    def explainer_training_runtime(self, new_runtime_info) -> None:
-        self._runtime_info['explainer_training_runtime'] = new_runtime_info
-
-    
-    @property
-    def oracle_training_runtime(self) -> int:
-        if 'oracle_training_runtime' not in self._runtime_info:
-            return -1
-        return self._runtime_info['oracle_training_runtime']
-    
-    @oracle_training_runtime.setter
-    def oracle_training_runtime(self, new_runtime_info) -> None:
-        self._runtime_info['oracle_training_runtime'] = new_runtime_info
