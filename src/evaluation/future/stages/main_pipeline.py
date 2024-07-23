@@ -28,8 +28,9 @@ class MainPipeline(Pipeline):
         if len(self.local_config['parameters']['stages']) < 1:
              raise ValueError('The pipeline cannot be empty')
         
-        # if self.local_config['parameters']['stages'][0]['class'] != Runtime.__name__:
-        #      raise ValueError('The first stage of a Main Pipeline should be a Runtime stage')
+        runtime_class_name = Context.get_class_fullname(Runtime)
+        if self.local_config['parameters']['stages'][0]['class'] != runtime_class_name:
+             raise ValueError('The first stage of a Main Pipeline should be a Runtime stage')
         
         super().check_configuration()
         self.logger= self.context.logger
