@@ -40,7 +40,7 @@ class DataAnalyzer():
         mega_dict = {}
         rows = []
         first_iteration = True
-        metric_names = []
+        stage_names = []
         
         # Reading the files and creating a dictionaries with aggregated results for each run
         for results_file_uri in results_file_paths:
@@ -79,15 +79,15 @@ class DataAnalyzer():
 
                 # Aggregate the measures
                 aggregated_metrics = []
-                for m_class, m_value in results_dict['results'].items():
-                    metric_name = m_class.split('.')[-1]
+                for s_class, s_value in results_dict['results'].items():
+                    stage_name = s_class.split('.')[-1]
                     if first_iteration: # The metric names are only needed the first time
-                         metric_names.append(metric_name)
+                         stage_names.append(stage_name)
 
                     # metric = get_instance_kvargs(kls=m_class, param={})
-                    metric = get_class(kls=m_class)
-                    vals = [x['value'] for x in m_value]
-                    agg_values, agg_std = metric.aggregate(vals, correctness_vals)
+                    stage = get_class(kls=s_class)
+                    vals = [x['value'] for x in s_value]
+                    agg_values, agg_std = stage.aggregate(vals, correctness_vals)
                     aggregated_metrics.append(agg_values)
 
                 mega_dict[hashed_scope][hashed_dataset_name][hashed_oracle_name][hashed_explainer_name].append(aggregated_metrics)
@@ -96,7 +96,7 @@ class DataAnalyzer():
 
         # Creating the header of the table
         column_names = ['scope', 'dataset', 'oracle', 'explainer']
-        for m_name in metric_names:
+        for m_name in stage_names:
             column_names.append(m_name)
             column_names.append(m_name + '-std')
 
@@ -108,10 +108,10 @@ class DataAnalyzer():
                     for explainer_name, runs in explainers.items():
                         row = [scope_name, dataset_name, oracle_name, explainer_name]
 
-                        for m in range(len(metric_names)):
-                            m_values = [runs[i][m] for i in range(len(runs))]
-                            v_mean = np.mean(m_values)
-                            v_std = np.std(m_values)
+                        for s_idx in range(len(stage_names)):
+                            s_values = [runs[i][s_idx] for i in range(len(runs))]
+                            v_mean = np.mean(s_values)
+                            v_std = np.std(s_values)
                             row.append(v_mean)
                             row.append(v_std)
 
