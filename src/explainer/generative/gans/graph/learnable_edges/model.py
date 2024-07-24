@@ -187,15 +187,16 @@ class EdgeLearnableGAN(BaseGAN):
             and 'parameters' in self.local_config['parameters']['discriminator']:
             dropout = self.local_config['parameters']['discriminator']['parameters'].get('dropout', .2)
         else:
-            dropout = .2
+            dropout, = .2
 
         if 'generator' in self.local_config['parameters']\
             and 'parameters' in self.local_config['parameters']['generator']:
             in_embed_dim = self.local_config['parameters']['generator']['parameters'].get('in_embed_dim', 10)
             out_embed_dim = self.local_config['parameters']['generator']['parameters'].get('out_embed_dim', 4)
             num_translator_layers = self.local_config['parameters']['generator']['parameters'].get('num_translator_layers', 4)
+            gaussian_std = self.local_config['parameters']['discriminator']['parameters'].get('gaussian_std', .1)
         else:
-            in_embed_dim, out_embed_dim, num_translator_layers = 10, 4, 4
+            in_embed_dim, out_embed_dim, num_translator_layers, gaussian_std = 10, 4, 4, .1
 
         
         #Check if the generator exist or build with its defaults:
@@ -206,7 +207,8 @@ class EdgeLearnableGAN(BaseGAN):
                          in_embed_dim=in_embed_dim,
                          out_embed_dim=out_embed_dim,
                          num_translator_layers=num_translator_layers,
-                         node_features=self.dataset.num_node_features())
+                         node_features=self.dataset.num_node_features(),
+                         gaussian_std=gaussian_std)
         #Check if the discriminator exist or build with its defaults:
         init_dflts_to_of(self.local_config,
                          'discriminator',

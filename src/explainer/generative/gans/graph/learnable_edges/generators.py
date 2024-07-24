@@ -8,7 +8,9 @@ class TranslatingGenerator(nn.Module):
 
     def __init__(self, k: int, node_features: int, 
                  in_embed_dim: int=2, 
-                 out_embed_dim: int=2, num_translator_layers: int=2) -> None:
+                 out_embed_dim: int=2, 
+                 num_translator_layers: int=2,
+                 gaussian_std: float=.1) -> None:
         super(TranslatingGenerator, self).__init__()
         self.embedder = GraphEmbedder(k, node_features, in_embed_dim)
         
@@ -20,6 +22,8 @@ class TranslatingGenerator(nn.Module):
             emb_dim = out_embed_dim
 
         self.training = True
+
+        self.gaussian_std = gaussian_std
         
         self.device = (
                     "cuda"
@@ -50,7 +54,7 @@ class TranslatingGenerator(nn.Module):
     def forward(self, node_features, edge_list, edge_weights, batch=None):
         cf_node_embeddings = self.embedder(node_features, edge_list, edge_weights, batch)
         f_node_embeddings = self.translator(cf_node_embeddings)
-        f_node_embeddings = self.add_gaussian_noise(f_node_embeddings)
+        f_node_embeddings = self.add_gaussian_noise(f_node_embeddings, self.gaussian_std)
         return f_node_embeddings
     
     def set_training(self, training):
