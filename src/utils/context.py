@@ -104,6 +104,18 @@ class Context(object):
             return klass.__qualname__ # avoid outputs like 'builtins.str'
         return module + '.' + klass.__qualname__
         
+
+    @classmethod
+    def get_class_fullname(cls, kls):
+        """
+        This method is designed to get the full name of a class (kls) from the class itself and not from an instance of it
+        """
+        module = kls.__module__
+        if module == 'builtins':
+            return kls.__qualname__ # avoid outputs like 'builtins.str'
+        return module + '.' + kls.__qualname__
+
+
     def get_name(self, inst, dictionary=None, alias=None):        
         cls = inst.__class__.__name__ if not alias else alias
         dictionary= clean_cfg(inst.local_config) if dictionary is None else clean_cfg(dictionary)
