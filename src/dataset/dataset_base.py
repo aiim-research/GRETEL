@@ -102,7 +102,7 @@ class Dataset(Savable):
     
     def manipulate(self, instance: DataInstance):
         for manipulator in self.manipulators:
-            manipulator._process_instance(instance)
+            manipulator.process_instance(instance)
     
     @property        
     def num_classes(self):

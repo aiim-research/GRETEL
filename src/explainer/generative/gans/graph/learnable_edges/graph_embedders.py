@@ -81,28 +81,29 @@ class EdgeExistanceModule(nn.Module):
             return any(torch.equal(tensor, t) for t in tensor_list)
         
         # repeat the node embeddings n times where n is the number of nodes 
-        interleaved = torch.repeat_interleave(emb_nodes, repeats=emb_nodes.shape[0], dim=0)
-        repeated = emb_nodes.repeat(emb_nodes.shape[0], 1)
+        interleaved = torch.repeat_interleave(emb_nodes, repeats=emb_nodes.shape[0], dim=0).detach()
+        repeated = emb_nodes.repeat(emb_nodes.shape[0], 1).detach()
         # where all rows are zero, then there's a self-loop, which we need to delete
         loops = interleaved - repeated
+        loops = loops.detach()
         non_empty_mask = loops.abs().sum(dim=1).bool()
         # Initialize the real edges tensor
         real_edges = []
         for node1, node2 in list(zip(edge_list[0], edge_list[1])):
             real_edges.append(torch.concat((emb_nodes[node1], emb_nodes[node2])))
         # create edge embeddings
-        edge_embeddings = torch.concat([interleaved, repeated], dim=1)
+        edge_embeddings = torch.concat([interleaved, repeated], dim=1).detach()
         # check if the edge exists
         edge_logits = self.edge_decoder(edge_embeddings)
-        #new_edge_logits = edge_logits.clone()
-        #new_edge_logits[non_empty_mask] = 0
+        logits_without_self_loops = edge_logits.clone().squeeze()
+        logits_without_self_loops[~non_empty_mask] = -10
 
         true_edges = torch.empty(size=(edge_embeddings.shape[0], 1))
     
         for i, edge_embedding in enumerate(edge_embeddings):
             true_edges[i] = 1 if tensor_in_list(edge_embedding, real_edges) else 0
         
-        return edge_embeddings, edge_logits.squeeze(), true_edges.squeeze()
+        return edge_embeddings, logits_without_self_loops, true_edges.squeeze()
     
 
 class NodeDecoderModule(nn.Module):

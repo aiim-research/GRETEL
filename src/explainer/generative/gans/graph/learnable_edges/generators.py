@@ -50,11 +50,15 @@ class TranslatingGenerator(nn.Module):
     def forward(self, node_features, edge_list, edge_weights, batch=None):
         cf_node_embeddings = self.embedder(node_features, edge_list, edge_weights, batch)
         f_node_embeddings = self.translator(cf_node_embeddings)
+        f_node_embeddings = self.add_gaussian_noise(f_node_embeddings)
         return f_node_embeddings
     
     def set_training(self, training):
         self.training = training
     
+    def add_gaussian_noise(self, x, sttdev=0.1):
+        noise = torch.randn(x.size(), device=self.device).mul_(sttdev)
+        return x + noise
 
     @default_cfg
     def grtl_default(kls, k: int,
