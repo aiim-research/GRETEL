@@ -1,5 +1,4 @@
 from typing import List
-
 import numpy as np
 
 from src.core.factory_base import get_instance_kvargs

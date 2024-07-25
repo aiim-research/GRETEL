@@ -13,19 +13,17 @@
     },
     "doe-triplets":[
         {
-            "dataset" : {"compose_data" : "lab/config/snippets/datasets/TCR-128-28-0.25.json"},
+            "dataset" : {
+                "compose_data" : "lab/config/snippets/datasets/TCR-128-28-0.25.json"
+            },
             "oracle": {
                 "class": "src.oracle.custom.oracle_tree_cycles.TreeCyclesOracle",
                 "parameters": {} 
             },
             "explainer": { 
-                "class": "src.explainer.future.ensemble.explainer_ensemble_base.ExplainerEnsemble",
-                "parameters": {
-                    "compose_exp": "./lab/config/snippets/base_explainers_safe.json",
-                    "aggregator": {
-                        "class": "src.explainer.future.ensemble.aggregators.bidirectional.ExplanationBidirectionalSearch",
-                        "parameters": {"oc_limit": 1000}
-                    }
+                "class": "src.explainer.future.generative.rsgg.RSGG",
+                "parameters":{
+                    "epochs": 500
                 }
             }
         }
