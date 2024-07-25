@@ -48,7 +48,7 @@ class AverageAggregator(NodeFeatureAggregator):
 
                 # TODO Check if it has sense to re-apply the manipulators
                 for manipulator in cf_candidate._dataset.manipulators:
-                    manipulator._process_instance(cf_candidate)
+                    manipulator.process_instance(cf_candidate)
 
                 # Append the instance to the new counterfactual instances list
                 result.append(cf_candidate)
