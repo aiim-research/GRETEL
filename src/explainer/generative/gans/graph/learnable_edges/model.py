@@ -81,7 +81,7 @@ class EdgeLearnableGAN(BaseGAN):
             losses_G, losses_D, rec_losses, edge_losses = [], [], [], []
 
             for cf_data, f_data in itertools.zip_longest(discriminator_loader, generator_loader, fillvalue=None):
-                
+
                 if cf_data is not None:
                     cf_node_features, cf_edge_index, cf_edge_features, _, cf_batch, _ = cf_data
                     
@@ -168,8 +168,8 @@ class EdgeLearnableGAN(BaseGAN):
                     loss_G.backward()
                     self.generator_optimizer.step()
 
-            # Print the losses
-            self.context.logger.info(f'Epoch [{epoch}/{self.epochs}], Loss D: {np.mean(losses_D)}, Loss G: {np.mean(losses_G)}, Loss Edge: {np.mean(edge_losses)}, Loss Nodes: {np.mean(rec_losses)}')
+                # Print the losses
+            self.context.logger.info(f'Epoch [{epoch+1}/{self.epochs}], Loss D: {np.mean(losses_D)}, Loss G: {np.mean(losses_G)}, Loss Edge: {np.mean(edge_losses)}, Loss Nodes: {np.mean(rec_losses)}')
             
 
     def retake_batch(self, node_features, edge_indices, edge_features, batch, counterfactual=False, generator=False):
@@ -266,10 +266,10 @@ class EdgeLearnableGAN(BaseGAN):
         
         # If the gen_optimizer is not present we create it
         if 'node_optimizer' not in self.local_config['parameters']:
-            init_dflts_to_of(self.local_config, 'node_optimizer','torch.optim.Adam',lr=0.001)
+            init_dflts_to_of(self.local_config, 'node_optimizer','torch.optim.SGD',lr=0.001)
 
         if 'edge_optimizer' not in self.local_config['parameters']:
-            init_dflts_to_of(self.local_config, 'edge_optimizer','torch.optim.Adam',lr=0.001)
+            init_dflts_to_of(self.local_config, 'edge_optimizer','torch.optim.SGD',lr=0.001)
         
         super().check_configuration()
         

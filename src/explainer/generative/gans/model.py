@@ -107,21 +107,19 @@ class BaseGAN(TorchBase):
 
         # We look if it is present a proto_optimizer to use
         if 'proto_optimizer' not in local_config['parameters']:
-            init_dflts_to_of(local_config, 'proto_optimizer','torch.optim.Adam',lr=0.0002, betas=(0.5,0.999))
+            init_dflts_to_of(local_config, 'proto_optimizer','torch.optim.SGD',lr=0.001)
         
         proto_optimizer = local_config['parameters'].pop('proto_optimizer')        
 
         # If the gen_optimizer is not present we create it
         if 'gen_optimizer' not in local_config['parameters']:
             local_config['parameters']['gen_optimizer'] = copy.deepcopy(proto_optimizer)
-            local_config['parameters']['gen_optimizer']['parameters']['lr']=0.0002 # We  override the proto lr
-            local_config['parameters']['gen_optimizer']['parameters']['betas'] = (0.5,0.999)
+            local_config['parameters']['gen_optimizer']['parameters']['lr']=0.001 # We  override the proto lr
 
         # If the gen_optimizer is not present we create it
         if 'disc_optimizer' not in local_config['parameters']:
             local_config['parameters']['disc_optimizer'] = copy.deepcopy(proto_optimizer)
-            local_config['parameters']['disc_optimizer']['parameters']['lr']=0.0002 # We override the proto lr  
-            local_config['parameters']['gen_optimizer']['parameters']['betas'] = (0.5,0.999)      
+            local_config['parameters']['disc_optimizer']['parameters']['lr']=0.001 # We override the proto lr  
         
-        init_dflts_to_of(local_config, 'gen_optimizer','torch.optim.Adam',lr=0.0002, betas=(0.5,0.999))
-        init_dflts_to_of(local_config, 'disc_optimizer','torch.optim.Adam',lr=0.002, betas=(0.5, 0.999))
+        init_dflts_to_of(local_config, 'gen_optimizer','torch.optim.SGD',lr=0.001)
+        init_dflts_to_of(local_config, 'disc_optimizer','torch.optim.SGD',lr=0.001)

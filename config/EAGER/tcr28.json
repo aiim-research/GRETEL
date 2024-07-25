@@ -22,7 +22,7 @@
                 {
                     "class": "src.explainer.generative.gans.graph.learnable_edges.model.EdgeLearnableGAN",
                     "parameters": {
-                        "epochs": 200,
+                        "epochs": 10,
                         "alpha": 0.5,
                         "generator": {
                             "class": "src.explainer.generative.gans.graph.learnable_edges.generators.TranslatingGenerator",
