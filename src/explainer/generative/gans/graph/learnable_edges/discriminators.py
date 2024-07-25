@@ -11,7 +11,6 @@ class EmbeddingDiscriminator(nn.Module):
         super(EmbeddingDiscriminator, self).__init__()
 
         self.dropout = dropout
-        self.training = False
         self.fc = nn.Linear(num_nodes * dim, 1).double()
 
         self.training = True
@@ -46,19 +45,10 @@ class EmbeddingDiscriminator(nn.Module):
         self.training = training
 
     def forward(self, x):
-        if self.training:
-            x = self.add_gaussian_noise(x)
-
-        x = x.flatten()
-        x = F.dropout(x, p=self.dropout, training=self.training)
+        x = torch.flatten(x, start_dim=1)
         x = self.fc(x)
         x = torch.sigmoid(x)
-
         return x
-    
-    def add_gaussian_noise(self, x, sttdev=0.2):
-        noise = torch.randn(x.size(), device=self.device).mul_(sttdev)
-        return x + noise
         
     @default_cfg
     def grtl_default(kls, num_nodes, dim=2, dropout=.4):

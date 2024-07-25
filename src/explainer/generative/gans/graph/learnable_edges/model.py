@@ -6,7 +6,7 @@ import torch
 from typing import Any, Tuple
 
 from src.core.factory_base import get_instance_kvargs
-from src.utils.metrics.ged import GraphEditDistanceMetric
+from src.evaluation.evaluation_metric_ged import GraphEditDistanceMetric
 from src.explainer.generative.gans.graph.learnable_edges.graph_embedders import GraphEmbedder
 from src.explainer.generative.gans.model import BaseGAN
 from src.dataset.instances.graph import GraphInstance
@@ -20,7 +20,6 @@ class EdgeLearnableGAN(BaseGAN):
 
     def init(self):
         super().init()
-
         local_params = self.local_config['parameters']
         self.edge_module = get_instance_kvargs(local_params['edge_module']['class'],
                                                local_params['edge_module']['parameters'])
@@ -65,117 +64,152 @@ class EdgeLearnableGAN(BaseGAN):
             for batch in loader:
                 yield batch.to(self.device)
                 
-    def real_fit(self):        
-        discriminator_loader = self.infinite_data_stream(self.dataset.get_torch_loader(fold_id=self.fold_id,
-                                                                                       batch_size=self.batch_size,
-                                                                                       kls=self.explainee_label))
-        generator_loader = self.infinite_data_stream(self.dataset.get_torch_loader(fold_id=self.fold_id,
-                                                                                   batch_size=self.batch_size,
-                                                                                   kls=1-self.explainee_label))
+    def real_fit(self):   
+        discriminator_loader = self.dataset.get_torch_loader(fold_id=self.fold_id,
+                                                             batch_size=self.batch_size,
+                                                             kls=self.explainee_label)
         
+        generator_loader =  self.dataset.get_torch_loader(fold_id=self.fold_id,
+                                                          batch_size=self.batch_size,
+                                                          kls=1-self.explainee_label)
+
         all_edges = torch.tensor(list(itertools.product(range(self.dataset.num_nodes), repeat=2))).T  # (2, d)
 
         torch.autograd.set_detect_anomaly(True)
         
-        accum_iter = 10
         for epoch in range(self.epochs):
-            G_losses, D_losses, rec_losses, edge_losses = [], [], [], []
-            self.prepare_discriminator_for_training()
-            #######################################################################
-            # discriminator data (real batch)
-            cf_node_features, cf_edge_index, cf_edge_features, _ , cf_batch ,_ = next(discriminator_loader)
-            # generator data (fake batch)
-            f_node_features, f_edge_index, f_edge_features, _ , f_batch , _  = next(generator_loader)
-            # generate the node embeddings
-            f_embedded_nodes = self.generator(f_node_features[1],
-                                              f_edge_index[1],
-                                              f_edge_features[1],
-                                              f_batch[1])
-            # get the real and fake labels
-            y_batch = torch.cat([torch.ones((len(torch.unique(cf_batch[1])),)),
-                                 torch.zeros(len(torch.unique(f_batch[1])),)], dim=0).to(self.device)     
-            #######################################################################
-            # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
-            f_pred = self.discriminator(f_embedded_nodes)
-            # embed the nodes
-            cf_emb_nodes = self.graph_embedder(cf_node_features[1], cf_edge_index[1], cf_edge_features[1], cf_batch[1])
-            cf_pred = self.discriminator(cf_emb_nodes)
-             # update the node reconstruction module
-            self.node_optimizer.zero_grad()
-            cf_recon_nodes = self.node_module(cf_emb_nodes)
-            f_recon_nodes = self.node_module(f_embedded_nodes)
-            rec_loss = self.alpha * self.rec_loss_fn(cf_node_features[1], cf_recon_nodes)
-            rec_losses.append(rec_loss.item())
-            rec_loss.backward(retain_graph=True)
-            self.node_optimizer.step()
-            # update the edge estimation module
-            self.edge_optimizer.zero_grad()
-            _, cf_edge_logits, cf_true_edges = self.edge_module(cf_emb_nodes, cf_edge_index[1])
-            _, f_edge_logits, _ = self.edge_module(f_embedded_nodes, f_edge_index[1])
-            edge_loss = (1-self.alpha) * self.edge_loss_fn(cf_true_edges.double(), cf_edge_logits.double())
-            edge_losses.append(edge_loss.item())
-            edge_loss.backward()
-            self.edge_optimizer.step()
-            # get the oracle's predictions
-            f_repr_edge_index, f_repr_edge_weight = self.__reparametrization_trick(all_edges, f_edge_logits, self.tau)
-            fake_inst = self.retake_batch(f_recon_nodes, f_repr_edge_index, f_repr_edge_weight, f_batch[1], counterfactual=True, generator=True)
-            cf_repr_edge_index, cf_repr_edge_weight = self.__reparametrization_trick(all_edges, cf_edge_logits, self.tau)
-            real_inst = self.retake_batch(cf_recon_nodes, cf_repr_edge_index, cf_repr_edge_weight, cf_batch[1])
-            oracle_scores = self.take_oracle_predictions(real_inst + fake_inst, y_batch)
-            # backward loss on the discriminator
-            y_pred = torch.cat([cf_pred, f_pred], dim=0)
-            loss = torch.mean(self.loss_fn(y_pred.squeeze().double(), y_batch.double()) * torch.tensor(oracle_scores, dtype=torch.float))
-            D_losses.append(loss.item())
-            loss.backward()
-            self.discriminator_optimizer.step()
-            #######################################################################
-            ## Update G network: maximize log(D(G(z)))
-            self.prepare_generator_for_training()
+            losses_G, losses_D, rec_losses, edge_losses = [], [], [], []
 
-            f_node_features, f_edge_index, f_edge_attr, _, f_batch, _ = next(generator_loader)
-            y_fake = torch.ones((len(torch.unique(f_batch[1])),)).to(self.device)
-            f_embedded_nodes = self.generator(f_node_features[1], f_edge_index[1],
-                                              f_edge_attr[1], f_batch[1])
-            f_pred = self.discriminator(f_embedded_nodes)
-            # calculate the loss
-            loss = torch.mean(self.loss_fn(f_pred.double(), y_fake.double())) #+ self.ged.graph_edit_distance_metric()
-            # matrice originale, matirce generata
-            loss.backward()
-            G_losses.append(loss.item())
-            self.generator_optimizer.step()
+            for cf_data, f_data in itertools.zip_longest(discriminator_loader, generator_loader, fillvalue=None):
+                
+                if cf_data is not None:
+                    cf_node_features, cf_edge_index, cf_edge_features, _, cf_batch, _ = cf_data
+                    
+                    real_labels = torch.ones(self.batch_size, 1).to(self.device)
+                    fake_labels = torch.zeros(self.batch_size, 1).to(self.device)
+                    #######################################################################
+                    # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
+                    self.discriminator_optimizer.zero_grad()
+                    # discriminator on real data (counterfactuals)
+                    cf_emb_nodes = self.graph_embedder(cf_node_features[1], cf_edge_index[1], cf_edge_features[1], cf_batch[1])
+                    cf_emb_nodes = torch.stack(unbatch(cf_emb_nodes, cf_batch[1]))
+                    output_real = self.discriminator(cf_emb_nodes)
+                    loss_real = self.loss_fn(output_real.double(), real_labels.double())
+                    # learn how to reconstruct the counterfactual node embeddings
+                    self.node_optimizer.zero_grad()
+                    cf_recon_nodes = self.node_module(cf_emb_nodes)
+                    rec_loss = self.rec_loss_fn(torch.stack(unbatch(cf_node_features[1], cf_batch[1])), cf_recon_nodes)
+                    rec_losses.append(rec_loss.item())
+                    rec_loss.backward(retain_graph=True)
+                    self.node_optimizer.step()
+                    # learn how to estimate edges
+                    self.edge_optimizer.zero_grad()
+                    _, cf_edge_logits, cf_true_edges = self.edge_module(cf_emb_nodes, cf_edge_index[1], cf_batch[1])
+                    edge_loss = self.edge_loss_fn(cf_true_edges.double(), cf_edge_logits.double())
+                    edge_losses.append(edge_loss.item())
+                    edge_loss.backward()
+                    self.edge_optimizer.step()
 
-            self.context.logger.info(f'Epoch {epoch}\t Loss_D = {np.mean(D_losses): .4f}\t Loss_G = {np.mean(G_losses): .4f}\t rec_loss = {np.mean(rec_losses)}\t edge_loss = {np.mean(edge_losses)}')
+                    if f_data is not None:
+                        f_node_features, f_edge_index, f_edge_features, _ , f_batch , _ = f_data
+                        # generate the node embeddings
+                        f_emb_nodes = self.generator(f_node_features[1], f_edge_index[1],
+                                                     f_edge_features[1], f_batch[1])
+                        
+                        f_emb_nodes = torch.stack(unbatch(f_emb_nodes, f_batch[1]))
+                    
+                        output_fake = self.discriminator(f_emb_nodes)
+                        loss_fake = self.loss_fn(output_fake.double(), fake_labels.double())
+
+                        loss_D = loss_real + loss_fake
+
+                        # reparametrize the edges the fake instances
+                        f_recon_nodes = self.node_module(f_emb_nodes)
+                        _, f_edge_logits, _ = self.edge_module(f_emb_nodes, f_edge_index[1], f_batch[1])
+                        fake_inst = []
+                        for batch_idx, edge_logits in enumerate(f_edge_logits):
+                            f_repr_edge_index, f_repr_edge_weight = self.__reparametrization_trick(all_edges, edge_logits, self.tau)
+                            fake_inst += self.retake_batch(f_recon_nodes[batch_idx], f_repr_edge_index, f_repr_edge_weight, f_batch[1], counterfactual=True, generator=True)
+                        y_batch = torch.cat((real_labels, fake_labels))
+                    else:
+                        loss_D = loss_real
+                        fake_inst = []
+                        y_batch = real_labels
+
+                    y_batch = y_batch.squeeze()
+                    # take the oracle's prediction for the true instances
+                    real_inst = []
+                    for batch_idx, edge_logits in enumerate(cf_edge_logits):
+                        cf_repr_edge_index, cf_repr_edge_weight = self.__reparametrization_trick(all_edges, edge_logits, self.tau)
+                        real_inst += self.retake_batch(cf_recon_nodes[batch_idx], cf_repr_edge_index, cf_repr_edge_weight, cf_batch[1])
+                    # oracle scores    
+                    oracle_scores = self.take_oracle_predictions(real_inst + fake_inst, y_batch)
+                    # gradient descent on the discriminator
+                    loss_D = torch.mean(loss_D * torch.tensor(oracle_scores, dtype=torch.float))
+                    losses_D.append(loss_D.item())
+                    loss_D.backward()
+                    self.discriminator_optimizer.step()
+                    #######################################################################
+
+                if f_data is not None:
+                    self.generator_optimizer.zero_grad()
+
+                    f_node_features, f_edge_index, f_edge_features, _ , f_batch , _ = f_data
+                    y_fake = torch.ones(self.batch_size, 1).to(self.device)
+                    # generate the node embeddings
+                    f_emb_nodes = self.generator(f_node_features[1], f_edge_index[1],
+                                                 f_edge_features[1], f_batch[1])
+                    
+                    f_emb_nodes = torch.stack(unbatch(f_emb_nodes, f_batch[1]))
+                    output_fake = self.discriminator(f_emb_nodes)
+
+                    loss_G = torch.mean(self.loss_fn(output_fake.double(), y_fake.double()))
+                    losses_G.append(loss_G.item())
+                    loss_G.backward()
+                    self.generator_optimizer.step()
+
+            # Print the losses
+            self.context.logger.info(f'Epoch [{epoch}/{self.epochs}], Loss D: {np.mean(losses_D)}, Loss G: {np.mean(losses_G)}, Loss Edge: {np.mean(edge_losses)}, Loss Nodes: {np.mean(rec_losses)}')
+            
 
     def retake_batch(self, node_features, edge_indices, edge_features, batch, counterfactual=False, generator=False):
-        """# unbatch edge indices
-        edges = unbatch_edge_index(edge_indices, batch)
-        print(edges)
-        # unbatch node_features
-        node_features = unbatch(node_features, batch)
-        # unbatch edge features
-        if not generator:
-            sizes = [index.shape[-1] for index in edges]
-            edge_features = edge_features.split(sizes)
-        # create the instances
-        instances = []
-        for i in range(len(edges)):
-            if not generator:
-                unbatched_edge_features = edge_features[i]
-            else:
-                0""print(edge_features.shape)
-                mask = torch.zeros(edges[i].shape).to(self.device)
-                print(mask.shape)
-                print(edges[i][:,0])
-                mask[edges[i][:,0], edges[i][:,1]] = 1
-                unbatched_edge_features = edge_features * mask.flatten()
-                indices = torch.nonzero(unbatched_edge_features)
-                unbatched_edge_features = unbatched_edge_features[indices[:,0], indices[:,1]
-                unbatched_edge_features = edge_features"""
         return [GraphInstance(id="dummy",
-                                           label=1-self.explainee_label if counterfactual else self.explainee_label,
-                                           data=rebuild_adj_matrix(len(node_features), edge_indices, edge_features.T, self.device).detach().cpu().numpy(),
-                                           node_features=node_features.detach().cpu().numpy(),
-                                           edge_features=edge_features.detach().cpu().numpy())]
+                              label=1-self.explainee_label if counterfactual else self.explainee_label,
+                              data=rebuild_adj_matrix(len(node_features), edge_indices, edge_features.T, self.device).detach().cpu().numpy(),
+                              node_features=node_features.detach().cpu().numpy(),
+                              edge_features=edge_features.detach().cpu().numpy())]
+
+    
+    def __gumbel_sigmoid_sample(self, probabilities, tau, eps=1e-10):
+        """
+        Apply Gumbel-Softmax trick to binary variables (edges).
+        Arguments:
+        - probabilities: tensor of shape (d,) containing probabilities of edges.
+        - tau: temperature parameter.
+        Returns:
+        - Sampled tensor of shape (d,) with gradients.
+        """
+        def gumbel_sample(shape, eps=1e-20):
+            """Sample from Gumbel(0, 1)"""
+            U = torch.rand(shape)
+            return -torch.log(-torch.log(U + eps) + eps)
+        
+        probabilities = torch.clamp(probabilities, eps, 1 - eps)  # Clamp probabilities to avoid log(0)
+        logits = torch.log(probabilities) - torch.log(1 - probabilities)
+        gumbel_noise = gumbel_sample(probabilities.size())
+        return torch.sigmoid((logits + gumbel_noise) / tau)
+    
+
+    def __reparametrization_trick(self, all_edges, edge_probs, tau):
+        # Sampling without breaking gradiesnts
+        sampled_probs = self.__gumbel_sigmoid_sample(edge_probs, tau)
+        # Generating binary samples based on the sampled probabilities
+        sampled_edges = torch.bernoulli(sampled_probs)
+        # Create the (2, d) tensor where each column represents an edge with the first and second node
+        edge_index = all_edges * sampled_edges
+        # Filter out zero columns (edges not sampled)
+        edge_index = edge_index[:, sampled_edges.bool()]
+        return edge_index.long(), sampled_probs[sampled_edges.bool()]
     
     def check_configuration(self):
         dflt_generator = "src.explainer.generative.gans.graph.learnable_edges.generators.TranslatingGenerator"
@@ -187,14 +221,14 @@ class EdgeLearnableGAN(BaseGAN):
             and 'parameters' in self.local_config['parameters']['discriminator']:
             dropout = self.local_config['parameters']['discriminator']['parameters'].get('dropout', .2)
         else:
-            dropout, = .2
+            dropout = .2
 
         if 'generator' in self.local_config['parameters']\
             and 'parameters' in self.local_config['parameters']['generator']:
             in_embed_dim = self.local_config['parameters']['generator']['parameters'].get('in_embed_dim', 10)
             out_embed_dim = self.local_config['parameters']['generator']['parameters'].get('out_embed_dim', 4)
             num_translator_layers = self.local_config['parameters']['generator']['parameters'].get('num_translator_layers', 4)
-            gaussian_std = self.local_config['parameters']['discriminator']['parameters'].get('gaussian_std', .1)
+            gaussian_std = self.local_config['parameters']['generator']['parameters'].get('gaussian_std', .1)
         else:
             in_embed_dim, out_embed_dim, num_translator_layers, gaussian_std = 10, 4, 4, .1
 
@@ -232,10 +266,10 @@ class EdgeLearnableGAN(BaseGAN):
         
         # If the gen_optimizer is not present we create it
         if 'node_optimizer' not in self.local_config['parameters']:
-            init_dflts_to_of(self.local_config, 'node_optimizer','torch.optim.SGD',lr=0.001)
+            init_dflts_to_of(self.local_config, 'node_optimizer','torch.optim.Adam',lr=0.001)
 
         if 'edge_optimizer' not in self.local_config['parameters']:
-            init_dflts_to_of(self.local_config, 'edge_optimizer','torch.optim.SGD',lr=0.001)
+            init_dflts_to_of(self.local_config, 'edge_optimizer','torch.optim.Adam',lr=0.001)
         
         super().check_configuration()
         
@@ -245,43 +279,4 @@ class EdgeLearnableGAN(BaseGAN):
             node_emb = self.generator(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
             rec_nodes = self.node_module(node_emb)
             _, edge_probs, _ = self.edge_module(node_emb, batch.edge_index)
-            return rec_nodes, edge_probs
-
-
-
-    """def take_oracle_predictions(self, instances, y_true):
-        oracle_scores = [self.oracle.predict_proba(inst)[1-self.explainee_label] for inst in instances]
-        oracle_scores = np.array(oracle_scores, dtype=float).squeeze()
-        oracle_scores = torch.tensor(oracle_scores, dtype=torch.float).to(self.device)
-        return oracle_scores"""
-    
-    def __gumbel_sigmoid_sample(self, probabilities, tau, eps=1e-10):
-        """
-        Apply Gumbel-Softmax trick to binary variables (edges).
-        Arguments:
-        - probabilities: tensor of shape (d,) containing probabilities of edges.
-        - tau: temperature parameter.
-        Returns:
-        - Sampled tensor of shape (d,) with gradients.
-        """
-        def gumbel_sample(shape, eps=1e-20):
-            """Sample from Gumbel(0, 1)"""
-            U = torch.rand(shape)
-            return -torch.log(-torch.log(U + eps) + eps)
-        
-        probabilities = torch.clamp(probabilities, eps, 1 - eps)  # Clamp probabilities to avoid log(0)
-        logits = torch.log(probabilities) - torch.log(1 - probabilities)
-        gumbel_noise = gumbel_sample(probabilities.size())
-        return torch.sigmoid((logits + gumbel_noise) / tau)
-    
-
-    def __reparametrization_trick(self, all_edges, edge_probs, tau):
-        # Sampling without breaking gradiesnts
-        sampled_probs = self.__gumbel_sigmoid_sample(edge_probs, tau)
-        # Generating binary samples based on the sampled probabilities
-        sampled_edges = torch.bernoulli(sampled_probs)
-        # Create the (2, d) tensor where each column represents an edge with the first and second node
-        edge_index = all_edges * sampled_edges
-        # Filter out zero columns (edges not sampled)
-        edge_index = edge_index[:, sampled_edges.bool()]
-        return edge_index.long(), sampled_probs[sampled_edges.bool()]
+            return rec_nodes, edge_probs   
