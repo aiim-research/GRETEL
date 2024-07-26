@@ -54,7 +54,7 @@
         "alpha": 0.4,
         "batch_size_ratio": 0.15,
         "dropout": 0.1,
-        "epochs": 600,
+        "epochs": 50,
         "lambda_cfe": 0.1,
         "lambda_kl": 1.0,
         "lambda_sim": 1.0,
