@@ -145,7 +145,7 @@ class EdgeLearnableGAN(BaseGAN):
                     # oracle scores    
                     oracle_scores = self.take_oracle_predictions(real_inst + fake_inst, y_batch)
                     # gradient descent on the discriminator
-                    loss_D = torch.mean(loss_D * torch.tensor(oracle_scores, dtype=torch.float))
+                    loss_D = torch.mean(loss_D * oracle_scores)
                     losses_D.append(loss_D.item())
                     loss_D.backward()
                     self.discriminator_optimizer.step()
@@ -277,6 +277,7 @@ class EdgeLearnableGAN(BaseGAN):
         with torch.no_grad():
             batch = TorchGeometricDataset.to_geometric(args[0]).to(self.device)
             node_emb = self.generator(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
+            node_emb = node_emb[None, :, :]
             rec_nodes = self.node_module(node_emb)
-            _, edge_probs, _ = self.edge_module(node_emb, batch.edge_index)
-            return rec_nodes, edge_probs   
+            _, edge_probs, _ = self.edge_module(node_emb, batch.edge_index, batch.batch)
+            return rec_nodes.squeeze(), edge_probs.squeeze()   
