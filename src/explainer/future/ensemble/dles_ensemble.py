@@ -67,24 +67,64 @@ class DatasetLevelExplainerSelector(ExplainerEnsemble):
             },
         )
 
+    def real_fit(self):
+        training_data_indices = self.dataset.get_split_indices(self.fold_id)['training']
+        training_data = [self.dataset.instances[idx] for idx in training_data_indices]
+
+        expplainer_scores = np.zeros(len(self.base_explainers))
+        for instance in training_data:
+            explanations = []
+            for explainer in self.base_explainers:
+                exp = explainer.explain(instance)
+                exp.producer = explainer
+                explanations.append(exp)
+
+            
+            cf_instances = []
+            cf_explainers = []
+            cf_explaier_indices = []
+
+            for idx, exp in enumerate(explanations):
+                for cf in exp.counterfactual_instances:
+                    cf_instances.append(cf)
+                    cf_explainers.append(exp.explainer)
+                    cf_explaier_indices.append(idx)
+            
+            cf_instances = [
+                cf for exp in explanations for cf in exp.counterfactual_instances
+            ]
+
+            cf_explainers = [
+                exp.explainer for exp in explanations for cf in exp.counterfactual_instances
+            ]
+            
+            criteria_matrix = np.array(
+                [
+                    [criteria.calculate(instance, cf, self.oracle, explainer, self.dataset) for criteria in self.criterias]
+                    for cf, explainer in zip(cf_instances, cf_explainers)
+                ]
+            )
+            gain_directions = np.array(
+                [criteria.gain_direction().value for criteria in self.criterias]
+            )
+
+
 
     def explain(self, instance):
-        input_label = self.oracle.predict(instance)
+        raise NotImplementedError()
+        # input_label = self.oracle.predict(instance)
 
-        explanations = []
-        for explainer in self.base_explainers:
-            exp = explainer.explain(instance)
-            exp.producer = explainer
-            explanations.append(exp)
+        # explanations = []
+        # for explainer in self.base_explainers:
+        #     exp = explainer.explain(instance)
+        #     exp.producer = explainer
+        #     explanations.append(exp)
 
-        result = self.explanation_aggregator.aggregate(explanations)
-        result.explainer = self
+        # result = self.explanation_aggregator.aggregate(explanations)
+        # result.explainer = self
 
-        return result
-    
+        # return result
 
-    def real_fit(self):
-        pass
 
 
     def write(self):
