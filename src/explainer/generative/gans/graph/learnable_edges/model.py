@@ -105,6 +105,21 @@ class EdgeLearnableGAN(BaseGAN):
                     # learn how to estimate edges
                     self.edge_optimizer.zero_grad()
                     _, cf_edge_logits, cf_true_edges = self.edge_module(cf_emb_nodes, cf_edge_index[1], cf_batch[1])
+                    # find the number of real edges
+                    """ones_count = cf_true_edges.sum().item()
+                    # get the whole number of edges on the batch
+                    all_batch_edge_num = self.batch_size * cf_true_edges.shape[1]
+                    # get the number of unreal edges
+                    zero_count = all_batch_edge_num - ones_count
+                    # find the indices of the true edges
+                    ones_indices = torch.nonzero(cf_true_edges, as_tuple=True)
+                    zero_indices = torch.nonzero(cf_true_edges == 0, as_tuple=True)
+                    pos_weight = torch.zeros_like(cf_true_edges)
+                    # weight the edge estimations according to their support
+                    pos_weight[ones_indices] = all_batch_edge_num / 2 / ones_count
+                    pos_weight[zero_indices] = all_batch_edge_num / 2 / zero_count
+                    # BCE on the edges
+                    self.edge_loss_fn.pos_weight = pos_weight"""
                     edge_loss = self.edge_loss_fn(cf_true_edges.double(), cf_edge_logits.double())
                     edge_losses.append(edge_loss.item())
                     edge_loss.backward()

@@ -73,7 +73,11 @@ class EdgeExistanceModule(nn.Module):
     def __init__(self, dim=2) -> None:
         super(EdgeExistanceModule, self).__init__()
         # decodes the edge embeddings (concatenation of two node vectors)
-        self.edge_decoder = nn.Linear(2 * dim, 1)
+        self.edge_decoder = nn.Sequential(
+            nn.Linear(2 * dim, dim),
+            nn.ReLU(),
+            nn.Linear(dim, 1)
+        )
 
     def forward(self, emb_nodes, edge_list, batch) -> Tuple[torch.Tensor,
                                                             torch.Tensor,
@@ -100,9 +104,6 @@ class EdgeExistanceModule(nn.Module):
         
     
     def embed_edges(self, nodes, edges):
-        def tensor_in_list(tensor, tensor_list):
-            return any(torch.equal(tensor, t) for t in tensor_list)
-        
         # repeat the node embeddings n times where n is the number of nodes 
         interleaved = torch.repeat_interleave(nodes, repeats=nodes.shape[0], dim=0).detach()
         repeated = nodes.repeat(nodes.shape[0], 1).detach()
@@ -110,10 +111,9 @@ class EdgeExistanceModule(nn.Module):
         loops = interleaved - repeated
         loops = loops.detach()
         non_empty_mask = loops.abs().sum(dim=1).bool()
-        # Initialize the real edges tensor
-        real_edges = []
-        for node1, node2 in list(zip(edges[0], edges[1])):
-            real_edges.append(torch.concat((nodes[node1], nodes[node2])))
+        
+        true_edges = torch.zeros((nodes.shape[0], nodes.shape[0]))
+        true_edges[edges[0], edges[1]] = 1
         # create edge embeddings
         edge_embeddings = torch.concat([interleaved, repeated], dim=1).detach()
         # check if the edge exists
@@ -121,12 +121,7 @@ class EdgeExistanceModule(nn.Module):
         logits_without_self_loops = edge_logits.clone().squeeze()
         logits_without_self_loops[~non_empty_mask] = -10
 
-        true_edges = torch.empty(size=(edge_embeddings.shape[0], 1))
-    
-        for i, edge_embedding in enumerate(edge_embeddings):
-            true_edges[i] = 1 if tensor_in_list(edge_embedding, real_edges) else 0
-
-        return edge_embeddings, logits_without_self_loops, true_edges.squeeze()
+        return edge_embeddings, logits_without_self_loops, torch.flatten(true_edges)
 
 
 class NodeDecoderModule(nn.Module):
@@ -136,12 +131,10 @@ class NodeDecoderModule(nn.Module):
         # decodes the embedded node vectors into the original node feature space
         self.num_nodes = num_nodes
         self.node_feature_dim = node_feature_dim
-        self.node_decoder = nn.Linear(num_nodes * dim, num_nodes * node_feature_dim)
+        self.node_decoder = nn.Linear(dim,  node_feature_dim)
 
     def forward(self, x) -> torch.Tensor:
-        batch_size = x.shape[0]
-        x = torch.flatten(x, start_dim=1)
         x = self.node_decoder(x)
-        x = x.reshape(batch_size, self.num_nodes, self.node_feature_dim)
+        x = torch.relu(x)
         return x
    
