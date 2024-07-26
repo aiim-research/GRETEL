@@ -79,8 +79,12 @@ class EdgeExistanceModule(nn.Module):
                                                             torch.Tensor,
                                                             torch.Tensor]:
         
-        edge_list = unbatch_edge_index(edge_list, batch)
-        batch_size = len(edge_list)
+        if isinstance(batch, torch.Tensor):
+            edge_list = unbatch_edge_index(edge_list, batch)
+            batch_size = len(edge_list)
+        else:
+            edge_list = [edge_list]
+            batch_size = 1
 
         batch_embeddings = torch.empty(size=(batch_size, emb_nodes.shape[1]**2, emb_nodes.shape[-1]*2))
         batch_logits = torch.empty(size=(batch_size, emb_nodes.shape[1]**2))

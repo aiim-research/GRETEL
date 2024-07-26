@@ -37,4 +37,4 @@ class EAGER(PerClassExplainer):
         init_dflts_to_of(self.local_config,
                          'sampler',
                          'src.utils.samplers.bernoulli.Bernoulli',
-                         sampling_iterations=500)
+                         sampling_iterations=2000)
