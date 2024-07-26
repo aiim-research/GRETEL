@@ -12,4 +12,4 @@ python src/utils/generate_results.py --source_folder [output/results/[result_fol
 
 and you can also run 
 
-python src/utils/visualize.py to get a visualization (remember to change the name of the result file inside)
+python src/utils/visualize.py --results_file [results.csv] --output_file [image.png] 

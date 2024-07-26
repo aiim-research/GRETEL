@@ -25,7 +25,7 @@
                     "class": "src.explainer.generative.gans.graph.learnable_edges.model.EdgeLearnableGAN",
                     "parameters": {
                         "batch_size": 32,
-                        "epochs": 100,
+                        "epochs": 10,
                         "alpha": 0.5,
                         "generator": {
                             "class": "src.explainer.generative.gans.graph.learnable_edges.generators.TranslatingGenerator",
