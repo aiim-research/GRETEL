@@ -29,6 +29,10 @@ class CorrectnessFilter(ExplanationFilter):
                                                             explainer=explanation.explainer,
                                                             input_instance=explanation.input_instance,
                                                             counterfactual_instances=filtered_cf_instances)
+            
+            # TODO this should be done automatically for all future attributes of an explanation
+            filtered_exp.stages_info = explanation.stages_info
+            filtered_exp.info = explanation.info
             # returns is_valid_explanation, new_explanation
             return True, filtered_exp
 

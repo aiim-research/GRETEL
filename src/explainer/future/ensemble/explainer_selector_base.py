@@ -1,7 +1,8 @@
 from src.core.explainer_base import Explainer
 from src.core.factory_base import get_class, get_instance_kvargs
 from src.core.trainable_base import Trainable
-from src.utils.cfg_utils import  inject_dataset, inject_oracle
+from src.utils.cfg_utils import  inject_dataset, inject_oracle, init_dflts_to_of
+from src.explainer.future.ensemble.aggregators.filters.base import ExplanationFilter
 
 
 class ExplainerSelector(Explainer, Trainable):
@@ -10,6 +11,11 @@ class ExplainerSelector(Explainer, Trainable):
 
     def check_configuration(self):
         super().check_configuration()
+
+        if 'explanation_filter' not in self.local_config['parameters']:
+            init_dflts_to_of(self.local_config,
+                             'explanation_filter',
+                             'src.explainer.future.ensemble.aggregators.filters.correctness.CorrectnessFilter')
 
         for exp in self.local_config['parameters']['explainers']:
             exp['parameters']['fold_id'] = self.local_config['parameters']['fold_id']
@@ -23,6 +29,12 @@ class ExplainerSelector(Explainer, Trainable):
         
         self.base_explainers = [ get_instance_kvargs(exp['class'],
                     {'context':self.context,'local_config':exp}) for exp in self.local_config['parameters']['explainers']]
+        
+        # Creating the explanation filter
+        inject_dataset(self.local_config['parameters']['explanation_filter'], self.dataset)
+        inject_oracle(self.local_config['parameters']['explanation_filter'], self.oracle)
+        self.explanation_filter: ExplanationFilter = get_instance_kvargs(self.local_config['parameters']['explanation_filter']['class'],
+                                                                                  {'context':self.context,'local_config': self.local_config['parameters']['explanation_filter']})
         
 
 

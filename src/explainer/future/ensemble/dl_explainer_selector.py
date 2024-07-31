@@ -77,38 +77,42 @@ class DatasetLevelExplainerSelector(ExplainerSelector):
                 exp.info['explainer_index'] = idx
                 explanations.append(exp)
 
+            filtered_explanations = self.explanation_filter.filter(explanations)
 
-            
-            cf_instances = []
-            cf_explainers = []
-            cf_explaier_indices = []
+            # If no correct counterfactual explanation was produced for the instance then there is nothing to learn from it
+            if len(filtered_explanations) > 0:
+                cf_instances = []
+                cf_explainers = []
+                cf_explaier_indices = []
 
-            for exp in explanations:
-                for cf in exp.counterfactual_instances:
-                    cf_instances.append(cf)
-                    cf_explainers.append(exp.explainer)
-                    cf_explaier_indices.append(exp.info['explainer_index'])
-            
-            criteria_matrix = np.array(
-                [
-                    [criteria.calculate(instance, cf, self.oracle, explainer, self.dataset) for criteria in self.criterias]
-                    for cf, explainer in zip(cf_instances, cf_explainers)
-                ]
-            )
-            gain_directions = np.array(
-                [criteria.gain_direction().value for criteria in self.criterias]
-            )
+                for exp in filtered_explanations:
+                    for cf in exp.counterfactual_instances:
+                        cf_instances.append(cf)
+                        cf_explainers.append(exp.explainer)
+                        cf_explaier_indices.append(exp.info['explainer_index'])
+                
+                criteria_matrix = np.array(
+                    [
+                        [criteria.calculate(instance, cf, self.oracle, explainer, self.dataset) for criteria in self.criterias]
+                        for cf, explainer in zip(cf_instances, cf_explainers)
+                    ]
+                )
+                gain_directions = np.array(
+                    [criteria.gain_direction().value for criteria in self.criterias]
+                )
 
-            best_index = find_best(
-            criteria_matrix,
-            gain_directions,
-            self.distance.calculate,
-            )
-            # Getting the explainer that produced the best results
-            best_cf = cf_instances[best_index]
-            best_explainer = cf_explaier_indices[best_index]
-            # Updating the explainer score in the record
-            explainer_scores[best_explainer] += 1
+                best_index = find_best(
+                criteria_matrix,
+                gain_directions,
+                self.distance.calculate,
+                )
+                # Getting the explainer that produced the best results
+                best_cf = cf_instances[best_index]
+                best_explainer = cf_explaier_indices[best_index]
+                # Updating the explainer score in the record
+                explainer_scores[best_explainer] += 1
+
+                self.context.logger.info(f"Learned from instance {instance.id}")
 
         best_exp_idx = explainer_scores.index(max(explainer_scores))
         self.best_explainer = self.base_explainers[best_exp_idx]
