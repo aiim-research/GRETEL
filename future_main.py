@@ -18,7 +18,7 @@ import numpy as np
 
 
 from src.evaluation.evaluator_manager import EvaluatorManager
-from src.evaluation.future.evaluator_manager_do import EvaluatorManager as PairedEvaluatorManager
+from src.evaluation.future.evaluator_manager_triplets import EvaluatorManager
 
 from src.utils.context import Context
 import sys
@@ -29,23 +29,17 @@ if __name__ == "__main__":
     context = Context.get_context(sys.argv[1])
     context.run_number = int(sys.argv[2]) if len(sys.argv) == 3 else -1
 
-    '''if torch.backends.mps.is_available():
-        context.logger.info(f"MPS support founded switch to torch.set_default_dtype(torch.float32)")
-        context.logger.info(f"Clean the cache if torch.float64 where used before")
-        torch.set_default_dtype(torch.float32)'''
 
     context.logger.info(f"Executing: {context.config_file} Run: {context.run_number}")
     context.logger.info(
         "Creating the evaluation manager......................................................."
-    )
+    )    
 
-    
-    if 'do-pairs' in context.conf:
-        context.logger.info("Creating the paired  evaluators.....................................")
-        eval_manager = PairedEvaluatorManager(context)
-    else:
-        context.logger.info("Creating the evaluators......................................................")
-        eval_manager = EvaluatorManager(context)
+    context.logger.info(f"Executing: {context.config_file} Run: {context.run_number}")
+    context.logger.info("Creating the evaluation manager....................................")
+
+    context.logger.info("Creating the evaluators......................................................")
+    eval_manager = EvaluatorManager(context)
 
     context.logger.info(
         "Evaluating the explainers............................................................."
