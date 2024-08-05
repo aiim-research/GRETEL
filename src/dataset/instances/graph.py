@@ -21,16 +21,16 @@ class GraphInstance(DataInstance):
 
         num_nodes = self.data.shape[0]
         num_edges = np.count_nonzero(self.data)
-        """assert len(self.node_features) == num_nodes
+        assert len(self.node_features) == num_nodes
         assert len(self.edge_features) == num_edges
-        assert len(self.edge_weights) == num_edges"""
+        assert len(self.edge_weights) == num_edges
 
     def __deepcopy__(self, memo):
         num_nodes = self.data.shape[0]
         num_edges = np.count_nonzero(self.data)
-        """assert len(self.node_features) == num_nodes
+        assert len(self.node_features) == num_nodes
         assert len(self.edge_features) == num_edges
-        assert len(self.edge_weights) == num_edges"""
+        assert len(self.edge_weights) == num_edges
 
         # Fields that are being shallow copied
         _dataset = self._dataset
