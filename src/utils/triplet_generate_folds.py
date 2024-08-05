@@ -74,6 +74,7 @@ def generate_folds(cf, output_folder, isfolder=False):
     # explainers = data['explainers']
     folds = 10
     targets = data['experiment']['parameters']['expand']['folds']
+    print(targets)
 
     cf_name = cf.split(os.sep)[-1].split('.')[-2].split('/')[-1]
 

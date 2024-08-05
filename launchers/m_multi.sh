@@ -1,7 +1,7 @@
 #!/bin/bash
 # Schedule multiple runs of all the configurations contained in the searchdir
 
-search_dir=./lab/config/ensembles/base_irand
+search_dir=./lab/config/ensembles/tcr-tco/base_explainers_t2
 MINWAIT=1
 MAXWAIT=10
 

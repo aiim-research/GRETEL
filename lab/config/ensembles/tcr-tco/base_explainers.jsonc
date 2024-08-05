@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "ensembles",
+        "scope": "xai-ens",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[
@@ -8,7 +8,7 @@
                 {"in_sections" : ["doe-triplets/oracle"],"params" : {"fold_id": -1,"retrain":true}},
                 {"in_sections": ["doe-triplets/dataset"],"params": { "compose_man" : "lab/config/snippets/datasets/centr_and_weights.json" }}
             ],
-            "expand" : {  "folds" : [ "explainers"], "triplets" : true }
+            "expand" : {  "folds" : ["doe-triplets/explainer"], "triplets" : true }
         }
     },
     "doe-triplets":[

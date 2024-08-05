@@ -131,6 +131,7 @@ dmypy.json
 .pyre/
 
 # data folders
+data/*
 data/cache*
 data/working*
 lab/data/cache*

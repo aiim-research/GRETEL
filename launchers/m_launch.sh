@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH -s
 #SBATCH -n 1
-#SBATCH -o /NFSHOME/mprado/AIIM/GRETEL/my_file_output.out
-#SBATCH -J MyJobName
+#SBATCH -o /NFSHOME/mprado/AIIM/GRETEL/main2/GRETEL/output/my_file_output.out
+#SBATCH -J xai-ens
 #SBATCH -p normal
-#SBATCH -c 8
+#SBATCH -c 4
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 export OPENBLAS_NUM_THREADS=${SLURM_CPUS_PER_TASK}
