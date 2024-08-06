@@ -100,11 +100,35 @@
             "explainer": { 
                 "class": "src.explainer.future.ensemble.explainer_ensemble_base.ExplainerEnsemble",
                 "parameters": {
-                    "compose_exp": "./lab/config/snippets/base_explainers_safe.json",
+                    "compose_exp": "./lab/config/snippets/base_explainers.json",
                     "aggregator": {
                         "class": "src.explainer.future.ensemble.aggregators.bidirectional.ExplanationBidirectionalSearch",
                         "parameters": {"oc_limit": 1000}
                     }
+                }
+            }
+        },
+        {
+            "compose_do": "./lab/config/snippets/do-pairs/TCR-128-28-0.25_TCO.json",
+            "explainer": {
+                "class": "src.explainer.future.ensemble.explainer_ensemble_base.ExplainerEnsemble",
+                "parameters": {
+                    "aggregator": {
+                        "class": "src.explainer.future.ensemble.aggregators.multi_criteria.ExplanationMultiCriteriaAggregator",
+                        "parameters": {
+                            "criterias": [
+                                {
+                                    "class": "src.explainer.future.ensemble.aggregators.multi_criteria.criterias.ged_criteria.GraphEditDistanceCriteria",
+                                    "parameters": {}
+                                },
+                                {
+                                    "class": "src.explainer.future.ensemble.aggregators.multi_criteria.criterias.sparsity_criteria.SparsityCriteria",
+                                    "parameters": {}
+                                }
+                            ]
+                        }
+                    },
+                    "compose_exp": "./lab/config/snippets/base_explainers.json"
                 }
             }
         }

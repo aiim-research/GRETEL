@@ -19,7 +19,7 @@ from src.utils.cfg_utils import init_dflts_to_of
 class ExplanationMultiCriteriaAggregator(ExplanationAggregator):
     def check_configuration(self):
         super().check_configuration()
-        default_distance = "src.explainer.ensemble.aggregators.multi_criteria.distances.euclidean_distance.EuclideanDistance"
+        default_distance = "src.explainer.future.ensemble.aggregators.multi_criteria.distances.euclidean_distance.EuclideanDistance"
         init_dflts_to_of(self.local_config, "distance", default_distance)
 
     def init(self):
