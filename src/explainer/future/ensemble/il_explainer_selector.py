@@ -40,12 +40,31 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
         default_distance = "src.explainer.future.ensemble.aggregators.multi_criteria.distances.euclidean_distance.EuclideanDistance"
         init_dflts_to_of(self.local_config, "distance", default_distance)
 
-        # Initializing the model
+        # Initializing model related configs
+        if 'epochs' not in self.local_config['parameters']:
+            self.local_config['parameters']['epochs'] = 200
+
+        if 'batch_size' not in self.local_config['parameters']:
+            self.local_config['parameters']['batch_size'] = 32
+
+        if 'optimizer' not in self.local_config['parameters']:
+            self.local_config['parameters']['optimizer'] = {'class': 'torch.optim.RMSprop', 
+                                                            'parameters': {'lr':0.01}
+                                                            }
+            
+        if 'loss_fn' not in self.local_config['parameters']:
+            self.local_config['parameters']['loss_fn'] = {'class': 'torch.nn.CrossEntropyLoss',
+                                                          'parameters' : {'reduction': 'mean'}
+                                                          }
+            
         if 'model' not in self.local_config['parameters']:
-            self.local_config['parameters']['model'] = {
-                'class': "src.oracle.nn.gcn.DownstreamGCN",
-                "parameters" : {}
-            }
+            self.local_config['parameters']['model'] = {'class': 'src.oracle.nn.gcn.DownstreamGCN',
+                                                        'parameters' : {'num_conv_layers':3,
+                                                                        'num_dense_layers':1,
+                                                                        'conv_booster':2,
+                                                                        'linear_decay':1.8
+                                                                        }
+                                                        }
 
 
     def init(self):
@@ -73,61 +92,39 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
             },
         )
 
+        
+
+
     def real_fit(self):
-        training_data_indices = self.dataset.get_split_indices(self.fold_id)['train']
-        training_data = [self.dataset.instances[idx] for idx in training_data_indices]
+        relabeled_dataset: Dataset = self.generate_training_dataset(self.dataset)
+        loader = relabeled_dataset.get_torch_loader(fold_id=self.fold_id, batch_size=self.batch_size, usage='test')
+        
+        losses = []
+        labels_list, preds = [], []
+        for batch in loader:
+            batch.batch = batch.batch.to(self.device)
+            node_features = batch.x.to(self.device)
+            edge_index = batch.edge_index.to(self.device)
+            edge_weights = batch.edge_attr.to(self.device)
+            labels = batch.y.to(self.device).long()
+            
+            self.optimizer.zero_grad()  
+            pred = self.model(node_features, edge_index, edge_weights, batch.batch)            
+            loss = self.loss_fn(pred, labels)
+            losses.append(loss.to('cpu').detach().numpy())
+            
+            labels_list += list(labels.squeeze().long().detach().to('cpu').numpy())
+            preds += list(pred.squeeze().detach().to('cpu').numpy())
+            
+        accuracy = self.accuracy(labels_list, preds)
+        self.context.logger.info(f'Test accuracy = {np.mean(accuracy):.4f}')
 
-        explainer_scores = np.zeros(len(self.base_explainers)).tolist()
-        for instance in training_data:
-            explanations = []
-            for idx, explainer in enumerate(self.base_explainers):
-                exp = explainer.explain(instance)
-                exp.producer = explainer
-                exp.info['explainer_index'] = idx
-                explanations.append(exp)
 
-            filtered_explanations = self.explanation_filter.filter(explanations)
-
-            # If no correct counterfactual explanation was produced for the instance then there is nothing to learn from it
-            if len(filtered_explanations) > 0:
-                cf_instances = []
-                cf_explainers = []
-                cf_explaier_indices = []
-
-                for exp in filtered_explanations:
-                    for cf in exp.counterfactual_instances:
-                        cf_instances.append(cf)
-                        cf_explainers.append(exp.explainer)
-                        cf_explaier_indices.append(exp.info['explainer_index'])
-                
-                criteria_matrix = np.array(
-                    [
-                        [criteria.calculate(instance, cf, self.oracle, explainer, self.dataset) for criteria in self.criterias]
-                        for cf, explainer in zip(cf_instances, cf_explainers)
-                    ]
-                )
-                gain_directions = np.array(
-                    [criteria.gain_direction().value for criteria in self.criterias]
-                )
-
-                best_index = find_best(
-                criteria_matrix,
-                gain_directions,
-                self.distance.calculate,
-                )
-                # Getting the explainer that produced the best results
-                best_cf = cf_instances[best_index]
-                best_explainer = cf_explaier_indices[best_index]
-                # Updating the explainer score in the record
-                explainer_scores[best_explainer] += 1
-
-                self.context.logger.info(f"Learned from instance {instance.id}")
-
-        best_exp_idx = explainer_scores.index(max(explainer_scores))
-        self.best_explainer = self.base_explainers[best_exp_idx]
 
 
     def explain(self, instance):
+
+        raise NotImplementedError()
 
         if not self.best_explainer:
             raise Exception("The explainer was not trained so a base_explainer was not selected")
@@ -142,8 +139,61 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
     def read(self):
         pass
 
-    def generate_training_dataset(original_dataset: Dataset) -> Dataset:
+    def generate_training_dataset(self, original_dataset: Dataset) -> Dataset:
+        # Create a copy of the original dataset
         result_dataset = copy.deepcopy(original_dataset)
 
+        # Lets re-label the instance of the new dataset
         for instance in result_dataset.instances:
-            pass
+            explanations = []
+            for idx, explainer in enumerate(self.base_explainers):
+                exp = explainer.explain(instance)
+                exp.producer = explainer
+                exp.info['explainer_index'] = idx
+                explanations.append(exp)
+
+            # We try to consider only correct explanations
+            filtered_explanations = self.explanation_filter.filter(explanations)
+
+            # each instance needs a label even if no explainer was able to produce a correct explanation
+            if len(filtered_explanations) < 1:
+                filtered_explanations = explanations
+
+            # expand the counterfactuals inside the explanations and iterate over them
+            cf_instances = []
+            cf_explainers = []
+            cf_explaier_indices = []
+            for exp in filtered_explanations:
+                for cf in exp.counterfactual_instances:
+                    # Keep a list with the cf instances
+                    cf_instances.append(cf)
+                    # Keep a list with the explainer used to generate each counterfactual
+                    cf_explainers.append(exp.explainer)
+                    # keep a list with the index of the explainer used to generate each counterfactual
+                    cf_explaier_indices.append(exp.info['explainer_index']) 
+            
+            # Build the criteria and gain_direction matrices
+            criteria_matrix = np.array(
+                [
+                    [criteria.calculate(instance, cf, self.oracle, explainer, self.dataset) for criteria in self.criterias]
+                    for cf, explainer in zip(cf_instances, cf_explainers)
+                ]
+            )
+            gain_directions = np.array(
+                [criteria.gain_direction().value for criteria in self.criterias]
+            )
+
+            # Find the best counterfactual according to the multiple criterias
+            best_index = find_best(criteria_matrix,
+                                   gain_directions,
+                                   self.distance.calculate
+                                   )
+            
+            # Getting the index of the explainer that produced the best results
+            best_explainer = cf_explaier_indices[best_index]
+
+            # change the labe for the id of the best explainer
+            instance.label = best_explainer
+
+        # Returning the new dataset
+        return result_dataset

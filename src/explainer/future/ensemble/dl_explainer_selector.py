@@ -104,7 +104,7 @@ class DatasetLevelExplainerSelector(ExplainerSelector):
                 best_index = find_best(
                 criteria_matrix,
                 gain_directions,
-                self.distance.calculate,
+                self.distance.calculate
                 )
                 # Getting the explainer that produced the best results
                 best_cf = cf_instances[best_index]
