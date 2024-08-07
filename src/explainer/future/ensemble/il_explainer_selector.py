@@ -1,6 +1,8 @@
 from typing import List
 import numpy as np
 import copy
+import torch
+from src.dataset.utils.dataset_torch import TorchGeometricDataset
 
 from src.core.explainer_base import Explainer
 from src.dataset.dataset_base import Dataset
@@ -19,7 +21,6 @@ from src.explainer.future.ensemble.aggregators.multi_criteria.distances.base_dis
 from src.future.explanation.local.graph_counterfactual import (
     LocalGraphCounterfactualExplanation,
 )
-
 
 
 class InstanceLearningExplainerSelector(ExplainerSelector):
@@ -71,10 +72,11 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
         super().init()
         self.best_explainer = None
         
-        # Initializing base explainers
+        # Initializing base explainers.........................................
         self.base_explainers = [ get_instance_kvargs(exp['class'],
                     {'context':self.context,'local_config':exp}) for exp in self.local_config['parameters']['explainers']]
         
+        # Initializing evaluation related objects...............................
         # Inizializing performance criterias
         self.criterias: List[BaseCriteria] = [
             get_instance_kvargs(
@@ -92,11 +94,30 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
             },
         )
 
+        # Initializing model-related objects..................................
+        self.epochs = self.local_config['parameters']['epochs']
+        self.batch_size = self.local_config['parameters']['batch_size']
+
+        self.model = get_instance_kvargs(self.local_config['parameters']['model']['class'],
+                                   self.local_config['parameters']['model']['parameters'])
         
+        self.optimizer = get_instance_kvargs(self.local_config['parameters']['optimizer']['class'],
+                                      {'params':self.model.parameters(), **self.local_config['parameters']['optimizer']['parameters']})
+        
+        self.loss_fn = get_instance_kvargs(self.local_config['parameters']['loss_fn']['class'],
+                                           self.local_config['parameters']['loss_fn']['parameters'])
+        
+        self.device = (
+            "cuda"
+            if torch.cuda.is_available()
+            else "mps"
+            if torch.backends.mps.is_available()
+            else "cpu"
+        )
 
 
     def real_fit(self):
-        relabeled_dataset: Dataset = self.generate_training_dataset(self.dataset)
+        relabeled_dataset: Dataset = self.generate_explainer_prediction_dataset(self.dataset)
         loader = relabeled_dataset.get_torch_loader(fold_id=self.fold_id, batch_size=self.batch_size, usage='test')
         
         losses = []
@@ -121,25 +142,17 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
 
 
 
-
     def explain(self, instance):
+        # use the model to predict the best based explainer for the instance
+        predicted_exp_idx = self.predict_explainer(instance)
+        best_explainer = self.base_explainers[predicted_exp_idx]
 
-        raise NotImplementedError()
+        # use the selected explainer to produce an explanation
+        result_explanation = best_explainer.explain(instance)
+        return result_explanation
+    
 
-        if not self.best_explainer:
-            raise Exception("The explainer was not trained so a base_explainer was not selected")
-        
-        result = self.best_explainer.explain(instance)
-        return result
-
-
-    def write(self):
-        pass
-      
-    def read(self):
-        pass
-
-    def generate_training_dataset(self, original_dataset: Dataset) -> Dataset:
+    def generate_explainer_prediction_dataset(self, original_dataset: Dataset) -> Dataset:
         # Create a copy of the original dataset
         result_dataset = copy.deepcopy(original_dataset)
 
@@ -197,3 +210,26 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
 
         # Returning the new dataset
         return result_dataset
+    
+
+    def predict_explainer(self, data_inst):
+        # Check if the model was already trained
+        if(not self.model._fitted):
+            self.fit()
+
+        # Set the model in evaluation mode
+        self.model.eval()
+
+        data_inst = TorchGeometricDataset.to_geometric(data_inst)
+        node_features = data_inst.x.to(self.device)
+        edge_index = data_inst.edge_index.to(self.device)
+        edge_weights = data_inst.edge_attr.to(self.device)
+        
+        exp_probs = self.model(node_features,edge_index,edge_weights, None).cpu().squeeze()
+        return torch.argmax(exp_probs).item()
+    
+    def write(self):
+        pass
+      
+    def read(self):
+        pass
