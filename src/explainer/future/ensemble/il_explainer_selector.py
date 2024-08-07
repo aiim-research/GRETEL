@@ -2,7 +2,8 @@ from typing import List
 import numpy as np
 import copy
 import torch
-from src.dataset.utils.dataset_torch import TorchGeometricDataset
+from torch_geometric.loader import DataLoader
+import torch.optim.lr_scheduler as lr_scheduler
 
 from src.core.explainer_base import Explainer
 from src.dataset.dataset_base import Dataset
@@ -10,6 +11,7 @@ from src.explainer.future.ensemble.explainer_selector_base import ExplainerSelec
 from src.core.factory_base import get_class, get_instance_kvargs
 from src.utils.cfg_utils import  inject_dataset, inject_oracle
 from src.utils.cfg_utils import init_dflts_to_of
+from src.dataset.utils.dataset_torch import TorchGeometricDataset
 
 from src.explainer.future.ensemble.aggregators.multi_criteria.algorithm import find_best
 from src.explainer.future.ensemble.aggregators.multi_criteria.criterias.base_criteria import (
@@ -25,7 +27,7 @@ from src.future.explanation.local.graph_counterfactual import (
 
 class InstanceLearningExplainerSelector(ExplainerSelector):
     """
-    This explainer determines wich base explainer is the best for a given dataset and uses it for explaining all instances
+    This explainer learns which base explainer produces the best explanation for an instance given its features and structure
     """
 
     def check_configuration(self):
@@ -42,11 +44,8 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
         init_dflts_to_of(self.local_config, "distance", default_distance)
 
         # Initializing model related configs
-        if 'epochs' not in self.local_config['parameters']:
-            self.local_config['parameters']['epochs'] = 200
-
-        if 'batch_size' not in self.local_config['parameters']:
-            self.local_config['parameters']['batch_size'] = 32
+        self.local_config['parameters']['epochs'] = self.local_config['parameters'].get('epochs', 200)
+        self.local_config['parameters']['batch_size'] = self.local_config['parameters'].get('batch_size', 4)
 
         if 'optimizer' not in self.local_config['parameters']:
             self.local_config['parameters']['optimizer'] = {'class': 'torch.optim.RMSprop', 
@@ -70,7 +69,6 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
 
     def init(self):
         super().init()
-        self.best_explainer = None
         
         # Initializing base explainers.........................................
         self.base_explainers = [ get_instance_kvargs(exp['class'],
@@ -115,30 +113,50 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
             else "cpu"
         )
 
+        self.lr_scheduler =  lr_scheduler.LinearLR(self.optimizer, start_factor=1.0, end_factor=0.5, total_iters=self.epochs)
+
 
     def real_fit(self):
+        # Create the dataset where the label is the index of the base explainer that produced the best results
         relabeled_dataset: Dataset = self.generate_explainer_prediction_dataset(self.dataset)
-        loader = relabeled_dataset.get_torch_loader(fold_id=self.fold_id, batch_size=self.batch_size, usage='test')
-        
-        losses = []
-        labels_list, preds = [], []
-        for batch in loader:
-            batch.batch = batch.batch.to(self.device)
-            node_features = batch.x.to(self.device)
-            edge_index = batch.edge_index.to(self.device)
-            edge_weights = batch.edge_attr.to(self.device)
-            labels = batch.y.to(self.device).long()
-            
-            self.optimizer.zero_grad()  
-            pred = self.model(node_features, edge_index, edge_weights, batch.batch)            
-            loss = self.loss_fn(pred, labels)
-            losses.append(loss.to('cpu').detach().numpy())
-            
-            labels_list += list(labels.squeeze().long().detach().to('cpu').numpy())
-            preds += list(pred.squeeze().detach().to('cpu').numpy())
-            
-        accuracy = self.accuracy(labels_list, preds)
-        self.context.logger.info(f'Test accuracy = {np.mean(accuracy):.4f}')
+
+        # creating a torch dataloader with the train instances of the given fold
+        instances = self.dataset.get_torch_instances(fold_id=self.fold_id, usage='test')
+        train_loader = DataLoader(instances, batch_size=self.batch_size, shuffle=True, drop_last=True)    
+
+        # Train for the set number of epochs
+        for epoch in range(self.epochs):
+            losses, preds, labels_list = [], [], []
+            # Set the model in train mode
+            self.model.train()
+            # Iterate over the batches in the data
+            for batch in train_loader:
+                # Get the batch data
+                batch.batch = batch.batch.to(self.device)
+                node_features = batch.x.to(self.device)
+                edge_index = batch.edge_index.to(self.device)
+                edge_weights = batch.edge_attr.to(self.device)
+                labels = batch.y.to(self.device).long()
+                
+                self.optimizer.zero_grad()
+                
+                # Get the prediction for the batch and calculate the loss
+                pred = self.model(node_features, edge_index, edge_weights, batch.batch)
+                loss = self.loss_fn(pred, labels)
+                losses.append(loss.to('cpu').detach().numpy())
+                # Backpropagate
+                loss.backward()
+                
+                # Add the batch results to the epoch results
+                labels_list += list(labels.squeeze().long().detach().to('cpu').numpy())
+                preds += list(pred.squeeze().detach().to('cpu').numpy())
+               
+                self.optimizer.step()
+
+            # Calculate the accuracy at the given epoch using all batch results
+            accuracy = self.accuracy(labels_list, preds)
+            self.context.logger.info(f'epoch = {epoch} ---> loss = {np.mean(losses):.4f}\t accuracy = {accuracy:.4f}')
+            self.lr_scheduler.step()
 
 
 
