@@ -4,6 +4,7 @@ import copy
 import torch
 from torch_geometric.loader import DataLoader
 import torch.optim.lr_scheduler as lr_scheduler
+from sklearn.metrics import accuracy_score
 
 from src.core.explainer_base import Explainer
 from src.dataset.dataset_base import Dataset
@@ -65,6 +66,8 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
                                                                         'linear_decay':1.8
                                                                         }
                                                         }
+        self.local_config['parameters']['model']['parameters']['node_features'] = self.dataset.num_node_features()
+        self.local_config['parameters']['model']['parameters']['n_classes'] = len(self.local_config['parameters']['explainers'])
 
 
     def init(self):
@@ -154,7 +157,7 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
                 self.optimizer.step()
 
             # Calculate the accuracy at the given epoch using all batch results
-            accuracy = self.accuracy(labels_list, preds)
+            accuracy = accuracy_score(labels_list, np.argmax(preds, axis=1))
             self.context.logger.info(f'epoch = {epoch} ---> loss = {np.mean(losses):.4f}\t accuracy = {accuracy:.4f}')
             self.lr_scheduler.step()
 
@@ -231,10 +234,6 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
     
 
     def predict_explainer(self, data_inst):
-        # Check if the model was already trained
-        if(not self.model._fitted):
-            self.fit()
-
         # Set the model in evaluation mode
         self.model.eval()
 

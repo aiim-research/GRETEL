@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "ensembles",
+        "scope": "selector",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[
