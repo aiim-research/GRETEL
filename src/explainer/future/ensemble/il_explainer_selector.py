@@ -5,6 +5,8 @@ import torch
 from torch_geometric.loader import DataLoader
 import torch.optim.lr_scheduler as lr_scheduler
 from sklearn.metrics import accuracy_score
+import random
+from torch.utils.data import Subset
 
 from src.core.explainer_base import Explainer
 from src.dataset.dataset_base import Dataset
@@ -47,6 +49,7 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
         # Initializing model related configs
         self.local_config['parameters']['epochs'] = self.local_config['parameters'].get('epochs', 200)
         self.local_config['parameters']['batch_size'] = self.local_config['parameters'].get('batch_size', 4)
+        self.local_config['parameters']['early_stopping_threshold'] = self.local_config['parameters'].get('early_stopping_threshold', None)
 
         if 'optimizer' not in self.local_config['parameters']:
             self.local_config['parameters']['optimizer'] = {'class': 'torch.optim.RMSprop', 
@@ -98,6 +101,7 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
         # Initializing model-related objects..................................
         self.epochs = self.local_config['parameters']['epochs']
         self.batch_size = self.local_config['parameters']['batch_size']
+        self.early_stopping_threshold = self.local_config['parameters']['early_stopping_threshold']
 
         self.model = get_instance_kvargs(self.local_config['parameters']['model']['class'],
                                    self.local_config['parameters']['model']['parameters'])
@@ -108,6 +112,8 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
         self.loss_fn = get_instance_kvargs(self.local_config['parameters']['loss_fn']['class'],
                                            self.local_config['parameters']['loss_fn']['parameters'])
         
+        self.lr_scheduler =  lr_scheduler.LinearLR(self.optimizer, start_factor=1.0, end_factor=0.5, total_iters=self.epochs)
+
         self.device = (
             "cuda"
             if torch.cuda.is_available()
@@ -116,7 +122,9 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
             else "cpu"
         )
 
-        self.lr_scheduler =  lr_scheduler.LinearLR(self.optimizer, start_factor=1.0, end_factor=0.5, total_iters=self.epochs)
+        self.model.to(self.device) 
+        
+        self.patience = 0      
 
 
     def real_fit(self):
@@ -125,7 +133,25 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
 
         # creating a torch dataloader with the train instances of the given fold
         instances = self.dataset.get_torch_instances(fold_id=self.fold_id, usage='test')
-        train_loader = DataLoader(instances, batch_size=self.batch_size, shuffle=True, drop_last=True)    
+        train_loader, val_loader = None, None
+
+        if self.early_stopping_threshold:
+            num_instances = len(self.dataset.instances)
+            # get 5% of training instances and reserve them for validation
+            indices = list(range(num_instances))
+            random.shuffle(indices)
+            val_size = max(int(.05 * len(indices)), self.batch_size)
+            train_size = len(indices) - val_size
+            # get the training instances
+            train_instances = Subset(instances, indices[:train_size - 1])
+            val_instances = Subset(instances, indices[train_size:])
+            # get the train and validation loaders
+            train_loader = DataLoader(train_instances, batch_size=self.batch_size, shuffle=True, drop_last=True)
+            val_loader = DataLoader(val_instances, batch_size=self.batch_size, shuffle=True, drop_last=True)
+        else:
+            train_loader = DataLoader(instances, batch_size=self.batch_size, shuffle=True, drop_last=True)    
+
+        best_loss = [0,0]
 
         # Train for the set number of epochs
         for epoch in range(self.epochs):
@@ -160,6 +186,40 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
             accuracy = accuracy_score(labels_list, np.argmax(preds, axis=1))
             self.context.logger.info(f'epoch = {epoch} ---> loss = {np.mean(losses):.4f}\t accuracy = {accuracy:.4f}')
             self.lr_scheduler.step()
+
+            # check if we need to do early stopping
+            if self.early_stopping_threshold and len(val_loader) > 0:
+                self.model.eval()
+                val_losses, val_labels, val_preds = [], [], []
+                with torch.no_grad():
+                    for batch in val_loader:
+                        batch.batch = batch.batch.to(self.device)
+                        node_features = batch.x.to(self.device)
+                        edge_index = batch.edge_index.to(self.device)
+                        edge_weights = batch.edge_attr.to(self.device)
+                        labels = batch.y.to(self.device).long()
+
+                        pred = self.model(node_features, edge_index, edge_weights, batch.batch)
+                        loss = self.loss_fn(pred, labels)
+                        
+                        val_labels += list(labels.squeeze().to('cpu').numpy())
+                        val_preds += list(pred.squeeze().to('cpu').numpy())
+                        
+                        val_losses.append(loss.item())
+                        
+                    best_loss.pop(0)
+                    var_loss = np.mean(val_losses)
+                    best_loss.append(var_loss)
+                    
+                    accuracy = accuracy_score(val_labels, np.argmax(val_preds, axis=1))
+                    self.context.logger.info(f'epoch = {epoch} ---> var_loss = {var_loss:.4f}\t var_accuracy = {accuracy:.4f}')
+                
+                if abs(best_loss[0] - best_loss[1]) < self.early_stopping_threshold:
+                    self.patience += 1
+                    
+                    if self.patience == 4:
+                        self.context.logger.info(f"Early stopped training at epoch {epoch}")
+                        break  # terminate the training loop
 
 
 
@@ -245,8 +305,3 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
         exp_probs = self.model(node_features,edge_index,edge_weights, None).cpu().squeeze()
         return torch.argmax(exp_probs).item()
     
-    def write(self):
-        pass
-      
-    def read(self):
-        pass
