@@ -8,7 +8,13 @@ def __min_max_normalize(
 ) -> np.ndarray:
     min_vals = np.min(criteria_matrix, axis=0)
     max_vals = np.max(criteria_matrix, axis=0)
-    normalized_matrix = (criteria_matrix - min_vals) / (max_vals - min_vals)
+
+    denominators = max_vals - min_vals
+    denominators[denominators == 0] = 1
+    
+    normalized_matrix = (criteria_matrix - min_vals) / denominators
+    # normalized_matrix = (criteria_matrix - min_vals) / (max_vals - min_vals)
+
     return normalized_matrix
 
 
