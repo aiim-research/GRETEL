@@ -1,7 +1,7 @@
 #!/bin/bash
 # Schedule multiple runs of all the configurations contained in the searchdir
 
-search_dir=./lab/config/ensembles/asd-asdo/base_explainers_t2
+search_dir=./lab/config/ensembles/imdb/explainer_selectors_t1
 MINWAIT=1
 MAXWAIT=10
 
