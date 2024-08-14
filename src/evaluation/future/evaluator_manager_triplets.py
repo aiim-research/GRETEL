@@ -88,3 +88,8 @@ class EvaluatorManager:
         for evaluator in self._evaluators:
             for i in range(0, n_runs):
                 evaluator.evaluate()
+
+
+    def pickle_explanations(self, store_path):
+        for evaluator in self._evaluators:
+            evaluator.pickle_explanations(store_path)

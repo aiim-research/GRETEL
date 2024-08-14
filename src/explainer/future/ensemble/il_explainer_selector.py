@@ -47,7 +47,7 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
         init_dflts_to_of(self.local_config, "distance", default_distance)
 
         # Initializing model related configs
-        self.local_config['parameters']['epochs'] = self.local_config['parameters'].get('epochs', 200)
+        self.local_config['parameters']['epochs'] = self.local_config['parameters'].get('epochs', 300)
         self.local_config['parameters']['batch_size'] = self.local_config['parameters'].get('batch_size', 4)
         self.local_config['parameters']['early_stopping_threshold'] = self.local_config['parameters'].get('early_stopping_threshold', None)
 

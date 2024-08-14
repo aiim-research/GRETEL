@@ -137,6 +137,7 @@ data/working*
 lab/data/cache*
 lab/results_legacy*
 lab/stats_legacy*
+lab/pickles*
 output/
 stats/
 AAAI/

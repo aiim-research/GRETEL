@@ -2,6 +2,7 @@ import os
 import time
 from abc import ABC
 import jsonpickle
+import pickle
 
 from src.core.configurable import Configurable
 from src.core.explainer_base import Explainer
@@ -166,3 +167,17 @@ class Evaluator(Configurable):
         with open(results_uri, 'w') as results_writer:
             results_writer.write(jsonpickle.encode(self._complete))
 
+
+    def pickle_explanations(self, store_path):
+        if len(self._explanations) < 1:
+            raise Exception('Trying to pickle an empty explanations list')
+
+        # Ensure the store_path exists
+        os.makedirs(store_path, exist_ok=True)
+
+        # Define the full path for the pickle file
+        pickle_file_path = os.path.join(store_path, self._explainer.name + '.pkl')
+
+        # Pickle the list into the specified file
+        with open(pickle_file_path, 'wb') as pickle_file:
+            pickle.dump(self._explanations, pickle_file)

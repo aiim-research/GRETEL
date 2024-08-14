@@ -1,0 +1,67 @@
+{
+  "experiment": {
+    "scope": "xai-asd-others",
+    "parameters": {
+      "lock_release_tout": 120,
+      "propagate": [
+        {
+          "in_sections": [
+            "doe-triplets/explainer"
+          ],
+          "params": {
+            "fold_id": 4
+          }
+        },
+        {
+          "in_sections": [
+            "doe-triplets/oracle"
+          ],
+          "params": {
+            "fold_id": -1,
+            "retrain": true
+          }
+        },
+        {
+          "in_sections": [
+            "doe-triplets/dataset"
+          ],
+          "params": {
+            "compose_man": "lab/config/snippets/datasets/centr_weights_causality.json"
+          }
+        }
+      ],
+      "expand": {
+        "folds": [
+          "doe-triplets/explainer"
+        ],
+        "triplets": true
+      }
+    }
+  },
+  "doe-triplets": [
+    {
+      "compose_do": "./lab/config/snippets/do-pairs/ASD_ASD-Custom.json",
+      "explainer": {
+        "class": "src.explainer.future.generative.cf2.CF2Explainer",
+        "parameters": {
+          "n_nodes": 116,
+          "alpha": 0.7,
+          "lam": 20,
+          "epochs": 500,
+          "lr": 0.01,
+          "batch_size": 0.2,
+          "gamma": 0.9,
+          "feature_dim": 8,
+          "converter": "tree_cycles"
+        }
+      }
+    }
+  ],
+  "evaluator": {
+    "class": "src.evaluation.future.evaluator.Evaluator",
+    "parameters": {
+      "compose_pip": "./lab/config/snippets/default_pipeline.json"
+    }
+  },
+  "compose_strs": "./lab/config/snippets/default_store_paths.json"
+}

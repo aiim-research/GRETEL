@@ -43,6 +43,7 @@ class ExplanationRandom(ExplanationAggregator):
             adj_matrix = copy.deepcopy(input_inst.data)
             # Randomly sample a number of edges equivalent to the smallest base explanation
             sampled_edges = random.sample(change_edges, min_changes)
+            #TODO consider the case of undirected graphs
 
             # Try to modified the chosen edges one by one until a counterfactual is found
             for edge in sampled_edges:
