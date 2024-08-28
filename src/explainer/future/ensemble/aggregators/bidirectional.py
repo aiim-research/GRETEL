@@ -114,7 +114,7 @@ class ExplanationBidirectionalSearch(ExplanationAggregator):
                         # remove
                         i,j = e_rem.pop(0)
 
-                        if instance.directed:
+                        if instance.is_directed:
                             cf_candidate_matrix[i][j]=0
                         else:
                             cf_candidate_matrix[i][j]=0
@@ -128,7 +128,7 @@ class ExplanationBidirectionalSearch(ExplanationAggregator):
                         # add
                         i,j = e_add.pop(0)
 
-                        if instance.directed:
+                        if instance.is_directed:
                             cf_candidate_matrix[i][j]=1
                         else:
                             cf_candidate_matrix[i][j]=1
@@ -173,7 +173,10 @@ class ExplanationBidirectionalSearch(ExplanationAggregator):
             # Revert the changes on the selected edges
             for i,j in edges_i:
                 gci[i][j] = abs(1 - gci[i][j])
-                gci[j][i] = abs(1 - gci[j][i])
+
+                # If the graph is undirected we need to undo the symmetrical edge too 
+                if not instance.is_directed:
+                    gci[j][i] = abs(1 - gci[j][i])
 
             reduced_cf_inst = GraphInstance(id=instance.id, label=0, data=gci)
             self.dataset.manipulate(reduced_cf_inst)

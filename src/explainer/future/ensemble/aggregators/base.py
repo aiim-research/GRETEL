@@ -123,7 +123,7 @@ class ExplanationAggregator(Configurable):
         edges = [(row, col) for row, col in zip(*np.where(edge_change_freq_matrix))]
 
         # If we are working with directed graphs
-        if instance.directed:
+        if instance.is_directed:
             filtered_edges = edges
         else: # if we are working with undirected graphs
             filtered_edges = []

@@ -43,11 +43,14 @@ class ExplanationRandom(ExplanationAggregator):
             adj_matrix = copy.deepcopy(input_inst.data)
             # Randomly sample a number of edges equivalent to the smallest base explanation
             sampled_edges = random.sample(change_edges, min_changes)
-            #TODO consider the case of undirected graphs
 
             # Try to modified the chosen edges one by one until a counterfactual is found
             for edge in sampled_edges:
                 adj_matrix[edge[0], edge[1]] = abs( adj_matrix[edge[0], edge[1]] - 1 )
+
+                if not input_inst.is_directed:
+                    # Assign to the symetrical edge the same value than to the original edge
+                    adj_matrix[edge[1], edge[0]] = adj_matrix[edge[0], edge[1]] # The original edge was already modified
 
                 # Creating an instance with the modified adjacency matrix
                 aggregated_instance = GraphInstance(id=input_inst.id,

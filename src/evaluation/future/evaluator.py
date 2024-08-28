@@ -180,4 +180,10 @@ class Evaluator(Configurable):
 
         # Pickle the list into the specified file
         with open(pickle_file_path, 'wb') as pickle_file:
-            pickle.dump(self._explanations, pickle_file)
+            for exp in self._explanations:
+                exp.input_instance._dataset = None
+                for inst in exp.counterfactual_instances:
+                    inst._dataset = None
+                    
+            inst_cf_pairs = [(exp.input_instance, exp.counterfactual_instances[0]) for exp in self._explanations]
+            pickle.dump(self.inst_cf_pairs, pickle_file)

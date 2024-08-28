@@ -27,6 +27,11 @@ class ExplanationIntersection(ExplanationAggregator):
             if mod_freq_matrix[edge[0], edge[1]] == exp_count:
                 intersection_matrix[edge[0], edge[1]] = abs(intersection_matrix[edge[0], edge[1]] - 1 )
 
+                # If the graphs are undirected
+                if not input_inst.is_directed:
+                    # Assign to the symetrical edge the same value than to the original edge
+                    intersection_matrix[edge[1], edge[0]] = intersection_matrix[edge[0], edge[1]] # The original edge was already modified
+
         # Create the aggregated explanation
         aggregated_instance = GraphInstance(id=input_inst.id, label=1-input_inst.label, data=intersection_matrix)
         self.dataset.manipulate(aggregated_instance)

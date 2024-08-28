@@ -86,6 +86,10 @@ class GraphInstance(DataInstance):
     @property
     def num_nodes(self):
         return len(self.data)
+    
+    @property
+    def is_directed(self):
+        return self.directed
             
     def nodes(self):
         return [ i for i in range(self.data.shape[0])]

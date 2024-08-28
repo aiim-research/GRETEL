@@ -265,10 +265,10 @@ class DataAnalyzer():
             layout = nx.spring_layout
             position = layout(G)
 
-        edge_colors = ['cyan' for u, v in G.edges()]
-        node_colors = ['cyan' for node in G.nodes()]
+        edge_colors = ['gray' for u, v in G.edges()]
+        node_colors = ['gray' for node in G.nodes()]
 
-        nx.draw_networkx(G=G, pos=position, node_color=node_colors, edge_color=edge_colors, with_labels=True)
+        nx.draw_networkx(G=G, pos=position, node_color=node_colors, edge_color=edge_colors, with_labels=False, node_size=100)
 
         if img_store_address:
             plt.savefig(img_store_address, format='svg')
@@ -305,9 +305,9 @@ class DataAnalyzer():
 
         # Add shared nodes and edges in grey
         for node in nodes_shared:
-            G.add_node(node, color='cyan')
+            G.add_node(node, color='gray')
         for edge in edges_shared:
-            G.add_edge(*edge, color='cyan')
+            G.add_edge(*edge, color='gray')
 
         # Add deleted nodes and edges in red
         for node in nodes_deleted:
@@ -324,7 +324,7 @@ class DataAnalyzer():
         edge_colors = [G[u][v]['color'] for u, v in G.edges()]
         node_colors = [G.nodes[node]['color'] for node in G.nodes()]
         
-        nx.draw_networkx(G=G, pos=position, node_color=node_colors, edge_color=edge_colors, with_labels=True)
+        nx.draw_networkx(G=G, pos=position, node_color=node_colors, edge_color=edge_colors, with_labels=False, node_size=100)
 
         if img_store_address:
             plt.savefig(img_store_address, format='svg')
