@@ -84,9 +84,6 @@ class DataAnalyzer():
                     if first_iteration: # The metric names are only needed the first time
                          stage_names.append(stage_name)
 
-                    if 'Tree' in hashed_dataset_name:
-                        print(hashed_dataset_name)
-
                     # metric = get_instance_kvargs(kls=m_class, param={})
                     stage = get_class(kls=s_class)
                     vals = [x['value'] for x in s_value]
