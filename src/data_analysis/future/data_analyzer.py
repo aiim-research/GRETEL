@@ -286,7 +286,10 @@ class DataAnalyzer():
         # In case a position is not provided
         if position is None:
             layout = nx.spring_layout
-            position = layout(cls.get_nx_graph(og_instance))
+            if og_instance.num_nodes >= cf_instance.num_nodes:
+                position = layout(cls.get_nx_graph(og_instance))
+            else:
+                position = layout(cls.get_nx_graph(cf_instance))
         
         changes = cls.get_cf_changes(og_instance, cf_instance, False)
 

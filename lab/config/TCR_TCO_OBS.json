@@ -1,6 +1,6 @@
 {
   "experiment": {
-    "scope": "xai-ens",
+    "scope": "demo-ecml-pkdd",
     "parameters": {
       "lock_release_tout": 120,
       "propagate": [
