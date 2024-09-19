@@ -11,3 +11,8 @@ class DataInstance:
         self.data = data
         self.label = label # TODO: Refactoring to have a one-hot encoding of labels!
         self._dataset = dataset
+
+
+    @property
+    def dataset(self):
+        return self._dataset
