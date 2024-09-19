@@ -47,10 +47,12 @@ class Instability(MetricStage):
                     closer_inst = example
                     closer_inst_dst = example_dst
 
-        # If there was not other instance of the same class in the dataset then return an error value
+        # If there was not other instance of the same class in the dataset then write a 0, stable, because there is no point of comparison
+        # TODO Check if that the best behavior in those cases
         if closer_inst is None:
-            return -1
-        
+            self.write_into_explanation(explanation, 0)
+            return explanation
+            
         # Get the explanation for the closest instance
         closer_inst_explanation = explainer.explain(closer_inst)
 
