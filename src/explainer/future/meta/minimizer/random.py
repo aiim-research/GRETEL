@@ -86,8 +86,9 @@ class RandomMinimizer(ExplanationMinimizer):
                     k-=1
                     changed_edges = changed_edges + edges_i
                 else:
+                    # \if the size of the batch of changes to perform is already 1
                     # Change the edge to pick
-                    random.shuffle(changed_edges)
+                    changed_edges = changed_edges + edges_i
 
         result_cf = GraphInstance(id=instance.id, label=0, data=gc, directed=instance.directed)
         self.dataset.manipulate(result_cf)
