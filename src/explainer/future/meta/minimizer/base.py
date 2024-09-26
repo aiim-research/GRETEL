@@ -22,10 +22,10 @@ class ExplanationMinimizer(Trainable):
 
     def check_configuration(self):
         super().check_configuration()
-        self.logger = self.context.logger
 
 
     def init(self):
+        self.logger = self.context.logger
         self.dataset: Dataset = retake_dataset(self.local_config)
         self.oracle: Oracle = retake_oracle(self.local_config)
 

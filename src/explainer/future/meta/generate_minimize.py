@@ -13,7 +13,6 @@ class GenerateMinimizeExplainer(Explainer, Trainable):
 
     def check_configuration(self):
         super().check_configuration()
-        self.logger = self.context.logger
 
         if 'generator' not in self.local_config['parameters']:
             raise Exception('A generate-minimize method requires a generator')
@@ -36,6 +35,7 @@ class GenerateMinimizeExplainer(Explainer, Trainable):
 
     def init(self):
         super().init()
+        self.logger = self.context.logger
 
         self.explanation_generator = get_instance_kvargs(self.local_config['parameters']['generator']['class'], 
                                                           {'context':self.context,'local_config': self.local_config['parameters']['generator']})
@@ -61,7 +61,10 @@ class GenerateMinimizeExplainer(Explainer, Trainable):
         if initial_cf == instance.label:
             # the generator was not able to produce a counterfactual
             # so we can inmediately return, there is no point in minimizing
+            self.logger.info(f'The generator could not generate a counterfactual for instance with id {str(instance.id)}')
             return initial_explanation
+        else:
+            self.logger.info(f'The generator generated a counterfactual for instance with id {str(instance.id)}')
         
         # Try to minimize the distance between the counterfactual example and the original instance
         minimum_cf = self.explanation_minimizer.minimize(instance, initial_cf)
