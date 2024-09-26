@@ -2,6 +2,8 @@ from src.core.explainer_base import Explainer
 from src.core.factory_base import get_class, get_instance_kvargs
 from src.core.trainable_base import Trainable
 from src.utils.cfg_utils import  inject_dataset, inject_oracle
+import src.utils.explanations.functions as exp_tools
+from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 
 
 class GenerateMinimizeExplainer(Explainer, Trainable):
@@ -11,6 +13,7 @@ class GenerateMinimizeExplainer(Explainer, Trainable):
 
     def check_configuration(self):
         super().check_configuration()
+        self.logger = self.context.logger
 
         if 'generator' not in self.local_config['parameters']:
             raise Exception('A generate-minimize method requires a generator')
@@ -21,10 +24,14 @@ class GenerateMinimizeExplainer(Explainer, Trainable):
         # Inject the oracle and the dataset into the generator explainer
         inject_dataset(self.local_config['parameters']['generator'], self.dataset)
         inject_oracle(self.local_config['parameters']['generator'], self.oracle)
+        # all the components should use the same fold
+        self.local_config['parameters']['generator']['parameters']['fold_id'] = self.local_config['parameters']['fold_id']
 
         # Inject the oracle and the dataset into the minimizer
         inject_dataset(self.local_config['parameters']['minimizer'], self.dataset)
         inject_oracle(self.local_config['parameters']['minimizer'], self.oracle)
+        # all the components should use the same fold
+        self.local_config['parameters']['minimizer']['parameters']['fold_id'] = self.local_config['parameters']['fold_id']
 
 
     def init(self):
@@ -37,5 +44,40 @@ class GenerateMinimizeExplainer(Explainer, Trainable):
                                                           {'context':self.context,'local_config': self.local_config['parameters']['minimizer']})
         
 
+    def real_fit(self):
+        # Chose if the components will be trained at creation time or in this fit
+        pass
+
+
     def explain(self, instance):
+
+        # Using the generator to obtain an initial explanation
+        initial_explanation = self.explanation_generator.explain(instance)
+        initial_cf  = initial_explanation.counterfactual_instances[0]
+
+        # Getting the predicted label of the initial explanation
+        initial_cf_label = self.oracle.predict(initial_cf)
+
+        if initial_cf == instance.label:
+            # the generator was not able to produce a counterfactual
+            # so we can inmediately return, there is no point in minimizing
+            return initial_explanation
+        
+        # Try to minimize the distance between the counterfactual example and the original instance
+        minimum_cf = self.explanation_minimizer.minimize(instance, initial_cf)
+
+        minimal_explanation = LocalGraphCounterfactualExplanation(context=self.context,
+                                                                    dataset=self.dataset,
+                                                                    oracle=self.oracle,
+                                                                    explainer=self,
+                                                                    input_instance=instance,
+                                                                    counterfactual_instances=[minimum_cf])
+        
+        return minimal_explanation
+    
+
+    def write(self):
+        pass
+
+    def read(self):
         pass

@@ -22,7 +22,7 @@ class ExplanationMinimizer(Trainable):
 
     def check_configuration(self):
         super().check_configuration()
-        pass
+        self.logger = self.context.logger
 
 
     def init(self):

@@ -7,12 +7,20 @@ from typing import List
 from src.explainer.future.meta.minimizer.base import ExplanationMinimizer
 from src.dataset.instances.base import DataInstance
 from src.dataset.instances.graph import GraphInstance
-
+from src.utils.comparison import get_all_edge_differences, get_edge_differences
 
 class RandomMinimizer(ExplanationMinimizer):
 
     def minimize(self, instance, cf_instance) -> DataInstance:
-        changed_edges, _, _ = self.get_all_edge_differences(instance, [cf_instance])
+        # Get the changes between the original graph and the initial counterfactual
+        changed_edges, _, _ = get_all_edge_differences(instance, [cf_instance])
+
+        # apply the backward search to minimize the counterfactual
+        minimal_cf = self.oblivious_backward_search(instance, cf_instance, changed_edges)
+
+        # Return the minimal counterfactual
+        return minimal_cf
+
 
     def oblivious_backward_search(self, instance, cf_instance, changed_edges, k=5, maximum_oracle_calls=2000):
         '''
@@ -58,6 +66,13 @@ class RandomMinimizer(ExplanationMinimizer):
 
         result_cf = GraphInstance(id=instance.id, label=0, data=gc, directed=instance.directed)
         self.dataset.manipulate(result_cf)
-        result_cf.label = self.oracle.predict(reduced_cf_inst)
+        result_cf.label = self.oracle.predict(result_cf)
 
         return result_cf
+    
+    
+    def write(self):
+        pass
+
+    def read(self):
+        pass
