@@ -1,6 +1,6 @@
 {
   "experiment": {
-    "scope": "xai-ens",
+    "scope": "lcls-meta",
     "parameters": {
       "lock_release_tout": 120,
       "propagate": [
@@ -42,7 +42,7 @@
     {
       "compose_do": "./lab/config/snippets/do-pairs/TCR-128-28-0.25_TCO.json",
       "explainer": {
-        "class": "src.explainer.future.generative.rsgg.RSGG",
+        "class": "src.explainer.future.metaheuristic.local_search.local_search.LocalSearch",
         "parameters": {
           "epochs": 500
         }

@@ -23,7 +23,8 @@ class LocalSearch(Explainer):
 
     def init(self):
         super().init()
-        self.deep_factor = 10
+        self.neigh_factor = 8
+        self.runtime_factor = 6
         
         self.tagger = SimpleTagger()
         
@@ -100,7 +101,7 @@ class LocalSearch(Explainer):
         
         # print(different_coords_list)
         
-        n = self.deep_factor * len(self.actual)
+        n = self.runtime_factor * len(self.actual)
         while(n > 0):
             n-=1
             if(len(self.best) == 1) : break
@@ -113,7 +114,7 @@ class LocalSearch(Explainer):
                     found = True
                     self.best = s
                     self.actual = s
-                    n = self.deep_factor * len(self.actual)
+                    n = self.runtime_factor * len(self.actual)
                     break
                 
             if(found):
@@ -130,7 +131,7 @@ class LocalSearch(Explainer):
                         found = True
                         self.best = s
                         self.actual = s
-                        n = self.deep_factor * len(self.actual)
+                        n = self.runtime_factor * len(self.actual)
                         break
                     
                 if(found):
@@ -146,7 +147,7 @@ class LocalSearch(Explainer):
                         found = True
                         self.best = s
                         self.actual = s
-                        n = self.deep_factor * len(self.actual)
+                        n = self.runtime_factor * len(self.actual)
                         break
                     
                 if(found):
@@ -215,20 +216,20 @@ class LocalSearch(Explainer):
 
     def edge_swap(self, solution : set[int]) -> Generator[set[int], None, None]:
         for i in range(1, min(len(self.actual), (self.EPlus - len(self.actual))) + 1):
-            for _ in range(self.deep_factor ** 3):
+            for _ in range(self.neigh_factor ** 3):
                 yield self.swap_random(set(solution.copy()), i)
                 
     
     def edge_add(self, solution : set[int]) -> Generator[set[int], None, None]:
         for i in range(1, (len(self.best) - len(self.actual)) + 1):
-            for _ in range(self.deep_factor ** 3):
+            for _ in range(self.neigh_factor ** 3):
                 yield self.add_random(set(solution.copy()), i)
                 
                 
     
     def edge_remove(self, solution : set[int]) -> Generator[set[int], None, None]:
         for i in range(len(self.actual), 0, -1):
-            for _ in range(self.deep_factor ** 3):
+            for _ in range(self.neigh_factor ** 3):
                 yield self.remove_random(set(solution.copy()), i)
                 
     
