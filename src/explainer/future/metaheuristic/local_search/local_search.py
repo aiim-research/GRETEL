@@ -23,8 +23,8 @@ class LocalSearch(Explainer):
 
     def init(self):
         super().init()
-        self.neigh_factor = 8
-        self.runtime_factor = 6
+        self.neigh_factor = 10
+        self.runtime_factor = 10
         
         self.tagger = SimpleTagger()
         
