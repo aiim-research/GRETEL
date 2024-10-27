@@ -1,6 +1,6 @@
 {
   "experiment": {
-    "scope": "lcls-meta-bbbp-4-4",
+    "scope": "lcls-meta-asd-4-4",
     "parameters": {
       "lock_release_tout": 120,
       "propagate": [
@@ -9,7 +9,7 @@
             "doe-triplets/explainer"
           ],
           "params": {
-            "fold_id": 0
+            "fold_id": 3
           }
         },
         {
@@ -40,10 +40,11 @@
   },
   "doe-triplets": [
     {
-      "compose_do": "./lab/config/snippets/do-pairs/BBBP_GCN.json",
+      "compose_do": "./lab/config/snippets/do-pairs/ASD_ASD-Custom.json",
       "explainer": {
         "class": "src.explainer.future.metaheuristic.local_search.local_search.LocalSearch",
         "parameters": {
+          "epochs": 500
         }
       }
     }

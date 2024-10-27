@@ -1,6 +1,6 @@
 {
   "experiment": {
-    "scope": "lcls-meta-asd-asd",
+    "scope": "lcls-meta-asd-4-4",
     "parameters": {
       "lock_release_tout": 120,
       "propagate": [
@@ -9,7 +9,7 @@
             "doe-triplets/explainer"
           ],
           "params": {
-            "fold_id": 0
+            "fold_id": 4
           }
         },
         {
@@ -44,6 +44,7 @@
       "explainer": {
         "class": "src.explainer.future.metaheuristic.local_search.local_search.LocalSearch",
         "parameters": {
+          "epochs": 500
         }
       }
     }

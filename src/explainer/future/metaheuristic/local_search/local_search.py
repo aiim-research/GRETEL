@@ -23,8 +23,8 @@ class LocalSearch(Explainer):
 
     def init(self):
         super().init()
-        self.neigh_factor = 10
-        self.runtime_factor = 10
+        self.neigh_factor = 5
+        self.runtime_factor = 5
         
         self.tagger = SimpleTagger()
         
@@ -106,6 +106,7 @@ class LocalSearch(Explainer):
             n-=1
             if(len(self.best) == 1) : break
             found = False
+            self.actual = self.best
             
             print("Exploring removing neighborhood")
             for s in self.edge_remove(self.actual):
@@ -123,7 +124,7 @@ class LocalSearch(Explainer):
 
             self.actual = self.reduce_random(self.best, int(len(self.actual) / 2))
             
-            while(abs(len(self.best) - len(self.actual)) > 1):
+            while(len(self.best) - len(self.actual) > 1):
                 print("Exploring Swaping neighborhood")
                 for s in self.edge_swap(self.actual):
                     (found_, _) = self.evaluate(s)
@@ -153,8 +154,10 @@ class LocalSearch(Explainer):
                 if(found):
                     print("Found solution of size: " + str(len(self.actual)))
                     break
-
-                self.actual = self.reduce_random(self.best, int(len(self.actual) + (len(self.best) - len(self.actual))  / 2))
+                
+                expand = len(self.actual) + int((len(self.best) - len(self.actual)  / 2)) + 1
+                if(expand > self.best): break
+                self.actual = self.reduce_random(self.best, expand)
                 
         (_, result) = self.evaluate(self.best)
         return result

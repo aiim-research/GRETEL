@@ -1,6 +1,6 @@
 {
   "experiment": {
-    "scope": "lcls-meta",
+    "scope": "lcls-meta-bbbp-4-4",
     "parameters": {
       "lock_release_tout": 120,
       "propagate": [

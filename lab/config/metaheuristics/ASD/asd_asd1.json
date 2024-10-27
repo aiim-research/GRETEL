@@ -1,6 +1,6 @@
 {
   "experiment": {
-    "scope": "lcls-meta-asd-asd",
+    "scope": "lcls-meta-asd-4-4",
     "parameters": {
       "lock_release_tout": 120,
       "propagate": [
@@ -9,7 +9,7 @@
             "doe-triplets/explainer"
           ],
           "params": {
-            "fold_id": 3
+            "fold_id": 1
           }
         },
         {
