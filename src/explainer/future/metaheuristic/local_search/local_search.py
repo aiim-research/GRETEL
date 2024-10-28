@@ -107,8 +107,8 @@ class LocalSearch(Explainer):
             if(len(self.best) == 1) : break
             found = False
             self.actual = self.best
+            # print("actual ---> " + str(len(self.actual)))
             
-            print("Exploring removing neighborhood")
             for s in self.edge_remove(self.actual):
                 (found_, _) = self.evaluate(s)
                 if(found_ and len(s) < len(self.best)):
@@ -119,13 +119,16 @@ class LocalSearch(Explainer):
                     break
                 
             if(found):
-                print("Found solution of size: " + str(len(self.actual)))
+                print("============> Found solution with size: " + str(len(self.actual)))
                 continue
-
-            self.actual = self.reduce_random(self.best, int(len(self.actual) / 2))
+            
+            half = int(len(self.actual) / 2)
+            reduce = min(half, random.randint(1, half * 4))
+            self.actual = self.reduce_random(self.best, reduce)
+            print("actual ---> " + str(len(self.actual)))
             
             while(len(self.best) - len(self.actual) > 1):
-                print("Exploring Swaping neighborhood")
+                
                 for s in self.edge_swap(self.actual):
                     (found_, _) = self.evaluate(s)
                     if(found_ and len(s) < len(self.best)):
@@ -136,12 +139,12 @@ class LocalSearch(Explainer):
                         break
                     
                 if(found):
-                    print("Found solution of size: " + str(len(self.actual)))
+                    print("============> Found solution with size: " + str(len(self.actual)))
                     break
 
                 self.actual = self.reduce_random(self.best, len(self.actual))
+                print("actual ===> " + str(len(self.actual)))
                 
-                print("Exploring Adding neighborhood")
                 for s in self.edge_add(self.actual):
                     (found_, _) = self.evaluate(s)
                     if(found_ and len(s) < len(self.best)):
@@ -152,12 +155,15 @@ class LocalSearch(Explainer):
                         break
                     
                 if(found):
-                    print("Found solution of size: " + str(len(self.actual)))
+                    print("============> Found solution with size: " + str(len(self.actual)))
                     break
                 
-                expand = len(self.actual) + int((len(self.best) - len(self.actual)  / 2)) + 1
-                if(expand > self.best): break
+                to_expand = int(((len(self.best) - len(self.actual)) / 2)) + 1
+                expand = len(self.actual) + min(to_expand, random.randint(1, to_expand * 4))
+                # print("expand: " + str(expand) + ", best: " + str(len(self.best)))
+                if(expand > len(self.best)): break
                 self.actual = self.reduce_random(self.best, expand)
+                print("actual +++> " + str(len(self.actual)))
                 
         (_, result) = self.evaluate(self.best)
         return result
