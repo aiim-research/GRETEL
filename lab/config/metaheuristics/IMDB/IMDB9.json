@@ -1,6 +1,6 @@
 {
   "experiment": {
-    "scope": "lcls-imbd-4-4",
+    "scope": "lcls-imdb-4-4",
     "parameters": {
       "lock_release_tout": 120,
       "propagate": [
@@ -9,7 +9,7 @@
             "doe-triplets/explainer"
           ],
           "params": {
-            "fold_id": 7
+            "fold_id": 9
           }
         },
         {
@@ -18,7 +18,7 @@
           ],
           "params": {
             "fold_id": -1,
-            "retrain": true
+            "retrain": false
           }
         },
         {
