@@ -25,6 +25,7 @@ class LocalSearch(Explainer):
         super().init()
         self.neigh_factor = 4
         self.runtime_factor = 4
+        self.max_runtime = 50
         
         self.tagger = SimpleTagger()
         
@@ -101,7 +102,7 @@ class LocalSearch(Explainer):
         
         # print(different_coords_list)
         
-        n = self.runtime_factor * len(self.actual)
+        n = min(self.max_runtime, self.runtime_factor * len(self.actual))
         while(n > 0):
             n-=1
             if(len(self.best) == 1) : break
@@ -115,7 +116,7 @@ class LocalSearch(Explainer):
                     found = True
                     self.best = s
                     self.actual = s
-                    n = self.runtime_factor * len(self.actual)
+                    n = min(self.max_runtime, self.runtime_factor * len(self.actual))
                     break
                 
             if(found):
@@ -128,14 +129,14 @@ class LocalSearch(Explainer):
             print("actual ---> " + str(len(self.actual)))
             
             while(len(self.best) - len(self.actual) > 1):
-                
+                n-=1
                 for s in self.edge_swap(self.actual):
                     (found_, _) = self.evaluate(s)
                     if(found_ and len(s) < len(self.best)):
                         found = True
                         self.best = s
                         self.actual = s
-                        n = self.runtime_factor * len(self.actual)
+                        n = min(self.max_runtime, self.runtime_factor * len(self.actual))
                         break
                     
                 if(found):
@@ -151,7 +152,7 @@ class LocalSearch(Explainer):
                         found = True
                         self.best = s
                         self.actual = s
-                        n = self.runtime_factor * len(self.actual)
+                        n = min(self.max_runtime, self.runtime_factor * len(self.actual))
                         break
                     
                 if(found):
