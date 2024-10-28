@@ -6,7 +6,7 @@ import src.utils.explanations.functions as exp_tools
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 
 
-class GenerateMinimizeExplainer(Explainer, Trainable):
+class GenerateMinimize(Explainer):
     """This meta-explainer uses an explanation method to generate a first counterfactual and
     then a minimizer function to reduce the distance between the counterfactual and the original
     instance"""
@@ -42,11 +42,6 @@ class GenerateMinimizeExplainer(Explainer, Trainable):
         
         self.explanation_minimizer = get_instance_kvargs(self.local_config['parameters']['minimizer']['class'], 
                                                           {'context':self.context,'local_config': self.local_config['parameters']['minimizer']})
-        
-
-    def real_fit(self):
-        # Chose if the components will be trained at creation time or in this fit
-        pass
 
 
     def explain(self, instance):
@@ -79,8 +74,10 @@ class GenerateMinimizeExplainer(Explainer, Trainable):
         return minimal_explanation
     
 
-    def write(self):
-        pass
-
-    def read(self):
-        pass
+    @property
+    def name(self):
+        # Make the name of the generator_minimizer explainer show the names of the used generator and minimizer
+        gen = get_class( self.local_config['parameters']['generator']['class'] ).__name__
+        min = get_class( self.local_config['parameters']['minimizer']['class'] ).__name__
+        alias = f'GenerateMinimize({gen}-{min})'
+        return self.context.get_name(self,alias=alias)
