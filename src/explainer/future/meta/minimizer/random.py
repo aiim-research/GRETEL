@@ -9,7 +9,7 @@ from src.dataset.instances.base import DataInstance
 from src.dataset.instances.graph import GraphInstance
 from src.utils.comparison import get_all_edge_differences, get_edge_differences
 
-class RandomMinimizer(ExplanationMinimizer):
+class Random(ExplanationMinimizer):
 
     def check_configuration(self):
         super().check_configuration()
