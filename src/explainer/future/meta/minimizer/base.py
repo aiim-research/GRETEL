@@ -36,7 +36,7 @@ class ExplanationMinimizer(Trainable):
         pass
     
     @abstractmethod
-    def minimize(self, instance, cf_instance) -> DataInstance:
+    def minimize(self, instance, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
         pass
     
     

@@ -7,6 +7,7 @@ from typing import List
 from src.explainer.future.meta.minimizer.base import ExplanationMinimizer
 from src.dataset.instances.base import DataInstance
 from src.dataset.instances.graph import GraphInstance
+from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.comparison import get_all_edge_differences, get_edge_differences
 
 class Random(ExplanationMinimizer):
@@ -28,7 +29,8 @@ class Random(ExplanationMinimizer):
         self.changes_batch_size = self.local_config['parameters']['changes_batch_size']
 
 
-    def minimize(self, instance, cf_instance) -> DataInstance:
+    def minimize(self, instance, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
+        cf_instance = explaination.counterfactual_instances[0]
         # Get the changes between the original graph and the initial counterfactual
         changed_edges, _, _ = get_all_edge_differences(instance, [cf_instance])
 

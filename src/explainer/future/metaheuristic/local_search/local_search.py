@@ -3,7 +3,9 @@ import random
 import sys
 import numpy as np
 from src.core.explainer_base import Explainer
+from src.dataset.instances.base import DataInstance
 from src.dataset.instances.graph import GraphInstance
+from src.explainer.future.meta.minimizer.base import ExplanationMinimizer
 from src.explainer.future.metaheuristic.Tagging.simple_tagger import SimpleTagger
 from typing import Generator
 
@@ -14,26 +16,33 @@ from src.utils.cfg_utils import init_dflts_to_of
 from src.utils.comparison import get_edge_differences
 from src.utils.metrics.ged import GraphEditDistanceMetric
 
-class LocalSearch(Explainer):
+class LocalSearch(ExplanationMinimizer):
     def check_configuration(self):
         super().check_configuration()
+        
+        if 'neigh_factor' not in self.local_config['parameters']:
+            self.local_config['parameters']['neigh_factor'] = 4
+        
+        if 'runtime_factor' not in self.local_config['parameters']:
+            self.local_config['parameters']['runtime_factor'] = 4
+        
+        if 'max_runtime' not in self.local_config['parameters']:
+            self.local_config['parameters']['max_runtime'] = 50
         
 
 
 
     def init(self):
-        super().init()
-        self.neigh_factor = 4
-        self.runtime_factor = 4
-        self.max_runtime = 50
+        
+        self.neigh_factor = self.local_config['parameters']['neigh_factor']
+        self.runtime_factor = self.local_config['parameters']['runtime_factor']
+        self.max_runtime = self.local_config['parameters']['max_runtime']
         
         self.tagger = SimpleTagger()
         
-        self.searcher = SimpleSearcher()
-        
         self.distance_metric = GraphEditDistanceMetric()  
 
-    def explain(self, instance):
+    def minimize(self, instance: GraphInstance, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
         self.G = instance
         self.N = instance.num_nodes
         self.E = instance.num_edges
@@ -43,42 +52,8 @@ class LocalSearch(Explainer):
         
         self.labels = self.tagger.tag(instance)
         
-        self.actual = None
-        self.best = None
-
-        result = self.get_approximation()
-        
-        minimal_explanation = LocalGraphCounterfactualExplanation(context=self.context,
-                                                                    dataset=self.dataset,
-                                                                    oracle=self.oracle,
-                                                                    explainer=self,
-                                                                    input_instance=instance,
-                                                                    counterfactual_instances=[result])
-        
-        return minimal_explanation
-        
-        
-    def get_approximation(self):
-        
-        print("Instance response: " + str(self.M.InitialResponse))
-        # n = 0
-        # print(self.labels)
-        # for s in self.searcher.search(self.G, self.labels):
-        #     n += 1
-        #     print("initial attempt number " + str(n))
-        #     print(s)
-        #     (cf, new_g) = self.evaluate(s)
-        #     if (cf):
-        #         self.actual = s
-        #         self.best = s
-        #         print("Initial solution found after " + str(n) + " tries")
-        #         break
-        
-
-        # Iterating over all the instances of the dataset
-        
         min_ctf_dist = sys.float_info.max
-        for ctf_candidate in self.dataset.instances:
+        for ctf_candidate in explaination.counterfactual_instances:
             candidate_label = self.oracle.predict(ctf_candidate)
 
             if self.M.InitialResponse != candidate_label:
@@ -95,10 +70,16 @@ class LocalSearch(Explainer):
         self.actual = self.tagger.get_indices(self.labels, different_coords_list)
         self.best = self.actual
 
+        result = self.get_approximation()
+        
+        return result
+        
+        
+    def get_approximation(self):
+        
+        print("Instance response: " + str(self.M.InitialResponse))
         print("Initial solution: " + str(self.actual))
         print("Initial solution size: " + str(len(self.actual)))
-        print("Initial solution response: ")
-        (_, _) = self.evaluate(self.actual)
         
         # print(different_coords_list)
         
