@@ -1,4 +1,5 @@
 import copy
+import math
 import random
 import sys
 import numpy as np
@@ -28,21 +29,29 @@ class LocalSearch(ExplanationMinimizer):
         
         if 'max_runtime' not in self.local_config['parameters']:
             self.local_config['parameters']['max_runtime'] = 50
+            
+        if 'max_neigh' not in self.local_config['parameters']:
+            self.local_config['parameters']['max_neigh'] = 30
         
 
 
 
     def init(self):
-        
+        super().init()
+        self.logger = self.context.logger
         self.neigh_factor = self.local_config['parameters']['neigh_factor']
         self.runtime_factor = self.local_config['parameters']['runtime_factor']
         self.max_runtime = self.local_config['parameters']['max_runtime']
+        self.max_neigh = self.local_config['parameters']['max_neigh']
         
         self.tagger = SimpleTagger()
         
+        self.searcher = SimpleSearcher()
+        
         self.distance_metric = GraphEditDistanceMetric()  
 
-    def minimize(self, instance: GraphInstance, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
+    def minimize(self, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
+        instance = explaination.input_instance
         self.G = instance
         self.N = instance.num_nodes
         self.E = instance.num_edges
@@ -52,7 +61,9 @@ class LocalSearch(ExplanationMinimizer):
         
         self.labels = self.tagger.tag(instance)
         
-        min_ctf_dist = sys.float_info.max
+        
+        min_ctf = explaination.counterfactual_instances[0]
+        min_ctf_dist = self.distance_metric.evaluate(self.G, min_ctf, self.oracle)
         for ctf_candidate in explaination.counterfactual_instances:
             candidate_label = self.oracle.predict(ctf_candidate)
 
@@ -62,34 +73,48 @@ class LocalSearch(ExplanationMinimizer):
                 if ctf_distance < min_ctf_dist:
                     min_ctf_dist = ctf_distance
                     min_ctf = ctf_candidate
-                    
-        _, diff_matrix = get_edge_differences(self.G, min_ctf)
-        different_coordinates = np.where(diff_matrix == 1)
         
+        _, diff_matrix = get_edge_differences(self.G, min_ctf)
+        different_coordinates = np.where(diff_matrix == 1)        
         different_coords_list = list(zip(different_coordinates[0], different_coordinates[1]))
         self.actual = self.tagger.get_indices(self.labels, different_coords_list)
+        
         self.best = self.actual
-
+        
+        if(len(self.actual) == 0):
+            (_, result) = self.evaluate(self.best)
+            return result
+        
+        # if(len(self.actual) == 0):
+        #     self.logger.info("Tomando inicial random")
+        #     self.actual = next(self.searcher.search(self.G, self.labels, int(self.N)), None)
+        
         result = self.get_approximation()
+        
+        # candidate_label = self.oracle.predict(result)
+        # if self.M.InitialResponse == candidate_label:
+        #     (_, result) = self.evaluate([])
+        #     self.logger.info("Contrafractual no encontrado")
         
         return result
         
         
     def get_approximation(self):
         
-        print("Instance response: " + str(self.M.InitialResponse))
-        print("Initial solution: " + str(self.actual))
-        print("Initial solution size: " + str(len(self.actual)))
+        self.logger.info("Instance response: " + str(self.M.InitialResponse))
+        self.logger.info("Initial solution: " + str(self.actual))
+        self.logger.info("Initial solution size: " + str(len(self.actual)))
         
-        # print(different_coords_list)
+        # self.logger.info(different_coords_list)
         
         n = min(self.max_runtime, self.runtime_factor * len(self.actual))
         while(n > 0):
+            self.logger.info("n: " + str(n))
             n-=1
             if(len(self.best) == 1) : break
             found = False
             self.actual = self.best
-            # print("actual ---> " + str(len(self.actual)))
+            # self.logger.info("actual ---> " + str(len(self.actual)))
             
             for s in self.edge_remove(self.actual):
                 (found_, _) = self.evaluate(s)
@@ -101,13 +126,13 @@ class LocalSearch(ExplanationMinimizer):
                     break
                 
             if(found):
-                print("============> Found solution with size: " + str(len(self.actual)))
+                self.logger.info("============> Found solution with size: " + str(len(self.actual)))
                 continue
             
             half = int(len(self.actual) / 2)
             reduce = min(half, random.randint(1, half * 4))
             self.actual = self.reduce_random(self.best, reduce)
-            print("actual ---> " + str(len(self.actual)))
+            self.logger.info("actual ---> " + str(len(self.actual)))
             
             while(len(self.best) - len(self.actual) > 1):
                 n-=1
@@ -121,11 +146,11 @@ class LocalSearch(ExplanationMinimizer):
                         break
                     
                 if(found):
-                    print("============> Found solution with size: " + str(len(self.actual)))
+                    self.logger.info("============> Found solution with size: " + str(len(self.actual)))
                     break
 
                 self.actual = self.reduce_random(self.best, len(self.actual))
-                print("actual ===> " + str(len(self.actual)))
+                self.logger.info("actual ===> " + str(len(self.actual)))
                 
                 for s in self.edge_add(self.actual):
                     (found_, _) = self.evaluate(s)
@@ -137,15 +162,15 @@ class LocalSearch(ExplanationMinimizer):
                         break
                     
                 if(found):
-                    print("============> Found solution with size: " + str(len(self.actual)))
+                    self.logger.info("============> Found solution with size: " + str(len(self.actual)))
                     break
                 
                 to_expand = int(((len(self.best) - len(self.actual)) / 2)) + 1
                 expand = len(self.actual) + min(to_expand, random.randint(1, to_expand * 4))
-                # print("expand: " + str(expand) + ", best: " + str(len(self.best)))
+                # self.logger.info("expand: " + str(expand) + ", best: " + str(len(self.best)))
                 if(expand > len(self.best)): break
                 self.actual = self.reduce_random(self.best, expand)
-                print("actual +++> " + str(len(self.actual)))
+                self.logger.info("actual +++> " + str(len(self.actual)))
                 
         (_, result) = self.evaluate(self.best)
         return result
@@ -206,22 +231,34 @@ class LocalSearch(ExplanationMinimizer):
 
 
     def edge_swap(self, solution : set[int]) -> Generator[set[int], None, None]:
-        for i in range(1, min(len(self.actual), (self.EPlus - len(self.actual))) + 1):
+        cealing = min(len(self.actual), (self.EPlus - len(self.actual))) + 1
+        step = int(cealing / self.max_neigh) + 1
+        for i in range(1, cealing, step):
             for _ in range(self.neigh_factor ** 3):
                 yield self.swap_random(set(solution.copy()), i)
                 
     
     def edge_add(self, solution : set[int]) -> Generator[set[int], None, None]:
-        for i in range(1, (len(self.best) - len(self.actual)) + 1):
+        cealing = (len(self.best) - len(self.actual)) + 1
+        step = int(cealing / self.max_neigh) + 1
+        for i in range(1, cealing, step):
             for _ in range(self.neigh_factor ** 3):
                 yield self.add_random(set(solution.copy()), i)
                 
                 
     
     def edge_remove(self, solution : set[int]) -> Generator[set[int], None, None]:
-        for i in range(len(self.actual), 0, -1):
+        floor = len(self.actual)
+        step = int((floor / self.max_neigh) + 1) * -1
+        for i in range(floor, 0, step):
             for _ in range(self.neigh_factor ** 3):
                 yield self.remove_random(set(solution.copy()), i)
+                
+    def write(self):
+        pass
+
+    def read(self):
+        pass
                 
     
     
