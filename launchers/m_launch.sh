@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -s
 #SBATCH -n 1
-#SBATCH -o /NFSHOME/mprado/AIIM/GRETEL/main2/GRETEL/output/my_file_output.out
+#SBATCH -o /NFSHOME/rgarciagomez/projects/output.out
 #SBATCH -J xai-ens
 #SBATCH -p normal
 #SBATCH -c 4
