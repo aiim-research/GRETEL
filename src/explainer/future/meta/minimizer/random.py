@@ -7,7 +7,10 @@ from typing import List
 from src.explainer.future.meta.minimizer.base import ExplanationMinimizer
 from src.dataset.instances.base import DataInstance
 from src.dataset.instances.graph import GraphInstance
+from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.comparison import get_all_edge_differences, get_edge_differences
+from src.utils.metrics.ged import GraphEditDistanceMetric
+
 
 class Random(ExplanationMinimizer):
 
@@ -23,12 +26,28 @@ class Random(ExplanationMinimizer):
     
     def init(self):
         super().init()
-
+        self.distance_metric = GraphEditDistanceMetric()  
         self.max_oc = self.local_config['parameters']['max_oc']
         self.changes_batch_size = self.local_config['parameters']['changes_batch_size']
 
 
-    def minimize(self, instance, cf_instance) -> DataInstance:
+    def minimize(self, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
+        instance = explaination.input_instance
+        input_label = self.oracle.predict(instance)
+
+        min_ctf = explaination.counterfactual_instances[0]
+        min_ctf_dist = self.distance_metric.evaluate(instance, min_ctf, self.oracle)
+        for ctf_candidate in explaination.counterfactual_instances:
+            candidate_label = self.oracle.predict(ctf_candidate)
+
+            if input_label != candidate_label:
+                ctf_distance = self.distance_metric.evaluate(instance, ctf_candidate, self.oracle)
+                
+                if ctf_distance < min_ctf_dist:
+                    min_ctf_dist = ctf_distance
+                    min_ctf = ctf_candidate
+                    
+        cf_instance = min_ctf
         # Get the changes between the original graph and the initial counterfactual
         changed_edges, _, _ = get_all_edge_differences(instance, [cf_instance])
 
