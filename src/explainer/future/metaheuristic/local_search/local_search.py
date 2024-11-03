@@ -126,7 +126,7 @@ class LocalSearch(ExplanationMinimizer):
                     break
                 
             if(found):
-                self.logger.info("============> Found solution with size: " + str(len(self.actual)))
+                self.logger.info("============> (-) Found solution with size: " + str(len(self.actual)))
                 continue
             
             half = int(len(self.actual) / 2)
@@ -146,7 +146,7 @@ class LocalSearch(ExplanationMinimizer):
                         break
                     
                 if(found):
-                    self.logger.info("============> Found solution with size: " + str(len(self.actual)))
+                    self.logger.info("============> (=) Found solution with size: " + str(len(self.actual)))
                     break
 
                 self.actual = self.reduce_random(self.best, len(self.actual))
@@ -162,7 +162,7 @@ class LocalSearch(ExplanationMinimizer):
                         break
                     
                 if(found):
-                    self.logger.info("============> Found solution with size: " + str(len(self.actual)))
+                    self.logger.info("============> (+) Found solution with size: " + str(len(self.actual)))
                     break
                 
                 to_expand = int(((len(self.best) - len(self.actual)) / 2)) + 1
