@@ -17,7 +17,7 @@
             "explainer": { 
                 "class": "src.explainer.future.meta.generate_minimize.GenerateMinimize",
                 "parameters":{
-                    "fold_id": 1,
+                    "fold_id": 0,
                     "generator": { 
                         "class": "src.explainer.future.search.dces.DCESExplainer",
                         "parameters":{
@@ -38,7 +38,7 @@
     "evaluator": {
         "class": "src.evaluation.future.evaluator.Evaluator",
         "parameters": {
-            "compose_pip": "./lab/config/snippets/default_pipeline.json"
+            "compose_pip": "./lab/config/snippets/minimizing_pipeline.json"
         }
     },
     "compose_strs" : "./lab/config/snippets/default_store_paths.json"

@@ -36,16 +36,17 @@ class Random(ExplanationMinimizer):
         input_label = self.oracle.predict(instance)
 
         min_ctf = explaination.counterfactual_instances[0]
-        min_ctf_dist = self.distance_metric.evaluate(instance, min_ctf, self.oracle)
-        for ctf_candidate in explaination.counterfactual_instances:
-            candidate_label = self.oracle.predict(ctf_candidate)
+        print("random min_ctf -> " + str(self.oracle.predict(min_ctf)))
+        # min_ctf_dist = self.distance_metric.evaluate(instance, min_ctf, self.oracle)
+        # for ctf_candidate in explaination.counterfactual_instances:
+        #     candidate_label = self.oracle.predict(ctf_candidate)
 
-            if input_label != candidate_label:
-                ctf_distance = self.distance_metric.evaluate(instance, ctf_candidate, self.oracle)
+        #     if input_label != candidate_label:
+        #         ctf_distance = self.distance_metric.evaluate(instance, ctf_candidate, self.oracle)
                 
-                if ctf_distance < min_ctf_dist:
-                    min_ctf_dist = ctf_distance
-                    min_ctf = ctf_candidate
+        #         if ctf_distance < min_ctf_dist:
+        #             min_ctf_dist = ctf_distance
+        #             min_ctf = ctf_candidate
                     
         cf_instance = min_ctf
         # Get the changes between the original graph and the initial counterfactual
@@ -67,6 +68,7 @@ class Random(ExplanationMinimizer):
         This method tries to reduce the size of a counterfactual instance by randomly reverting some of the changes, 
         made to the original instance, while mantaining the correctness
         '''
+        initial_changed_edges = len(changed_edges)
         reduction_success = False
         gc = np.copy(cf_instance.data)
         # d = self.distance_metric.distance(instance.data,gc)
@@ -80,7 +82,7 @@ class Random(ExplanationMinimizer):
 
             # Select some edges to revert
             ki = min(k, len(changed_edges))
-            edges_i = [changed_edges.pop(0) for i in range(ki)]
+            edges_i = [changed_edges.pop(0) for _ in range(ki)]
             
             # Revert the changes on the selected edges
             for i,j in edges_i:
@@ -90,15 +92,17 @@ class Random(ExplanationMinimizer):
                 if not instance.is_directed:
                     gci[j][i] = abs(1 - gci[j][i])
 
-            reduced_cf_inst = GraphInstance(id=instance.id, label=0, data=gci, directed=instance.directed)
+            reduced_cf_inst = GraphInstance(id=instance.id, label=0, data=gci, directed=instance.directed, node_features=instance.node_features, graph_features=instance.graph_features)
             self.dataset.manipulate(reduced_cf_inst)
             reduced_cf_inst.label = self.oracle.predict(reduced_cf_inst)
             oracle_calls_count += 1
 
+            a = self.oracle.predict(instance)
             if reduced_cf_inst.label != instance.label: # If the reduced instance is still a counterfactual
                 reduction_success = True
                 gc = np.copy(gci)
                 k+=1
+                final_changed_edges = len(changed_edges)
             else: # If the reduced instance is no longer a counterfactual
                 if k>1:
                     # Reduce the amount of changes to perform in the next iteration
@@ -109,12 +113,12 @@ class Random(ExplanationMinimizer):
                     # Change the edge to pick
                     changed_edges = changed_edges + edges_i
 
-        result_cf = GraphInstance(id=instance.id, label=0, data=gc, directed=instance.directed)
+        result_cf = GraphInstance(id=instance.id, label=0, data=gc, directed=instance.directed, node_features=instance.node_features)
         self.dataset.manipulate(result_cf)
         result_cf.label = self.oracle.predict(result_cf)
 
         if reduction_success:
-            self.logger.info(f'The counterfactual for {str(instance.id)} was reduced')
+            self.logger.info(f'The counterfactual for {str(instance.id)} was reduced ({str(initial_changed_edges)} -> {str(final_changed_edges)})')
         else:
             self.logger.info(f'The counterfactual for {str(instance.id)} was not reduced')
 

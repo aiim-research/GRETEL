@@ -1,0 +1,37 @@
+{
+    "pipeline": {
+                "class": "src.evaluation.future.stages.main_pipeline.MainPipeline",
+                "parameters": {
+                        "stages": [
+                            {
+                                "class": "src.evaluation.future.stages.runtime.Runtime",
+                                "parameters": {}
+                            },
+                            {
+                                "class": "src.evaluation.future.stages.ged.GraphEditDistance",
+                                "parameters": {} 
+                            },
+                            {
+                                "class": "src.evaluation.future.stages.correctness.Correctness",
+                                "parameters": {} 
+                            },
+                            {
+                                "class": "src.evaluation.future.stages.oracle_calls.OracleCalls",
+                                "parameters": {} 
+                            },
+                            {
+                                "class": "src.evaluation.future.stages.oracle_accuracy.OracleAccuracy",
+                                "parameters": {} 
+                            },
+                            {
+                                "class": "src.evaluation.future.stages.sparsity.Sparsity",
+                                "parameters": {} 
+                            },
+                            {
+                                "class": "src.evaluation.future.stages.fidelity.Fidelity",
+                                "parameters": {} 
+                            }
+                        ]
+                    }
+                }
+}

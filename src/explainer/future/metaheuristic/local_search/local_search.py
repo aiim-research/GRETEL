@@ -12,10 +12,12 @@ from typing import Generator
 
 from src.explainer.future.metaheuristic.initial_solution_search.simple_searcher import SimpleSearcher
 from src.explainer.future.metaheuristic.local_search.binary_model import BinaryModel
+from src.explainer.future.metaheuristic.local_search.cache import FixedSizeCache
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.cfg_utils import init_dflts_to_of
 from src.utils.comparison import get_edge_differences
 from src.utils.metrics.ged import GraphEditDistanceMetric
+from collections import OrderedDict
 
 class LocalSearch(ExplanationMinimizer):
     def check_configuration(self):
@@ -49,8 +51,11 @@ class LocalSearch(ExplanationMinimizer):
         self.searcher = SimpleSearcher()
         
         self.distance_metric = GraphEditDistanceMetric()  
+        
+        self.cache = FixedSizeCache(capacity=5000000)
 
     def minimize(self, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
+        print("-------------")
         instance = explaination.input_instance
         self.G = instance
         self.N = instance.num_nodes
@@ -63,130 +68,153 @@ class LocalSearch(ExplanationMinimizer):
         
         
         min_ctf = explaination.counterfactual_instances[0]
-        min_ctf_dist = self.distance_metric.evaluate(self.G, min_ctf, self.oracle)
-        for ctf_candidate in explaination.counterfactual_instances:
-            candidate_label = self.oracle.predict(ctf_candidate)
+        # min_ctf_dist = self.distance_metric.evaluate(self.G, min_ctf, self.oracle)
+        # for ctf_candidate in explaination.counterfactual_instances:
+        #     candidate_label = self.oracle.predict(ctf_candidate)
 
-            if self.M.InitialResponse != candidate_label:
-                ctf_distance = self.distance_metric.evaluate(self.G, ctf_candidate, self.oracle)
+        #     if self.M.InitialResponse != candidate_label:
+        #         ctf_distance = self.distance_metric.evaluate(self.G, ctf_candidate, self.oracle)
                 
-                if ctf_distance < min_ctf_dist:
-                    min_ctf_dist = ctf_distance
-                    min_ctf = ctf_candidate
+        #         if ctf_distance < min_ctf_dist:
+        #             min_ctf_dist = ctf_distance
+        #             min_ctf = ctf_candidate
         
         _, diff_matrix = get_edge_differences(self.G, min_ctf)
         different_coordinates = np.where(diff_matrix == 1)        
         different_coords_list = list(zip(different_coordinates[0], different_coordinates[1]))
-        self.actual = self.tagger.get_indices(self.labels, different_coords_list)
+        actual = self.tagger.get_indices(self.labels, different_coords_list)
         
-        self.best = self.actual
+        best = actual
         
-        if(len(self.actual) == 0):
-            (_, result) = self.evaluate(self.best)
-            return result
+
         
-        # if(len(self.actual) == 0):
-        #     self.logger.info("Tomando inicial random")
-        #     self.actual = next(self.searcher.search(self.G, self.labels, int(self.N)), None)
+        if(len(actual) == 0):
+            return min_ctf
         
-        result = self.get_approximation()
+        result = self.get_approximation(actual, best)
         
         # candidate_label = self.oracle.predict(result)
         # if self.M.InitialResponse == candidate_label:
-        #     (_, result) = self.evaluate([])
+        #     result = self.get_evaluation([])
         #     self.logger.info("Contrafractual no encontrado")
         
         return result
         
         
-    def get_approximation(self):
+    def get_approximation(self, actual, best):
+        self.logger.info("Initial solution: " + str(actual))
+        self.logger.info("Initial solution size: " + str(len(actual)))
         
-        self.logger.info("Instance response: " + str(self.M.InitialResponse))
-        self.logger.info("Initial solution: " + str(self.actual))
-        self.logger.info("Initial solution size: " + str(len(self.actual)))
-        
-        # self.logger.info(different_coords_list)
-        
-        n = min(self.max_runtime, self.runtime_factor * len(self.actual))
+        n = min(self.max_runtime, self.runtime_factor * len(actual))
         while(n > 0):
             self.logger.info("n: " + str(n))
             n-=1
-            if(len(self.best) == 1) : break
+            if(len(best) == 1) : break
             found = False
-            self.actual = self.best
-            # self.logger.info("actual ---> " + str(len(self.actual)))
+            actual = best
+            # self.logger.info("actual ---> " + str(len(actual)))
             
-            for s in self.edge_remove(self.actual):
-                (found_, _) = self.evaluate(s)
-                if(found_ and len(s) < len(self.best)):
+            for s in self.edge_remove(actual):
+                if(self.cache.contains(s)):
+                    continue
+                self.cache.add(s)
+                found_ = self.get_evaluation(s)
+                if(found_ and len(s) < len(best)):
                     found = True
-                    self.best = s
-                    self.actual = s
-                    n = min(self.max_runtime, self.runtime_factor * len(self.actual))
+                    best = s
+                    actual = s
+                    n = min(self.max_runtime, self.runtime_factor * len(actual))
                     break
                 
             if(found):
-                self.logger.info("============> (-) Found solution with size: " + str(len(self.actual)))
+                self.logger.info("============> (-) Found solution with size: " + str(len(actual)))
                 continue
             
-            half = int(len(self.actual) / 2)
+            half = int(len(actual) / 2)
             reduce = min(half, random.randint(1, half * 4))
-            self.actual = self.reduce_random(self.best, reduce)
-            self.logger.info("actual ---> " + str(len(self.actual)))
+            actual = self.reduce_random(best, reduce)
+            self.logger.info("actual ---> " + str(len(actual)))
             
-            while(len(self.best) - len(self.actual) > 1):
+            while(len(best) - len(actual) > 1):
                 n-=1
-                for s in self.edge_swap(self.actual):
-                    (found_, _) = self.evaluate(s)
-                    if(found_ and len(s) < len(self.best)):
+                for s in self.edge_swap(actual):
+                    if(self.cache.contains(s)):
+                        # print("in cache")
+                        continue
+                        
+                    self.cache.add(s)
+                    found_ = self.get_evaluation(s)
+                    if(found_ and len(s) < len(best)):
                         found = True
-                        self.best = s
-                        self.actual = s
-                        n = min(self.max_runtime, self.runtime_factor * len(self.actual))
+                        best = s
+                        actual = s
+                        n = min(self.max_runtime, self.runtime_factor * len(actual))
                         break
                     
                 if(found):
-                    self.logger.info("============> (=) Found solution with size: " + str(len(self.actual)))
+                    self.logger.info("============> (=) Found solution with size: " + str(len(actual)))
                     break
 
-                self.actual = self.reduce_random(self.best, len(self.actual))
-                self.logger.info("actual ===> " + str(len(self.actual)))
+                actual = self.reduce_random(best, len(actual))
+                self.logger.info("actual ===> " + str(len(actual)))
                 
-                for s in self.edge_add(self.actual):
-                    (found_, _) = self.evaluate(s)
-                    if(found_ and len(s) < len(self.best)):
+                for s in self.edge_add(actual, best):
+                    if(self.cache.contains(s)):
+                        # print("in cache")
+                        continue
+                        
+                    self.cache.add(s)
+                    found_ = self.get_evaluation(s)
+                    if(found_ and len(s) < len(best)):
                         found = True
-                        self.best = s
-                        self.actual = s
-                        n = min(self.max_runtime, self.runtime_factor * len(self.actual))
+                        best = s
+                        actual = s
+                        n = min(self.max_runtime, self.runtime_factor * len(actual))
                         break
                     
                 if(found):
-                    self.logger.info("============> (+) Found solution with size: " + str(len(self.actual)))
+                    self.logger.info("============> (+) Found solution with size: " + str(len(actual)))
                     break
                 
-                to_expand = int(((len(self.best) - len(self.actual)) / 2)) + 1
-                expand = len(self.actual) + min(to_expand, random.randint(1, to_expand * 4))
-                # self.logger.info("expand: " + str(expand) + ", best: " + str(len(self.best)))
-                if(expand > len(self.best)): break
-                self.actual = self.reduce_random(self.best, expand)
-                self.logger.info("actual +++> " + str(len(self.actual)))
+                to_expand = int(((len(best) - len(actual)) / 2)) + 1
+                expand = len(actual) + min(to_expand, random.randint(1, to_expand * 4))
+                # self.logger.info("expand: " + str(expand) + ", best: " + str(len(best)))
+                if(expand > len(best)): break
+                actual = self.reduce_random(best, expand)
+                self.logger.info("actual +++> " + str(len(actual)))
                 
-        (_, result) = self.evaluate(self.best)
+        result = self.evaluate(best)
         return result
     
     
-    def evaluate(self, solution : set[int]) -> tuple[bool, GraphInstance]:
-        new_data = copy.deepcopy(self.G.data)
+    def get_evaluation(self, solution : set[int]) -> tuple[bool, GraphInstance]:
+        new_data = np.copy(self.G.data)
         self.disturb(new_data, self.G.directed, solution)
         
         new_g = GraphInstance(id=self.G.id,
                                 label=0,
                                 data=new_data,
-                                node_features=self.G.node_features)
+                                directed=self.G.directed,
+                                node_features= self.G.node_features)
+        self.dataset.manipulate(new_g)
+        
         result = self.M.classify(new_g)
 
-        return (result, new_g)
+        return result
+    
+    def evaluate(self, solution : set[int]) -> tuple[bool, GraphInstance]:
+        new_data = np.copy(self.G.data)
+        self.disturb(new_data, self.G.directed, solution)
+        
+        new_g = GraphInstance(id=self.G.id,
+                                label=0,
+                                data=new_data,
+                                directed=self.G.directed,
+                                node_features= self.G.node_features)
+        self.dataset.manipulate(new_g)
+
+        return new_g
+    
         
     def disturb(self, data, directed, solution : set[int]):
         for i in solution:
@@ -231,27 +259,27 @@ class LocalSearch(ExplanationMinimizer):
 
 
     def edge_swap(self, solution : set[int]) -> Generator[set[int], None, None]:
-        cealing = min(len(self.actual), (self.EPlus - len(self.actual))) + 1
+        cealing = min(len(solution), (self.EPlus - len(solution))) + 1
         step = int(cealing / self.max_neigh) + 1
         for i in range(1, cealing, step):
-            for _ in range(self.neigh_factor ** 3):
+            for _ in range(self.neigh_factor ** 2):
                 yield self.swap_random(set(solution.copy()), i)
                 
     
-    def edge_add(self, solution : set[int]) -> Generator[set[int], None, None]:
-        cealing = (len(self.best) - len(self.actual)) + 1
+    def edge_add(self, solution : set[int], best) -> Generator[set[int], None, None]:
+        cealing = (len(best) - len(solution)) + 1
         step = int(cealing / self.max_neigh) + 1
         for i in range(1, cealing, step):
-            for _ in range(self.neigh_factor ** 3):
+            for _ in range(self.neigh_factor ** 2):
                 yield self.add_random(set(solution.copy()), i)
                 
                 
     
     def edge_remove(self, solution : set[int]) -> Generator[set[int], None, None]:
-        floor = len(self.actual)
+        floor = len(solution) -1
         step = int((floor / self.max_neigh) + 1) * -1
         for i in range(floor, 0, step):
-            for _ in range(self.neigh_factor ** 3):
+            for _ in range(self.neigh_factor ** 2):
                 yield self.remove_random(set(solution.copy()), i)
                 
     def write(self):

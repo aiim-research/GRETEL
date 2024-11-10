@@ -45,6 +45,7 @@ class DCESExplainer(Explainer):
                     min_ctf_dist = ctf_distance
                     min_ctf = ctf_candidate
 
+        print("dce min_ctf -> " + str(self.oracle.predict(min_ctf)))
         result = copy.deepcopy(min_ctf)
         result.id = instance.id
 
