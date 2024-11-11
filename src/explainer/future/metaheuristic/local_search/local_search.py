@@ -52,7 +52,7 @@ class LocalSearch(ExplanationMinimizer):
         
         self.distance_metric = GraphEditDistanceMetric()  
         
-        self.cache = FixedSizeCache(capacity=5000000)
+        # self.cache = FixedSizeCache(capacity=5000000)
 
     def minimize(self, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
         print("-------------")
@@ -115,9 +115,9 @@ class LocalSearch(ExplanationMinimizer):
             # self.logger.info("actual ---> " + str(len(actual)))
             
             for s in self.edge_remove(actual):
-                if(self.cache.contains(s)):
-                    continue
-                self.cache.add(s)
+                # if(self.cache.contains(s)):
+                #     continue
+                # self.cache.add(s)
                 found_ = self.get_evaluation(s)
                 if(found_ and len(s) < len(best)):
                     found = True
@@ -138,11 +138,11 @@ class LocalSearch(ExplanationMinimizer):
             while(len(best) - len(actual) > 1):
                 n-=1
                 for s in self.edge_swap(actual):
-                    if(self.cache.contains(s)):
-                        # print("in cache")
-                        continue
+                    # if(self.cache.contains(s)):
+                    #     # print("in cache")
+                    #     continue
                         
-                    self.cache.add(s)
+                    # self.cache.add(s)
                     found_ = self.get_evaluation(s)
                     if(found_ and len(s) < len(best)):
                         found = True
@@ -159,11 +159,11 @@ class LocalSearch(ExplanationMinimizer):
                 self.logger.info("actual ===> " + str(len(actual)))
                 
                 for s in self.edge_add(actual, best):
-                    if(self.cache.contains(s)):
-                        # print("in cache")
-                        continue
+                    # if(self.cache.contains(s)):
+                    #     # print("in cache")
+                    #     continue
                         
-                    self.cache.add(s)
+                    # self.cache.add(s)
                     found_ = self.get_evaluation(s)
                     if(found_ and len(s) < len(best)):
                         found = True
