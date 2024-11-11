@@ -36,6 +36,7 @@ class Random(ExplanationMinimizer):
         input_label = self.oracle.predict(instance)
 
         min_ctf = explaination.counterfactual_instances[0]
+        print("random instance -> " + str(self.oracle.predict(instance)))
         print("random min_ctf -> " + str(self.oracle.predict(min_ctf)))
         # min_ctf_dist = self.distance_metric.evaluate(instance, min_ctf, self.oracle)
         # for ctf_candidate in explaination.counterfactual_instances:
@@ -97,8 +98,9 @@ class Random(ExplanationMinimizer):
             reduced_cf_inst.label = self.oracle.predict(reduced_cf_inst)
             oracle_calls_count += 1
 
-            a = self.oracle.predict(instance)
-            if reduced_cf_inst.label != instance.label: # If the reduced instance is still a counterfactual
+            instance_label = self.oracle.predict(instance)
+            
+            if reduced_cf_inst.label != instance_label: # If the reduced instance is still a counterfactual
                 reduction_success = True
                 gc = np.copy(gci)
                 k+=1
@@ -116,6 +118,8 @@ class Random(ExplanationMinimizer):
         result_cf = GraphInstance(id=instance.id, label=0, data=gc, directed=instance.directed, node_features=instance.node_features)
         self.dataset.manipulate(result_cf)
         result_cf.label = self.oracle.predict(result_cf)
+        
+        # print(self.oracle.predict(instance))
 
         if reduction_success:
             self.logger.info(f'The counterfactual for {str(instance.id)} was reduced ({str(initial_changed_edges)} -> {str(final_changed_edges)})')

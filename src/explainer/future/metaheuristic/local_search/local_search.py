@@ -279,7 +279,7 @@ class LocalSearch(ExplanationMinimizer):
         floor = len(solution) -1
         step = int((floor / self.max_neigh) + 1) * -1
         for i in range(floor, 0, step):
-            for _ in range(self.neigh_factor ** 2):
+            for _ in range(self.neigh_factor ** 3):
                 yield self.remove_random(set(solution.copy()), i)
                 
     def write(self):

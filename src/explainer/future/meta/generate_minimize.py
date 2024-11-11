@@ -46,7 +46,9 @@ class GenerateMinimize(Explainer):
 
     def explain(self, instance):
         print("--------------------------------------------")
-        print("initial label -> " + str(instance.label))
+
+        initial_label = self.oracle.predict(instance)
+        
         # Using the generator to obtain an initial explanation
         initial_explanation = self.explanation_generator.explain(instance)
         
@@ -54,9 +56,9 @@ class GenerateMinimize(Explainer):
 
         # Getting the predicted label of the initial explanation
         initial_cf_label = self.oracle.predict(initial_cf)
-        print("generated ctf -> " + str(initial_cf_label))
+        # print("generated ctf -> " + str(initial_cf_label))
 
-        if initial_cf_label == instance.label:
+        if initial_cf_label == initial_label:
             # the generator was not able to produce a counterfactual
             # so we can inmediately return, there is no point in minimizing
             self.logger.info(f'The generator could not generate a counterfactual for instance with id {str(instance.id)}')
@@ -67,7 +69,7 @@ class GenerateMinimize(Explainer):
         # Try to minimize the distance between the counterfactual example and the original instance
         minimum_cf = self.explanation_minimizer.minimize(initial_explanation)
         
-        print("minimized ctf -> " + str(self.oracle.predict(minimum_cf)))
+        # print("minimized ctf -> " + str(self.oracle.predict(minimum_cf)))
 
         minimal_explanation = LocalGraphCounterfactualExplanation(context=self.context,
                                                                     dataset=self.dataset,

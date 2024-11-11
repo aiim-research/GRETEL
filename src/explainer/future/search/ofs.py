@@ -107,12 +107,14 @@ class OFS(Explainer):
                         ki+=1
             ki=0
 
+            
             current_inst = GraphInstance(id=instance.id, 
-                                 label=0, 
+                                 label=r, 
                                  data=g_c,
                                  node_features=instance.node_features)
-
             r = self.oracle.predict(current_inst)
+            current_inst.label = r
+            
             l += 1 # Increase the oracle calls counter
 
             if r != instance.label:
