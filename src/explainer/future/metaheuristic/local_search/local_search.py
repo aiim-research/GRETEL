@@ -52,7 +52,7 @@ class LocalSearch(ExplanationMinimizer):
         
         self.distance_metric = GraphEditDistanceMetric()  
         
-        # self.cache = FixedSizeCache(capacity=5000000)
+        # self.cache = FixedSizeCache(capacity=500000)
 
     def minimize(self, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
         print("-------------")

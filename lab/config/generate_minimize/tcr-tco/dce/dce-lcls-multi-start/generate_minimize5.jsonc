@@ -6,14 +6,14 @@
             "propagate":[
                 {"in_sections" : ["doe-triplets/explainer"],"params" : {"fold_id": 5}},
                 {"in_sections" : ["doe-triplets/oracle"],"params" : {"fold_id": -1,"retrain":false}},
-                {"in_sections": ["doe-triplets/dataset"],"params": { "compose_man" : "lab/config/snippets/datasets/centr_and_weights.json" }}
+                {"in_sections": ["doe-triplets/dataset"],"params": { "compose_man" : "lab/config/snippets/datasets/empty.json" }}
             ],
             "expand" : {  "folds" : ["doe-triplets/explainer"], "triplets" : true }
         }
     },
     "doe-triplets":[
         {
-            "compose_do": "./lab/config/snippets/do-pairs/TCR-128-28-0.25_TCO.json",
+            "compose_do": "./lab/config/snippets/do-pairs/TCR-500-128-0.3_TCO.json",
             "explainer": { 
                 "class": "src.explainer.future.meta.generate_minimize.GenerateMinimize",
                 "parameters":{
