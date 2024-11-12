@@ -29,8 +29,8 @@
                         "parameters": {
                             "neigh_factor" : 5,
                             "runtime_factor" : 5,
-                            "max_runtime" : 50,
-                            "max_neigh" : 50
+                            "max_runtime" : 20,
+                            "max_neigh" : 40
                         }
                     }
                 }
