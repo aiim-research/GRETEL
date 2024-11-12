@@ -27,10 +27,10 @@
                     "minimizer": {
                         "class": "src.explainer.future.metaheuristic.local_search.local_search_multi_start.LocalSearchMultiStart",
                         "parameters": {
-                            "neigh_factor" : 5,
-                            "runtime_factor" : 5,
+                            "neigh_factor" : 8,
+                            "runtime_factor" : 8,
                             "max_runtime" : 50,
-                            "max_neigh" : 50,
+                            "max_neigh" : 70,
                             "starting_amount": 5
                         }
                     }
