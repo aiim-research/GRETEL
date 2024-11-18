@@ -92,7 +92,9 @@ class LocalSearch(ExplanationMinimizer):
         _, diff_matrix = get_edge_differences(self.G, min_ctf)
         different_coordinates = np.where(diff_matrix == 1)        
         different_coords_list = list(zip(different_coordinates[0], different_coordinates[1]))
-        actual = self.tagger.get_indices(self.labels, different_coords_list)
+        # Filter to avoid duplicate edges in undirected graphs
+        filtered_coords_list = [coord for coord in different_coords_list if coord[0] < coord[1]]
+        actual = self.tagger.get_indices(self.labels, filtered_coords_list)
         
         best = actual
         
@@ -101,7 +103,7 @@ class LocalSearch(ExplanationMinimizer):
         if(len(actual) == 0):
             return min_ctf
         
-        result = self.get_approximation(actual, best)
+        result = self.get_approximation(actual, best, min_ctf)
         
         # candidate_label = self.oracle.predict(result)
         # if self.M.InitialResponse == candidate_label:
@@ -111,9 +113,11 @@ class LocalSearch(ExplanationMinimizer):
         return result
         
         
-    def get_approximation(self, actual, best):
+    def get_approximation(self, actual, best, min_ctf):
         self.logger.info("Initial solution: " + str(actual))
         self.logger.info("Initial solution size: " + str(len(actual)))
+
+        result = min_ctf
         
         n = min(self.max_runtime, self.runtime_factor * len(actual))
         while(n > 0):
@@ -128,11 +132,12 @@ class LocalSearch(ExplanationMinimizer):
                 if(self.cache.contains(s)):
                     continue
                 self.cache.add(s)
-                found_ = self.get_evaluation(s)
+                found_, inst = self.evaluate(s)
                 if(found_ and len(s) < len(best)):
                     found = True
                     best = s
                     actual = s
+                    result = inst
                     n = min(self.max_runtime, self.runtime_factor * len(actual))
                     break
                 
@@ -153,11 +158,12 @@ class LocalSearch(ExplanationMinimizer):
                         continue
                         
                     self.cache.add(s)
-                    found_ = self.get_evaluation(s)
+                    found_, inst = self.evaluate(s)
                     if(found_ and len(s) < len(best)):
                         found = True
                         best = s
                         actual = s
+                        result = inst
                         n = min(self.max_runtime, self.runtime_factor * len(actual))
                         break
                     
@@ -174,11 +180,12 @@ class LocalSearch(ExplanationMinimizer):
                         continue
                         
                     self.cache.add(s)
-                    found_ = self.get_evaluation(s)
+                    found_, inst = self.evaluate(s)
                     if(found_ and len(s) < len(best)):
                         found = True
                         best = s
                         actual = s
+                        result = inst
                         n = min(self.max_runtime, self.runtime_factor * len(actual))
                         break
                     
@@ -192,26 +199,12 @@ class LocalSearch(ExplanationMinimizer):
                 if(expand > len(best)): break
                 actual = self.reduce_random(best, expand)
                 self.logger.info("actual +++> " + str(len(actual)))
-                
-        result = self.evaluate(best)
+          
+        if(self.oracle.predict(result) == self.oracle.predict(self.G)):
+            self.logger.info("ERROR, returning non ctf ")
+            self.logger.info("instance -> " + str(self.oracle.predict(self.G)))
+            self.logger.info("result -> " + str(self.oracle.predict(result)))
         return result
-    
-    
-    def get_evaluation(self, solution : set[int]) -> tuple[bool, GraphInstance]:
-        new_data = np.copy(self.G.data)
-        self.disturb(new_data, self.G.directed, solution)
-        
-        for method in self.methods:
-            node_features = method(new_data, self.G.node_features)
-            new_g = GraphInstance(id=self.G.id,
-                                    label=0,
-                                    data=new_data,
-                                    directed=self.G.directed,
-                                    node_features= node_features)
-            if(self.M.classify(new_g)): return True
-        # self.dataset.manipulate(new_g)
-
-        return False
     
     def evaluate(self, solution : set[int]) -> tuple[bool, GraphInstance]:
         new_data = np.copy(self.G.data)
@@ -224,10 +217,10 @@ class LocalSearch(ExplanationMinimizer):
                                     data=new_data,
                                     directed=self.G.directed,
                                     node_features= node_features)
-            if(self.M.classify(new_g)): return new_g
+            if(self.M.classify(new_g)): return (True, new_g)
         # self.dataset.manipulate(new_g)
 
-        return new_g
+        return (False, None)
     
         
     def disturb(self, data, directed, solution : set[int]):
