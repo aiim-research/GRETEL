@@ -29,10 +29,10 @@ class NodeCentrality(BaseManipulator):
             "degrees": list(degree.values()),
             "betweenness": list(betweenness_centrality.values()),
             "closeness": list(closeness_centrality.values()),
-            # "harmonic_centrality": list(harmonic_centrality.values()),
-            # "clustering_coefficient": list(clustering_coefficient.values()),
-            # "katz_centrality": list(katz_centrality.values()),
-            # "laplacian_centrality": list(laplacian_centrality)
+            "harmonic_centrality": list(harmonic_centrality.values()),
+            "clustering_coefficient": list(clustering_coefficient.values()),
+            "katz_centrality": list(katz_centrality.values()),
+            "laplacian_centrality": list(laplacian_centrality)
         }
         return feature_map
     

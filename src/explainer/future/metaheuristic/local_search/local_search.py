@@ -13,6 +13,7 @@ from typing import Generator
 from src.explainer.future.metaheuristic.initial_solution_search.simple_searcher import SimpleSearcher
 from src.explainer.future.metaheuristic.local_search.binary_model import BinaryModel
 from src.explainer.future.metaheuristic.local_search.cache import FixedSizeCache
+from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, feature_aggregation, heat_kernel_diffusion, laplacian_regularization, random_walk_diffusion, weighted_smoothing
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.cfg_utils import init_dflts_to_of
 from src.utils.comparison import get_edge_differences
@@ -52,7 +53,16 @@ class LocalSearch(ExplanationMinimizer):
         
         self.distance_metric = GraphEditDistanceMetric()  
         
-        # self.cache = FixedSizeCache(capacity=500000)
+        self.methods = [
+            lambda data, features: average_smoothing(data, features, iterations=1),
+            lambda data, features: weighted_smoothing(data, features, iterations=1),
+            lambda data, features: laplacian_regularization(data, features, lambda_reg=0.01, iterations=1),
+            lambda data, features: feature_aggregation(data, features, alpha=0.5, iterations=1),
+            lambda data, features: heat_kernel_diffusion(data, features, t=0.5),
+            lambda data, features: random_walk_diffusion(data, features, steps=1)
+        ]
+        
+        self.cache = FixedSizeCache(capacity=500000)
 
     def minimize(self, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
         print("-------------")
@@ -115,9 +125,9 @@ class LocalSearch(ExplanationMinimizer):
             # self.logger.info("actual ---> " + str(len(actual)))
             
             for s in self.edge_remove(actual):
-                # if(self.cache.contains(s)):
-                #     continue
-                # self.cache.add(s)
+                if(self.cache.contains(s)):
+                    continue
+                self.cache.add(s)
                 found_ = self.get_evaluation(s)
                 if(found_ and len(s) < len(best)):
                     found = True
@@ -138,11 +148,11 @@ class LocalSearch(ExplanationMinimizer):
             while(len(best) - len(actual) > 1):
                 n-=1
                 for s in self.edge_swap(actual):
-                    # if(self.cache.contains(s)):
-                    #     # print("in cache")
-                    #     continue
+                    if(self.cache.contains(s)):
+                        # print("in cache")
+                        continue
                         
-                    # self.cache.add(s)
+                    self.cache.add(s)
                     found_ = self.get_evaluation(s)
                     if(found_ and len(s) < len(best)):
                         found = True
@@ -159,11 +169,11 @@ class LocalSearch(ExplanationMinimizer):
                 self.logger.info("actual ===> " + str(len(actual)))
                 
                 for s in self.edge_add(actual, best):
-                    # if(self.cache.contains(s)):
-                    #     # print("in cache")
-                    #     continue
+                    if(self.cache.contains(s)):
+                        # print("in cache")
+                        continue
                         
-                    # self.cache.add(s)
+                    self.cache.add(s)
                     found_ = self.get_evaluation(s)
                     if(found_ and len(s) < len(best)):
                         found = True
@@ -191,27 +201,31 @@ class LocalSearch(ExplanationMinimizer):
         new_data = np.copy(self.G.data)
         self.disturb(new_data, self.G.directed, solution)
         
-        new_g = GraphInstance(id=self.G.id,
-                                label=0,
-                                data=new_data,
-                                directed=self.G.directed,
-                                node_features= self.G.node_features)
-        self.dataset.manipulate(new_g)
-        
-        result = self.M.classify(new_g)
+        for method in self.methods:
+            node_features = method(new_data, self.G.node_features)
+            new_g = GraphInstance(id=self.G.id,
+                                    label=0,
+                                    data=new_data,
+                                    directed=self.G.directed,
+                                    node_features= node_features)
+            if(self.M.classify(new_g)): return True
+        # self.dataset.manipulate(new_g)
 
-        return result
+        return False
     
     def evaluate(self, solution : set[int]) -> tuple[bool, GraphInstance]:
         new_data = np.copy(self.G.data)
         self.disturb(new_data, self.G.directed, solution)
         
-        new_g = GraphInstance(id=self.G.id,
-                                label=0,
-                                data=new_data,
-                                directed=self.G.directed,
-                                node_features= self.G.node_features)
-        self.dataset.manipulate(new_g)
+        for method in self.methods:
+            node_features = method(new_data, self.G.node_features)
+            new_g = GraphInstance(id=self.G.id,
+                                    label=0,
+                                    data=new_data,
+                                    directed=self.G.directed,
+                                    node_features= node_features)
+            if(self.M.classify(new_g)): return new_g
+        # self.dataset.manipulate(new_g)
 
         return new_g
     

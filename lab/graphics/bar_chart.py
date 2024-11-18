@@ -1,4 +1,3 @@
-import sys
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,6 +8,9 @@ data = pd.read_csv(file_path)
 
 # Update the explainer labels to only include content within parentheses
 data['explainer'] = data['explainer'].str.extract(r'\((.*?)\)')[0]
+
+# Sort data alphabetically by explainer
+data = data.sort_values(by='explainer').reset_index(drop=True)
 
 # Set the bar width and positions
 bar_width = 0.25
