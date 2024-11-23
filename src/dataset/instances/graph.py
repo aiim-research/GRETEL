@@ -21,6 +21,8 @@ class GraphInstance(DataInstance):
 
         num_nodes = self.data.shape[0]
         num_edges = np.count_nonzero(self.data)
+        if(not len(self.node_features) == num_nodes):
+            print("error")
         assert len(self.node_features) == num_nodes
         assert len(self.edge_features) == num_edges
         assert len(self.edge_weights) == num_edges

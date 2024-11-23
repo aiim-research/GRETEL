@@ -35,6 +35,9 @@ class LocalSearch(ExplanationMinimizer):
             
         if 'max_neigh' not in self.local_config['parameters']:
             self.local_config['parameters']['max_neigh'] = 30
+            
+        if 'attributed' not in self.local_config['parameters']:
+            self.local_config['parameters']['attributed'] = False
         
 
 
@@ -46,6 +49,7 @@ class LocalSearch(ExplanationMinimizer):
         self.runtime_factor = self.local_config['parameters']['runtime_factor']
         self.max_runtime = self.local_config['parameters']['max_runtime']
         self.max_neigh = self.local_config['parameters']['max_neigh']
+        self.attributed = self.local_config['parameters']['attributed']
         
         self.tagger = SimpleTagger()
         
@@ -62,7 +66,7 @@ class LocalSearch(ExplanationMinimizer):
             lambda data, features: random_walk_diffusion(data, features, steps=1)
         ]
         
-        self.cache = FixedSizeCache(capacity=500000)
+        
 
     def minimize(self, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
         print("-------------")
@@ -103,6 +107,7 @@ class LocalSearch(ExplanationMinimizer):
         if(len(actual) == 0):
             return min_ctf
         
+        self.cache = FixedSizeCache(capacity=500000)
         result = self.get_approximation(actual, best, min_ctf)
         
         # candidate_label = self.oracle.predict(result)
@@ -210,15 +215,27 @@ class LocalSearch(ExplanationMinimizer):
         new_data = np.copy(self.G.data)
         self.disturb(new_data, self.G.directed, solution)
         
-        for method in self.methods:
-            node_features = method(new_data, self.G.node_features)
+        # If the dataset has attributes in the nodes, then lets explore those with the methods
+        if(self.attributed):
+            for method in self.methods:
+                node_features = method(new_data, self.G.node_features)
+                new_g = GraphInstance(id=self.G.id,
+                                        label=0,
+                                        data=new_data,
+                                        directed=self.G.directed,
+                                        node_features= node_features)
+                if(self.M.classify(new_g)): return (True, new_g)
+        
+        # If the dataset does not has attributes, then it has ficticial attributes for GCN to work,
+        # in that case, we just call the manipulator method
+        else:
             new_g = GraphInstance(id=self.G.id,
-                                    label=0,
-                                    data=new_data,
-                                    directed=self.G.directed,
-                                    node_features= node_features)
+                                        label=0,
+                                        data=new_data,
+                                        directed=self.G.directed,
+                                        node_features= self.G.node_features)
+            self.dataset.manipulate(new_g)
             if(self.M.classify(new_g)): return (True, new_g)
-        # self.dataset.manipulate(new_g)
 
         return (False, None)
     
@@ -283,7 +300,7 @@ class LocalSearch(ExplanationMinimizer):
                 
     
     def edge_remove(self, solution : set[int]) -> Generator[set[int], None, None]:
-        floor = len(solution) -1
+        floor = len(solution)
         step = int((floor / self.max_neigh) + 1) * -1
         for i in range(floor, 0, step):
             for _ in range(self.neigh_factor ** 3):

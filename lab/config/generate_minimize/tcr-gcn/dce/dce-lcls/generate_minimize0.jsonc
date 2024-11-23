@@ -13,7 +13,7 @@
     },
     "doe-triplets":[
         {
-            "compose_do": "./lab/config/snippets/do-pairs/TCR-500-64-0.4_GCN.json",
+            "compose_do": "./lab/config/snippets/do-pairs/TCR-128-28-0.25_GCN.json",
             "explainer": { 
                 "class": "src.explainer.future.meta.generate_minimize.GenerateMinimize",
                 "parameters":{
