@@ -27,8 +27,8 @@
                     "minimizer": {
                         "class": "src.explainer.future.meta.minimizer.dummy.Dummy",
                         "parameters": {
-                            "neigh_factor" : 5,
-                            "runtime_factor" : 5,
+                            "neigh_factor" : 4,
+                            "runtime_factor" : 4,
                             "max_runtime" : 20,
                             "max_neigh" : 20,
                             "attributed": true
