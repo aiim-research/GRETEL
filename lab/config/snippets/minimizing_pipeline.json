@@ -12,6 +12,10 @@
                                 "parameters": {} 
                             },
                             {
+                                "class": "src.evaluation.future.stages.fed.FeatureEditDistance",
+                                "parameters": {} 
+                            },
+                            {
                                 "class": "src.evaluation.future.stages.correctness.Correctness",
                                 "parameters": {} 
                             },
@@ -25,10 +29,6 @@
                             },
                             {
                                 "class": "src.evaluation.future.stages.sparsity.Sparsity",
-                                "parameters": {} 
-                            },
-                            {
-                                "class": "src.evaluation.future.stages.fidelity.Fidelity",
                                 "parameters": {} 
                             }
                         ]
