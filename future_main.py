@@ -45,4 +45,4 @@ if __name__ == "__main__":
         "Evaluating the explainers............................................................."
     )
     eval_manager.evaluate()
-    eval_manager.pickle_explanations('./lab/pickles')
+    # eval_manager.pickle_explanations('./lab/pickles')
