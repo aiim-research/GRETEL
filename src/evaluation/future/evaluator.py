@@ -186,4 +186,4 @@ class Evaluator(Configurable):
                     inst._dataset = None
                     
             inst_cf_pairs = [(exp.input_instance, exp.counterfactual_instances[0]) for exp in self._explanations]
-            pickle.dump(self.inst_cf_pairs, pickle_file)
+            pickle.dump(inst_cf_pairs, pickle_file)
