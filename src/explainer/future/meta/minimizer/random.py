@@ -61,6 +61,7 @@ class Random(ExplanationMinimizer):
                                                     maximum_oracle_calls=self.max_oc)
 
         # Return the minimal counterfactual
+        print("result -> " + str(minimal_cf.label))
         return minimal_cf
 
 
@@ -123,10 +124,12 @@ class Random(ExplanationMinimizer):
 
         if reduction_success:
             self.logger.info(f'The counterfactual for {str(instance.id)} was reduced ({str(initial_changed_edges)} -> {str(final_changed_edges)})')
+            return result_cf
         else:
             self.logger.info(f'The counterfactual for {str(instance.id)} was not reduced')
+            return cf_instance
 
-        return result_cf
+        
     
     
     def write(self):

@@ -27,8 +27,8 @@
                     "minimizer": {
                         "class": "src.explainer.future.meta.minimizer.random.Random",
                         "parameters": {
-                            "max_oc": 1000,
-                            "changes_batch_size": 3
+                            "max_oc": 2000,
+                            "changes_batch_size": 5
                         }
                     }
                 }
