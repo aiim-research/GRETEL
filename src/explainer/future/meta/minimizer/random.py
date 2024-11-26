@@ -36,8 +36,8 @@ class Random(ExplanationMinimizer):
         input_label = self.oracle.predict(instance)
 
         min_ctf = explaination.counterfactual_instances[0]
-        print("random instance -> " + str(self.oracle.predict(instance)))
-        print("random min_ctf -> " + str(self.oracle.predict(min_ctf)))
+        # print("random instance -> " + str(self.oracle.predict(instance)))
+        # print("random min_ctf -> " + str(self.oracle.predict(min_ctf)))
         # min_ctf_dist = self.distance_metric.evaluate(instance, min_ctf, self.oracle)
         # for ctf_candidate in explaination.counterfactual_instances:
         #     candidate_label = self.oracle.predict(ctf_candidate)
@@ -61,7 +61,7 @@ class Random(ExplanationMinimizer):
                                                     maximum_oracle_calls=self.max_oc)
 
         # Return the minimal counterfactual
-        print("result -> " + str(self.oracle.predict(cf_instance)))
+        # print("result -> " + str(self.oracle.predict(cf_instance)))
         return minimal_cf
 
 

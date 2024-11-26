@@ -125,10 +125,15 @@ class LocalSearch(ExplanationMinimizer):
         result = min_ctf
         
         n = min(self.max_runtime, self.runtime_factor * len(actual))
+        self.k = 0
         while(n > 0):
             self.logger.info("n: " + str(n))
+            self.logger.info("k: " + str(self.k))
             n-=1
             if(len(best) == 1) : break
+            if(self.k > 10000) :
+                 self.logger.info("Oracle calls limit reached")
+                 break
             found = False
             actual = best
             # self.logger.info("actual ---> " + str(len(actual)))
@@ -218,6 +223,7 @@ class LocalSearch(ExplanationMinimizer):
         # If the dataset has attributes in the nodes, then lets explore those with the methods
         if(self.attributed):
             for method in self.methods:
+                self.k += 1
                 node_features = method(new_data, self.G.node_features)
                 new_g = GraphInstance(id=self.G.id,
                                         label=0,
@@ -229,6 +235,7 @@ class LocalSearch(ExplanationMinimizer):
         # If the dataset does not has attributes, then it has ficticial attributes for GCN to work,
         # in that case, we just call the manipulator method
         else:
+            self.k += 1
             new_g = GraphInstance(id=self.G.id,
                                         label=0,
                                         data=new_data,
@@ -300,9 +307,10 @@ class LocalSearch(ExplanationMinimizer):
                 
     
     def edge_remove(self, solution : set[int]) -> Generator[set[int], None, None]:
-        floor = len(solution)
-        step = int((floor / self.max_neigh) + 1) * -1
-        for i in range(floor, 0, step):
+        cealing = len(solution)
+        step = int((cealing / self.max_neigh) + 1) 
+        # cealing = random.randint(cealing - step, cealing)
+        for i in range(0, cealing, step):
             for _ in range(self.neigh_factor ** 3):
                 yield self.remove_random(set(solution.copy()), i)
                 
