@@ -1,0 +1,21 @@
+{
+    "explainers": [
+        {   
+            "class": "src.explainer.future.search.ofs.OFS",
+            "parameters": {
+            }
+        },
+        {   
+            "class": "src.explainer.future.generative.rsgg.RSGG",
+            "parameters": {
+                "epochs": 500
+            }
+        },
+
+        {   
+            "class": "src.explainer.future.search.dces.DCESExplainer",
+            "parameters": {
+            }
+        }
+    ]
+}

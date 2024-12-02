@@ -1,48 +1,68 @@
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
+import sys
 
-# Load the CSV file
-file_path = sys.argv[1]
-data = pd.read_csv(file_path)
+def generate_charts(file_name):
+    # Load the CSV file
+    data = pd.read_csv(file_name)
 
-# Update the explainer labels to only include content within parentheses
-data['explainer'] = data['explainer'].str.extract(r'\((.*?)\)')[0]
+    # Preprocess the data
+    data['Failure'] = 1 - data['Correctness']  # Invert Correctness to Failure
+    
+    # Clean up explainer names: Remove 'GenerateMinimize', 'Explainer', and parenthesis
+    data['explainer'] = (
+        data['explainer']
+        .str.replace('GenerateMinimize', '', regex=False)
+        .str.replace('Explainer', '', regex=False)
+        .str.replace(r'\(|\)', '', regex=True)
+        .str.strip()
+    )
+    
+    # Sort alphabetically by explainer name
+    data_sorted = data.sort_values('explainer')
 
-# Sort data alphabetically by explainer
-data = data.sort_values(by='explainer').reset_index(drop=True)
+    # Extract the necessary data
+    explainers = data_sorted['explainer']
+    graph_edit_distance = data_sorted['GraphEditDistance']
+    feature_edit_distance = data_sorted['FeatureEditDistance']
+    failure = data_sorted['Failure']
+    oracle_calls = data_sorted['OracleCalls']
 
-# Set the bar width and positions
-bar_width = 0.25
-x = np.arange(len(data.index))
+    # Create the bar charts
+    fig, axs = plt.subplots(2, 2, figsize=(16, 12))
+    bar_width = 0.5
 
-# Create the figure and axes
-plt.figure(figsize=(14, 8))
+    # Reduce font size for better fit
+    plt.rc('font', size=10)  # Reduce the overall font size
 
-# Plot each metric with a different bar position
-bars1 = plt.bar(x - bar_width, data['Runtime'].clip(upper=20), width=bar_width, label='Runtime', color='b')
-bars2 = plt.bar(x, data['GraphEditDistance'].clip(upper=20), width=bar_width, label='Graph Edit Distance', color='g')
-bars3 = plt.bar(x + bar_width, data['Correctness'].clip(upper=20), width=bar_width, label='Correctness', color='r')
+    # Plot each chart
+    charts = [
+        ('Graph Edit Distance', graph_edit_distance, axs[0, 0]),
+        ('Feature Edit Distance', feature_edit_distance, axs[0, 1]),
+        ('Failure', failure, axs[1, 0]),
+        ('Oracle Calls', oracle_calls, axs[1, 1]),
+    ]
 
-# Adding experiment labels below the bars
-plt.xticks(x, data['explainer'], rotation=45, ha='right', fontsize=9)
+    for title, values, ax in charts:
+        ax.bar(explainers, values, width=bar_width, color='skyblue', edgecolor='black')
+        ax.set_title(title, fontsize=12)  # Reduce title font size slightly
+        ax.set_xlabel('Explainer', fontsize=10)
+        ax.set_ylabel('Value', fontsize=10)
+        ax.set_xticks(range(len(explainers)))
+        ax.set_xticklabels(explainers, rotation=45, ha='right')
 
-# Adding axis labels and legend only
-plt.xlabel('Explainer')
-plt.ylabel('Values')
-plt.legend()
+        # Annotate bars with exact values
+        for idx, value in enumerate(values):
+            ax.text(idx, value + max(values) * 0.01, f'{value:.2f}', ha='center', va='bottom', fontsize=8)
 
-# Display exact values on top of each bar with a small font size
-for bars, values in zip([bars1, bars2, bars3], [data['Runtime'], data['GraphEditDistance'], data['Correctness']]):
-    for bar, value in zip(bars, values):
-        height = min(value, 20)  # Set the capped height for display
-        plt.text(bar.get_x() + bar.get_width() / 2, height + 0.2,
-                 f'{value:.2f}' if value < 20 else f'{value:.2f}↑', 
-                 ha='center', va='bottom', fontsize=6, color='black')
+    # Adjust layout and save the plot
+    plt.tight_layout()
+    plt.savefig('output_charts.png')  # Save the chart as a file
+    plt.show()
 
-# Limit y-axis to emphasize smaller values
-plt.ylim(0, 20)
-
-# Adjust layout and display plot
-plt.tight_layout()
-plt.show()
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python script.py <file_name>")
+    else:
+        file_name = sys.argv[1]
+        generate_charts(file_name)
