@@ -6,7 +6,7 @@
             "propagate":[
                 {"in_sections" : ["doe-triplets/explainer"],"params" : {"fold_id": 6}},
                 {"in_sections" : ["doe-triplets/oracle"],"params" : {"fold_id": -1,"retrain":false}},
-                {"in_sections": ["doe-triplets/dataset"],"params": { "compose_man" : "lab/config/snippets/datasets/centr_and_weights.json" }}
+                {"in_sections": ["doe-triplets/dataset"],"params": { "compose_man" : "lab/config/snippets/datasets/padding.json" }}
             ],
             "expand" : {  "folds" : ["doe-triplets/explainer"], "triplets" : true }
         }
@@ -26,11 +26,12 @@
                     },
                     "minimizer": {
                         "class": "src.explainer.future.meta.minimizer.dummy.Dummy",
-                        "parameters": {
+                        "parameters": {                            
                             "neigh_factor" : 4,
                             "runtime_factor" : 4,
                             "max_runtime" : 20,
-                            "max_neigh" : 20
+                            "max_neigh" : 20,
+                            "attributed": true
                         }
                     }
                 }
