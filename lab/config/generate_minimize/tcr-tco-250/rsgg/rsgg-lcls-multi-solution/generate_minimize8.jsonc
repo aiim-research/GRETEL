@@ -28,10 +28,8 @@
                         "class": "src.explainer.future.metaheuristic.local_search.local_search_multi_solutions.LocalSearchMultiSolutions",
                         "parameters": {
                             "neigh_factor" : 5,
-                            "runtime_factor" : 5,
-                            "max_runtime" : 40,
-                            "max_neigh" : 40,
-                            "stack_limit": 5
+                            "max_neigh" : 20,
+                            "attributed": false
                         }
                     }
                 }

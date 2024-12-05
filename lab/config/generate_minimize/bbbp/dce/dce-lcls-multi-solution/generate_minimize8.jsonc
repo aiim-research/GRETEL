@@ -27,12 +27,9 @@
                     "minimizer": {
                         "class": "src.explainer.future.metaheuristic.local_search.local_search_multi_solutions.LocalSearchMultiSolutions",
                         "parameters": {
-                            "neigh_factor" : 3,
-                            "runtime_factor" : 3,
-                            "max_runtime" : 20,
+                            "neigh_factor" : 5,
                             "max_neigh" : 20,
-                            "attributed": true,
-                            "stack_limit": 5
+                            "attributed": true
                         }
                     }
                 }

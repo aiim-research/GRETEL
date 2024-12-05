@@ -38,6 +38,9 @@ class LocalSearch(ExplanationMinimizer):
             
         if 'attributed' not in self.local_config['parameters']:
             self.local_config['parameters']['attributed'] = False
+            
+        if 'max_oracle_calls' not in self.local_config['parameters']:
+            self.local_config['parameters']['max_oracle_calls'] = 10000
         
 
 
@@ -50,6 +53,7 @@ class LocalSearch(ExplanationMinimizer):
         self.max_runtime = self.local_config['parameters']['max_runtime']
         self.max_neigh = self.local_config['parameters']['max_neigh']
         self.attributed = self.local_config['parameters']['attributed']
+        self.max_oracle_calls = self.local_config['parameters']['max_oracle_calls']
         
         self.tagger = SimpleTagger()
         
@@ -131,7 +135,7 @@ class LocalSearch(ExplanationMinimizer):
             self.logger.info("k: " + str(self.k))
             n-=1
             if(len(best) == 1) : break
-            if(self.k > 10000) :
+            if(self.k > self.max_oracle_calls) :
                  self.logger.info("Oracle calls limit reached")
                  break
             found = False
