@@ -23,7 +23,7 @@ class LocalSearchMultiSolutions(LocalSearch):
         while(len(priority_queue) > 0):
             self.logger.info("queue: " + str(len(priority_queue)))
             self.logger.info("k: " + str(self.k))
-            if(self.k > 10000) :
+            if(self.k > self.max_oracle_calls) :
                  self.logger.info("Oracle calls limit reached")
                  break
             if(len(global_best) <= 1) :
