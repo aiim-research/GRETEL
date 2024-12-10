@@ -20,7 +20,7 @@ class LocalSearchMultiSolutions(LocalSearch):
         heapq.heappush(priority_queue, (len(best), best))
         self.k = 0
         self.first = True
-        while(len(priority_queue) > 0):
+        while(True):
             self.logger.info("queue: " + str(len(priority_queue)))
             self.logger.info("k: " + str(self.k))
             if(self.k > self.max_oracle_calls) :
@@ -30,6 +30,8 @@ class LocalSearchMultiSolutions(LocalSearch):
                  break
             found = False
             size, actual = heapq.heappop(priority_queue)
+            if(len(priority_queue == 0)):
+                heapq.heappush(priority_queue, (size, actual))
             local_best = actual
             self.logger.info("actual local_best ---> " + str(size))
             
@@ -49,6 +51,7 @@ class LocalSearchMultiSolutions(LocalSearch):
             if(found):
                 heapq.heappush(priority_queue, (len(reduced), reduced))
                 self.logger.info("============> (-) Enqueue size: " + str(len(reduced)))
+                continue
                 
             half = int(len(actual) / 2)
             reduce = min(half, random.randint(1, half * 4))
