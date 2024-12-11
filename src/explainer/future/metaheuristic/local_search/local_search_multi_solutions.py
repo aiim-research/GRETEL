@@ -20,7 +20,7 @@ class LocalSearchMultiSolutions(LocalSearch):
         heapq.heappush(priority_queue, (len(best), best))
         self.k = 0
         self.first = True
-        while(len(priority_queue > 0)):
+        while(len(priority_queue) > 0):
             self.logger.info("queue: " + str(len(priority_queue)))
             self.logger.info("k: " + str(self.k))
             if(self.k > self.max_oracle_calls) :
