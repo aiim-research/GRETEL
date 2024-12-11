@@ -67,8 +67,8 @@ class LocalSearchMultiSolutions(LocalSearch):
                     if(found_):
                         heapq.heappush(priority_queue, (len(s), s))
                         self.logger.info("============> (=) Enqueue size: " + str(len(s)))
+                        found = True
                         if(len(s) < len(global_best)):
-                            found = True
                             global_best = s
                             result = inst
                             self.logger.info("============> (=) Found solution with size: " + str(len(actual)))
@@ -88,8 +88,8 @@ class LocalSearchMultiSolutions(LocalSearch):
                     if(found_):
                         heapq.heappush(priority_queue, (len(s), s))
                         self.logger.info("============> (+) Enqueue size: " + str(len(s)))
+                        found = True
                         if(len(s) < len(global_best)):
-                            found = True
                             global_best = s
                             result = inst
                             self.logger.info("============> (+) Found solution with size: " + str(len(actual)))
