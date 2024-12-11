@@ -30,7 +30,7 @@ class LocalSearchMultiSolutions(LocalSearch):
                  break
             found = False
             size, actual = heapq.heappop(priority_queue)
-            if(len(priority_queue == 0) and self.k < self.max_oracle_calls/2):
+            if(len(priority_queue) == 0 and self.k < self.max_oracle_calls/2):
                 heapq.heappush(priority_queue, (size, actual))
             local_best = actual
             self.logger.info("actual local_best ---> " + str(size))
