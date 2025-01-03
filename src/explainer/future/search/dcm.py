@@ -11,28 +11,23 @@ class DCM(Explainer, Trainable):
     # Actualmente no necesito nada en la configuracion, ni nada en el init personalizado
 
     def init(self):
+        self.device = "cpu"
+        self.distance_metric = GraphEditDistanceMetric()
         super().init()
     
     def real_fit(self):
         super().real_fit()
 
     def fit(self):
-        # leer para no realizar el entrenamiento si ya existe
-        super().fit()
-        #super().read()
-        super().load_or_create()
-        
-        print('aquiiiiii')
-
         #if self.model:
         #   return self.model
         
         # Realizar el entrenamiento para guardarlo en cache
 
-        memoids = None
+        medoids = None
 
         # Categorizar todos los grafos del dataset
-        categorized_graph = [(self.oracle.predict(graph), graph) for graph in self.dataset]
+        categorized_graph = [(self.oracle.predict(graph), graph) for graph in self.dataset.instances]
         
         # Agrupar los grafos por categoría
         graphs_by_category = {}
@@ -41,15 +36,16 @@ class DCM(Explainer, Trainable):
                 graphs_by_category[category] = []
             graphs_by_category[category].append(graph)
         
-        # Calcular el memoide de cada categoría
-        memoids = {}
+        # Calcular el medoide de cada categoría
+        medoids = {}
         for category, graphs in graphs_by_category.items():
                 features = np.array([graph.data for graph in graphs])
-                memoid = np.mean(features, axis=0)
-                memoids[category] = memoid
+                medoid = np.mean(features, axis=0)
+                medoids[category] = medoid
         
-        # Guardar los memoides
-        self.model = memoids
+        # Guardar los medoides
+        self.model = medoids
+        super().fit()
         #super().write()
     
     def explain(self, instance):
@@ -58,18 +54,18 @@ class DCM(Explainer, Trainable):
         category = self.oracle.predict(instance)
         
 
-        # Moverse por cada una de las categorias existentes en el dataset diferentes de la categoria actual, y comparar los memoides de cada una de esas categorias con la instancia actual, devolver el mas cercano
+        # Moverse por cada una de las categorias existentes en el dataset diferentes de la categoria actual, y comparar los medoides de cada una de esas categorias con la instancia actual, devolver el mas cercano
         min_distance = float('inf')
-        closest_memoid = None
-        for other_category, memoid in self._memoids.items():
+        closest_medoid = None
+        for other_category, medoid in self.model.items():
             if other_category != category:
-                distance = GraphEditDistanceMetric.compute(instance.data, memoid)
+                distance = self.distance_metric.evaluate(instance, medoid)
                 if distance < min_distance:
                     min_distance = distance
-                    closest_memoid = memoid       
+                    closest_medoid = medoid       
 
-        # Crear una instancia de grafo con el memoid mas cercano
-        cf_instance = GraphInstance(id=instance.id, label=instance.label, data=closest_memoid, node_features=instance.node_features)
+        # Crear una instancia de grafo con el medoid mas cercano
+        cf_instance = GraphInstance(id=instance.id, label=instance.label, data=closest_medoid, node_features=instance.node_features)
 
         # Envolver el contrafractual
         exp = LocalGraphCounterfactualExplanation(context=self.context, dataset=self.dataset, oracle=self.oracle, explainer=self, input_instance=instance, counterfactual_instances=[cf_instance])
