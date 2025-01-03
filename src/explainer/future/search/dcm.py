@@ -16,17 +16,17 @@ class DCM(Explainer, Trainable):
         super().real_fit()
 
     def fit(self):
-        # Categorizar todos los grafos del dataset
+        # Get the category of the graphs
         categorized_graph = [(self.oracle.predict(graph), graph) for graph in self.dataset.instances]
         
-        # Agrupar los grafos por categoría
+        # Groups the graph by category
         graphs_by_category = {}
         for category, graph in categorized_graph:
             if category not in graphs_by_category:
                 graphs_by_category[category] = []
             graphs_by_category[category].append(graph)
         
-        # Calcular el medoide de cada categoría que este mas cercano a todas las demas categorias
+        # Get the medoid of each category
         medoids = {}
         for category, graphs in graphs_by_category.items():
             graphs_distance_total = []
@@ -52,15 +52,14 @@ class DCM(Explainer, Trainable):
             
             medoids[category] = medoid
         
-        # Guardar los medoides
         self.model = medoids
         super().fit()
     
     def explain(self, instance):
-        # Obtener la categoria de la instancia
+        # Get the category of the instance
         category = self.oracle.predict(instance)
         
-        # Moverse por cada una de las categorias existentes en el dataset diferentes de la categoria actual, y comparar los medoides de cada una de esas categorias con la instancia actual, devolver el mas cercano
+        # Get the closest medoid to the instance that belong to a different category 
         min_distance = float('inf')
         closest_medoid = None
         for other_category, medoid in self.model.items():
@@ -70,10 +69,9 @@ class DCM(Explainer, Trainable):
                     min_distance = distance
                     closest_medoid = medoid       
 
-        # Crear una instancia de grafo con el medoid mas cercano
+        # Create a graph's instance of the closest medoid
         cf_instance = GraphInstance(id=instance.id, label=instance.label, data=closest_medoid.data, node_features=instance.node_features)
 
-        # Envolver el contrafractual
         exp = LocalGraphCounterfactualExplanation(context=self.context, dataset=self.dataset, oracle=self.oracle, explainer=self, input_instance=instance, counterfactual_instances=[cf_instance])
 
         return exp
