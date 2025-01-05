@@ -76,7 +76,7 @@ class Random(ExplanationMinimizer):
         # d = self.distance_metric.distance(instance.data,gc)
         random.shuffle(changed_edges)
         oracle_calls_count=0
-
+        instance_label = self.oracle.predict(instance)
         # while(oracle_calls_count < maximum_oracle_calls and len(changed_edges) > 0 and d > 1):
         while(oracle_calls_count < maximum_oracle_calls and len(changed_edges) > 0):
             # Create a working copy of the CF adjacency matrix to revert some changes
@@ -99,7 +99,7 @@ class Random(ExplanationMinimizer):
             reduced_cf_inst.label = self.oracle.predict(reduced_cf_inst)
             oracle_calls_count += 1
 
-            instance_label = self.oracle.predict(instance)
+
             
             if reduced_cf_inst.label != instance_label: # If the reduced instance is still a counterfactual
                 reduction_success = True
