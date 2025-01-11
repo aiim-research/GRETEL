@@ -70,7 +70,7 @@ class DCM(Explainer, Trainable):
                     closest_medoid = medoid       
 
         # Create a graph's instance of the closest medoid
-        cf_instance = GraphInstance(id=instance.id, label=instance.label, data=closest_medoid.data, node_features=instance.node_features)
+        cf_instance = GraphInstance(id=closest_medoid.id, label=closest_medoid.label, data=closest_medoid.data, node_features=closest_medoid.node_features)
 
         exp = LocalGraphCounterfactualExplanation(context=self.context, dataset=self.dataset, oracle=self.oracle, explainer=self, input_instance=instance, counterfactual_instances=[cf_instance])
 
