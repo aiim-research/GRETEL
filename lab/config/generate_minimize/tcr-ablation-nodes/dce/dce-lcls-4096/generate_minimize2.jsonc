@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "ablation-nodes",
+        "scope": "ablation-nodes-4096",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[
