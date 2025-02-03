@@ -27,6 +27,7 @@ GRETEL is a highly extensible evaluation framework that promotes Open Science an
 * Andrea D'Angelo [notable contributor]
 * Hiram Borbolla Hernández [notable contributor]
 * Roberto Marti Cedeño [notable contributor]
+* Efstratios Zaradoukas [contributor]
 * Alessandro Celi [administrative staff]
 
 ### Past Contributors:
