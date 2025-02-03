@@ -22,15 +22,15 @@ GRETEL is a highly extensible evaluation framework that promotes Open Science an
 
 ## Team Information:
 * Prof. Giovanni Stilo [project leader/investigator]
-* Mario Alfonso Prado Romero [principal investigator]
-* Dr. Bardh Prenkaj [notable investigator]
-* Andrea D'Angelo [notable contributor]
-* Hiram Borbolla Hernández [notable contributor]
-* Roberto Marti Cedeño [notable contributor]
+* Mario Alfonso Prado Romero [co-principal investigator]
+* Dr. Bardh Prenkaj [co-principal investigator]
+* Andrea D'Angelo [notable Investigator]
 * Efstratios Zaradoukas [contributor]
 * Alessandro Celi [administrative staff]
 
 ### Past Contributors:
+* Hiram Borbolla Hernández [notable contributor]
+* Roberto Marti Cedeño [notable contributor]
 * Ernesto Estevanell-Valladares [contributor]
 * Daniel Alejandro Valdés-Pérez [contributor]
 
