@@ -1,7 +1,9 @@
 import sys
-import picologging as logging
 import os
 import socket
+
+# import picologging as logging
+import logging
 
 
 class GLogger(object):
@@ -47,3 +49,48 @@ class GLogger(object):
 #logger = GLogger.getLogger()
 #logger.info("Successfully connected to the database '%s' on host '%s'", "my_db", "ubuntu20.04")        
 #logger.warning("Detected suspicious activity from IP address: %s", "111.222.333.444")
+
+
+class PicklableGLogger:
+    _instance = None  # Store instance separately
+    _path = "output/logs"
+    _logger_name = "PicklableGLogger"  # Unique logger name
+
+    def __init__(self):
+        """ Private constructor. Use getLogger() instead of creating an instance directly. """
+        self._init_logger()
+
+    def _init_logger(self):
+        """ Initialize the logger with file and stream handlers. """
+        self.info = logging.getLogger(self._logger_name)
+        if not self.info.hasHandlers():  # Prevent duplicate handlers
+            self.info.setLevel(logging.INFO)
+
+            os.makedirs(PicklableGLogger._path, exist_ok=True)
+
+            log_filename = f"{PicklableGLogger._path}/{os.getenv('JOB_ID', str(os.getpid()))}-{socket.gethostname()}.info"
+            file_handler = logging.FileHandler(log_filename, encoding='utf-8')
+            stdout_handler = logging.StreamHandler(sys.stdout)
+
+            fmt = logging.Formatter("%(asctime)s | %(levelname)s | %(process)d - %(message)s")
+            file_handler.setFormatter(fmt)
+            stdout_handler.setFormatter(fmt)
+
+            self.info.addHandler(stdout_handler)
+            self.info.addHandler(file_handler)
+
+    @classmethod
+    def getLogger(cls):
+        """ Ensures a singleton logger instance. """
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance.info  # Return the actual logger object
+
+    def __getstate__(self):
+        """ Remove non-pickleable attributes before serialization. """
+        return {"_logger_name": self._logger_name}
+
+    def __setstate__(self, state):
+        """ Reinitialize the logger when unpickling. """
+        self._logger_name = state["_logger_name"]
+        self._init_logger()  # Reinitialize the logger

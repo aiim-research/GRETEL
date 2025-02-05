@@ -10,7 +10,7 @@ from jsonc_parser.parser import JsoncParser
 from time import sleep
 
 from src.utils.composer import compose, propagate
-from src.utils.logger import GLogger
+from src.utils.logger import PicklableGLogger as GLogger
 
 
 class Context(object):
