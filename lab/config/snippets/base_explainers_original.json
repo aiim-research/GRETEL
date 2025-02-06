@@ -9,25 +9,22 @@
     {   "class": "src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer",
         "parameters": {}
     },
-    {   "class": "src.explainer.future.heuristic.di_rand.DIRand", 
+    {   "class": "src.explainer.future.search.i_rand.IRandExplainer", 
         "parameters": {
-            "p": 0.02, 
-            "t": 3,
-            "direction": -1
+            "p": 0.03, 
+            "t": 3
         }
     },
-    {   "class": "src.explainer.future.heuristic.di_rand.DIRand", 
+    {   "class": "src.explainer.future.search.i_rand.IRandExplainer", 
         "parameters": {
-            "p": 0.02, 
-            "t": 3,
-            "direction": 1
+            "p": 0.01, 
+            "t": 3
         }
     },
-    {   "class": "src.explainer.future.heuristic.di_rand.DIRand", 
+    {   "class": "src.explainer.future.search.i_rand.IRandExplainer", 
         "parameters": {
-            "p": 0.02, 
-            "t": 3,
-            "direction": 0
+            "p": 0.001, 
+            "t": 5
         }
     },
     {   "class": "src.explainer.future.generative.rsgg.RSGG",
