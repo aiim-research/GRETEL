@@ -11,22 +11,22 @@
     },
     {   "class": "src.explainer.future.heuristic.di_rand.DIRand", 
         "parameters": {
-            "p": 0.02, 
-            "t": 3,
+            "p": 0.1, 
+            "t": 2,
             "direction": -1
         }
     },
     {   "class": "src.explainer.future.heuristic.di_rand.DIRand", 
         "parameters": {
-            "p": 0.02, 
-            "t": 3,
+            "p": 0.1, 
+            "t": 2,
             "direction": 1
         }
     },
     {   "class": "src.explainer.future.heuristic.di_rand.DIRand", 
         "parameters": {
-            "p": 0.02, 
-            "t": 3,
+            "p": 0.1, 
+            "t": 2,
             "direction": 0
         }
     },
