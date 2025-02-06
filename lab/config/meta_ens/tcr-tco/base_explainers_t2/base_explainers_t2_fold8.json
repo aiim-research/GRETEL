@@ -42,10 +42,11 @@
     {
       "compose_do": "./lab/config/snippets/do-pairs/TCR-128-28-0.25_TCO.json",
       "explainer": {
-        "class": "src.explainer.future.search.i_rand.IRandExplainer",
+        "class": "src.explainer.future.heuristic.di_rand.DIRand",
         "parameters": {
-          "p": 0.03,
-          "t": 3
+          "p": 0.01,
+          "t": 2,
+          "direction": 0
         }
       }
     }
