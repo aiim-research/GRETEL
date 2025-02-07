@@ -42,6 +42,8 @@ class ExplanationBidirectionalSearch(ExplanationAggregator):
 
     def real_aggregate(self, explanations: List[LocalGraphCounterfactualExplanation]) -> LocalGraphCounterfactualExplanation:
         input_inst = explanations[0].input_instance
+        # Getting the oracle produced label of the input instance 
+        instance_lbl = self.oracle.predict(input_inst)
         cf_instances = exp_tools.unpack_cf_instances(explanations)
 
         e_add = []
@@ -54,7 +56,8 @@ class ExplanationBidirectionalSearch(ExplanationAggregator):
                 e_add.append((x,y)) # Add non-existing edges to the add list
         
         # Try to get a first counterfactual with the greedy "Oblivious Forward Search"
-        initial_cf, used_oc = self.oblivious_forward_search(instance=input_inst, 
+        initial_cf, used_oc = self.oblivious_forward_search(instance=input_inst,
+                                                            instance_lbl=instance_lbl, 
                                                             e_add=e_add,
                                                             e_rem=e_rem,
                                                             k=self.k,
@@ -62,7 +65,7 @@ class ExplanationBidirectionalSearch(ExplanationAggregator):
                                                             p=self.p)
         
         # If the first step was unable to find a counterfactual
-        if initial_cf.label == input_inst.label:
+        if initial_cf.label == instance_lbl:
             self.logger.info(f'No counterfactual was found for instance {input_inst.id} in the forward search')
             no_explanation = LocalGraphCounterfactualExplanation(context=self.context,
                                                              dataset=self.dataset,
@@ -75,6 +78,7 @@ class ExplanationBidirectionalSearch(ExplanationAggregator):
         # If a counterfactual was found in the first step then try to reduce the number of changes in the second step
         changed_edges, _, _ = self.get_all_edge_differences(input_inst, [initial_cf])
         final_cf  = self.oblivious_backward_search(instance=input_inst,
+                                                   instance_lbl=instance_lbl,
                                                    cf_instance=initial_cf,
                                                    changed_edges=changed_edges,
                                                    k=self.k,
@@ -90,13 +94,12 @@ class ExplanationBidirectionalSearch(ExplanationAggregator):
         return aggregated_explanation
 
         
-    def oblivious_forward_search(self, instance, e_add, e_rem, k=5, maximum_oracle_calls=2000, p=0.5):
+    def oblivious_forward_search(self, instance, instance_lbl, e_add, e_rem, k=5, maximum_oracle_calls=2000, p=0.5):
         '''
         This method performs a random search trying to generate a counterfactual by testing 
         multiple combinations of edge modifications
         '''
         oracle_calls_count=0
-        instance_lbl = self.oracle.predict(instance)
         
         # Candidate counterfactual
         cf_candidate_matrix = np.copy(instance.data)
@@ -151,7 +154,7 @@ class ExplanationBidirectionalSearch(ExplanationAggregator):
         return copy.deepcopy(instance), oracle_calls_count
 
 
-    def oblivious_backward_search(self, instance, cf_instance, changed_edges, k=5, maximum_oracle_calls=2000):
+    def oblivious_backward_search(self, instance, instance_lbl, cf_instance, changed_edges, k=5, maximum_oracle_calls=2000):
         '''
         This method tries to reduce the size of a counterfactual instance by randomly reverting some of the changes, 
         made to the original instance, while mantaining the correctness
@@ -183,7 +186,7 @@ class ExplanationBidirectionalSearch(ExplanationAggregator):
             reduced_cf_inst.label = self.oracle.predict(reduced_cf_inst)
             oracle_calls_count += 1
 
-            if reduced_cf_inst.label != instance.label: # If the reduced instance is still a counterfactual
+            if reduced_cf_inst.label != instance_lbl: # If the reduced instance is still a counterfactual
                 self.logger.info(f'The counterfactual for {instance.id} was reduced')
                 gc = np.copy(gci)
                 k+=1

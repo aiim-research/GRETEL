@@ -1,0 +1,1005 @@
+2025-02-07 09:58:13,321 | INFO | 2618029 - Loading: GAN-908552ba3a86b4b001a9d74aadc52c59
+/NFSHOME/mprado/AIIM/GRETEL/main2/GRETEL/src/legacy/explainer/generative/gans/graph/res_gen.py:64: UserWarning: The use of `x.T` on tensors of dimension other than 2 to reverse their shape is deprecated and it will throw an error in a future release. Consider `x.mT` to transpose batches of matrices or `x.permute(*torch.arange(x.ndim - 1, -1, -1))` to reverse the dimensions of a tensor. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3571.)
+  edge_weights = torch.add(edge_weights, rebuild_adj_matrix(len(node_features), edge_list, edge_attr.T, self.device))
+2025-02-07 09:58:13,445 | INFO | 2618910 - Loading: GAN-a74d099c99386cf9f8d2ba4127de9f37
+2025-02-07 09:58:13,645 | INFO | 2618029 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:13,746 | INFO | 2618236 - Loading: GAN-84c2334cebcdf15f4109e82dc8b1e568
+2025-02-07 09:58:13,760 | INFO | 2618029 - Creating: RSGG-62d60f9c421b0dd53fbd63c02ef14a7d
+2025-02-07 09:58:13,761 | INFO | 2618029 - RSGG trained on cpu in: 1.1920928955078125e-06 secs
+2025-02-07 09:58:13,762 | INFO | 2618029 - Saved: RSGG-62d60f9c421b0dd53fbd63c02ef14a7d
+2025-02-07 09:58:13,801 | INFO | 2618029 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:13,801 | INFO | 2618029 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:13,801 | INFO | 2618236 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:13,802 | INFO | 2618029 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:13,804 | INFO | 2618029 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:13,804 | INFO | 2618029 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:13,805 | INFO | 2618029 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:13,805 | INFO | 2618029 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:13,956 | INFO | 2618236 - Creating: RSGG-3a156db44f62dde17934dce6acbc77e7
+2025-02-07 09:58:13,957 | INFO | 2618236 - RSGG trained on cpu in: 1.430511474609375e-06 secs
+2025-02-07 09:58:13,957 | INFO | 2618029 - Loading: GAN-d8192bd44c01c44075906bae0943947f
+2025-02-07 09:58:13,958 | INFO | 2618236 - Saved: RSGG-3a156db44f62dde17934dce6acbc77e7
+2025-02-07 09:58:13,961 | INFO | 2618236 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.ged_criteria.GraphEditDistanceCriteria
+2025-02-07 09:58:13,969 | INFO | 2618236 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.sparsity_criteria.SparsityCriteria
+2025-02-07 09:58:13,975 | INFO | 2618236 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.distances.euclidean_distance.EuclideanDistance
+2025-02-07 09:58:13,975 | INFO | 2618236 - Instantiating: src.oracle.nn.gcn.DownstreamGCN
+2025-02-07 09:58:13,977 | INFO | 2618236 - Instantiating: torch.optim.RMSprop
+2025-02-07 09:58:13,978 | INFO | 2618236 - Instantiating: torch.nn.CrossEntropyLoss
+2025-02-07 09:58:13,989 | INFO | 2618911 - Loading: GAN-603b72c2fb22e86127faa9e7cbd8e16d
+2025-02-07 09:58:13,998 | INFO | 2618029 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:13,999 | INFO | 2618029 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:14,001 | INFO | 2618029 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:14,002 | INFO | 2618029 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:14,002 | INFO | 2618029 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:14,003 | INFO | 2618029 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:14,011 | INFO | 2618236 - Creating: InstanceLearningExplainerSelector-73e41f1179b60b965717e78c2f6e3310
+2025-02-07 09:58:14,069 | INFO | 2618911 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:14,226 | INFO | 2618031 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:14,226 | INFO | 2618031 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:14,228 | INFO | 2618911 - Creating: RSGG-743938f8b06e3504526f81ac91d8e4f9
+2025-02-07 09:58:14,228 | INFO | 2618031 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:14,228 | INFO | 2618031 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:14,229 | INFO | 2618911 - RSGG trained on cpu in: 1.6689300537109375e-06 secs
+2025-02-07 09:58:14,229 | INFO | 2618031 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:14,229 | INFO | 2618031 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:14,229 | INFO | 2618911 - Saved: RSGG-743938f8b06e3504526f81ac91d8e4f9
+2025-02-07 09:58:14,257 | INFO | 2618911 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:14,257 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:14,257 | INFO | 2618910 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:14,258 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:14,260 | INFO | 2618911 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:14,260 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:14,261 | INFO | 2618911 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:14,261 | INFO | 2618911 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:14,289 | INFO | 2618234 - Creating: RSGG-050e0cc8f5126709f3de1e4be84717ab
+2025-02-07 09:58:14,290 | INFO | 2618234 - RSGG trained on cpu in: 1.6689300537109375e-06 secs
+2025-02-07 09:58:14,290 | INFO | 2618234 - Saved: RSGG-050e0cc8f5126709f3de1e4be84717ab
+2025-02-07 09:58:14,292 | INFO | 2618234 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:14,292 | INFO | 2618234 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:14,293 | INFO | 2618234 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:14,295 | INFO | 2618234 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:14,295 | INFO | 2618234 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:14,296 | INFO | 2618234 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:14,296 | INFO | 2618234 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:14,317 | ERROR | 2618911 - unexpected linkcount: -1
+2025-02-07 09:58:14,319 | INFO | 2618031 - Loading: GAN-a545cac3e5be15dacdec93ceeba3041f
+2025-02-07 09:58:14,351 | INFO | 2618910 - Creating: RSGG-ba4112b463ea117dbcc462c7d426306e
+2025-02-07 09:58:14,352 | INFO | 2618910 - RSGG trained on cpu in: 1.9073486328125e-06 secs
+2025-02-07 09:58:14,352 | INFO | 2618910 - Saved: RSGG-ba4112b463ea117dbcc462c7d426306e
+2025-02-07 09:58:14,368 | INFO | 2618910 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:14,369 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:14,369 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:14,372 | INFO | 2618910 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:14,372 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:14,372 | INFO | 2618910 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:14,373 | INFO | 2618910 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:14,413 | INFO | 2618031 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:14,414 | INFO | 2618234 - Loading: GAN-466e820cb24d552aa7b84caaabb23da7
+2025-02-07 09:58:14,537 | ERROR | 2618913 - timed out
+2025-02-07 09:58:14,540 | INFO | 2618029 - Loading: GAN-9e3336265cde76ff9919bf1316dbe92b
+2025-02-07 09:58:14,609 | ERROR | 2618909 - timed out
+2025-02-07 09:58:14,612 | INFO | 2618025 - Creating: RSGG-8ac5dd6e8b98e418d3ae2159de03ec00
+2025-02-07 09:58:14,613 | INFO | 2618025 - RSGG trained on cpu in: 1.9073486328125e-06 secs
+2025-02-07 09:58:14,615 | INFO | 2618025 - Saved: RSGG-8ac5dd6e8b98e418d3ae2159de03ec00
+2025-02-07 09:58:14,617 | INFO | 2618031 - Creating: RSGG-98960905601f3526634595d64a7b59ec
+2025-02-07 09:58:14,617 | INFO | 2618025 - Instantiating: src.explainer.future.ensemble.aggregators.filters.correctness.CorrectnessFilter
+2025-02-07 09:58:14,617 | INFO | 2618025 - Instantiating: src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer
+2025-02-07 09:58:14,618 | INFO | 2618025 - Instantiating: src.explainer.heuristic.obs_dist.ObliviousBidirectionalDistance
+2025-02-07 09:58:14,618 | INFO | 2618025 - Instantiating: src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer
+2025-02-07 09:58:14,619 | INFO | 2618025 - Instantiating: src.explainer.heuristic.obs_dist.ObliviousBidirectionalDistance
+2025-02-07 09:58:14,619 | INFO | 2618025 - Instantiating: src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer
+2025-02-07 09:58:14,619 | INFO | 2618031 - RSGG trained on cpu in: 2.384185791015625e-06 secs
+2025-02-07 09:58:14,619 | INFO | 2618025 - Instantiating: src.explainer.heuristic.obs_dist.ObliviousBidirectionalDistance
+2025-02-07 09:58:14,619 | INFO | 2618025 - Instantiating: src.explainer.future.heuristic.di_rand.DIRand
+2025-02-07 09:58:14,620 | INFO | 2618025 - Instantiating: src.explainer.future.heuristic.di_rand.DIRand
+2025-02-07 09:58:14,620 | INFO | 2618025 - Instantiating: src.explainer.future.heuristic.di_rand.DIRand
+2025-02-07 09:58:14,620 | INFO | 2618025 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:14,620 | INFO | 2618025 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:14,621 | INFO | 2618025 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:14,621 | INFO | 2618031 - Saved: RSGG-98960905601f3526634595d64a7b59ec
+2025-02-07 09:58:14,625 | INFO | 2618025 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:14,625 | INFO | 2618025 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:14,626 | INFO | 2618025 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:14,627 | INFO | 2618025 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:14,633 | INFO | 2618031 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.ged_criteria.GraphEditDistanceCriteria
+2025-02-07 09:58:14,694 | INFO | 2618031 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.sparsity_criteria.SparsityCriteria
+2025-02-07 09:58:14,696 | INFO | 2618238 - Loading: GAN-57f7988da9412efc255d73d40d880739
+2025-02-07 09:58:14,745 | INFO | 2618031 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.distances.euclidean_distance.EuclideanDistance
+2025-02-07 09:58:14,746 | INFO | 2618031 - Instantiating: src.oracle.nn.gcn.DownstreamGCN
+2025-02-07 09:58:14,759 | INFO | 2618031 - Instantiating: torch.optim.RMSprop
+2025-02-07 09:58:14,759 | INFO | 2618031 - Instantiating: torch.nn.CrossEntropyLoss
+2025-02-07 09:58:14,857 | INFO | 2618238 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:14,858 | INFO | 2618238 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:14,862 | INFO | 2618238 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:14,862 | INFO | 2618238 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:14,864 | INFO | 2618238 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:14,864 | INFO | 2618238 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:14,882 | INFO | 2618025 - Loading: GAN-0a906bfbdd96e6eddb89241b49456454
+2025-02-07 09:58:14,958 | INFO | 2618031 - Creating: InstanceLearningExplainerSelector-902a97022452db1827a48b24c7dbc8f8
+2025-02-07 09:58:14,999 | INFO | 2618238 - Loading: GAN-3abb08a47de8e5a86e148e31876f9708
+2025-02-07 09:58:15,148 | INFO | 2618238 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:15,234 | INFO | 2618912 - Loading: GAN-50c177b8c04a8d8064f15653b3147f70
+2025-02-07 09:58:15,241 | INFO | 2618238 - Creating: RSGG-d20706e63580d4ff216a5b5da3b9aa2b
+2025-02-07 09:58:15,242 | INFO | 2618238 - RSGG trained on cpu in: 1.6689300537109375e-06 secs
+2025-02-07 09:58:15,243 | INFO | 2618238 - Saved: RSGG-d20706e63580d4ff216a5b5da3b9aa2b
+2025-02-07 09:58:15,265 | INFO | 2618238 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.ged_criteria.GraphEditDistanceCriteria
+2025-02-07 09:58:15,270 | INFO | 2618238 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.sparsity_criteria.SparsityCriteria
+2025-02-07 09:58:15,275 | INFO | 2618912 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:15,276 | INFO | 2618912 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:15,278 | INFO | 2618912 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:15,278 | INFO | 2618912 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:15,279 | INFO | 2618912 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:15,279 | INFO | 2618912 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:15,280 | INFO | 2618238 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.distances.euclidean_distance.EuclideanDistance
+2025-02-07 09:58:15,280 | INFO | 2618238 - Instantiating: src.oracle.nn.gcn.DownstreamGCN
+2025-02-07 09:58:15,284 | INFO | 2618238 - Instantiating: torch.optim.RMSprop
+2025-02-07 09:58:15,284 | INFO | 2618238 - Instantiating: torch.nn.CrossEntropyLoss
+2025-02-07 09:58:15,362 | INFO | 2618912 - Loading: GAN-d8fc882f28954b00583468769ac8ec18
+2025-02-07 09:58:15,486 | INFO | 2618912 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:15,487 | INFO | 2618238 - Creating: InstanceLearningExplainerSelector-fcf0373ef3b63d7602b52f8491a9b1d8
+2025-02-07 09:58:15,605 | INFO | 2618912 - Creating: RSGG-eaa9e90f59b6c2daa035011d2b0a6ca9
+2025-02-07 09:58:15,606 | INFO | 2618912 - RSGG trained on cpu in: 1.1920928955078125e-06 secs
+2025-02-07 09:58:15,607 | INFO | 2618912 - Saved: RSGG-eaa9e90f59b6c2daa035011d2b0a6ca9
+2025-02-07 09:58:15,632 | INFO | 2618912 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:15,632 | INFO | 2618912 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:15,633 | INFO | 2618912 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:15,635 | INFO | 2618912 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:15,635 | INFO | 2618912 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:15,636 | INFO | 2618912 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:15,636 | INFO | 2618912 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:15,736 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:15,737 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:15,740 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:15,740 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:15,741 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:15,742 | INFO | 2618909 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:15,757 | INFO | 2618911 - Loading: GAN-49d987c750391939a95784c0058abd75
+2025-02-07 09:58:15,883 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:15,884 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:15,886 | INFO | 2618911 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:15,886 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:15,887 | INFO | 2618911 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:15,887 | INFO | 2618911 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:15,906 | INFO | 2618910 - Loading: GAN-9da61f36655614077cb37c15be621b4a
+2025-02-07 09:58:15,972 | INFO | 2618911 - Loading: GAN-d48a996fcfb0303edebc69a0e0394038
+2025-02-07 09:58:16,069 | INFO | 2618911 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:16,132 | INFO | 2618029 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:16,238 | INFO | 2618029 - Creating: RSGG-76c61a19796e2045e4f5670070d4430d
+2025-02-07 09:58:16,239 | INFO | 2618029 - RSGG trained on cpu in: 1.6689300537109375e-06 secs
+2025-02-07 09:58:16,240 | INFO | 2618029 - Saved: RSGG-76c61a19796e2045e4f5670070d4430d
+2025-02-07 09:58:16,264 | INFO | 2618029 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:16,265 | INFO | 2618029 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:16,265 | INFO | 2618234 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:16,265 | INFO | 2618029 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:16,265 | INFO | 2618234 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:16,267 | INFO | 2618029 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:16,267 | INFO | 2618234 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:16,268 | INFO | 2618029 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:16,268 | INFO | 2618234 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:16,268 | INFO | 2618029 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:16,268 | INFO | 2618234 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:16,268 | INFO | 2618029 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:16,268 | INFO | 2618234 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:16,312 | INFO | 2618025 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:16,313 | INFO | 2618025 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:16,317 | INFO | 2618025 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:16,317 | INFO | 2618025 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:16,319 | INFO | 2618025 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:16,319 | INFO | 2618025 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:16,350 | INFO | 2618234 - Loading: GAN-4a39c31abe0cac088bd502308b2d3f60
+2025-02-07 09:58:16,443 | INFO | 2618913 - Loading: GAN-6593588e37e2f9cb1949140b735c2516
+2025-02-07 09:58:16,473 | INFO | 2618234 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:16,505 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:16,506 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:16,508 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:16,509 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:16,510 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:16,510 | INFO | 2618913 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:16,570 | INFO | 2618234 - Creating: RSGG-8534ab23f4656dcca595848ce3ff4aca
+2025-02-07 09:58:16,571 | INFO | 2618234 - RSGG trained on cpu in: 1.430511474609375e-06 secs
+2025-02-07 09:58:16,572 | INFO | 2618234 - Saved: RSGG-8534ab23f4656dcca595848ce3ff4aca
+2025-02-07 09:58:16,597 | INFO | 2618234 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.ged_criteria.GraphEditDistanceCriteria
+2025-02-07 09:58:16,599 | INFO | 2618234 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.sparsity_criteria.SparsityCriteria
+2025-02-07 09:58:16,601 | INFO | 2618234 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.distances.euclidean_distance.EuclideanDistance
+2025-02-07 09:58:16,601 | INFO | 2618234 - Instantiating: src.oracle.nn.gcn.DownstreamGCN
+2025-02-07 09:58:16,609 | INFO | 2618234 - Instantiating: torch.optim.RMSprop
+2025-02-07 09:58:16,609 | INFO | 2618234 - Instantiating: torch.nn.CrossEntropyLoss
+2025-02-07 09:58:16,620 | INFO | 2618913 - Loading: GAN-3260e1b9384f0b6e09ab5d10e5f7419d
+2025-02-07 09:58:16,656 | INFO | 2618913 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:16,669 | ERROR | 2618913 - unexpected linkcount: -1
+2025-02-07 09:58:16,671 | INFO | 2618234 - Creating: InstanceLearningExplainerSelector-3ac7c26df2b37857ea68b1dbd717c2bd
+/NFSHOME/mprado/AIIM/GRETEL/main2/GRETEL/src/legacy/explainer/generative/gans/graph/res_gen.py:64: UserWarning: The use of `x.T` on tensors of dimension other than 2 to reverse their shape is deprecated and it will throw an error in a future release. Consider `x.mT` to transpose batches of matrices or `x.permute(*torch.arange(x.ndim - 1, -1, -1))` to reverse the dimensions of a tensor. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3571.)
+  edge_weights = torch.add(edge_weights, rebuild_adj_matrix(len(node_features), edge_list, edge_attr.T, self.device))
+2025-02-07 09:58:17,010 | INFO | 2618909 - Loading: GAN-c00113d2a6529958ebbbcd99b5858a6b
+2025-02-07 09:58:17,103 | INFO | 2618909 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:17,182 | INFO | 2618912 - Loading: GAN-4299a46298a87fd01fb08a96c1d435fe
+2025-02-07 09:58:17,227 | INFO | 2618909 - Creating: RSGG-80463342eb598e950f8e6d6311562a33
+2025-02-07 09:58:17,228 | INFO | 2618909 - RSGG trained on cpu in: 1.430511474609375e-06 secs
+2025-02-07 09:58:17,229 | INFO | 2618909 - Saved: RSGG-80463342eb598e950f8e6d6311562a33
+2025-02-07 09:58:17,287 | INFO | 2618909 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:17,288 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:17,289 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:17,291 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:17,291 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:17,292 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:17,292 | INFO | 2618909 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:17,319 | INFO | 2618912 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:17,320 | INFO | 2618912 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:17,322 | INFO | 2618912 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:17,322 | INFO | 2618912 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:17,323 | INFO | 2618912 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:17,323 | INFO | 2618912 - Instantiating: torch.nn.BCELoss
+/NFSHOME/mprado/AIIM/GRETEL/main2/GRETEL/src/legacy/explainer/generative/gans/graph/res_gen.py:64: UserWarning: The use of `x.T` on tensors of dimension other than 2 to reverse their shape is deprecated and it will throw an error in a future release. Consider `x.mT` to transpose batches of matrices or `x.permute(*torch.arange(x.ndim - 1, -1, -1))` to reverse the dimensions of a tensor. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3571.)
+  edge_weights = torch.add(edge_weights, rebuild_adj_matrix(len(node_features), edge_list, edge_attr.T, self.device))
+2025-02-07 09:58:17,389 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:17,390 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:17,392 | INFO | 2618910 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:17,392 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:17,394 | INFO | 2618910 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:17,394 | INFO | 2618910 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:17,662 | ERROR | 2618239 - timed out
+2025-02-07 09:58:17,725 | INFO | 2618910 - Loading: GAN-1b9a5e3756d20ccd091dcbaf4215bd69
+2025-02-07 09:58:17,751 | INFO | 2618911 - Creating: RSGG-8ac5dd6e8b98e418d3ae2159de03ec00
+2025-02-07 09:58:17,752 | INFO | 2618911 - RSGG trained on cpu in: 1.9073486328125e-06 secs
+2025-02-07 09:58:17,753 | INFO | 2618911 - Saved: RSGG-8ac5dd6e8b98e418d3ae2159de03ec00
+2025-02-07 09:58:17,757 | INFO | 2618911 - Instantiating: src.explainer.future.ensemble.aggregators.filters.correctness.CorrectnessFilter
+2025-02-07 09:58:17,757 | INFO | 2618911 - Instantiating: src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer
+2025-02-07 09:58:17,758 | INFO | 2618911 - Instantiating: src.explainer.heuristic.obs_dist.ObliviousBidirectionalDistance
+2025-02-07 09:58:17,758 | INFO | 2618911 - Instantiating: src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer
+2025-02-07 09:58:17,759 | INFO | 2618911 - Instantiating: src.explainer.heuristic.obs_dist.ObliviousBidirectionalDistance
+2025-02-07 09:58:17,759 | INFO | 2618911 - Instantiating: src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer
+2025-02-07 09:58:17,759 | INFO | 2618911 - Instantiating: src.explainer.heuristic.obs_dist.ObliviousBidirectionalDistance
+2025-02-07 09:58:17,759 | INFO | 2618911 - Instantiating: src.explainer.future.heuristic.di_rand.DIRand
+2025-02-07 09:58:17,759 | INFO | 2618911 - Instantiating: src.explainer.future.heuristic.di_rand.DIRand
+2025-02-07 09:58:17,759 | INFO | 2618911 - Instantiating: src.explainer.future.heuristic.di_rand.DIRand
+2025-02-07 09:58:17,759 | INFO | 2618911 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:17,759 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:17,760 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:17,762 | INFO | 2618911 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:17,763 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:17,763 | INFO | 2618911 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:17,763 | INFO | 2618911 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:18,018 | INFO | 2618029 - Loading: GAN-53a09a7ba655c618e39c59f54e805191
+/NFSHOME/mprado/AIIM/GRETEL/main2/GRETEL/src/legacy/explainer/generative/gans/graph/res_gen.py:64: UserWarning: The use of `x.T` on tensors of dimension other than 2 to reverse their shape is deprecated and it will throw an error in a future release. Consider `x.mT` to transpose batches of matrices or `x.permute(*torch.arange(x.ndim - 1, -1, -1))` to reverse the dimensions of a tensor. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3571.)
+  edge_weights = torch.add(edge_weights, rebuild_adj_matrix(len(node_features), edge_list, edge_attr.T, self.device))
+2025-02-07 09:58:18,257 | INFO | 2618029 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:18,258 | INFO | 2618029 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:18,260 | INFO | 2618029 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:18,260 | INFO | 2618029 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:18,261 | INFO | 2618029 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:18,261 | INFO | 2618029 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:18,381 | ERROR | 2618029 - unexpected linkcount: -1
+2025-02-07 09:58:18,402 | INFO | 2618025 - Loading: GAN-76f1644f34d9a83ce82c5e9ee3f59c68
+2025-02-07 09:58:18,475 | INFO | 2618025 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:18,639 | INFO | 2618029 - Loading: GAN-d02cbc9bc83dcfeeba33f22558e0e8bf
+2025-02-07 09:58:18,696 | INFO | 2618029 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:18,696 | INFO | 2618025 - Creating: RSGG-72213f5dff6fc3d3959b4ccb9a5820dd
+2025-02-07 09:58:18,697 | INFO | 2618025 - RSGG trained on cpu in: 2.1457672119140625e-06 secs
+2025-02-07 09:58:18,699 | INFO | 2618025 - Saved: RSGG-72213f5dff6fc3d3959b4ccb9a5820dd
+2025-02-07 09:58:18,727 | INFO | 2618239 - Loading: GAN-0fc586d1d48780e00b15d2fd1e799c27
+2025-02-07 09:58:18,750 | INFO | 2618025 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:18,750 | INFO | 2618025 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:18,751 | INFO | 2618025 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:18,754 | INFO | 2618025 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:18,755 | INFO | 2618025 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:18,756 | INFO | 2618025 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:18,756 | INFO | 2618025 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:18,793 | INFO | 2618029 - Creating: RSGG-04f00055ce40112b0002b58c9ac30163
+2025-02-07 09:58:18,794 | INFO | 2618029 - RSGG trained on cpu in: 1.6689300537109375e-06 secs
+2025-02-07 09:58:18,795 | INFO | 2618029 - Saved: RSGG-04f00055ce40112b0002b58c9ac30163
+2025-02-07 09:58:18,863 | INFO | 2618029 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.ged_criteria.GraphEditDistanceCriteria
+2025-02-07 09:58:18,865 | INFO | 2618029 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.sparsity_criteria.SparsityCriteria
+2025-02-07 09:58:18,866 | INFO | 2618029 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.distances.euclidean_distance.EuclideanDistance
+2025-02-07 09:58:18,866 | INFO | 2618029 - Instantiating: src.oracle.nn.gcn.DownstreamGCN
+2025-02-07 09:58:18,882 | INFO | 2618029 - Instantiating: torch.optim.RMSprop
+2025-02-07 09:58:18,882 | INFO | 2618029 - Instantiating: torch.nn.CrossEntropyLoss
+2025-02-07 09:58:18,914 | INFO | 2618025 - Loading: GAN-ac3e7e4076ab2e5ce13b21178b69195f
+2025-02-07 09:58:18,989 | INFO | 2618025 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:18,990 | INFO | 2618025 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:18,990 | INFO | 2618911 - Loading: GAN-0a906bfbdd96e6eddb89241b49456454
+2025-02-07 09:58:18,993 | INFO | 2618025 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:18,993 | INFO | 2618025 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:18,995 | INFO | 2618025 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:18,995 | INFO | 2618025 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:19,004 | INFO | 2618029 - Creating: InstanceLearningExplainerSelector-5e30bcf827dfea2eb015d000eda2e339
+2025-02-07 09:58:19,008 | INFO | 2618909 - Loading: GAN-12bc8534747732cf9b29598a52bbf871
+/NFSHOME/mprado/AIIM/GRETEL/main2/GRETEL/src/legacy/explainer/generative/gans/graph/res_gen.py:64: UserWarning: The use of `x.T` on tensors of dimension other than 2 to reverse their shape is deprecated and it will throw an error in a future release. Consider `x.mT` to transpose batches of matrices or `x.permute(*torch.arange(x.ndim - 1, -1, -1))` to reverse the dimensions of a tensor. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3571.)
+  edge_weights = torch.add(edge_weights, rebuild_adj_matrix(len(node_features), edge_list, edge_attr.T, self.device))
+2025-02-07 09:58:19,163 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:19,165 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:19,168 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:19,169 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:19,170 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:19,170 | INFO | 2618909 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:19,257 | INFO | 2618910 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:19,326 | INFO | 2618909 - Loading: GAN-3bbfc54b87d578daf9f7550a56482873
+2025-02-07 09:58:19,412 | INFO | 2618909 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:19,430 | INFO | 2618913 - Creating: RSGG-8f72653672a79a17e202513ad3cdfec5
+2025-02-07 09:58:19,432 | INFO | 2618913 - RSGG trained on cpu in: 2.6226043701171875e-06 secs
+2025-02-07 09:58:19,434 | INFO | 2618913 - Saved: RSGG-8f72653672a79a17e202513ad3cdfec5
+2025-02-07 09:58:19,444 | INFO | 2618913 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:19,445 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:19,447 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:19,452 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:19,453 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:19,454 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:19,454 | INFO | 2618913 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:19,483 | INFO | 2618025 - Loading: GAN-5c5d886b7a47d7bf249170d697cd1d86
+2025-02-07 09:58:19,631 | ERROR | 2618912 - unexpected linkcount: -1
+2025-02-07 09:58:19,695 | INFO | 2618025 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:19,804 | INFO | 2618910 - Creating: RSGG-2512a361fac41475248bada8ab19ce86
+2025-02-07 09:58:19,805 | INFO | 2618910 - RSGG trained on cpu in: 2.6226043701171875e-06 secs
+2025-02-07 09:58:19,806 | INFO | 2618910 - Saved: RSGG-2512a361fac41475248bada8ab19ce86
+2025-02-07 09:58:19,840 | INFO | 2618910 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:19,840 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:19,841 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:19,844 | INFO | 2618910 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:19,844 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:19,845 | INFO | 2618910 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:19,845 | INFO | 2618910 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:19,857 | INFO | 2618239 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:19,858 | INFO | 2618912 - Loading: GAN-f7a7d0b7e7f085743039799231616364
+2025-02-07 09:58:19,889 | INFO | 2618912 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:19,898 | INFO | 2618910 - Loading: GAN-b93e11eeaebd540659aba8ab5627d62c
+2025-02-07 09:58:19,963 | INFO | 2618239 - Creating: RSGG-dd90f0525d0010564dd4b0f21cb1d403
+2025-02-07 09:58:19,964 | INFO | 2618239 - RSGG trained on cpu in: 1.430511474609375e-06 secs
+2025-02-07 09:58:19,965 | INFO | 2618239 - Saved: RSGG-dd90f0525d0010564dd4b0f21cb1d403
+2025-02-07 09:58:19,983 | INFO | 2618239 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:19,983 | INFO | 2618239 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:19,984 | INFO | 2618239 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:19,986 | INFO | 2618239 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:19,986 | INFO | 2618239 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:19,987 | INFO | 2618239 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:19,987 | INFO | 2618239 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:20,001 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:20,002 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:20,004 | INFO | 2618911 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:20,004 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:20,005 | INFO | 2618911 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:20,005 | INFO | 2618911 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:20,040 | INFO | 2618239 - Loading: GAN-430ee809f34d37a1004dce7328d4c48b
+2025-02-07 09:58:20,100 | ERROR | 2618239 - unexpected linkcount: -1
+2025-02-07 09:58:20,101 | INFO | 2618911 - Loading: GAN-76f1644f34d9a83ce82c5e9ee3f59c68
+2025-02-07 09:58:20,226 | INFO | 2618911 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:20,233 | INFO | 2618912 - Creating: RSGG-12c8e9748d617b40f980207e9b0858f0
+2025-02-07 09:58:20,234 | INFO | 2618912 - RSGG trained on cpu in: 1.1920928955078125e-06 secs
+2025-02-07 09:58:20,235 | INFO | 2618912 - Saved: RSGG-12c8e9748d617b40f980207e9b0858f0
+2025-02-07 09:58:20,249 | INFO | 2618912 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.ged_criteria.GraphEditDistanceCriteria
+2025-02-07 09:58:20,250 | INFO | 2618912 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.sparsity_criteria.SparsityCriteria
+2025-02-07 09:58:20,256 | INFO | 2618912 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.distances.euclidean_distance.EuclideanDistance
+2025-02-07 09:58:20,268 | INFO | 2618911 - Creating: RSGG-72213f5dff6fc3d3959b4ccb9a5820dd
+2025-02-07 09:58:20,269 | INFO | 2618911 - RSGG trained on cpu in: 1.1920928955078125e-06 secs
+2025-02-07 09:58:20,270 | INFO | 2618911 - Saved: RSGG-72213f5dff6fc3d3959b4ccb9a5820dd
+2025-02-07 09:58:20,281 | INFO | 2618911 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:20,281 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:20,282 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:20,284 | INFO | 2618911 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:20,284 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:20,285 | INFO | 2618911 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:20,285 | INFO | 2618911 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:20,370 | INFO | 2618912 - Creating: DatasetLevelExplainerSelector-5a5810ee0278de9d64fe35721c1bfc9d
+2025-02-07 09:58:20,445 | INFO | 2618911 - Loading: GAN-ac3e7e4076ab2e5ce13b21178b69195f
+2025-02-07 09:58:20,510 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:20,511 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:20,513 | INFO | 2618911 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:20,513 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:20,514 | INFO | 2618911 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:20,514 | INFO | 2618911 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:20,635 | INFO | 2618911 - Loading: GAN-5c5d886b7a47d7bf249170d697cd1d86
+2025-02-07 09:58:20,732 | INFO | 2618911 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:20,790 | INFO | 2618909 - Creating: RSGG-5844b59cd8fdbf2e8b1bd60cd8fce23a
+2025-02-07 09:58:20,791 | INFO | 2618909 - RSGG trained on cpu in: 1.430511474609375e-06 secs
+2025-02-07 09:58:20,792 | INFO | 2618909 - Saved: RSGG-5844b59cd8fdbf2e8b1bd60cd8fce23a
+2025-02-07 09:58:20,819 | INFO | 2618909 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:20,819 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:20,820 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:20,822 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:20,822 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:20,823 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:20,823 | INFO | 2618909 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:20,963 | INFO | 2618239 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:20,964 | INFO | 2618239 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:20,967 | INFO | 2618239 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:20,968 | INFO | 2618239 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:20,969 | INFO | 2618239 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:20,969 | INFO | 2618239 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:21,164 | INFO | 2618239 - Loading: GAN-b4bba14d3093a9f6c539c22bb18e2448
+2025-02-07 09:58:21,225 | INFO | 2618239 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:21,228 | INFO | 2618913 - Loading: GAN-72fb13775ec173e0c0be6ea1ceace522
+2025-02-07 09:58:21,281 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:21,284 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:21,289 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:21,289 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:21,291 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:21,291 | INFO | 2618913 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:21,313 | INFO | 2618239 - Creating: RSGG-6bdad33a829db2d8dfd305da173ad6d4
+2025-02-07 09:58:21,315 | INFO | 2618239 - RSGG trained on cpu in: 1.430511474609375e-06 secs
+2025-02-07 09:58:21,316 | INFO | 2618239 - Saved: RSGG-6bdad33a829db2d8dfd305da173ad6d4
+2025-02-07 09:58:21,320 | INFO | 2618239 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.ged_criteria.GraphEditDistanceCriteria
+2025-02-07 09:58:21,324 | INFO | 2618239 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.sparsity_criteria.SparsityCriteria
+2025-02-07 09:58:21,325 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:21,325 | INFO | 2618239 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.distances.euclidean_distance.EuclideanDistance
+2025-02-07 09:58:21,325 | INFO | 2618239 - Instantiating: src.oracle.nn.gcn.DownstreamGCN
+2025-02-07 09:58:21,326 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:21,328 | INFO | 2618910 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:21,328 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:21,329 | INFO | 2618910 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:21,329 | INFO | 2618910 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:21,334 | INFO | 2618239 - Instantiating: torch.optim.RMSprop
+2025-02-07 09:58:21,334 | INFO | 2618239 - Instantiating: torch.nn.CrossEntropyLoss
+2025-02-07 09:58:21,476 | INFO | 2618910 - Loading: GAN-6efd962614a72eec89933544246aa615
+2025-02-07 09:58:21,491 | INFO | 2618239 - Creating: InstanceLearningExplainerSelector-bd6b3b253d225c1d1bf097d91e45074e
+2025-02-07 09:58:21,499 | INFO | 2618910 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:21,618 | INFO | 2618910 - Creating: RSGG-80075f2fb5087c8179042e4d3b6d0a0f
+2025-02-07 09:58:21,619 | INFO | 2618910 - RSGG trained on cpu in: 2.6226043701171875e-06 secs
+2025-02-07 09:58:21,620 | INFO | 2618910 - Saved: RSGG-80075f2fb5087c8179042e4d3b6d0a0f
+2025-02-07 09:58:21,632 | INFO | 2618910 - Instantiating: src.explainer.future.ensemble.aggregators.filters.correctness.CorrectnessFilter
+2025-02-07 09:58:21,632 | INFO | 2618910 - Instantiating: src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer
+2025-02-07 09:58:21,633 | INFO | 2618910 - Instantiating: src.explainer.heuristic.obs_dist.ObliviousBidirectionalDistance
+2025-02-07 09:58:21,633 | INFO | 2618910 - Instantiating: src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer
+2025-02-07 09:58:21,633 | INFO | 2618910 - Instantiating: src.explainer.heuristic.obs_dist.ObliviousBidirectionalDistance
+2025-02-07 09:58:21,633 | INFO | 2618910 - Instantiating: src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer
+2025-02-07 09:58:21,634 | INFO | 2618910 - Instantiating: src.explainer.heuristic.obs_dist.ObliviousBidirectionalDistance
+2025-02-07 09:58:21,634 | INFO | 2618910 - Instantiating: src.explainer.future.heuristic.di_rand.DIRand
+2025-02-07 09:58:21,634 | INFO | 2618910 - Instantiating: src.explainer.future.heuristic.di_rand.DIRand
+2025-02-07 09:58:21,634 | INFO | 2618910 - Instantiating: src.explainer.future.heuristic.di_rand.DIRand
+2025-02-07 09:58:21,634 | INFO | 2618910 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:21,634 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:21,635 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:21,635 | INFO | 2618909 - Loading: GAN-091d245fd0b0b18f078e78474e1201e7
+2025-02-07 09:58:21,638 | INFO | 2618910 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:21,638 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:21,639 | INFO | 2618910 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:21,639 | INFO | 2618910 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:21,673 | INFO | 2618025 - Creating: RSGG-84486a5b244239dda9fdba7fd904e2d1
+2025-02-07 09:58:21,674 | INFO | 2618025 - RSGG trained on cpu in: 2.384185791015625e-06 secs
+2025-02-07 09:58:21,676 | INFO | 2618025 - Saved: RSGG-84486a5b244239dda9fdba7fd904e2d1
+2025-02-07 09:58:21,678 | INFO | 2618025 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:21,678 | INFO | 2618025 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:21,679 | INFO | 2618025 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:21,680 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:21,681 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:21,683 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:21,684 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:21,684 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:21,684 | INFO | 2618909 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:21,685 | INFO | 2618025 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:21,685 | INFO | 2618025 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:21,687 | INFO | 2618025 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:21,687 | INFO | 2618025 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:21,758 | INFO | 2618909 - Loading: GAN-0ed31f32d7155f82681f37531b9e2d81
+2025-02-07 09:58:21,977 | INFO | 2618913 - Loading: GAN-5885cec4a56974ddf14a082590287e74
+2025-02-07 09:58:21,981 | INFO | 2618911 - Creating: RSGG-84486a5b244239dda9fdba7fd904e2d1
+2025-02-07 09:58:21,982 | INFO | 2618911 - RSGG trained on cpu in: 1.6689300537109375e-06 secs
+2025-02-07 09:58:21,983 | INFO | 2618911 - Saved: RSGG-84486a5b244239dda9fdba7fd904e2d1
+2025-02-07 09:58:22,004 | INFO | 2618911 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:22,004 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:22,006 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:22,011 | INFO | 2618911 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:22,011 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:22,013 | INFO | 2618911 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:22,013 | INFO | 2618911 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:22,021 | INFO | 2618913 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:22,043 | INFO | 2618025 - Loading: GAN-9fd789d49e1e6e140af14df42f3ecd60
+/NFSHOME/mprado/AIIM/GRETEL/main2/GRETEL/src/legacy/explainer/generative/gans/graph/res_gen.py:64: UserWarning: The use of `x.T` on tensors of dimension other than 2 to reverse their shape is deprecated and it will throw an error in a future release. Consider `x.mT` to transpose batches of matrices or `x.permute(*torch.arange(x.ndim - 1, -1, -1))` to reverse the dimensions of a tensor. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3571.)
+  edge_weights = torch.add(edge_weights, rebuild_adj_matrix(len(node_features), edge_list, edge_attr.T, self.device))
+2025-02-07 09:58:22,197 | INFO | 2618913 - Creating: RSGG-b41b24f296121028c16203be0c3cb652
+2025-02-07 09:58:22,199 | INFO | 2618913 - RSGG trained on cpu in: 1.9073486328125e-06 secs
+2025-02-07 09:58:22,201 | INFO | 2618913 - Saved: RSGG-b41b24f296121028c16203be0c3cb652
+2025-02-07 09:58:22,226 | INFO | 2618025 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:22,226 | INFO | 2618913 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:22,227 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:22,227 | INFO | 2618025 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:22,229 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:22,232 | INFO | 2618025 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:22,233 | INFO | 2618025 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:22,234 | INFO | 2618025 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:22,234 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:22,234 | INFO | 2618025 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:22,234 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:22,236 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:22,236 | INFO | 2618913 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:22,448 | INFO | 2618025 - Loading: GAN-d5b3c5dc9ae3247f7720156bfae912ac
+2025-02-07 09:58:22,631 | INFO | 2618025 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:22,882 | INFO | 2618025 - Creating: RSGG-7972f3d54ce381e89fbdc71a52f65aa0
+2025-02-07 09:58:22,883 | INFO | 2618025 - RSGG trained on cpu in: 1.6689300537109375e-06 secs
+2025-02-07 09:58:22,885 | INFO | 2618025 - Saved: RSGG-7972f3d54ce381e89fbdc71a52f65aa0
+2025-02-07 09:58:22,934 | INFO | 2618025 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.ged_criteria.GraphEditDistanceCriteria
+2025-02-07 09:58:22,963 | INFO | 2618025 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.sparsity_criteria.SparsityCriteria
+2025-02-07 09:58:22,964 | INFO | 2618025 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.distances.euclidean_distance.EuclideanDistance
+2025-02-07 09:58:22,964 | INFO | 2618025 - Instantiating: src.oracle.nn.gcn.DownstreamGCN
+2025-02-07 09:58:22,968 | INFO | 2618025 - Instantiating: torch.optim.RMSprop
+2025-02-07 09:58:22,968 | INFO | 2618025 - Instantiating: torch.nn.CrossEntropyLoss
+2025-02-07 09:58:22,969 | INFO | 2618911 - Loading: GAN-9fd789d49e1e6e140af14df42f3ecd60
+2025-02-07 09:58:22,991 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:22,993 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:22,998 | INFO | 2618911 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:22,998 | INFO | 2618911 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:23,000 | INFO | 2618911 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:23,000 | INFO | 2618911 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:23,040 | INFO | 2618025 - Creating: InstanceLearningExplainerSelector-48e9e7f897e63e3d3af4a717c1b0436f
+/NFSHOME/mprado/AIIM/GRETEL/main2/GRETEL/src/legacy/explainer/generative/gans/graph/res_gen.py:64: UserWarning: The use of `x.T` on tensors of dimension other than 2 to reverse their shape is deprecated and it will throw an error in a future release. Consider `x.mT` to transpose batches of matrices or `x.permute(*torch.arange(x.ndim - 1, -1, -1))` to reverse the dimensions of a tensor. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3571.)
+  edge_weights = torch.add(edge_weights, rebuild_adj_matrix(len(node_features), edge_list, edge_attr.T, self.device))
+2025-02-07 09:58:23,328 | INFO | 2618909 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:23,446 | INFO | 2618911 - Loading: GAN-d5b3c5dc9ae3247f7720156bfae912ac
+2025-02-07 09:58:23,571 | INFO | 2618909 - Creating: RSGG-16493efed7fe9d1c49f234ef205b420d
+2025-02-07 09:58:23,572 | INFO | 2618911 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:23,573 | INFO | 2618909 - RSGG trained on cpu in: 1.430511474609375e-06 secs
+2025-02-07 09:58:23,574 | INFO | 2618909 - Saved: RSGG-16493efed7fe9d1c49f234ef205b420d
+2025-02-07 09:58:23,602 | INFO | 2618909 - Instantiating: src.explainer.future.ensemble.aggregators.filters.correctness.CorrectnessFilter
+2025-02-07 09:58:23,602 | INFO | 2618909 - Instantiating: src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer
+2025-02-07 09:58:23,603 | INFO | 2618909 - Instantiating: src.explainer.heuristic.obs_dist.ObliviousBidirectionalDistance
+2025-02-07 09:58:23,603 | INFO | 2618909 - Instantiating: src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer
+2025-02-07 09:58:23,604 | INFO | 2618909 - Instantiating: src.explainer.heuristic.obs_dist.ObliviousBidirectionalDistance
+2025-02-07 09:58:23,604 | INFO | 2618909 - Instantiating: src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer
+2025-02-07 09:58:23,604 | INFO | 2618909 - Instantiating: src.explainer.heuristic.obs_dist.ObliviousBidirectionalDistance
+2025-02-07 09:58:23,604 | INFO | 2618909 - Instantiating: src.explainer.future.heuristic.di_rand.DIRand
+2025-02-07 09:58:23,605 | INFO | 2618909 - Instantiating: src.explainer.future.heuristic.di_rand.DIRand
+2025-02-07 09:58:23,605 | INFO | 2618909 - Instantiating: src.explainer.future.heuristic.di_rand.DIRand
+2025-02-07 09:58:23,605 | INFO | 2618909 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:23,605 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:23,606 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:23,610 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:23,610 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:23,611 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:23,611 | INFO | 2618909 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:23,709 | INFO | 2618912 - Learned from instance 0
+2025-02-07 09:58:23,729 | INFO | 2618911 - Creating: RSGG-7972f3d54ce381e89fbdc71a52f65aa0
+2025-02-07 09:58:23,730 | INFO | 2618911 - RSGG trained on cpu in: 1.430511474609375e-06 secs
+2025-02-07 09:58:23,731 | INFO | 2618911 - Saved: RSGG-7972f3d54ce381e89fbdc71a52f65aa0
+2025-02-07 09:58:23,759 | INFO | 2618911 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.ged_criteria.GraphEditDistanceCriteria
+2025-02-07 09:58:23,789 | INFO | 2618911 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.sparsity_criteria.SparsityCriteria
+2025-02-07 09:58:23,790 | INFO | 2618909 - Loading: GAN-cf98feda0d96727fe45c74d6ac2ffac2
+2025-02-07 09:58:23,799 | INFO | 2618911 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.distances.euclidean_distance.EuclideanDistance
+2025-02-07 09:58:23,882 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:23,883 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:23,887 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:23,887 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:23,888 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:23,888 | INFO | 2618909 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:23,964 | INFO | 2618911 - Creating: DatasetLevelExplainerSelector-3d44fc028c298c23239a8b7f65025388
+2025-02-07 09:58:23,979 | INFO | 2618910 - Loading: GAN-b1029531a87899965f9323eb8dc93cbe
+2025-02-07 09:58:24,007 | INFO | 2618909 - Loading: GAN-a9480f3875022f5cab72bd542a0d905e
+2025-02-07 09:58:24,026 | INFO | 2618909 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:24,200 | INFO | 2618913 - Loading: GAN-627e16232f50dd3a6697d5c752c64b8c
+2025-02-07 09:58:24,227 | INFO | 2618909 - Creating: RSGG-bf453f66056e43128042bef120de2d2c
+2025-02-07 09:58:24,228 | INFO | 2618909 - RSGG trained on cpu in: 1.9073486328125e-06 secs
+2025-02-07 09:58:24,229 | INFO | 2618909 - Saved: RSGG-bf453f66056e43128042bef120de2d2c
+/NFSHOME/mprado/AIIM/GRETEL/main2/GRETEL/src/legacy/explainer/generative/gans/graph/res_gen.py:64: UserWarning: The use of `x.T` on tensors of dimension other than 2 to reverse their shape is deprecated and it will throw an error in a future release. Consider `x.mT` to transpose batches of matrices or `x.permute(*torch.arange(x.ndim - 1, -1, -1))` to reverse the dimensions of a tensor. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3571.)
+  edge_weights = torch.add(edge_weights, rebuild_adj_matrix(len(node_features), edge_list, edge_attr.T, self.device))
+2025-02-07 09:58:24,288 | INFO | 2618909 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:24,288 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:24,289 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:24,293 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:24,293 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:24,294 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:24,294 | INFO | 2618909 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:24,325 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:24,327 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:24,333 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:24,334 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:24,335 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:24,336 | INFO | 2618913 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:24,459 | INFO | 2618909 - Loading: GAN-d2137fce91df9e7b4351b07a1bb70a38
+2025-02-07 09:58:24,516 | INFO | 2618913 - Loading: GAN-5cac312b57ed9936d5d55fa10043d8d9
+2025-02-07 09:58:24,757 | INFO | 2618913 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:25,040 | INFO | 2618913 - Creating: RSGG-e7b4a076624ca762811d4bbc4e9a53b1
+2025-02-07 09:58:25,042 | INFO | 2618913 - RSGG trained on cpu in: 2.6226043701171875e-06 secs
+2025-02-07 09:58:25,044 | INFO | 2618913 - Saved: RSGG-e7b4a076624ca762811d4bbc4e9a53b1
+2025-02-07 09:58:25,194 | INFO | 2618913 - Instantiating: src.explainer.future.ensemble.aggregators.filters.correctness.CorrectnessFilter
+2025-02-07 09:58:25,194 | INFO | 2618913 - Instantiating: src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer
+2025-02-07 09:58:25,201 | INFO | 2618913 - Instantiating: src.explainer.heuristic.obs_dist.ObliviousBidirectionalDistance
+2025-02-07 09:58:25,201 | INFO | 2618913 - Instantiating: src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer
+2025-02-07 09:58:25,202 | INFO | 2618913 - Instantiating: src.explainer.heuristic.obs_dist.ObliviousBidirectionalDistance
+2025-02-07 09:58:25,202 | INFO | 2618913 - Instantiating: src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer
+2025-02-07 09:58:25,203 | INFO | 2618913 - Instantiating: src.explainer.heuristic.obs_dist.ObliviousBidirectionalDistance
+2025-02-07 09:58:25,203 | INFO | 2618913 - Instantiating: src.explainer.future.heuristic.di_rand.DIRand
+2025-02-07 09:58:25,203 | INFO | 2618913 - Instantiating: src.explainer.future.heuristic.di_rand.DIRand
+2025-02-07 09:58:25,203 | INFO | 2618913 - Instantiating: src.explainer.future.heuristic.di_rand.DIRand
+2025-02-07 09:58:25,203 | INFO | 2618913 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:25,204 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:25,205 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:25,212 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:25,212 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:25,214 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:25,214 | INFO | 2618913 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:25,326 | INFO | 2618913 - Loading: GAN-37596c942435a64e07524994fa1fd945
+2025-02-07 09:58:25,443 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:25,444 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:25,447 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:25,447 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:25,448 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:25,448 | INFO | 2618913 - Instantiating: torch.nn.BCELoss
+/NFSHOME/mprado/AIIM/GRETEL/main2/GRETEL/src/legacy/explainer/generative/gans/graph/res_gen.py:64: UserWarning: The use of `x.T` on tensors of dimension other than 2 to reverse their shape is deprecated and it will throw an error in a future release. Consider `x.mT` to transpose batches of matrices or `x.permute(*torch.arange(x.ndim - 1, -1, -1))` to reverse the dimensions of a tensor. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3571.)
+  edge_weights = torch.add(edge_weights, rebuild_adj_matrix(len(node_features), edge_list, edge_attr.T, self.device))
+2025-02-07 09:58:25,733 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:25,735 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:25,741 | INFO | 2618910 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:25,742 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:25,744 | INFO | 2618910 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:25,744 | INFO | 2618910 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:25,984 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:25,985 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:25,989 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:25,990 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:25,991 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:25,991 | INFO | 2618909 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:26,226 | INFO | 2618909 - Loading: GAN-efecb632901a430c31e1e2f9b8ee5aec
+2025-02-07 09:58:26,319 | INFO | 2618909 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:26,445 | INFO | 2618910 - Loading: GAN-908552ba3a86b4b001a9d74aadc52c59
+2025-02-07 09:58:26,482 | INFO | 2618909 - Creating: RSGG-3a73164bc87dd8aac449f4eb4bd3a2ad
+2025-02-07 09:58:26,483 | INFO | 2618909 - RSGG trained on cpu in: 1.6689300537109375e-06 secs
+2025-02-07 09:58:26,485 | INFO | 2618909 - Saved: RSGG-3a73164bc87dd8aac449f4eb4bd3a2ad
+2025-02-07 09:58:26,506 | INFO | 2618909 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:26,507 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:26,507 | INFO | 2618910 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:26,507 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:26,511 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:26,511 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:26,512 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:26,512 | INFO | 2618909 - Instantiating: torch.nn.BCELoss
+/NFSHOME/mprado/AIIM/GRETEL/main2/GRETEL/src/legacy/explainer/generative/gans/graph/res_gen.py:64: UserWarning: The use of `x.T` on tensors of dimension other than 2 to reverse their shape is deprecated and it will throw an error in a future release. Consider `x.mT` to transpose batches of matrices or `x.permute(*torch.arange(x.ndim - 1, -1, -1))` to reverse the dimensions of a tensor. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3571.)
+  edge_weights = torch.add(edge_weights, rebuild_adj_matrix(len(node_features), edge_list, edge_attr.T, self.device))
+2025-02-07 09:58:26,662 | INFO | 2618909 - Loading: GAN-257fbcaa426b250c40cc0e8537dce69f
+2025-02-07 09:58:26,668 | INFO | 2618910 - Creating: RSGG-62d60f9c421b0dd53fbd63c02ef14a7d
+2025-02-07 09:58:26,670 | INFO | 2618910 - RSGG trained on cpu in: 4.291534423828125e-06 secs
+2025-02-07 09:58:26,673 | INFO | 2618910 - Saved: RSGG-62d60f9c421b0dd53fbd63c02ef14a7d
+2025-02-07 09:58:26,696 | INFO | 2618910 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:26,697 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:26,698 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:26,702 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:26,703 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:26,704 | INFO | 2618910 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:26,705 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:26,707 | INFO | 2618910 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:26,707 | INFO | 2618910 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:26,707 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:26,707 | INFO | 2618909 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:26,708 | INFO | 2618909 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:26,709 | INFO | 2618909 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:26,823 | INFO | 2618910 - Loading: GAN-d8192bd44c01c44075906bae0943947f
+2025-02-07 09:58:26,834 | INFO | 2618912 - Learned from instance 1
+2025-02-07 09:58:27,009 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:27,011 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:27,017 | INFO | 2618910 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:27,017 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:27,019 | INFO | 2618910 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:27,020 | INFO | 2618910 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:27,159 | INFO | 2618911 - Learned from instance 1
+2025-02-07 09:58:27,322 | INFO | 2618910 - Loading: GAN-9e3336265cde76ff9919bf1316dbe92b
+2025-02-07 09:58:27,569 | INFO | 2618910 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:27,950 | INFO | 2618910 - Creating: RSGG-76c61a19796e2045e4f5670070d4430d
+2025-02-07 09:58:27,951 | INFO | 2618910 - RSGG trained on cpu in: 2.6226043701171875e-06 secs
+2025-02-07 09:58:27,952 | INFO | 2618910 - Saved: RSGG-76c61a19796e2045e4f5670070d4430d
+2025-02-07 09:58:27,968 | INFO | 2618910 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:27,968 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:27,969 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:27,973 | INFO | 2618910 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:27,973 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:27,974 | INFO | 2618910 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:27,974 | INFO | 2618910 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:27,987 | INFO | 2618909 - Loading: GAN-a545cac3e5be15dacdec93ceeba3041f
+2025-02-07 09:58:28,257 | INFO | 2618910 - Loading: GAN-53a09a7ba655c618e39c59f54e805191
+2025-02-07 09:58:28,444 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:28,445 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:28,448 | INFO | 2618910 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:28,449 | INFO | 2618910 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:28,450 | INFO | 2618910 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:28,450 | INFO | 2618910 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:28,913 | INFO | 2618910 - Loading: GAN-d02cbc9bc83dcfeeba33f22558e0e8bf
+2025-02-07 09:58:29,032 | INFO | 2618910 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:29,206 | INFO | 2618910 - Creating: RSGG-04f00055ce40112b0002b58c9ac30163
+2025-02-07 09:58:29,207 | INFO | 2618910 - RSGG trained on cpu in: 3.5762786865234375e-06 secs
+2025-02-07 09:58:29,209 | INFO | 2618910 - Saved: RSGG-04f00055ce40112b0002b58c9ac30163
+2025-02-07 09:58:29,227 | INFO | 2618913 - Loading: GAN-2b812572fb69303c70d156ebd14db29f
+2025-02-07 09:58:29,258 | INFO | 2618910 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.ged_criteria.GraphEditDistanceCriteria
+2025-02-07 09:58:29,333 | INFO | 2618910 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.sparsity_criteria.SparsityCriteria
+2025-02-07 09:58:29,374 | INFO | 2618910 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.distances.euclidean_distance.EuclideanDistance
+2025-02-07 09:58:29,412 | INFO | 2618913 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:29,539 | INFO | 2618910 - Creating: DatasetLevelExplainerSelector-dd8aad69b088863253ab1ad681fee717
+2025-02-07 09:58:29,765 | INFO | 2618909 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:29,992 | INFO | 2618909 - Creating: RSGG-98960905601f3526634595d64a7b59ec
+2025-02-07 09:58:29,993 | INFO | 2618909 - RSGG trained on cpu in: 1.430511474609375e-06 secs
+2025-02-07 09:58:29,994 | INFO | 2618909 - Saved: RSGG-98960905601f3526634595d64a7b59ec
+2025-02-07 09:58:30,033 | INFO | 2618909 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.ged_criteria.GraphEditDistanceCriteria
+2025-02-07 09:58:30,100 | INFO | 2618909 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.sparsity_criteria.SparsityCriteria
+2025-02-07 09:58:30,131 | INFO | 2618909 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.distances.euclidean_distance.EuclideanDistance
+2025-02-07 09:58:30,337 | INFO | 2618909 - Creating: DatasetLevelExplainerSelector-4f57c19b16cbfadd453aa7ccd68bbcb3
+2025-02-07 09:58:31,135 | INFO | 2618913 - Creating: RSGG-9b37a75496da638eb25be8c8b016b06c
+2025-02-07 09:58:31,137 | INFO | 2618913 - RSGG trained on cpu in: 2.6226043701171875e-06 secs
+2025-02-07 09:58:31,139 | INFO | 2618913 - Saved: RSGG-9b37a75496da638eb25be8c8b016b06c
+2025-02-07 09:58:31,194 | INFO | 2618913 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:31,194 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:31,196 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:31,202 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:31,202 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:31,204 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:31,204 | INFO | 2618913 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:31,330 | INFO | 2618913 - Loading: GAN-aa941e4d94218e4ee7d64d6a7c560ab3
+2025-02-07 09:58:31,407 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:31,409 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:31,414 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:31,415 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:31,417 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:31,417 | INFO | 2618913 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:31,674 | INFO | 2618913 - Loading: GAN-cd84f7b7b88027d2282aed350f52bb53
+2025-02-07 09:58:31,729 | INFO | 2618913 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:58:32,007 | INFO | 2618913 - Creating: RSGG-f7433757f45d00ab602ab1d09c13597d
+2025-02-07 09:58:32,009 | INFO | 2618913 - RSGG trained on cpu in: 2.384185791015625e-06 secs
+2025-02-07 09:58:32,011 | INFO | 2618913 - Saved: RSGG-f7433757f45d00ab602ab1d09c13597d
+2025-02-07 09:58:32,047 | INFO | 2618913 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:58:32,048 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:32,049 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:32,054 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:32,055 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:32,056 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:32,057 | INFO | 2618913 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:32,227 | INFO | 2618913 - Loading: GAN-8562a4139e17b2e16687da6bbd3f35f8
+2025-02-07 09:58:32,319 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:58:32,320 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:58:32,326 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:32,326 | INFO | 2618913 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:58:32,328 | INFO | 2618913 - Instantiating: torch.optim.SGD
+2025-02-07 09:58:32,328 | INFO | 2618913 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:58:32,758 | INFO | 2618913 - Loading: GAN-84c2334cebcdf15f4109e82dc8b1e568
+2025-02-07 09:58:32,805 | INFO | 2618913 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+/NFSHOME/mprado/AIIM/GRETEL/main2/GRETEL/src/legacy/explainer/generative/gans/graph/res_gen.py:64: UserWarning: The use of `x.T` on tensors of dimension other than 2 to reverse their shape is deprecated and it will throw an error in a future release. Consider `x.mT` to transpose batches of matrices or `x.permute(*torch.arange(x.ndim - 1, -1, -1))` to reverse the dimensions of a tensor. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3571.)
+  edge_weights = torch.add(edge_weights, rebuild_adj_matrix(len(node_features), edge_list, edge_attr.T, self.device))
+2025-02-07 09:58:32,977 | INFO | 2618913 - Creating: RSGG-3a156db44f62dde17934dce6acbc77e7
+2025-02-07 09:58:32,979 | INFO | 2618913 - RSGG trained on cpu in: 2.384185791015625e-06 secs
+2025-02-07 09:58:32,981 | INFO | 2618913 - Saved: RSGG-3a156db44f62dde17934dce6acbc77e7
+2025-02-07 09:58:33,013 | INFO | 2618913 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.ged_criteria.GraphEditDistanceCriteria
+2025-02-07 09:58:33,037 | INFO | 2618913 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.sparsity_criteria.SparsityCriteria
+2025-02-07 09:58:33,069 | INFO | 2618913 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.distances.euclidean_distance.EuclideanDistance
+2025-02-07 09:58:33,228 | INFO | 2618913 - Creating: DatasetLevelExplainerSelector-bc051bd21b3782bd61163dbc5fe2196c
+2025-02-07 09:58:34,026 | INFO | 2618910 - Learned from instance 0
+/NFSHOME/mprado/AIIM/GRETEL/main2/GRETEL/src/legacy/explainer/generative/gans/graph/res_gen.py:64: UserWarning: The use of `x.T` on tensors of dimension other than 2 to reverse their shape is deprecated and it will throw an error in a future release. Consider `x.mT` to transpose batches of matrices or `x.permute(*torch.arange(x.ndim - 1, -1, -1))` to reverse the dimensions of a tensor. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3571.)
+  edge_weights = torch.add(edge_weights, rebuild_adj_matrix(len(node_features), edge_list, edge_attr.T, self.device))
+2025-02-07 09:58:36,725 | INFO | 2618909 - Learned from instance 0
+/NFSHOME/mprado/AIIM/GRETEL/main2/GRETEL/src/legacy/explainer/generative/gans/graph/res_gen.py:64: UserWarning: The use of `x.T` on tensors of dimension other than 2 to reverse their shape is deprecated and it will throw an error in a future release. Consider `x.mT` to transpose batches of matrices or `x.permute(*torch.arange(x.ndim - 1, -1, -1))` to reverse the dimensions of a tensor. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3571.)
+  edge_weights = torch.add(edge_weights, rebuild_adj_matrix(len(node_features), edge_list, edge_attr.T, self.device))
+2025-02-07 09:58:38,479 | INFO | 2618913 - Learned from instance 0
+2025-02-07 09:58:38,535 | INFO | 2618910 - Learned from instance 1
+2025-02-07 09:58:40,736 | INFO | 2618909 - Learned from instance 1
+2025-02-07 09:58:42,980 | INFO | 2618913 - Learned from instance 1
+Generating context for: lab/config/meta_ens/asd-asdo/explainer_selectors_t1/explainer_selectors_t1_fold5.json
+2025-02-07 09:59:07,201 | INFO | 2619978 - Executing: lab/config/meta_ens/asd-asdo/explainer_selectors_t1/explainer_selectors_t1_fold5.json Run: 1
+2025-02-07 09:59:07,202 | INFO | 2619978 - Creating the evaluation manager.......................................................
+2025-02-07 09:59:07,202 | INFO | 2619978 - Executing: lab/config/meta_ens/asd-asdo/explainer_selectors_t1/explainer_selectors_t1_fold5.json Run: 1
+2025-02-07 09:59:07,202 | INFO | 2619978 - Creating the evaluation manager....................................
+2025-02-07 09:59:07,203 | INFO | 2619978 - Creating the evaluators......................................................
+2025-02-07 09:59:07,224 | INFO | 2619978 - Loading: ASD-ca8cc36049eb8589f68c35b0d8eebfbb
+2025-02-07 09:59:07,248 | INFO | 2619978 - Created: ASD-ca8cc36049eb8589f68c35b0d8eebfbb
+2025-02-07 09:59:07,259 | INFO | 2619978 - Creating: ASDOracle-74012801e4bd624973d6c15c0a46f2eb
+2025-02-07 09:59:07,260 | INFO | 2619978 - ASDOracle trained in: 1.1920928955078125e-06 secs
+2025-02-07 09:59:07,266 | INFO | 2619978 - Saved: ASDOracle-74012801e4bd624973d6c15c0a46f2eb
+2025-02-07 09:59:07,267 | INFO | 2619978 - Created: ASDOracle-74012801e4bd624973d6c15c0a46f2eb
+2025-02-07 09:59:07,295 | INFO | 2619978 - Instantiating: src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer
+2025-02-07 09:59:07,305 | INFO | 2619978 - Instantiating: src.explainer.heuristic.obs_dist.ObliviousBidirectionalDistance
+2025-02-07 09:59:07,305 | INFO | 2619978 - Instantiating: src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer
+2025-02-07 09:59:07,305 | INFO | 2619978 - Instantiating: src.explainer.heuristic.obs_dist.ObliviousBidirectionalDistance
+2025-02-07 09:59:07,305 | INFO | 2619978 - Instantiating: src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer
+2025-02-07 09:59:07,306 | INFO | 2619978 - Instantiating: src.explainer.heuristic.obs_dist.ObliviousBidirectionalDistance
+2025-02-07 09:59:07,306 | INFO | 2619978 - Instantiating: src.explainer.future.heuristic.di_rand.DIRand
+2025-02-07 09:59:07,307 | INFO | 2619978 - Instantiating: src.explainer.future.heuristic.di_rand.DIRand
+2025-02-07 09:59:07,308 | INFO | 2619978 - Instantiating: src.explainer.future.heuristic.di_rand.DIRand
+2025-02-07 09:59:07,308 | INFO | 2619978 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:59:07,327 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:59:07,334 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:59:07,342 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,342 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:59:07,343 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,344 | INFO | 2619978 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:59:07,377 | INFO | 2619978 - Loading: GAN-62c9922c6814ed2a3bba27e098058c4a
+2025-02-07 09:59:07,386 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:59:07,387 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:59:07,391 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,392 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:59:07,394 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,394 | INFO | 2619978 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:59:07,406 | INFO | 2619978 - Loading: GAN-1b125764461f38084cf7ab24785e9d31
+2025-02-07 09:59:07,415 | INFO | 2619978 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:59:07,426 | INFO | 2619978 - Creating: RSGG-4335c0fa565f61c20fd7191297f4aaaf
+2025-02-07 09:59:07,427 | INFO | 2619978 - RSGG trained on cpu in: 1.6689300537109375e-06 secs
+2025-02-07 09:59:07,429 | INFO | 2619978 - Saved: RSGG-4335c0fa565f61c20fd7191297f4aaaf
+2025-02-07 09:59:07,431 | INFO | 2619978 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:59:07,431 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:59:07,433 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:59:07,436 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,437 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:59:07,438 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,438 | INFO | 2619978 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:59:07,455 | INFO | 2619978 - Loading: GAN-85ae2b37a7a993f083a879c69ca26865
+2025-02-07 09:59:07,463 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:59:07,465 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:59:07,469 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,469 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:59:07,470 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,470 | INFO | 2619978 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:59:07,482 | INFO | 2619978 - Loading: GAN-ed3d865bc5006e2f85fe4b50cf75512c
+2025-02-07 09:59:07,499 | INFO | 2619978 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:59:07,515 | INFO | 2619978 - Creating: RSGG-7dab71843874d8717bbf4c684d732cb3
+2025-02-07 09:59:07,517 | INFO | 2619978 - RSGG trained on cpu in: 5.4836273193359375e-06 secs
+2025-02-07 09:59:07,519 | INFO | 2619978 - Saved: RSGG-7dab71843874d8717bbf4c684d732cb3
+2025-02-07 09:59:07,521 | INFO | 2619978 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:59:07,523 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:59:07,525 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:59:07,532 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,532 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:59:07,534 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,534 | INFO | 2619978 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:59:07,549 | INFO | 2619978 - Loading: GAN-ea6e6342fc212c1a00f0d772e48e1f57
+2025-02-07 09:59:07,559 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:59:07,561 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:59:07,567 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,567 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:59:07,569 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,569 | INFO | 2619978 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:59:07,583 | INFO | 2619978 - Loading: GAN-29bd19bcd33da4f9c4fffd2584feb86d
+2025-02-07 09:59:07,595 | INFO | 2619978 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:59:07,608 | INFO | 2619978 - Creating: RSGG-923f8b0e61271567d9b0bf32fe3cbe12
+2025-02-07 09:59:07,610 | INFO | 2619978 - RSGG trained on cpu in: 2.6226043701171875e-06 secs
+2025-02-07 09:59:07,612 | INFO | 2619978 - Saved: RSGG-923f8b0e61271567d9b0bf32fe3cbe12
+2025-02-07 09:59:07,614 | INFO | 2619978 - Instantiating: src.explainer.future.ensemble.aggregators.filters.correctness.CorrectnessFilter
+2025-02-07 09:59:07,614 | INFO | 2619978 - Instantiating: src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer
+2025-02-07 09:59:07,621 | INFO | 2619978 - Instantiating: src.explainer.heuristic.obs_dist.ObliviousBidirectionalDistance
+2025-02-07 09:59:07,621 | INFO | 2619978 - Instantiating: src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer
+2025-02-07 09:59:07,622 | INFO | 2619978 - Instantiating: src.explainer.heuristic.obs_dist.ObliviousBidirectionalDistance
+2025-02-07 09:59:07,622 | INFO | 2619978 - Instantiating: src.explainer.future.heuristic.obs.ObliviousBidirectionalSearchExplainer
+2025-02-07 09:59:07,623 | INFO | 2619978 - Instantiating: src.explainer.heuristic.obs_dist.ObliviousBidirectionalDistance
+2025-02-07 09:59:07,623 | INFO | 2619978 - Instantiating: src.explainer.future.heuristic.di_rand.DIRand
+2025-02-07 09:59:07,623 | INFO | 2619978 - Instantiating: src.explainer.future.heuristic.di_rand.DIRand
+2025-02-07 09:59:07,623 | INFO | 2619978 - Instantiating: src.explainer.future.heuristic.di_rand.DIRand
+2025-02-07 09:59:07,623 | INFO | 2619978 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:59:07,623 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:59:07,625 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:59:07,631 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,631 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:59:07,633 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,633 | INFO | 2619978 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:59:07,647 | INFO | 2619978 - Loading: GAN-68ae3d96de093609a2b0f6b545a71760
+2025-02-07 09:59:07,657 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:59:07,659 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:59:07,665 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,665 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:59:07,667 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,667 | INFO | 2619978 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:59:07,681 | INFO | 2619978 - Loading: GAN-268cec3d6a0b0c6c3c2292bf962c786f
+2025-02-07 09:59:07,694 | INFO | 2619978 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:59:07,706 | INFO | 2619978 - Creating: RSGG-a0a55c5b187f01ff2d2542bd0c750275
+2025-02-07 09:59:07,707 | INFO | 2619978 - RSGG trained on cpu in: 3.0994415283203125e-06 secs
+2025-02-07 09:59:07,710 | INFO | 2619978 - Saved: RSGG-a0a55c5b187f01ff2d2542bd0c750275
+2025-02-07 09:59:07,711 | INFO | 2619978 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:59:07,711 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:59:07,712 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:59:07,718 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,718 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:59:07,720 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,720 | INFO | 2619978 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:59:07,732 | INFO | 2619978 - Loading: GAN-f9865f09831e10647bd4626e9709f902
+2025-02-07 09:59:07,742 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:59:07,743 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:59:07,745 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,745 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:59:07,746 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,746 | INFO | 2619978 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:59:07,757 | INFO | 2619978 - Loading: GAN-cf857b5bb630caf82558de4cb43f5e2a
+2025-02-07 09:59:07,772 | INFO | 2619978 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:59:07,785 | INFO | 2619978 - Creating: RSGG-1650538969de397b6fccb0d5270b7e15
+2025-02-07 09:59:07,787 | INFO | 2619978 - RSGG trained on cpu in: 2.86102294921875e-06 secs
+2025-02-07 09:59:07,790 | INFO | 2619978 - Saved: RSGG-1650538969de397b6fccb0d5270b7e15
+2025-02-07 09:59:07,791 | INFO | 2619978 - Instantiating: src.explainer.future.generative.rsgg.RSGG
+2025-02-07 09:59:07,792 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:59:07,793 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:59:07,799 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,800 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:59:07,802 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,803 | INFO | 2619978 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:59:07,818 | INFO | 2619978 - Loading: GAN-08db68af1e70683d0c818bd214110ae6
+2025-02-07 09:59:07,829 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.model.GAN
+2025-02-07 09:59:07,831 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator
+2025-02-07 09:59:07,837 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,837 | INFO | 2619978 - Instantiating: src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator
+2025-02-07 09:59:07,839 | INFO | 2619978 - Instantiating: torch.optim.SGD
+2025-02-07 09:59:07,839 | INFO | 2619978 - Instantiating: torch.nn.BCELoss
+2025-02-07 09:59:07,855 | INFO | 2619978 - Loading: GAN-3b640e7c131c8df3dc551a73bf496fe3
+2025-02-07 09:59:07,865 | INFO | 2619978 - Instantiating: src.utils.samplers.partial_order_samplers.PositiveAndNegativeEdgeSampler
+2025-02-07 09:59:07,874 | INFO | 2619978 - Creating: RSGG-bc9eaa379e7faabd224d6fc5d88409e3
+2025-02-07 09:59:07,875 | INFO | 2619978 - RSGG trained on cpu in: 1.6689300537109375e-06 secs
+2025-02-07 09:59:07,876 | INFO | 2619978 - Saved: RSGG-bc9eaa379e7faabd224d6fc5d88409e3
+2025-02-07 09:59:07,877 | INFO | 2619978 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.ged_criteria.GraphEditDistanceCriteria
+2025-02-07 09:59:07,881 | INFO | 2619978 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.criterias.sparsity_criteria.SparsityCriteria
+2025-02-07 09:59:07,883 | INFO | 2619978 - Instantiating: src.explainer.future.ensemble.aggregators.multi_criteria.distances.euclidean_distance.EuclideanDistance
+2025-02-07 09:59:07,901 | INFO | 2619978 - Creating: DatasetLevelExplainerSelector-688e69ed50ea2f2230c2acba4c1faa59
+/NFSHOME/mprado/AIIM/GRETEL/main2/GRETEL/src/legacy/explainer/generative/gans/graph/res_gen.py:64: UserWarning: The use of `x.T` on tensors of dimension other than 2 to reverse their shape is deprecated and it will throw an error in a future release. Consider `x.mT` to transpose batches of matrices or `x.permute(*torch.arange(x.ndim - 1, -1, -1))` to reverse the dimensions of a tensor. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3571.)
+  edge_weights = torch.add(edge_weights, rebuild_adj_matrix(len(node_features), edge_list, edge_attr.T, self.device))
+2025-02-07 09:59:13,750 | INFO | 2619978 - Learned from instance 0
+2025-02-07 09:59:18,462 | INFO | 2619978 - Learned from instance 1
+2025-02-07 10:02:24,555 | INFO | 2618912 - Learned from instance 2
+2025-02-07 10:02:28,722 | INFO | 2618912 - Learned from instance 3
+2025-02-07 10:02:31,782 | INFO | 2618910 - Learned from instance 2
+2025-02-07 10:02:33,234 | INFO | 2618911 - Learned from instance 2
+2025-02-07 10:02:33,540 | INFO | 2618912 - Learned from instance 4
+2025-02-07 10:02:34,545 | INFO | 2618912 - Learned from instance 5
+2025-02-07 10:02:35,746 | INFO | 2618910 - Learned from instance 3
+2025-02-07 10:02:37,786 | INFO | 2618911 - Learned from instance 3
+2025-02-07 10:02:37,887 | INFO | 2618910 - Learned from instance 5
+2025-02-07 10:02:38,266 | INFO | 2618913 - Learned from instance 2
+2025-02-07 10:02:41,525 | INFO | 2618913 - Learned from instance 3
+2025-02-07 10:02:42,670 | INFO | 2618910 - Learned from instance 6
+2025-02-07 10:02:43,101 | INFO | 2618911 - Learned from instance 4
+2025-02-07 10:02:45,588 | INFO | 2618913 - Learned from instance 4
+2025-02-07 10:02:45,860 | INFO | 2618911 - Learned from instance 5
+2025-02-07 10:02:49,375 | INFO | 2618909 - Learned from instance 2
+2025-02-07 10:02:49,805 | INFO | 2618913 - Learned from instance 6
+2025-02-07 10:02:50,840 | INFO | 2618911 - Learned from instance 6
+2025-02-07 10:02:54,639 | INFO | 2618909 - Learned from instance 3
+2025-02-07 10:02:59,314 | INFO | 2618909 - Learned from instance 4
+2025-02-07 10:03:01,535 | INFO | 2618909 - Learned from instance 5
+2025-02-07 10:03:06,932 | INFO | 2618909 - Learned from instance 6
+2025-02-07 10:03:11,873 | INFO | 2619978 - Learned from instance 2
+2025-02-07 10:03:16,452 | INFO | 2619978 - Learned from instance 3
+2025-02-07 10:03:21,058 | INFO | 2619978 - Learned from instance 4
+2025-02-07 10:03:22,829 | INFO | 2619978 - Learned from instance 5
+2025-02-07 10:03:27,905 | INFO | 2619978 - Learned from instance 6
+2025-02-07 10:06:38,660 | INFO | 2618909 - Learned from instance 7
+2025-02-07 10:06:44,940 | INFO | 2618912 - Learned from instance 7
+2025-02-07 10:06:57,235 | INFO | 2618910 - Learned from instance 7
+2025-02-07 10:07:01,310 | INFO | 2618913 - Learned from instance 7
+2025-02-07 10:07:05,826 | INFO | 2618911 - Learned from instance 7
+2025-02-07 10:07:44,011 | INFO | 2619978 - Learned from instance 7
+2025-02-07 10:10:50,331 | INFO | 2618912 - Learned from instance 8
+2025-02-07 10:10:54,536 | INFO | 2618912 - Learned from instance 9
+2025-02-07 10:10:56,639 | INFO | 2618909 - Learned from instance 8
+2025-02-07 10:11:01,286 | INFO | 2618909 - Learned from instance 9
+2025-02-07 10:11:01,402 | INFO | 2618912 - Learned from instance 10
+2025-02-07 10:11:03,842 | INFO | 2618910 - Learned from instance 8
+2025-02-07 10:11:07,564 | INFO | 2618909 - Learned from instance 10
+2025-02-07 10:11:09,360 | INFO | 2618913 - Learned from instance 8
+2025-02-07 10:11:09,807 | INFO | 2618910 - Learned from instance 9
+2025-02-07 10:11:09,876 | INFO | 2618911 - Learned from instance 8
+2025-02-07 10:11:13,609 | INFO | 2618911 - Learned from instance 9
+2025-02-07 10:11:13,943 | INFO | 2618913 - Learned from instance 9
+2025-02-07 10:11:18,803 | INFO | 2618911 - Learned from instance 10
+2025-02-07 10:11:20,752 | INFO | 2618913 - Learned from instance 10
+2025-02-07 10:11:58,554 | INFO | 2619978 - Learned from instance 8
+2025-02-07 10:12:04,401 | INFO | 2619978 - Learned from instance 9
+2025-02-07 10:12:32,510 | INFO | 2618910 - Learned from instance 10
+2025-02-07 10:13:34,851 | INFO | 2619978 - Learned from instance 10
+2025-02-07 10:15:04,733 | INFO | 2618913 - Learned from instance 11
+2025-02-07 10:15:09,321 | INFO | 2618912 - Learned from instance 11
+2025-02-07 10:15:10,783 | INFO | 2618913 - Learned from instance 12
+2025-02-07 10:15:13,914 | INFO | 2618912 - Learned from instance 12
+2025-02-07 10:15:17,974 | INFO | 2618911 - Learned from instance 11
+2025-02-07 10:15:24,672 | INFO | 2618911 - Learned from instance 12
+2025-02-07 10:15:26,134 | INFO | 2618909 - Learned from instance 11
+2025-02-07 10:15:32,769 | INFO | 2618909 - Learned from instance 12
+2025-02-07 10:16:37,631 | INFO | 2618910 - Learned from instance 11
+2025-02-07 10:16:43,688 | INFO | 2618910 - Learned from instance 12
+2025-02-07 10:17:50,797 | INFO | 2619978 - Learned from instance 11
+2025-02-07 10:18:15,864 | INFO | 2618911 - Learned from instance 13
+2025-02-07 10:18:24,291 | INFO | 2618909 - Learned from instance 13
+2025-02-07 10:19:20,481 | INFO | 2618912 - Learned from instance 14
+2025-02-07 10:19:27,420 | INFO | 2618912 - Learned from instance 15
+2025-02-07 10:19:27,500 | INFO | 2618913 - Learned from instance 13
+2025-02-07 10:19:33,879 | INFO | 2618913 - Learned from instance 15
+2025-02-07 10:20:40,992 | INFO | 2619978 - Learned from instance 13
+2025-02-07 10:20:57,843 | INFO | 2618910 - Learned from instance 13
+2025-02-07 10:22:15,592 | INFO | 2618912 - Learned from instance 16
+2025-02-07 10:22:21,644 | INFO | 2618912 - Learned from instance 18
+2025-02-07 10:22:27,299 | INFO | 2618911 - Learned from instance 14
+2025-02-07 10:22:32,859 | INFO | 2618911 - Learned from instance 15
+2025-02-07 10:22:37,542 | INFO | 2618909 - Learned from instance 14
+2025-02-07 10:23:34,262 | INFO | 2618913 - Learned from instance 17
+2025-02-07 10:23:41,679 | INFO | 2618913 - Learned from instance 18
+2025-02-07 10:24:53,051 | INFO | 2618910 - Learned from instance 14
+2025-02-07 10:24:58,606 | INFO | 2618910 - Learned from instance 15
+2025-02-07 10:25:02,922 | INFO | 2619978 - Learned from instance 14
+2025-02-07 10:25:08,363 | INFO | 2619978 - Learned from instance 15
+2025-02-07 10:26:22,661 | INFO | 2618912 - Learned from instance 19
+2025-02-07 10:26:42,670 | INFO | 2618911 - Learned from instance 16
+2025-02-07 10:26:52,371 | INFO | 2618909 - Learned from instance 16
+2025-02-07 10:27:52,162 | INFO | 2618913 - Learned from instance 19
+2025-02-07 10:27:55,399 | INFO | 2618912 - Learned from instance 20
+2025-02-07 10:28:00,731 | INFO | 2619978 - Learned from instance 16
+2025-02-07 10:29:07,346 | INFO | 2618910 - Learned from instance 16
