@@ -157,3 +157,6 @@ visualizations/*
 # Testing files
 main_test.py
 da_test.py
+
+# Log files
+*.out
