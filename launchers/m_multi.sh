@@ -1,7 +1,7 @@
 #!/bin/bash
 # Schedule multiple runs of all the configurations contained in the searchdir
 
-search_dir=lab/config/meta_ens/bbbp-gcn/ensemble_explainers_t3
+search_dir=lab/config/meta_ens/imdb-gcn/ensemble_explainers_t6
 MINWAIT=1
 MAXWAIT=10
 

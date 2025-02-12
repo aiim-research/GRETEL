@@ -198,7 +198,7 @@ class ExplanationBidirectionalSearch(ExplanationAggregator):
 
         result_cf = GraphInstance(id=instance.id, label=0, data=gc, directed=instance.directed)
         self.dataset.manipulate(result_cf)
-        result_cf.label = self.oracle.predict(reduced_cf_inst)
+        result_cf.label = self.oracle.predict(result_cf)
 
         return result_cf
     
