@@ -26,6 +26,9 @@ class PerClassExplainer(Trainable, Explainer):
 
     def write(self):
         pass
+
+    def fwd(self):
+        pass
     
     def send_to_device(self):
         for i in range(len(self.model)):
