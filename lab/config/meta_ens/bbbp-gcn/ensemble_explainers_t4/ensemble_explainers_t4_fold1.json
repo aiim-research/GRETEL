@@ -1,0 +1,66 @@
+{
+  "experiment": {
+    "scope": "meta-ens",
+    "parameters": {
+      "lock_release_tout": 120,
+      "propagate": [
+        {
+          "in_sections": [
+            "doe-triplets/explainer"
+          ],
+          "params": {
+            "fold_id": 1,
+            "parallel_processing": true
+          }
+        },
+        {
+          "in_sections": [
+            "doe-triplets/oracle"
+          ],
+          "params": {
+            "fold_id": -1,
+            "retrain": false
+          }
+        },
+        {
+          "in_sections": [
+            "doe-triplets/dataset"
+          ],
+          "params": {
+            "compose_man": "config/snippets/datasets/centr_and_weights.json"
+          }
+        }
+      ],
+      "expand": {
+        "folds": [
+          "doe-triplets/explainer"
+        ],
+        "triplets": true
+      }
+    }
+  },
+  "doe-triplets": [
+    {
+      "compose_do": "./lab/config/snippets/do-pairs/BBBP_GCN.json",
+      "explainer": {
+        "class": "src.explainer.future.ensemble.explainer_ensemble_base.ExplainerEnsemble",
+        "parameters": {
+          "compose_exp": "./lab/config/snippets/base_explainers.json",
+          "aggregator": {
+            "class": "src.explainer.future.ensemble.aggregators.rand.ExplanationRandom",
+            "parameters": {
+              "runs": 10
+            }
+          }
+        }
+      }
+    }
+  ],
+  "evaluator": {
+    "class": "src.evaluation.future.evaluator.Evaluator",
+    "parameters": {
+      "compose_pip": "./lab/config/snippets/default_pipeline.json"
+    }
+  },
+  "compose_strs": "./lab/config/snippets/default_store_paths.json"
+}

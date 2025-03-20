@@ -2,6 +2,10 @@ from src.core.explainer_base import Explainer
 from src.core.factory_base import get_class, get_instance_kvargs
 from src.core.trainable_base import Trainable
 from src.utils.cfg_utils import  inject_dataset, inject_oracle
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
+from itertools import repeat
+from copy import deepcopy
 
 class ExplainerEnsemble(Explainer, Trainable):
     """The base class for the Explainer Ensemble. It should provide the common logic 
@@ -16,15 +20,38 @@ class ExplainerEnsemble(Explainer, Trainable):
         self.base_explainers = [ get_instance_kvargs(exp['class'],
                     {'context':self.context,'local_config':exp}) for exp in self.local_config['parameters']['explainers']]
 
+        self.parallel_processing = self.local_config['parameters'].get('parallel_processing', False)
+
+        self.max_workers = self.local_config['parameters'].get('max_workers', len(self.base_explainers))
+
+        
+    @classmethod
+    def _call_explain(cls, instance, explainer):
+        """
+        Takes an instance and an explainer and returns the explanation of that instance produced by that explainer.
+        The function is designed to be called in a parallelized workflow
+        """
+        # This function is designed for executing the base explainers in parallel
+        exp = explainer.explain(instance)
+        exp.producer = explainer
+        return exp
+
 
     def explain(self, instance):
-        input_label = self.oracle.predict(instance)
+        # input_label = self.oracle.predict(instance)
 
         explanations = []
-        for explainer in self.base_explainers:
-            exp = explainer.explain(instance)
-            exp.producer = explainer
-            explanations.append(exp)
+        if self.parallel_processing:
+            instances = [instance for i in range(0, len(self.base_explainers))]
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                explanations = list(executor.map(ExplainerEnsemble._call_explain, 
+                                                 instances, 
+                                                 self.base_explainers))
+        else:
+            for explainer in self.base_explainers:
+                exp = explainer.explain(instance)
+                exp.producer = explainer
+                explanations.append(exp)
 
         result = self.explanation_aggregator.aggregate(explanations)
         result.explainer = self

@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH -s
 #SBATCH -n 1
-#SBATCH -o /NFSHOME/rgarciagomez/projects/output.out
-#SBATCH -J xai-ens
-#SBATCH -p normal
+#SBATCH -o /NFSHOME/mprado/AIIM/GRETEL/main2/GRETEL/output.out
+#SBATCH -J meta-ens
+#SBATCH -p isolated
 #SBATCH -c 4
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
