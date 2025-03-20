@@ -10,7 +10,7 @@
           ],
           "params": {
             "fold_id": 2,
-            "parallel_processing": true
+            "parallel_processing": false
           }
         },
         {
