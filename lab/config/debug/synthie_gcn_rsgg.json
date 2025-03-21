@@ -18,7 +18,7 @@
           ],
           "params": {
             "fold_id": -1,
-            "retrain": true
+            "retrain": false
           }
         },
         {
@@ -26,7 +26,7 @@
             "doe-triplets/dataset"
           ],
           "params": {
-            "compose_man": "lab/config/snippets/datasets/centr_and_weights.json"
+            "compose_man": "lab/config/snippets/datasets/padding.json"
           }
         }
       ],
