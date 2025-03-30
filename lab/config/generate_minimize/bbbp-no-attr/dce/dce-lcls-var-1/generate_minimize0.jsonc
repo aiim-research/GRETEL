@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "bbbp-no-attr",
+        "scope": "bbbp-no-attr-dce-var-1",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[

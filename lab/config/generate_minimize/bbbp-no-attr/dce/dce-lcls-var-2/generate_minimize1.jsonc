@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "lcls-var-2",
+        "scope": "bbbp-no-attr-dce-var-2",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[

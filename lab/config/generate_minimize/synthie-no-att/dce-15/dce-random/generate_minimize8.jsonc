@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "no-attr",
+        "scope": "no-attr-15",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[
