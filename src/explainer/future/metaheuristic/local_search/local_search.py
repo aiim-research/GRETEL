@@ -56,7 +56,7 @@ class LocalSearch(ExplanationMinimizer):
         self.attributed = self.local_config['parameters']['attributed']
         self.max_oracle_calls = self.local_config['parameters']['max_oracle_calls']
         
-        self.tagger = MPCTagger()
+        self.tagger = SimpleTagger()
         
         self.searcher = SimpleSearcher()
         
