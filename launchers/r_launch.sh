@@ -1,0 +1,15 @@
+#!/bin/bash
+#SBATCH -s
+#SBATCH -n 1
+#SBATCH -o /NFSHOME/rgarcia/projects/GRETEL/output.out
+#SBATCH -J meta-ens
+#SBATCH -p isolated
+#SBATCH -c 4
+
+export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
+export OPENBLAS_NUM_THREADS=${SLURM_CPUS_PER_TASK}
+export MKL_NUM_THREADS=${SLURM_CPUS_PER_TASK}
+export VECLIB_MAXIMUM_THREADS=${SLURM_CPUS_PER_TASK}
+export NUMEXPR_NUM_THREADS=${SLURM_CPUS_PER_TASK}
+
+srun python "$@"

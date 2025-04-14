@@ -6,7 +6,7 @@
             "propagate":[
                 {"in_sections" : ["doe-triplets/explainer"],"params" : {"fold_id": 4}},
                 {"in_sections" : ["doe-triplets/oracle"],"params" : {"fold_id": -1,"retrain":false}},
-                {"in_sections": ["doe-triplets/dataset"],"params": { "compose_man" : "lab/config/snippets/datasets/empty.json" }}
+                {"in_sections": ["doe-triplets/dataset"],"params": { "compose_man" : "lab/config/snippets/datasets/centr_and_weights.json" }}
             ],
             "expand" : {  "folds" : ["doe-triplets/explainer"], "triplets" : true }
         }

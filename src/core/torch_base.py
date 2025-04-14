@@ -129,7 +129,8 @@ class TorchBase(Trainable):
         local_config=self.local_config
         # set defaults
         local_config['parameters']['epochs'] = local_config['parameters'].get('epochs', 200)
-        local_config['parameters']['batch_size'] = local_config['parameters'].get('batch_size', 4)
+        # local_config['parameters']['batch_size'] = local_config['parameters'].get('batch_size', 4)
+        local_config['parameters']['batch_size'] = local_config['parameters'].get('batch_size', 1)
         local_config['parameters']['early_stopping_threshold'] = local_config['parameters'].get('early_stopping_threshold', None)
         # populate the optimizer
         init_dflts_to_of(local_config, 'optimizer', 'torch.optim.Adam',lr=0.001)
