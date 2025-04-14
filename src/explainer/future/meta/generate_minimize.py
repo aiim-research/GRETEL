@@ -54,6 +54,7 @@ class GenerateMinimize(Explainer):
         # initial_cf  = initial_explanation.counterfactual_instances[0]
         generator_runtime = time.time() - start_time # Getting the runtime of the generator
         initial_explanation._info['runtime'] = generator_runtime # Writing the runtime in the explanation
+        initial_explanation._info['oracle_calls'] = self.oracle.get_calls_count() # Getting the number of oracle calls
 
         # # Getting the predicted label of the initial explanation
         # initial_cf_label = self.oracle.predict(initial_cf)

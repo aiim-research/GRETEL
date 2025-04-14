@@ -3,7 +3,7 @@ from src.evaluation.future.stages.metric_stage import MetricStage
 from src.evaluation.future.stages.subex_metric_stage import SubexMetricStage
 
 
-class Correctness(SubexMetricStage):
+class SubexCorrectness(SubexMetricStage):
     """
     Verifies that the class from the counterfactual example is different from that of the original instance
     """
