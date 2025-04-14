@@ -6,7 +6,7 @@ from src.evaluation.future.stages.metric_stage import MetricStage
 from src.evaluation.future.stages.subex_metric_stage import SubexMetricStage
 
 
-class GraphEditDistance(SubexMetricStage):
+class SubexGED(SubexMetricStage):
     """Provides a graph edit distance function for graphs where nodes are already matched, 
     thus eliminating the need of performing an NP-Complete graph matching.
     """

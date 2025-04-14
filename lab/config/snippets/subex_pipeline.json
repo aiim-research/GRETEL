@@ -1,0 +1,83 @@
+{
+    "pipeline": {
+                "class": "src.evaluation.future.stages.main_pipeline.MainPipeline",
+                "parameters": {
+                        "stages": [
+                            {
+                                "class": "src.evaluation.future.stages.runtime.Runtime",
+                                "parameters": {}
+                            },
+                            {
+                                "class": "src.evaluation.future.stages.ged.GraphEditDistance",
+                                "parameters": {} 
+                            },
+                            {
+                                "class": "src.evaluation.future.stages.correctness.Correctness",
+                                "parameters": {} 
+                            },
+                            {
+                                "class": "src.evaluation.future.stages.oracle_calls.OracleCalls",
+                                "parameters": {} 
+                            },
+                            {
+                                "class": "src.evaluation.future.stages.oracle_accuracy.OracleAccuracy",
+                                "parameters": {} 
+                            },
+                            {
+                                "class": "src.evaluation.future.stages.sparsity.Sparsity",
+                                "parameters": {} 
+                            },
+                            {
+                                "class": "src.evaluation.future.stages.fidelity.Fidelity",
+                                "parameters": {} 
+                            },
+                            {
+                                "class": "src.evaluation.future.stages.instability.Instability",
+                                "parameters": {} 
+                            },
+                            {
+                                "class": "src.evaluation.future.stages.subex_runtime.SubexRuntime",
+                                "parameters": {
+                                    "target": "generator_explanation"
+                                }
+                            },
+                            {
+                                "class": "src.evaluation.future.stages.subex_ged.SubexGED",
+                                "parameters": {
+                                    "target": "generator_explanation"
+                                } 
+                            },
+                            {
+                                "class": "src.evaluation.future.stages.subex_correctness.SubexCorrectness",
+                                "parameters": {
+                                    "target": "generator_explanation"
+                                } 
+                            },
+                            {
+                                "class": "src.evaluation.future.stages.subex_oracle_calls.SubexOracleCalls",
+                                "parameters": {
+                                    "target": "generator_explanation"
+                                } 
+                            },
+                            {
+                                "class": "src.evaluation.future.stages.subex_sparsity.SubexSparsity",
+                                "parameters": {
+                                    "target": "generator_explanation"
+                                } 
+                            },
+                            {
+                                "class": "src.evaluation.future.stages.subex_fidelity.SubexFidelity",
+                                "parameters": {
+                                    "target": "generator_explanation"
+                                } 
+                            },
+                            {
+                                "class": "src.evaluation.future.stages.subex_instability.SubexInstability",
+                                "parameters": {
+                                    "target": "generator_explanation"
+                                } 
+                            }
+                        ]
+                    }
+                }
+}
