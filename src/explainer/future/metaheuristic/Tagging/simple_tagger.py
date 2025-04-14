@@ -8,6 +8,8 @@ class SimpleTagger(Tagger):
         
     def tag(self, graph: GraphInstance) -> list[(int, int)]:
         self.G = graph
+        self.N = graph.num_nodes
+        self.EPlus = int((self.N * (self.N-1)) / 2)
         
         result = []
         for i in range(self.G.num_nodes - 1):
