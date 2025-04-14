@@ -15,3 +15,12 @@ class Tagger:
             if (i, j) in labels:
                 result.add(labels.index((i, j)))
         return sorted(result)
+    
+    def swap(self, solution : set[int], i: int) -> set[int]:  
+        pass
+    
+    def add(self, solution : set[int], i: int) -> set[int]:
+        pass
+    
+    def remove(self, solution : set[int], i: int) -> set[int]:
+        pass
