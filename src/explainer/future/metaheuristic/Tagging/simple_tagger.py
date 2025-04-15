@@ -1,5 +1,6 @@
 from src.dataset.instances.graph import GraphInstance
 from src.explainer.future.metaheuristic.Tagging.base import Tagger
+import random
 
 class SimpleTagger(Tagger):
     
@@ -20,8 +21,8 @@ class SimpleTagger(Tagger):
         return result
     
     def swap(self, solution : set[int], i: int):  
-        self.remove_random(solution, i)
-        self.add_random(solution, i)
+        self.add(solution, i)
+        self.remove(solution, i)
         
         return solution
     
