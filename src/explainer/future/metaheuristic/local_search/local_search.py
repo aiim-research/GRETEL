@@ -10,6 +10,7 @@ from src.explainer.future.meta.minimizer.base import ExplanationMinimizer
 from src.explainer.future.metaheuristic.Tagging.simple_tagger import SimpleTagger
 from src.explainer.future.metaheuristic.Tagging.mpc_tagger import MPCTagger
 from src.explainer.future.metaheuristic.Tagging.coloring_tagger import ColoringTagger 
+from src.explainer.future.metaheuristic.Tagging.centrality_tagger import CentralityTagger 
 from typing import Generator
 
 from src.explainer.future.metaheuristic.initial_solution_search.simple_searcher import SimpleSearcher
@@ -57,7 +58,7 @@ class LocalSearch(ExplanationMinimizer):
         self.attributed = self.local_config['parameters']['attributed']
         self.max_oracle_calls = self.local_config['parameters']['max_oracle_calls']
         
-        self.tagger = ColoringTagger()
+        self.tagger = CentralityTagger()
         
         self.searcher = SimpleSearcher()
         
