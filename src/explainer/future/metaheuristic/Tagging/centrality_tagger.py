@@ -11,14 +11,20 @@ class CentralityTagger(Tagger):
     
     def tag(self, graph: GraphInstance) -> list[(int, int)]:
         self.G = graph
+        self.N = graph.num_nodes
+        self.EPlus = int((self.N * (self.N-1)) / 2)
         nx_graph = self.G.get_nx()
-        self.EPlus = len(nx_graph.edges())
         
         edge_centrality = nx.edge_betweenness_centrality(nx_graph)
         
         edges_with_centrality = [(edge, centrality) for edge, centrality in edge_centrality.items()]
         
         edges_with_centrality.sort(key=lambda x: x[1], reverse=True)
+        
+        for u in range(self.N-1):
+            for v in range(u+1, self.N):
+                if graph.data[u, v] > 0 or graph.data[v, u] > 0:
+                    edges_with_centrality.append(((u, v), -1))
         
         return [edge for edge, _ in edges_with_centrality]
     

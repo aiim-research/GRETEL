@@ -11,6 +11,7 @@ from src.explainer.future.metaheuristic.Tagging.simple_tagger import SimpleTagge
 from src.explainer.future.metaheuristic.Tagging.mpc_tagger import MPCTagger
 from src.explainer.future.metaheuristic.Tagging.coloring_tagger import ColoringTagger 
 from src.explainer.future.metaheuristic.Tagging.centrality_tagger import CentralityTagger 
+from src.explainer.future.metaheuristic.Tagging.conectivity_tagger import ConectivityTagger 
 from typing import Generator
 
 from src.explainer.future.metaheuristic.initial_solution_search.simple_searcher import SimpleSearcher

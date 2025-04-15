@@ -16,8 +16,6 @@ class SimpleTagger(Tagger):
         for i in range(self.G.num_nodes - 1):
             for j in range(i + 1, self.G.num_nodes):
                 result.append((i,j))
-                if(self.G.directed):
-                    result.append((j,i))
         return result
     
     def swap(self, solution : set[int], i: int):  
@@ -27,7 +25,7 @@ class SimpleTagger(Tagger):
         return solution
     
     def add(self, solution : set[int], i: int):
-        available_numbers = set(range(1, self.EPlus)) - solution
+        available_numbers = set(range(self.EPlus)) - solution
         
         if len(available_numbers) < i:
             raise ValueError("Not enough available numbers to add.")

@@ -1,48 +1,40 @@
-import networkx as nx
 from src.dataset.instances.graph import GraphInstance
 from src.explainer.future.metaheuristic.Tagging.base import Tagger
 import numpy as np
 import random
 
-class ColoringTagger(Tagger):
+class ConectivityTagger(Tagger):
     
     def __init__(self):
         super().__init__()
-    
-    
+        
     def tag(self, graph: GraphInstance) -> list[(int, int)]:
-        self.G = graph.get_nx()
+        self.G = graph
         self.N = graph.num_nodes
         self.EPlus = int((self.N * (self.N-1)) / 2)
-        
-        edges = list(self.G.edges())
-        m = len(edges)
-        H = nx.Graph()
-        H.add_nodes_from(range(m))
-        
-        for i in range(m):
-            for j in range(i+1, m):
-                if (edges[i][0] == edges[j][0] or edges[i][0] == edges[j][1] or 
-                    edges[i][1] == edges[j][0] or edges[i][1] == edges[j][1]):
-                    H.add_edge(i, j)
-                    
-        colors = nx.greedy_color(H)
-        edges_with_colors = [(edges[i], colors[i]) for i in range(m)]
+        edges_with_flow = []
     
-        edges_with_colors.sort(key=lambda x: x[1])
+        for u in range(self.G.num_nodes-1):
+            for v in range(self.G.num_nodes):
+                Gp = self.G.copy()
+                Gp.data[u][v] = 0
+                Gp.data[v][u] = 0
+                
+                flow_graph = nx.DiGraph()
+                for i in range(self.G.num_nodes):
+                    for j in range(self.G.num_nodes):
+                        if Gp.data[i][j] > 0:
+                            flow_graph.add_edge(i, j, capacity=1)
+                
+                flow_value, _ = nx.maximum_flow(flow_graph, u, v)
+                
+                edges_with_flow.append(((u, v), flow_value))
         
-        for u in range(self.N-1):
-            for v in range(u+1, self.N):
-                if graph.data[u, v] > 0 or graph.data[v, u] > 0:
-                    edges_with_colors.append(((u, v), -1))
+        edges_with_flow = sorted(edges_with_flow, key=lambda x: x[1])
         
-        return [edge for edge, _ in edges_with_colors]
+        result = [edge for edge, _ in edges_with_flow]
+        return result
     
-    def swap(self, solution : set[int], i: int):  
-        self.add(solution, i)
-        self.remove(solution, i)
-        
-        return solution
     
     def add(self, solution : set[int], i : int):
         # asumming solution have the same order that edges_with_frequency
