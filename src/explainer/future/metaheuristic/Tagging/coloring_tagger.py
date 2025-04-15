@@ -33,7 +33,7 @@ class ColoringTagger(Tagger):
         
         for u in range(self.N-1):
             for v in range(u+1, self.N):
-                if graph.data[u, v] > 0 or graph.data[v, u] > 0:
+                if graph.data[u, v] == 0 or graph.data[v, u] == 0:
                     edges_with_colors.append(((u, v), -1))
         
         return [edge for edge, _ in edges_with_colors]

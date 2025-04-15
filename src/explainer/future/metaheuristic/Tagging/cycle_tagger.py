@@ -4,7 +4,7 @@ from src.explainer.future.metaheuristic.Tagging.base import Tagger
 import numpy as np
 import random
 
-class CentralityTagger(Tagger):
+class CycleTagger(Tagger):
     
     def __init__(self):
         super().__init__()
@@ -13,20 +13,30 @@ class CentralityTagger(Tagger):
         self.G = graph
         self.N = graph.num_nodes
         self.EPlus = int((self.N * (self.N-1)) / 2)
-        nx_graph = self.G.get_nx()
+        nx_graph = self.G.get_nx()  
         
-        edge_centrality = nx.edge_betweenness_centrality(nx_graph)
+        edge_cycle_count = {edge: 0 for edge in nx_graph.edges()}
         
-        edges_with_centrality = [(edge, centrality) for edge, centrality in edge_centrality.items()]
+        cycles = list(nx.cycle_basis(nx_graph.to_undirected()))
         
-        edges_with_centrality.sort(key=lambda x: x[1], reverse=True)
+        for cycle in cycles:
+            for i in range(len(cycle)):
+                u, v = cycle[i], cycle[(i + 1) % len(cycle)] 
+                if (u, v) in edge_cycle_count:
+                    edge_cycle_count[(u, v)] += 1
+                elif (v, u) in edge_cycle_count: 
+                    edge_cycle_count[(v, u)] += 1
+        
+        edges_with_cycles = [(edge, count) for edge, count in edge_cycle_count.items()]
+        
+        edges_with_cycles.sort(key=lambda x: x[1], reverse=True)
         
         for u in range(self.N-1):
             for v in range(u+1, self.N):
-                if graph.data[u, v] == 0 or graph.data[v, u] == 0:
-                    edges_with_centrality.append(((u, v), -1))
+                if graph.data[u, v] == 0 and graph.data[v, u] == 0:
+                    edges_with_cycles.append(((u, v), -1))
         
-        return [edge for edge, _ in edges_with_centrality]
+        return [edge for edge, _ in edges_with_cycles]
     
     def swap(self, solution : set[int], i: int):  
         self.add(solution, i)
