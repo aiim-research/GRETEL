@@ -47,8 +47,15 @@ class LocalSearch(ExplanationMinimizer):
             
         if 'max_oracle_calls' not in self.local_config['parameters']:
             self.local_config['parameters']['max_oracle_calls'] = 10000
+            
+        if 'tagger' not in self.local_config['parameters']:
+            self.local_config['parameters']['tagger'] = "src.explainer.future.metaheuristic.Tagging.simple_tagger.SimpleTagger"
         
 
+    def get_class_from_string(self ,class_path):
+        module_path, class_name = class_path.rsplit('.', 1)
+        module = __import__(module_path, fromlist=[class_name])
+        return getattr(module, class_name)
 
 
     def init(self):
@@ -61,7 +68,8 @@ class LocalSearch(ExplanationMinimizer):
         self.attributed = self.local_config['parameters']['attributed']
         self.max_oracle_calls = self.local_config['parameters']['max_oracle_calls']
         
-        self.tagger = CentralityTagger()
+        tagger_direction = self.local_config['parameters']['tagger']
+        self.tagger = self.get_class_from_string(tagger_direction)()
         
         self.searcher = SimpleSearcher()
         
