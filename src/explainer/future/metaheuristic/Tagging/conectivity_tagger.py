@@ -2,6 +2,7 @@ from src.dataset.instances.graph import GraphInstance
 from src.explainer.future.metaheuristic.Tagging.base import Tagger
 import numpy as np
 import random
+import networkx as nx
 
 class ConectivityTagger(Tagger):
     
@@ -15,15 +16,15 @@ class ConectivityTagger(Tagger):
         edges_with_flow = []
     
         for u in range(self.G.num_nodes-1):
-            for v in range(self.G.num_nodes):
-                Gp = self.G.copy()
-                Gp.data[u][v] = 0
-                Gp.data[v][u] = 0
-                
+            for v in range(u+1,self.G.num_nodes):
+                if u == v:
+                    continue
                 flow_graph = nx.DiGraph()
+                for x in range(self.G.num_nodes):
+                    flow_graph.add_node(x)
                 for i in range(self.G.num_nodes):
                     for j in range(self.G.num_nodes):
-                        if Gp.data[i][j] > 0:
+                        if self.G.data[i][j] > 0 and (i!=u or j!=v) and (j!=u or i!=v):
                             flow_graph.add_edge(i, j, capacity=1)
                 
                 flow_value, _ = nx.maximum_flow(flow_graph, u, v)
@@ -34,6 +35,12 @@ class ConectivityTagger(Tagger):
         
         result = [edge for edge, _ in edges_with_flow]
         return result
+    
+    def swap(self, solution : set[int], i: int):  
+        self.add(solution, i)
+        self.remove(solution, i)
+        
+        return solution
     
     
     def add(self, solution : set[int], i : int):
