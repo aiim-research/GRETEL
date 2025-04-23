@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "meta",
+        "scope": "coloring",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[

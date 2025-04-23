@@ -62,6 +62,7 @@ class DCM(Explainer, Trainable):
         # Get the closest medoid to the instance that belong to a different category 
         min_distance = float('inf')
         closest_medoid = None
+       
         for other_category, medoid in self.model.items():
             if other_category != category:
                 distance = self.distance_metric.evaluate(instance, medoid)
@@ -69,6 +70,7 @@ class DCM(Explainer, Trainable):
                     min_distance = distance
                     closest_medoid = medoid       
 
+        print(closest_medoid)
         # Create a graph's instance of the closest medoid
         cf_instance = GraphInstance(id=closest_medoid.id, label=closest_medoid.label, data=closest_medoid.data, node_features=closest_medoid.node_features)
 

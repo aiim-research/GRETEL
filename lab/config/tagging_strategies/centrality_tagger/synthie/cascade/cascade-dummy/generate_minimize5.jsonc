@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "meta",
+        "scope": "centrality",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[
