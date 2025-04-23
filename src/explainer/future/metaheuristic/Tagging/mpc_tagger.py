@@ -34,18 +34,15 @@ class MPCTagger(Tagger):
             for j in range(self.G.num_nodes):
                 for u in range(self.G.num_nodes):
                     for v in range(self.G.num_nodes):
-                        if dist[u, v] == dist[u, i] + dist[i, j] + dist[j, v]:
+                        if dist[u, v] == dist[u, i] + self.G.data[i, j] + dist[j, v]:
                             freq[i, j] += 1
         
         edges_with_freq = []
         for i in range(self.G.num_nodes - 1):
             for j in range(i + 1, self.G.num_nodes):
-                edges_with_freq.append(((i, j), freq[i, j]))
-                if self.G.directed:
-                    edges_with_freq.append(((j, i), freq[j, i]))
+                edges_with_freq.append(((i, j), freq[i, j] + freq[j, i]))
         
         edges_with_freq = sorted(edges_with_freq, key=lambda x: x[1], reverse=True)
-        self.edges_with_freq = edges_with_freq
         result = [edge for edge, _ in edges_with_freq]
         return result
     
