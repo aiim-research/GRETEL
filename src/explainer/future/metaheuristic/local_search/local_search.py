@@ -4,16 +4,10 @@ import random
 import sys
 import numpy as np
 from src.core.explainer_base import Explainer
+from src.core.trainable_base import Trainable
 from src.dataset.instances.base import DataInstance
 from src.dataset.instances.graph import GraphInstance
 from src.explainer.future.meta.minimizer.base import ExplanationMinimizer
-from src.explainer.future.metaheuristic.Tagging.simple_tagger import SimpleTagger
-from src.explainer.future.metaheuristic.Tagging.mpc_tagger import MPCTagger
-from src.explainer.future.metaheuristic.Tagging.coloring_tagger import ColoringTagger 
-from src.explainer.future.metaheuristic.Tagging.centrality_tagger import CentralityTagger 
-from src.explainer.future.metaheuristic.Tagging.conectivity_tagger import ConectivityTagger
-from src.explainer.future.metaheuristic.Tagging.cycle_tagger import CycleTagger
-from src.explainer.future.metaheuristic.Tagging.diameter_tagger import DiameterTagger 
 from typing import Generator
 
 from src.explainer.future.metaheuristic.initial_solution_search.simple_searcher import SimpleSearcher
@@ -26,7 +20,7 @@ from src.utils.comparison import get_edge_differences
 from src.utils.metrics.ged import GraphEditDistanceMetric
 from collections import OrderedDict
 
-class LocalSearch(ExplanationMinimizer):
+class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
     def check_configuration(self):
         super().check_configuration()
         
@@ -73,7 +67,8 @@ class LocalSearch(ExplanationMinimizer):
         
         self.searcher = SimpleSearcher()
         
-        self.distance_metric = GraphEditDistanceMetric()  
+        self.distance_metric = GraphEditDistanceMetric() 
+        self.device = "cpu" 
         
         self.methods = [
             lambda data, features: average_smoothing(data, features, iterations=1),
@@ -117,13 +112,19 @@ class LocalSearch(ExplanationMinimizer):
         # Filter to avoid duplicate edges in undirected graphs
         filtered_coords_list = [coord for coord in different_coords_list if coord[0] < coord[1]]
         actual = self.tagger.get_indices(self.labels, filtered_coords_list)
-        
         best = actual
         
-
-        
-        if(len(actual) == 0):
-            return min_ctf
+        if(self.oracle.predict(min_ctf) == self.oracle.predict(self.G)):
+            self.logger.info("MIN_CTF label equal to G label")
+            # find an auxiliar solution 
+            min_ctf = self.explain(self.G).counterfactual_instances[0]
+            _, diff_matrix = get_edge_differences(self.G, min_ctf)
+            different_coordinates = np.where(diff_matrix == 1)        
+            different_coords_list = list(zip(different_coordinates[0], different_coordinates[1]))
+            # Filter to avoid duplicate edges in undirected graphs
+            filtered_coords_list = [coord for coord in different_coords_list if coord[0] < coord[1]]
+            actual = self.tagger.get_indices(self.labels, filtered_coords_list)
+            best = actual
         
         self.cache = FixedSizeCache(capacity=500000)
         result = self.get_approximation(actual, best, min_ctf)
@@ -311,9 +312,69 @@ class LocalSearch(ExplanationMinimizer):
     def read(self):
         pass
                 
-    
-    
-    
+    def real_fit(self):
+        super().real_fit()
+
+    def fit(self):
+        self.train_medoid()
+
+    def train_medoid(self):
+        # Get the category of the graphs
+        categorized_graph = [(self.oracle.predict(graph), graph) for graph in self.dataset.instances]
+        
+        # Groups the graph by category
+        graphs_by_category = {}
+        for category, graph in categorized_graph:
+            if category not in graphs_by_category:
+                graphs_by_category[category] = []
+            graphs_by_category[category].append(graph)
+        
+        # Get the medoid of each category
+        medoids = {}
+        for category, graphs in graphs_by_category.items():
+            graphs_distance_total = []
             
-            
+            for graph in graphs:
+                distance = 0
                 
+                for category_, graphs_ in graphs_by_category.items():
+                    if category == category_:
+                        continue
+                    for graph_ in graphs_: 
+                        distance += self.distance_metric.evaluate(graph, graph_)
+                
+                graphs_distance_total.append((graph, distance))
+            
+            min_distance = float('inf')
+            medoid = None
+            
+            for graph, distance in graphs_distance_total:
+                if min_distance > distance:
+                    min_distance = distance
+                    medoid = graph
+            
+            medoids[category] = medoid
+        
+        self.model = medoids
+        super().fit()
+    
+    def explain(self, instance):
+        # Get the category of the instance
+        category = self.oracle.predict(instance)
+        
+        # Get the closest medoid to the instance that belong to a different category 
+        min_distance = float('inf')
+        closest_medoid = None
+        for other_category, medoid in self.model.items():
+            if other_category != category:
+                distance = self.distance_metric.evaluate(instance, medoid)
+                if distance < min_distance:
+                    min_distance = distance
+                    closest_medoid = medoid       
+
+        # Create a graph's instance of the closest medoid
+        cf_instance = GraphInstance(id=closest_medoid.id, label=closest_medoid.label, data=closest_medoid.data, node_features=closest_medoid.node_features)
+
+        exp = LocalGraphCounterfactualExplanation(context=self.context, dataset=self.dataset, oracle=self.oracle, explainer=self, input_instance=instance, counterfactual_instances=[cf_instance])
+
+        return exp  
