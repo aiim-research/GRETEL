@@ -13,7 +13,7 @@ from typing import Generator
 from src.explainer.future.metaheuristic.initial_solution_search.simple_searcher import SimpleSearcher
 from src.explainer.future.metaheuristic.local_search.binary_model import BinaryModel
 from src.explainer.future.metaheuristic.local_search.cache import FixedSizeCache
-from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, feature_aggregation, heat_kernel_diffusion, laplacian_regularization, random_walk_diffusion, weighted_smoothing
+from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, feature_aggregation, heat_kernel_diffusion, laplacian_regularization, random_walk_diffusion, weighted_smoothing, identity
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.cfg_utils import init_dflts_to_of
 from src.utils.comparison import get_edge_differences
@@ -54,6 +54,7 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
 
     def init(self):
         super().init()
+        self.model = {}
         self.logger = self.context.logger
         self.neigh_factor = self.local_config['parameters']['neigh_factor']
         self.runtime_factor = self.local_config['parameters']['runtime_factor']
@@ -76,7 +77,8 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
             lambda data, features: laplacian_regularization(data, features, lambda_reg=0.01, iterations=1),
             lambda data, features: feature_aggregation(data, features, alpha=0.5, iterations=1),
             lambda data, features: heat_kernel_diffusion(data, features, t=0.5),
-            lambda data, features: random_walk_diffusion(data, features, steps=1)
+            lambda data, features: random_walk_diffusion(data, features, steps=1),
+            lambda data, features: identity(features)
         ]
         
         
@@ -354,8 +356,8 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
                     medoid = graph
             
             medoids[category] = medoid
-        
-        self.model = medoids
+
+        self.model["medoids"] = medoids
         super().fit()
     
     def explain(self, instance):
@@ -365,7 +367,7 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
         # Get the closest medoid to the instance that belong to a different category 
         min_distance = float('inf')
         closest_medoid = None
-        for other_category, medoid in self.model.items():
+        for other_category, medoid in self.model["medoids"].items():
             if other_category != category:
                 distance = self.distance_metric.evaluate(instance, medoid)
                 if distance < min_distance:
