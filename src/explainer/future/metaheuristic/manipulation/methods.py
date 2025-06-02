@@ -105,5 +105,5 @@ def random_walk_diffusion(data, edge_features, steps=1):
 
     return diffused_features
 
-def identity(edge_features):
+def identity(data, edge_features):
     return edge_features

@@ -55,6 +55,7 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
     def init(self):
         super().init()
         self.model = {}
+        self.training = False
         self.logger = self.context.logger
         self.neigh_factor = self.local_config['parameters']['neigh_factor']
         self.runtime_factor = self.local_config['parameters']['runtime_factor']
@@ -71,19 +72,11 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
         self.distance_metric = GraphEditDistanceMetric() 
         self.device = "cpu" 
         
-        self.methods = [
-            lambda data, features: average_smoothing(data, features, iterations=1),
-            lambda data, features: weighted_smoothing(data, features, iterations=1),
-            lambda data, features: laplacian_regularization(data, features, lambda_reg=0.01, iterations=1),
-            lambda data, features: feature_aggregation(data, features, alpha=0.5, iterations=1),
-            lambda data, features: heat_kernel_diffusion(data, features, t=0.5),
-            lambda data, features: random_walk_diffusion(data, features, steps=1),
-            lambda data, features: identity(features)
-        ]
         
         
 
     def minimize(self, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
+        self.logger.info(self.model["methods"])
         print("-------------")
         instance = explaination.input_instance
         self.G = instance
@@ -242,16 +235,37 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
         self.disturb(new_data, self.G.directed, solution)
         
         # If the dataset has attributes in the nodes, then lets explore those with the methods
+        
         if(self.attributed):
-            for method in self.methods:
-                self.k += 1
-                node_features = method(new_data, self.G.node_features)
-                new_g = GraphInstance(id=self.G.id,
+            if self.training:
+                ans = None
+                for i, (score, method) in enumerate(self.model["methods"]):
+                    self.k += 1
+                    node_features = method(new_data, self.G.node_features)
+                    new_g = GraphInstance(id=self.G.id,
                                         label=0,
                                         data=new_data,
                                         directed=self.G.directed,
-                                        node_features= node_features)
-                if(self.M.classify(new_g)): return (True, new_g)
+                                        node_features=node_features)
+                    
+                    if self.M.classify(new_g): 
+                        ans = (True, new_g)
+                        self.model["methods"][i] = (score + 1, method)
+                    else:
+                        self.model["methods"][i] = (score - 1, method)
+
+                if ans is not None:
+                    return ans
+            else:
+                for i, (score, method) in enumerate(self.model["methods"]):
+                    self.k += 1
+                    node_features = method(new_data, self.G.node_features)
+                    new_g = GraphInstance(id=self.G.id,
+                                            label=0,
+                                            data=new_data,
+                                            directed=self.G.directed,
+                                            node_features= node_features)
+                    if(self.M.classify(new_g)): return (True, new_g)
         
         # If the dataset does not has attributes, then it has ficticial attributes for GCN to work,
         # in that case, we just call the manipulator method
@@ -266,8 +280,7 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
             if(self.M.classify(new_g)): return (True, new_g)
 
         return (False, None)
-    
-        
+         
     def disturb(self, data, directed, solution : set[int]):
         for i in solution:
             (n1, n2) = self.labels[i]
@@ -290,16 +303,13 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
             for _ in range(self.neigh_factor ** 2):
                 yield self.tagger.swap(set(solution.copy()), i)
                 
-    
     def edge_add(self, solution : set[int], best) -> Generator[set[int], None, None]:
         cealing = (len(best) - len(solution)) + 1
         step = int(cealing / self.max_neigh) + 1
         for i in range(1, cealing, step):
             for _ in range(self.neigh_factor ** 2):
                 yield self.tagger.add(set(solution.copy()), i)
-                
-                
-    
+                  
     def edge_remove(self, solution : set[int]) -> Generator[set[int], None, None]:
         cealing = len(solution)
         step = int((cealing / self.max_neigh) + 1) 
@@ -318,7 +328,11 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
         super().real_fit()
 
     def fit(self):
+        self.training = True
         self.train_medoid()
+        self.train_methods()
+        self.training = False
+        super().fit()
 
     def train_medoid(self):
         # Get the category of the graphs
@@ -358,8 +372,26 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
             medoids[category] = medoid
 
         self.model["medoids"] = medoids
-        super().fit()
+
+    def train_methods(self):
+        methods = [
+            lambda data, features: average_smoothing(data, features, iterations=1),
+            lambda data, features: weighted_smoothing(data, features, iterations=1),
+            lambda data, features: laplacian_regularization(data, features, lambda_reg=0.01, iterations=1),
+            lambda data, features: feature_aggregation(data, features, alpha=0.5, iterations=1),
+            lambda data, features: heat_kernel_diffusion(data, features, t=0.5),
+            lambda data, features: random_walk_diffusion(data, features, steps=1),
+            lambda data, features: identity(features)
+        ]
+        self.model["methods"] = [(0, method) for method in methods]
+        ## Hay que cambiar la creacion del LocalGraphCounterfactualExplanation para que use las instancias contrafactuales devueltas por el generador y no por DCM
+        
+        for instance in random.sample(self.dataset.instances, k=len(self.dataset.instances)//3):  
+            exp = self.explain(instance=instance)
+            self.minimize(exp)
+        self.model["methods"] = sorted(self.model["methods"], key=lambda x: x[0], reverse=True)
     
+   
     def explain(self, instance):
         # Get the category of the instance
         category = self.oracle.predict(instance)
