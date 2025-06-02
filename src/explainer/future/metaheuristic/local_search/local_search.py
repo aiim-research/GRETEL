@@ -56,6 +56,7 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
         super().init()
         self.model = {}
         self.training = False
+        self.last_method = -1
         self.logger = self.context.logger
         self.neigh_factor = self.local_config['parameters']['neigh_factor']
         self.runtime_factor = self.local_config['parameters']['runtime_factor']
@@ -77,6 +78,7 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
 
     def minimize(self, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
         self.logger.info(self.model["methods"])
+        self.logger.info("The firsts ", self.last_method, "are in using")
         print("-------------")
         instance = explaination.input_instance
         self.G = instance
@@ -258,6 +260,7 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
                     return ans
             else:
                 for i, (score, method) in enumerate(self.model["methods"]):
+                    self.last_method = max(self.last_method, i+1)
                     self.k += 1
                     node_features = method(new_data, self.G.node_features)
                     new_g = GraphInstance(id=self.G.id,
@@ -381,10 +384,9 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
             lambda data, features: feature_aggregation(data, features, alpha=0.5, iterations=1),
             lambda data, features: heat_kernel_diffusion(data, features, t=0.5),
             lambda data, features: random_walk_diffusion(data, features, steps=1),
-            lambda data, features: identity(features)
+            lambda data, features: identity(data, features)
         ]
         self.model["methods"] = [(0, method) for method in methods]
-        ## Hay que cambiar la creacion del LocalGraphCounterfactualExplanation para que use las instancias contrafactuales devueltas por el generador y no por DCM
         
         for instance in random.sample(self.dataset.instances, k=len(self.dataset.instances)//3):  
             exp = self.explain(instance=instance)
