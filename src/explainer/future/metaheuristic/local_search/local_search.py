@@ -334,6 +334,7 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
         self.training = True
         self.train_medoid()
         self.train_methods()
+        self.train_parameters()
         self.training = False
         super().fit()
 
@@ -414,3 +415,125 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
         exp = LocalGraphCounterfactualExplanation(context=self.context, dataset=self.dataset, oracle=self.oracle, explainer=self, input_instance=instance, counterfactual_instances=[cf_instance])
 
         return exp  
+
+    def perturb_neigh(self, neigh_factor):
+        delta = random.randint(-4, 4)
+        neigh_factor += delta
+        if neigh_factor < 1:
+            neigh_factor = 1
+        return neigh_factor
+        
+    def perturb_runtime(self, runtime_factor):
+        delta = random.randint(-4, 4)
+        runtime_factor += delta
+        if runtime_factor < 1:
+            runtime_factor = 1
+        return runtime_factor
+
+    def perturb_max_runtime(self, max_runtime):
+        delta = random.randint(-50, 50)
+        max_runtime += delta
+        if max_runtime < 1:
+            max_runtime = 1
+        return max_runtime
+    
+    def perturb_max_neigh(self, max_neigh):
+        delta = random.randint(-30, 30)
+        max_neigh += delta
+        if max_neigh < 1:
+            max_neigh = 1
+        return max_neigh
+    
+    def perturb_max_oracle(self, max_oracle_calls):
+        delta = random.randint(-10000, 10000)
+        max_oracle_calls += delta
+        if max_oracle_calls < 1:
+            max_oracle_calls = 1
+        return max_oracle_calls
+    
+    def perturb_parameter(self, parameters):
+        new = {}
+
+        new.neigh_factor = self.perturb_neigh(parameters.neigh_factor)
+        new.runtime_factor = self.perturb_runtime(parameters.runtime_factor)
+        new.max_runtime = self.perturb_max_runtime(parameters.max_runtime)
+        new.max_neigh = self.perturb_max_neigh(parameters.max_neigh)
+        new.max_oracle_calls = self.perturb_max_oracle(parameters.max_oracle_calls)
+
+        return new
+    
+    def merge_parameters(self, parameters_a, parameters_b):
+        new = {}
+
+        new.neigh_factor = (parameters_a.neigh_factor + parameters_b.neigh_factor)//2
+        new.runtime_factor = (parameters_a.runtime_factor + parameters_b.runtime_factor)//2
+        new.max_runtime = (parameters_a.max_runtime + parameters_b.max_runtime)//2
+        new.max_neigh = (parameters_a.max_neigh + parameters_b.max_neigh)//2
+        new.max_oracle_call = (parameters_a.max_oracle_call + parameters_b.max_oracle_call)//2
+
+        return new
+    
+    def try_parameters(self, parameters):
+        self.neigh_factor = parameters.neigh_factor
+        self.runtime_factor = parameters.runtime_factor
+        self.max_runtime = parameters.max_runtime
+        self.max_neigh = parameters.max_neigh
+        self.max_oracle_call = parameters.max_oracle_calls
+
+    def train_parameters(self):
+        base = {}
+
+        base.neigh_factor = self.neigh_factor
+        base.runtime_factor = self.runtime_factor
+        base.max_runtime = self.max_runtime
+        base.max_neigh = self.max_neigh
+        base.max_oracle_call = self.max_oracle_calls
+        
+        ini = []
+
+        for i in range(20):
+            x = {}
+            x.val = 0
+            x.parameters = self.perturb_parameter(base)
+            ini.append(x)
+
+        for instance in random.sample(self.dataset.instances, k=len(self.dataset.instances)//10):  
+            for i in ini:
+                self.try_parameters(i.parameters)
+                exp = self.explain(instance=instance)
+                solution = self.minimize(exp)
+
+                i.val += get_edge_differences(instance, solution)[0]
+
+        ini = sorted(ini, key=lambda x: x.val)
+        ini = ini[:10]
+
+        random.shuffle(ini)
+        merged_parameters = []
+        
+        for i in range(5):
+            a, b = random.sample(ini, 2)
+            
+            merged_param = self.merge_parameters(a.parameters, b.parameters)
+            merged_parameters.append(merged_param)
+            
+            ini.remove(a)
+            ini.remove(b)
+
+        for i in range(5):
+            merged_parameters.append(self.perturb_parameter(merged_parameters[i]))
+        
+        for i in merged_parameters:
+            i = {val: 0, parameters: i}
+        
+        for instance in random.sample(self.dataset.instances, k=len(self.dataset.instances)//10):  
+            for i in merged_parameters:
+                self.try_parameters(i.parameters)
+                exp = self.explain(instance=instance)
+                solution = self.minimize(exp)
+
+                i.val += get_edge_differences(instance, solution)[0]
+
+        merged_parameters = sorted(ini, key=lambda x: x.val)
+
+        self.try_parameters(merged_parameters[0])
