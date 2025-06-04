@@ -73,12 +73,9 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
         self.distance_metric = GraphEditDistanceMetric() 
         self.device = "cpu" 
         
-        
-        
-
     def minimize(self, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
-        self.logger.info(self.model["methods"])
-        self.logger.info("The firsts ", self.last_method, "are in using")
+        self.logger.info("The firsts" + str(self.last_method) + " are in using")
+
         print("-------------")
         instance = explaination.input_instance
         self.G = instance
@@ -331,14 +328,17 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
         super().real_fit()
 
     def fit(self):
+        self.logger.info("start training")
         self.training = True
         self.train_medoid()
         self.train_methods()
-        self.train_parameters()
         self.training = False
+        self.train_parameters()
+        self.logger.info("end training")
         super().fit()
 
     def train_medoid(self):
+        self.logger.info("start train_medoid")
         # Get the category of the graphs
         categorized_graph = [(self.oracle.predict(graph), graph) for graph in self.dataset.instances]
         
@@ -376,8 +376,10 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
             medoids[category] = medoid
 
         self.model["medoids"] = medoids
+        self.logger.info("end train_medoid")
 
     def train_methods(self):
+        self.logger.info("start train_methods")
         methods = [
             lambda data, features: average_smoothing(data, features, iterations=1),
             lambda data, features: weighted_smoothing(data, features, iterations=1),
@@ -389,11 +391,12 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
         ]
         self.model["methods"] = [(0, method) for method in methods]
         
-        for instance in random.sample(self.dataset.instances, k=len(self.dataset.instances)//3):  
+        for instance in random.sample(self.dataset.instances, k=len(self.dataset.instances)//10):  
             exp = self.explain(instance=instance)
             self.minimize(exp)
         self.model["methods"] = sorted(self.model["methods"], key=lambda x: x[0], reverse=True)
-    
+        self.logger.info(self.model["methods"])
+        self.logger.info("end train_methods")
    
     def explain(self, instance):
         # Get the category of the instance
@@ -417,123 +420,136 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
         return exp  
 
     def perturb_neigh(self, neigh_factor):
-        delta = random.randint(-4, 4)
-        neigh_factor += delta
-        if neigh_factor < 1:
-            neigh_factor = 1
-        return neigh_factor
+        delta = int(round(np.random.normal(0, 2)))
+        new_factor = neigh_factor + delta
+        return min(max(1, new_factor), 10)
         
     def perturb_runtime(self, runtime_factor):
-        delta = random.randint(-4, 4)
-        runtime_factor += delta
-        if runtime_factor < 1:
-            runtime_factor = 1
-        return runtime_factor
-
+        delta = int(round(np.random.normal(0, 2)))
+        new_factor = runtime_factor + delta
+        return min(max(1, new_factor), 10)
+        
     def perturb_max_runtime(self, max_runtime):
-        delta = random.randint(-50, 50)
-        max_runtime += delta
-        if max_runtime < 1:
-            max_runtime = 1
-        return max_runtime
+        delta = int(round(np.random.normal(0, 25)))
+        new_runtime = max_runtime + delta
+        return min(max(1, new_runtime), 70)
     
     def perturb_max_neigh(self, max_neigh):
-        delta = random.randint(-30, 30)
-        max_neigh += delta
-        if max_neigh < 1:
-            max_neigh = 1
-        return max_neigh
+        delta = int(round(np.random.normal(0, 15)))
+        new_max_neigh = max_neigh + delta
+        return min(max(1, new_max_neigh), 50)
     
-    def perturb_max_oracle(self, max_oracle_calls):
-        delta = random.randint(-10000, 10000)
-        max_oracle_calls += delta
-        if max_oracle_calls < 1:
-            max_oracle_calls = 1
-        return max_oracle_calls
+    #def perturb_max_oracle(self, max_oracle_calls):
+    #    delta = int(round(np.random.normal(0, 500)))
+    #    new_max_oracle = max_oracle_calls + delta
+    #    return min(max(1, new_max_oracle), 15000)
     
     def perturb_parameter(self, parameters):
-        new = {}
-
-        new.neigh_factor = self.perturb_neigh(parameters.neigh_factor)
-        new.runtime_factor = self.perturb_runtime(parameters.runtime_factor)
-        new.max_runtime = self.perturb_max_runtime(parameters.max_runtime)
-        new.max_neigh = self.perturb_max_neigh(parameters.max_neigh)
-        new.max_oracle_calls = self.perturb_max_oracle(parameters.max_oracle_calls)
-
-        return new
+        new_params = {
+            'neigh_factor': self.perturb_neigh(parameters['neigh_factor']),
+            'runtime_factor': self.perturb_runtime(parameters['runtime_factor']),
+            'max_runtime': self.perturb_max_runtime(parameters['max_runtime']),
+            'max_neigh': self.perturb_max_neigh(parameters['max_neigh']),
+            #'max_oracle_calls': self.perturb_max_oracle(parameters['max_oracle_calls'])
+        }
+        return new_params
     
     def merge_parameters(self, parameters_a, parameters_b):
-        new = {}
-
-        new.neigh_factor = (parameters_a.neigh_factor + parameters_b.neigh_factor)//2
-        new.runtime_factor = (parameters_a.runtime_factor + parameters_b.runtime_factor)//2
-        new.max_runtime = (parameters_a.max_runtime + parameters_b.max_runtime)//2
-        new.max_neigh = (parameters_a.max_neigh + parameters_b.max_neigh)//2
-        new.max_oracle_call = (parameters_a.max_oracle_call + parameters_b.max_oracle_call)//2
-
-        return new
+        new_params = {
+            'neigh_factor': (parameters_a['neigh_factor'] + parameters_b['neigh_factor']) // 2,
+            'runtime_factor': (parameters_a['runtime_factor'] + parameters_b['runtime_factor']) // 2,
+            'max_runtime': (parameters_a['max_runtime'] + parameters_b['max_runtime']) // 2,
+            'max_neigh': (parameters_a['max_neigh'] + parameters_b['max_neigh']) // 2
+            #'max_oracle_calls': (parameters_a['max_oracle_calls'] + parameters_b['max_oracle_calls']) // 2
+        }
+        return new_params
     
     def try_parameters(self, parameters):
-        self.neigh_factor = parameters.neigh_factor
-        self.runtime_factor = parameters.runtime_factor
-        self.max_runtime = parameters.max_runtime
-        self.max_neigh = parameters.max_neigh
-        self.max_oracle_call = parameters.max_oracle_calls
+        self.neigh_factor = parameters['neigh_factor']
+        self.runtime_factor = parameters['runtime_factor']
+        self.max_runtime = parameters['max_runtime']
+        self.max_neigh = parameters['max_neigh']
+        #self.max_oracle_calls = parameters['max_oracle_calls']
 
     def train_parameters(self):
-        base = {}
-
-        base.neigh_factor = self.neigh_factor
-        base.runtime_factor = self.runtime_factor
-        base.max_runtime = self.max_runtime
-        base.max_neigh = self.max_neigh
-        base.max_oracle_call = self.max_oracle_calls
+        self.logger.info("start train_parameters")
+        base = {
+            'neigh_factor': self.neigh_factor,
+            'runtime_factor': self.runtime_factor,
+            'max_runtime': self.max_runtime,
+            'max_neigh': self.max_neigh
+            #'max_oracle_calls': self.max_oracle_calls
+        }
         
-        ini = []
-
-        for i in range(20):
-            x = {}
-            x.val = 0
-            x.parameters = self.perturb_parameter(base)
-            ini.append(x)
-
-        for instance in random.sample(self.dataset.instances, k=len(self.dataset.instances)//10):  
-            for i in ini:
-                self.try_parameters(i.parameters)
+        self.logger.info("Generating candidates")
+        candidates = []
+        for _ in range(30):
+            candidate = {
+                'val': 0,
+                'params': self.perturb_parameter(base)
+            }
+            candidates.append(candidate)
+        
+        sample_instances = random.sample(self.dataset.instances, 
+                                         k=len(self.dataset.instances)//25)
+        
+        self.logger.info(candidates)
+        
+        for instance in sample_instances:
+            for candidate in candidates:
+                self.try_parameters(candidate['params'])
+                exp = self.explain(instance=instance)
+                solution = self.minimize(exp)
+                if(self.oracle.predict(instance) != self.oracle.predict(solution)):
+                    candidate['val'] += get_edge_differences(instance, solution)[0]
+                else:
+                    candidate['val'] += instance.num_edges*100
+        
+        candidates.sort(key=lambda x: x['val'])
+        self.logger.info("Conserving:")
+        self.logger.info(candidates[:10])
+        self.logger.info("Deleting:")
+        self.logger.info(candidates[10:])
+        best_candidates = candidates[:10]
+        random.shuffle(best_candidates)
+        
+        self.logger.info("Merging best candidates")
+        new_candidates = []
+        while best_candidates:
+            a = best_candidates.pop()
+            b = best_candidates.pop()
+            merged = self.merge_parameters(a['params'], b['params'])
+            new_candidates.append({'val': 0, 'params': merged})
+            
+            mutated = self.perturb_parameter(merged)
+            new_candidates.append({'val': 0, 'params': mutated})
+        
+        sample_instances = random.sample(self.dataset.instances, 
+                                         k=len(self.dataset.instances)//25)
+        
+        self.logger.info("Final selection of the best candidate")
+        for instance in sample_instances:
+            for candidate in new_candidates:
+                self.try_parameters(candidate['params'])
                 exp = self.explain(instance=instance)
                 solution = self.minimize(exp)
 
-                i.val += get_edge_differences(instance, solution)[0]
-
-        ini = sorted(ini, key=lambda x: x.val)
-        ini = ini[:10]
-
-        random.shuffle(ini)
-        merged_parameters = []
+                if(self.oracle.predict(instance) != self.oracle.predict(solution)):
+                    candidate['val'] += get_edge_differences(instance, solution)[0]
+                else:
+                    candidate['val'] += instance.num_edges*100
         
-        for i in range(5):
-            a, b = random.sample(ini, 2)
-            
-            merged_param = self.merge_parameters(a.parameters, b.parameters)
-            merged_parameters.append(merged_param)
-            
-            ini.remove(a)
-            ini.remove(b)
+        self.logger.info("New candidates:")
+        self.logger.info(new_candidates)
+        new_candidates.sort(key=lambda x: x['val'])
+        best_params = new_candidates[0]['params']
+        self.try_parameters(best_params)
 
-        for i in range(5):
-            merged_parameters.append(self.perturb_parameter(merged_parameters[i]))
-        
-        for i in merged_parameters:
-            i = {val: 0, parameters: i}
-        
-        for instance in random.sample(self.dataset.instances, k=len(self.dataset.instances)//10):  
-            for i in merged_parameters:
-                self.try_parameters(i.parameters)
-                exp = self.explain(instance=instance)
-                solution = self.minimize(exp)
+        self.logger.info("Parameters:")
+        self.logger.info("neigh_factor:" + str(self.neigh_factor))
+        self.logger.info("runtime_factor:" + str(self.runtime_factor))
+        self.logger.info("max_runtime:" + str(self.max_runtime))
+        self.logger.info("max_neigh:" + str(self.max_neigh))
+        self.logger.info("max_oracle_calls:" + str(self.max_oracle_calls))
 
-                i.val += get_edge_differences(instance, solution)[0]
-
-        merged_parameters = sorted(ini, key=lambda x: x.val)
-
-        self.try_parameters(merged_parameters[0])
+        self.logger.info("end train_parameters")
