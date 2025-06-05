@@ -4,23 +4,23 @@ import random
 import sys
 import numpy as np
 from src.core.explainer_base import Explainer
-from src.core.trainable_base import Trainable
 from src.dataset.instances.base import DataInstance
 from src.dataset.instances.graph import GraphInstance
 from src.explainer.future.meta.minimizer.base import ExplanationMinimizer
+from src.explainer.future.metaheuristic.Tagging.simple_tagger import SimpleTagger
 from typing import Generator
 
 from src.explainer.future.metaheuristic.initial_solution_search.simple_searcher import SimpleSearcher
 from src.explainer.future.metaheuristic.local_search.binary_model import BinaryModel
 from src.explainer.future.metaheuristic.local_search.cache import FixedSizeCache
-from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, average_smoothing_zero, feature_aggregation, heat_kernel_diffusion, laplacian_regularization, random_walk_diffusion, weighted_smoothing, identity
+from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, feature_aggregation, heat_kernel_diffusion, laplacian_regularization, random_walk_diffusion, weighted_smoothing
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.cfg_utils import init_dflts_to_of
 from src.utils.comparison import get_edge_differences
 from src.utils.metrics.ged import GraphEditDistanceMetric
 from collections import OrderedDict
 
-class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
+class LocalSearch(ExplanationMinimizer):
     def check_configuration(self):
         super().check_configuration()
         
@@ -41,22 +41,12 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
             
         if 'max_oracle_calls' not in self.local_config['parameters']:
             self.local_config['parameters']['max_oracle_calls'] = 10000
-            
-        if 'tagger' not in self.local_config['parameters']:
-            self.local_config['parameters']['tagger'] = "src.explainer.future.metaheuristic.Tagging.simple_tagger.SimpleTagger"
         
 
-    def get_class_from_string(self ,class_path):
-        module_path, class_name = class_path.rsplit('.', 1)
-        module = __import__(module_path, fromlist=[class_name])
-        return getattr(module, class_name)
 
 
     def init(self):
         super().init()
-        self.model = {}
-        self.training = False
-        self.last_method = -1
         self.logger = self.context.logger
         self.neigh_factor = self.local_config['parameters']['neigh_factor']
         self.runtime_factor = self.local_config['parameters']['runtime_factor']
@@ -65,17 +55,24 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
         self.attributed = self.local_config['parameters']['attributed']
         self.max_oracle_calls = self.local_config['parameters']['max_oracle_calls']
         
-        tagger_direction = self.local_config['parameters']['tagger']
-        self.tagger = self.get_class_from_string(tagger_direction)()
+        self.tagger = SimpleTagger()
         
         self.searcher = SimpleSearcher()
         
-        self.distance_metric = GraphEditDistanceMetric() 
-        self.device = "cpu" 
+        self.distance_metric = GraphEditDistanceMetric()  
         
-    def minimize(self, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
-        self.logger.info("The firsts " + str(self.last_method) + " are in using")
+        self.methods = [
+            lambda data, features: average_smoothing(data, features, iterations=1),
+            lambda data, features: weighted_smoothing(data, features, iterations=1),
+            lambda data, features: laplacian_regularization(data, features, lambda_reg=0.01, iterations=1),
+            lambda data, features: feature_aggregation(data, features, alpha=0.5, iterations=1),
+            lambda data, features: heat_kernel_diffusion(data, features, t=0.5),
+            lambda data, features: random_walk_diffusion(data, features, steps=1)
+        ]
+        
+        
 
+    def minimize(self, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
         print("-------------")
         instance = explaination.input_instance
         self.G = instance
@@ -106,19 +103,13 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
         # Filter to avoid duplicate edges in undirected graphs
         filtered_coords_list = [coord for coord in different_coords_list if coord[0] < coord[1]]
         actual = self.tagger.get_indices(self.labels, filtered_coords_list)
+        
         best = actual
         
-        if(self.oracle.predict(min_ctf) == self.oracle.predict(self.G)):
-            self.logger.info("MIN_CTF label equal to G label")
-            # find an auxiliar solution 
-            min_ctf = self.explain(self.G).counterfactual_instances[0]
-            _, diff_matrix = get_edge_differences(self.G, min_ctf)
-            different_coordinates = np.where(diff_matrix == 1)        
-            different_coords_list = list(zip(different_coordinates[0], different_coordinates[1]))
-            # Filter to avoid duplicate edges in undirected graphs
-            filtered_coords_list = [coord for coord in different_coords_list if coord[0] < coord[1]]
-            actual = self.tagger.get_indices(self.labels, filtered_coords_list)
-            best = actual
+
+        
+        if(len(actual) == 0):
+            return min_ctf
         
         self.cache = FixedSizeCache(capacity=500000)
         result = self.get_approximation(actual, best, min_ctf)
@@ -234,38 +225,16 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
         self.disturb(new_data, self.G.directed, solution)
         
         # If the dataset has attributes in the nodes, then lets explore those with the methods
-        
         if(self.attributed):
-            if self.training:
-                ans = None
-                for i, (score, method) in enumerate(self.model["methods"]):
-                    self.k += 1
-                    node_features = method(new_data, self.G.node_features)
-                    new_g = GraphInstance(id=self.G.id,
+            for method in self.methods:
+                self.k += 1
+                node_features = method(new_data, self.G.node_features)
+                new_g = GraphInstance(id=self.G.id,
                                         label=0,
                                         data=new_data,
                                         directed=self.G.directed,
-                                        node_features=node_features)
-                    
-                    if self.M.classify(new_g): 
-                        ans = (True, new_g)
-                        self.model["methods"][i] = (score + 1, method)
-                    else:
-                        self.model["methods"][i] = (score - 1, method)
-
-                if ans is not None:
-                    return ans
-            else:
-                for i, (score, method) in enumerate(self.model["methods"]):
-                    self.last_method = max(self.last_method, i+1)
-                    self.k += 1
-                    node_features = method(new_data, self.G.node_features)
-                    new_g = GraphInstance(id=self.G.id,
-                                            label=0,
-                                            data=new_data,
-                                            directed=self.G.directed,
-                                            node_features= node_features)
-                    if(self.M.classify(new_g)): return (True, new_g)
+                                        node_features= node_features)
+                if(self.M.classify(new_g)): return (True, new_g)
         
         # If the dataset does not has attributes, then it has ficticial attributes for GCN to work,
         # in that case, we just call the manipulator method
@@ -280,13 +249,40 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
             if(self.M.classify(new_g)): return (True, new_g)
 
         return (False, None)
-         
+    
+        
     def disturb(self, data, directed, solution : set[int]):
         for i in solution:
             (n1, n2) = self.labels[i]
             data[n1, n2] = (data[n1, n2] + 1) % 2
             if(not directed):
                 data[n2, n1] = (data[n2, n1] + 1) % 2
+
+
+    def swap_random(self, solution : set[int], i: int):  
+        self.remove_random(solution, i)
+        self.add_random(solution, i)
+        
+        return solution
+    
+    def add_random(self, solution : set[int], i: int):
+        available_numbers = set(range(1, self.EPlus)) - solution
+        
+        if len(available_numbers) < i:
+            raise ValueError("Not enough available numbers to add.")
+        
+        numbers_to_add = random.sample(available_numbers, i)
+        
+        solution.update(numbers_to_add)
+        
+        return solution
+    
+    def remove_random(self, solution : set[int], i: int):
+        numbers_to_remove = random.sample(solution, i)
+        
+        solution.difference_update(numbers_to_remove)
+        
+        return solution
     
     def reduce_random(self, solution : set[int], i: int):
         if len(solution) < i:
@@ -296,279 +292,35 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
         
         return selected_elements
 
+
     def edge_swap(self, solution : set[int]) -> Generator[set[int], None, None]:
         cealing = min(len(solution), (self.EPlus - len(solution))) + 1
         step = int(cealing / self.max_neigh) + 1
         for i in range(1, cealing, step):
             for _ in range(self.neigh_factor ** 2):
-                yield self.tagger.swap(set(solution.copy()), i)
+                yield self.swap_random(set(solution.copy()), i)
                 
+    
     def edge_add(self, solution : set[int], best) -> Generator[set[int], None, None]:
         cealing = (len(best) - len(solution)) + 1
         step = int(cealing / self.max_neigh) + 1
         for i in range(1, cealing, step):
             for _ in range(self.neigh_factor ** 2):
-                yield self.tagger.add(set(solution.copy()), i)
-                  
+                yield self.add_random(set(solution.copy()), i)
+                
+                
+    
     def edge_remove(self, solution : set[int]) -> Generator[set[int], None, None]:
         cealing = len(solution)
         step = int((cealing / self.max_neigh) + 1) 
         # cealing = random.randint(cealing - step, cealing)
         for i in range(0, cealing, step):
             for _ in range(self.neigh_factor ** 3):
-                yield self.tagger.remove(set(solution.copy()), i)
+                yield self.remove_random(set(solution.copy()), i)
                 
     def write(self):
         pass
 
     def read(self):
         pass
-                
-    def real_fit(self):
-        super().real_fit()
-
-    def fit(self):
-        self.logger.info("start training")
-        self.training = True
-        self.train_medoid()
-        self.train_methods()
-        self.training = False
-        self.train_parameters()
-        self.logger.info("end training")
-        super().fit()
-
-    def train_medoid(self):
-        self.logger.info("start train_medoid")
-        # Get the category of the graphs
-        categorized_graph = [(self.oracle.predict(graph), graph) for graph in self.dataset.instances]
-        
-        # Groups the graph by category
-        graphs_by_category = {}
-        for category, graph in categorized_graph:
-            if category not in graphs_by_category:
-                graphs_by_category[category] = []
-            graphs_by_category[category].append(graph)
-        
-        # Get the medoid of each category
-        medoids = {}
-        for category, graphs in graphs_by_category.items():
-            graphs_distance_total = []
             
-            for graph in graphs:
-                distance = 0
-                
-                for category_, graphs_ in graphs_by_category.items():
-                    if category == category_:
-                        continue
-                    for graph_ in graphs_: 
-                        distance += self.distance_metric.evaluate(graph, graph_)
-                
-                graphs_distance_total.append((graph, distance))
-            
-            min_distance = float('inf')
-            medoid = None
-            
-            for graph, distance in graphs_distance_total:
-                if min_distance > distance:
-                    min_distance = distance
-                    medoid = graph
-            
-            medoids[category] = medoid
-
-        self.model["medoids"] = medoids
-        self.logger.info("end train_medoid")
-
-    def train_methods(self):
-        self.logger.info("start train_methods")
-        methods = [
-            lambda data, features: average_smoothing(data, features, iterations=1),
-            lambda data, features: average_smoothing_zero(data, features, iterations=1),
-            lambda data, features: weighted_smoothing(data, features, iterations=1),
-            lambda data, features: laplacian_regularization(data, features, lambda_reg=0.01, iterations=1),
-            lambda data, features: feature_aggregation(data, features, alpha=0.5, iterations=1),
-            lambda data, features: heat_kernel_diffusion(data, features, t=0.5),
-            lambda data, features: random_walk_diffusion(data, features, steps=1),
-            lambda data, features: identity(data, features)
-        ]
-        methods[0].__name__ = "average_smoothing"
-        methods[1].__name__ = "average_smoothing_zero"
-        methods[2].__name__ = "weighted_smoothing"
-        methods[3].__name__ = "laplacian_regularization"
-        methods[4].__name__ = "feature_aggregation"
-        methods[5].__name__ = "heat_kernel_diffusion"
-        methods[6].__name__ = "random_walk_diffusion"
-        methods[7].__name__ = "identity"
-
-
-        self.model["methods"] = [(0, method) for method in methods]
-        
-        for instance in random.sample(self.dataset.instances, k=len(self.dataset.instances)//20):  
-            self.logger.info("new instance")
-            exp = self.explain(instance=instance)
-            self.minimize(exp)
-        self.model["methods"] = sorted(self.model["methods"], key=lambda x: x[0], reverse=True)
-        
-        for score, method in self.model["methods"]:
-            self.logger.info(f"Score: {score}, Method: {method.__name__}")
-
-        self.logger.info("end train_methods")
-   
-    def explain(self, instance):
-        # Get the category of the instance
-        category = self.oracle.predict(instance)
-        
-        # Get the closest medoid to the instance that belong to a different category 
-        min_distance = float('inf')
-        closest_medoid = None
-        for other_category, medoid in self.model["medoids"].items():
-            if other_category != category:
-                distance = self.distance_metric.evaluate(instance, medoid)
-                if distance < min_distance:
-                    min_distance = distance
-                    closest_medoid = medoid       
-
-        # Create a graph's instance of the closest medoid
-        cf_instance = GraphInstance(id=closest_medoid.id, label=closest_medoid.label, data=closest_medoid.data, node_features=closest_medoid.node_features)
-
-        exp = LocalGraphCounterfactualExplanation(context=self.context, dataset=self.dataset, oracle=self.oracle, explainer=self, input_instance=instance, counterfactual_instances=[cf_instance])
-
-        return exp  
-
-    def perturb_neigh(self, neigh_factor):
-        delta = int(round(np.random.normal(0, 2)))
-        new_factor = neigh_factor + delta
-        return min(max(1, new_factor), 10)
-        
-    def perturb_runtime(self, runtime_factor):
-        delta = int(round(np.random.normal(0, 2)))
-        new_factor = runtime_factor + delta
-        return min(max(1, new_factor), 10)
-        
-    def perturb_max_runtime(self, max_runtime):
-        delta = int(round(np.random.normal(0, 25)))
-        new_runtime = max_runtime + delta
-        return min(max(1, new_runtime), 70)
-    
-    def perturb_max_neigh(self, max_neigh):
-        delta = int(round(np.random.normal(0, 15)))
-        new_max_neigh = max_neigh + delta
-        return min(max(1, new_max_neigh), 50)
-    
-    #def perturb_max_oracle(self, max_oracle_calls):
-    #    delta = int(round(np.random.normal(0, 500)))
-    #    new_max_oracle = max_oracle_calls + delta
-    #    return min(max(1, new_max_oracle), 15000)
-    
-    def perturb_parameter(self, parameters):
-        new_params = {
-            'neigh_factor': self.perturb_neigh(parameters['neigh_factor']),
-            'runtime_factor': self.perturb_runtime(parameters['runtime_factor']),
-            'max_runtime': self.perturb_max_runtime(parameters['max_runtime']),
-            'max_neigh': self.perturb_max_neigh(parameters['max_neigh']),
-            #'max_oracle_calls': self.perturb_max_oracle(parameters['max_oracle_calls'])
-        }
-        return new_params
-    
-    def merge_parameters(self, parameters_a, parameters_b):
-        new_params = {
-            'neigh_factor': (parameters_a['neigh_factor'] + parameters_b['neigh_factor']) // 2,
-            'runtime_factor': (parameters_a['runtime_factor'] + parameters_b['runtime_factor']) // 2,
-            'max_runtime': (parameters_a['max_runtime'] + parameters_b['max_runtime']) // 2,
-            'max_neigh': (parameters_a['max_neigh'] + parameters_b['max_neigh']) // 2
-            #'max_oracle_calls': (parameters_a['max_oracle_calls'] + parameters_b['max_oracle_calls']) // 2
-        }
-        return new_params
-    
-    def try_parameters(self, parameters):
-        self.neigh_factor = parameters['neigh_factor']
-        self.runtime_factor = parameters['runtime_factor']
-        self.max_runtime = parameters['max_runtime']
-        self.max_neigh = parameters['max_neigh']
-        #self.max_oracle_calls = parameters['max_oracle_calls']
-
-    def train_parameters(self):
-        self.logger.info("start train_parameters")
-        base = {
-            'neigh_factor': self.neigh_factor,
-            'runtime_factor': self.runtime_factor,
-            'max_runtime': self.max_runtime,
-            'max_neigh': self.max_neigh
-            #'max_oracle_calls': self.max_oracle_calls
-        }
-        
-        self.logger.info("Generating candidates")
-        candidates = []
-        for _ in range(20):
-            candidate = {
-                'val': 0,
-                'params': self.perturb_parameter(base)
-            }
-            candidates.append(candidate)
-        
-        sample_instances = random.sample(self.dataset.instances, 
-                                         k=len(self.dataset.instances)//25)
-        
-        self.logger.info(candidates)
-        
-        for instance in sample_instances:
-            self.logger.info("new instance")
-            for candidate in candidates:
-                self.logger.info("new candidate")
-                self.try_parameters(candidate['params'])
-                exp = self.explain(instance=instance)
-                solution = self.minimize(exp)
-                if(self.oracle.predict(instance) != self.oracle.predict(solution)):
-                    candidate['val'] += get_edge_differences(instance, solution)[0]
-                else:
-                    candidate['val'] += instance.num_edges*100
-        
-        candidates.sort(key=lambda x: x['val'])
-        self.logger.info("Conserving:")
-        self.logger.info(candidates[:10])
-        self.logger.info("Deleting:")
-        self.logger.info(candidates[10:])
-        best_candidates = candidates[:10]
-        random.shuffle(best_candidates)
-        
-        self.logger.info("Merging best candidates")
-        new_candidates = []
-        while best_candidates:
-            a = best_candidates.pop()
-            b = best_candidates.pop()
-            merged = self.merge_parameters(a['params'], b['params'])
-            new_candidates.append({'val': 0, 'params': merged})
-            
-            mutated = self.perturb_parameter(merged)
-            new_candidates.append({'val': 0, 'params': mutated})
-        
-        sample_instances = random.sample(self.dataset.instances, 
-                                         k=len(self.dataset.instances)//25)
-        
-        self.logger.info("Final selection of the best candidate")
-        for instance in sample_instances:
-            self.logger.info("new instance")
-            for candidate in new_candidates:
-                self.logger.info("new candidate")
-                self.try_parameters(candidate['params'])
-                exp = self.explain(instance=instance)
-                solution = self.minimize(exp)
-
-                if(self.oracle.predict(instance) != self.oracle.predict(solution)):
-                    candidate['val'] += get_edge_differences(instance, solution)[0]
-                else:
-                    candidate['val'] += instance.num_edges*100
-        
-        self.logger.info("New candidates:")
-        self.logger.info(new_candidates)
-        new_candidates.sort(key=lambda x: x['val'])
-        best_params = new_candidates[0]['params']
-        self.try_parameters(best_params)
-
-        self.logger.info("Parameters:")
-        self.logger.info("neigh_factor:" + str(self.neigh_factor))
-        self.logger.info("runtime_factor:" + str(self.runtime_factor))
-        self.logger.info("max_runtime:" + str(self.max_runtime))
-        self.logger.info("max_neigh:" + str(self.max_neigh))
-        self.logger.info("max_oracle_calls:" + str(self.max_oracle_calls))
-
-        self.logger.info("end train_parameters")
