@@ -19,7 +19,7 @@ class CF2Explainer(Trainable, Explainer):
         self.lam = self.local_config['parameters']['lam']
         self.alpha = self.local_config['parameters']['alpha']
         self.epochs = self.local_config['parameters']['epochs']
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = "cpu"
         
 
         self.model = ExplainModelGraph(self.n_nodes).to(self.device)
@@ -100,7 +100,7 @@ class ExplainModelGraph(torch.nn.Module):
         super(ExplainModelGraph, self).__init__()
 
         self.n_nodes = n_nodes
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = "cpu"
         self.mask = self.build_adj_mask()
 
     def forward(self, graph : GraphInstance, oracle : Oracle):        
