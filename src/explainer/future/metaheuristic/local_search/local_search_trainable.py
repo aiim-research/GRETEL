@@ -20,7 +20,7 @@ from src.utils.comparison import get_edge_differences
 from src.utils.metrics.ged import GraphEditDistanceMetric
 from collections import OrderedDict
 
-class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
+class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
     def check_configuration(self):
         super().check_configuration()
         
