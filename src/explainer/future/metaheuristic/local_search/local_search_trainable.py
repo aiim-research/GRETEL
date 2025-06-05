@@ -74,7 +74,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         self.device = "cpu" 
         
     def minimize(self, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
-        self.logger.info("The firsts " + str(self.last_method) + " are in using")
+        #self.logger.info("The firsts " + str(self.last_method) + " are in using")
 
         print("-------------")
         instance = explaination.input_instance
@@ -109,7 +109,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         best = actual
         
         if(self.oracle.predict(min_ctf) == self.oracle.predict(self.G)):
-            self.logger.info("MIN_CTF label equal to G label")
+            #self.logger.info("MIN_CTF label equal to G label")
             # find an auxiliar solution 
             min_ctf = self.explain(self.G).counterfactual_instances[0]
             _, diff_matrix = get_edge_differences(self.G, min_ctf)
@@ -132,7 +132,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         
         
     def get_approximation(self, actual, best, min_ctf):
-        self.logger.info("Initial solution: " + str(actual))
+        #self.logger.info("Initial solution: " + str(actual))
         self.logger.info("Initial solution size: " + str(len(actual)))
 
         result = min_ctf
@@ -140,16 +140,16 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         n = min(self.max_runtime, self.runtime_factor * len(actual))
         self.k = 0
         while(n > 0):
-            self.logger.info("n: " + str(n))
-            self.logger.info("k: " + str(self.k))
+            #self.logger.info("n: " + str(n))
+            #self.logger.info("k: " + str(self.k))
             n-=1
             if(len(best) == 1) : break
             if(self.k > self.max_oracle_calls) :
-                 self.logger.info("Oracle calls limit reached")
+                 #self.logger.info("Oracle calls limit reached")
                  break
             found = False
             actual = best
-            # self.logger.info("actual ---> " + str(len(actual)))
+            #self.logger.info("actual ---> " + str(len(actual)))
             
             for s in self.edge_remove(actual):
                 if(self.cache.contains(s)):
@@ -165,13 +165,13 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
                     break
                 
             if(found):
-                self.logger.info("============> (-) Found solution with size: " + str(len(actual)))
+                #self.logger.info("============> (-) Found solution with size: " + str(len(actual)))
                 continue
             
             half = int(len(actual) / 2)
             reduce = min(half, random.randint(1, half * 4))
             actual = self.reduce_random(best, reduce)
-            self.logger.info("actual ---> " + str(len(actual)))
+            #self.logger.info("actual ---> " + str(len(actual)))
             
             while(len(best) - len(actual) > 1):
                 n-=1
@@ -191,11 +191,11 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
                         break
                     
                 if(found):
-                    self.logger.info("============> (=) Found solution with size: " + str(len(actual)))
+                    #self.logger.info("============> (=) Found solution with size: " + str(len(actual)))
                     break
 
                 actual = self.reduce_random(best, len(actual))
-                self.logger.info("actual ===> " + str(len(actual)))
+                #self.logger.info("actual ===> " + str(len(actual)))
                 
                 for s in self.edge_add(actual, best):
                     if(self.cache.contains(s)):
@@ -213,7 +213,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
                         break
                     
                 if(found):
-                    self.logger.info("============> (+) Found solution with size: " + str(len(actual)))
+                    #self.logger.info("============> (+) Found solution with size: " + str(len(actual)))
                     break
                 
                 to_expand = int(((len(best) - len(actual)) / 2)) + 1
@@ -221,12 +221,13 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
                 # self.logger.info("expand: " + str(expand) + ", best: " + str(len(best)))
                 if(expand > len(best)): break
                 actual = self.reduce_random(best, expand)
-                self.logger.info("actual +++> " + str(len(actual)))
+                #self.logger.info("actual +++> " + str(len(actual)))
           
         if(self.oracle.predict(result) == self.oracle.predict(self.G)):
             self.logger.info("ERROR, returning non ctf ")
             self.logger.info("instance -> " + str(self.oracle.predict(self.G)))
             self.logger.info("result -> " + str(self.oracle.predict(result)))
+        self.logger.info("final solution size: " + str(len(actual)))
         return result
     
     def evaluate(self, solution : set[int]) -> tuple[bool, GraphInstance]:
@@ -406,7 +407,10 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
             self.logger.info("new instance")
             exp = self.explain(instance=instance)
             self.minimize(exp)
-        self.model["methods"] = sorted(self.model["methods"], key=lambda x: x[0], reverse=True)
+        
+        self.model["methods"] = sorted(self.model["methods"], key=lambda x: x[0], reverse=True) 
+        mid = (self.model["methods"][0][0] + self.model["methods"][7][0]) // 2
+        self.model["methods"] = list(filter(lambda x: x[0] >= mid, self.model["methods"]))
         
         for score, method in self.model["methods"]:
             self.logger.info(f"Score: {score}, Method: {method.__name__}")
@@ -435,22 +439,22 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         return exp  
 
     def perturb_neigh(self, neigh_factor):
-        delta = int(round(np.random.normal(0, 2)))
+        delta = int(round(np.random.normal(0, 5)))
         new_factor = neigh_factor + delta
         return min(max(1, new_factor), 10)
         
     def perturb_runtime(self, runtime_factor):
-        delta = int(round(np.random.normal(0, 2)))
+        delta = int(round(np.random.normal(0, 5)))
         new_factor = runtime_factor + delta
         return min(max(1, new_factor), 10)
         
     def perturb_max_runtime(self, max_runtime):
-        delta = int(round(np.random.normal(0, 25)))
+        delta = int(round(np.random.normal(0, 35)))
         new_runtime = max_runtime + delta
         return min(max(1, new_runtime), 70)
     
     def perturb_max_neigh(self, max_neigh):
-        delta = int(round(np.random.normal(0, 15)))
+        delta = int(round(np.random.normal(0, 25)))
         new_max_neigh = max_neigh + delta
         return min(max(1, new_max_neigh), 50)
     
@@ -518,9 +522,8 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
                 exp = self.explain(instance=instance)
                 solution = self.minimize(exp)
                 if(self.oracle.predict(instance) != self.oracle.predict(solution)):
-                    candidate['val'] += get_edge_differences(instance, solution)[0]
-                else:
-                    candidate['val'] += instance.num_edges*100
+                    ED = get_edge_differences(instance, solution)[0]
+                    candidate['val'] += ED + ED*self.k//self.max_oracle_calls
         
         candidates.sort(key=lambda x: x['val'])
         self.logger.info("Conserving:")
