@@ -13,7 +13,7 @@ from typing import Generator
 from src.explainer.future.metaheuristic.initial_solution_search.simple_searcher import SimpleSearcher
 from src.explainer.future.metaheuristic.local_search.binary_model import BinaryModel
 from src.explainer.future.metaheuristic.local_search.cache import FixedSizeCache
-from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, feature_aggregation, heat_kernel_diffusion, laplacian_regularization, random_walk_diffusion, weighted_smoothing, identity
+from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, average_smoothing_zero, feature_aggregation, heat_kernel_diffusion, laplacian_regularization, random_walk_diffusion, weighted_smoothing, identity
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.cfg_utils import init_dflts_to_of
 from src.utils.comparison import get_edge_differences
@@ -74,7 +74,7 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
         self.device = "cpu" 
         
     def minimize(self, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
-        self.logger.info("The firsts" + str(self.last_method) + " are in using")
+        self.logger.info("The firsts " + str(self.last_method) + " are in using")
 
         print("-------------")
         instance = explaination.input_instance
@@ -382,6 +382,7 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
         self.logger.info("start train_methods")
         methods = [
             lambda data, features: average_smoothing(data, features, iterations=1),
+            lambda data, features: average_smoothing_zero(data, features, iterations=1),
             lambda data, features: weighted_smoothing(data, features, iterations=1),
             lambda data, features: laplacian_regularization(data, features, lambda_reg=0.01, iterations=1),
             lambda data, features: feature_aggregation(data, features, alpha=0.5, iterations=1),
@@ -389,13 +390,27 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
             lambda data, features: random_walk_diffusion(data, features, steps=1),
             lambda data, features: identity(data, features)
         ]
+        methods[0].__name__ = "average_smoothing"
+        methods[1].__name__ = "average_smoothing_zero"
+        methods[2].__name__ = "weighted_smoothing"
+        methods[3].__name__ = "laplacian_regularization"
+        methods[4].__name__ = "feature_aggregation"
+        methods[5].__name__ = "heat_kernel_diffusion"
+        methods[6].__name__ = "random_walk_diffusion"
+        methods[7].__name__ = "identity"
+
+
         self.model["methods"] = [(0, method) for method in methods]
         
-        for instance in random.sample(self.dataset.instances, k=len(self.dataset.instances)//10):  
+        for instance in random.sample(self.dataset.instances, k=len(self.dataset.instances)//20):  
+            self.logger.info("new instance")
             exp = self.explain(instance=instance)
             self.minimize(exp)
         self.model["methods"] = sorted(self.model["methods"], key=lambda x: x[0], reverse=True)
-        self.logger.info(self.model["methods"])
+        
+        for score, method in self.model["methods"]:
+            self.logger.info(f"Score: {score}, Method: {method.__name__}")
+
         self.logger.info("end train_methods")
    
     def explain(self, instance):
@@ -483,7 +498,7 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
         
         self.logger.info("Generating candidates")
         candidates = []
-        for _ in range(30):
+        for _ in range(20):
             candidate = {
                 'val': 0,
                 'params': self.perturb_parameter(base)
@@ -496,7 +511,9 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
         self.logger.info(candidates)
         
         for instance in sample_instances:
+            self.logger.info("new instance")
             for candidate in candidates:
+                self.logger.info("new candidate")
                 self.try_parameters(candidate['params'])
                 exp = self.explain(instance=instance)
                 solution = self.minimize(exp)
@@ -529,7 +546,9 @@ class LocalSearch(ExplanationMinimizer, Explainer, Trainable):
         
         self.logger.info("Final selection of the best candidate")
         for instance in sample_instances:
+            self.logger.info("new instance")
             for candidate in new_candidates:
+                self.logger.info("new candidate")
                 self.try_parameters(candidate['params'])
                 exp = self.explain(instance=instance)
                 solution = self.minimize(exp)
