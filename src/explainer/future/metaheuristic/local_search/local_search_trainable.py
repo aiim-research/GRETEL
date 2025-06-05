@@ -33,7 +33,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         if 'max_runtime' not in self.local_config['parameters']:
             self.local_config['parameters']['max_runtime'] = 50
             
-        if 'proportion' not in self.local_config['proportion']:
+        if 'proportion' not in self.local_config['parameters']:
             self.local_config['parameters']['proportion'] = 25
 
         if 'max_neigh' not in self.local_config['parameters']:
