@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "meta",
+        "scope": "meta_trainable",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[
