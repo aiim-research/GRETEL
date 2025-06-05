@@ -33,6 +33,9 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         if 'max_runtime' not in self.local_config['parameters']:
             self.local_config['parameters']['max_runtime'] = 50
             
+        if 'proportion' not in self.local_config['proportion']:
+            self.local_config['parameters']['proportion'] = 25
+
         if 'max_neigh' not in self.local_config['parameters']:
             self.local_config['parameters']['max_neigh'] = 30
             
@@ -64,6 +67,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         self.max_neigh = self.local_config['parameters']['max_neigh']
         self.attributed = self.local_config['parameters']['attributed']
         self.max_oracle_calls = self.local_config['parameters']['max_oracle_calls']
+        self.proportion = self.local_config['parameters']['proportion']
         
         tagger_direction = self.local_config['parameters']['tagger']
         self.tagger = self.get_class_from_string(tagger_direction)()
@@ -510,7 +514,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
             candidates.append(candidate)
         
         sample_instances = random.sample(self.dataset.instances, 
-                                         k=len(self.dataset.instances)//25)
+                                         k=len(self.dataset.instances)//self.proportion)
         
         self.logger.info(candidates)
         
@@ -545,7 +549,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
             new_candidates.append({'val': 0, 'params': mutated})
         
         sample_instances = random.sample(self.dataset.instances, 
-                                         k=len(self.dataset.instances)//25)
+                                         k=len(self.dataset.instances)//self.proportion)
         
         self.logger.info("Final selection of the best candidate")
         for instance in sample_instances:
