@@ -104,3 +104,6 @@ def random_walk_diffusion(data, edge_features, steps=1):
         diffused_features = np.dot(P, diffused_features)
 
     return diffused_features
+
+def identity(data, edge_features):
+    return edge_features

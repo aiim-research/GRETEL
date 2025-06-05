@@ -8,12 +8,6 @@ from src.dataset.instances.base import DataInstance
 from src.dataset.instances.graph import GraphInstance
 from src.explainer.future.meta.minimizer.base import ExplanationMinimizer
 from src.explainer.future.metaheuristic.Tagging.simple_tagger import SimpleTagger
-from src.explainer.future.metaheuristic.Tagging.mpc_tagger import MPCTagger
-from src.explainer.future.metaheuristic.Tagging.coloring_tagger import ColoringTagger 
-from src.explainer.future.metaheuristic.Tagging.centrality_tagger import CentralityTagger 
-from src.explainer.future.metaheuristic.Tagging.conectivity_tagger import ConectivityTagger
-from src.explainer.future.metaheuristic.Tagging.cycle_tagger import CycleTagger
-from src.explainer.future.metaheuristic.Tagging.diameter_tagger import DiameterTagger 
 from typing import Generator
 
 from src.explainer.future.metaheuristic.initial_solution_search.simple_searcher import SimpleSearcher
@@ -47,15 +41,8 @@ class LocalSearch(ExplanationMinimizer):
             
         if 'max_oracle_calls' not in self.local_config['parameters']:
             self.local_config['parameters']['max_oracle_calls'] = 10000
-            
-        if 'tagger' not in self.local_config['parameters']:
-            self.local_config['parameters']['tagger'] = "src.explainer.future.metaheuristic.Tagging.simple_tagger.SimpleTagger"
         
 
-    def get_class_from_string(self ,class_path):
-        module_path, class_name = class_path.rsplit('.', 1)
-        module = __import__(module_path, fromlist=[class_name])
-        return getattr(module, class_name)
 
 
     def init(self):
@@ -68,8 +55,7 @@ class LocalSearch(ExplanationMinimizer):
         self.attributed = self.local_config['parameters']['attributed']
         self.max_oracle_calls = self.local_config['parameters']['max_oracle_calls']
         
-        tagger_direction = self.local_config['parameters']['tagger']
-        self.tagger = self.get_class_from_string(tagger_direction)()
+        self.tagger = SimpleTagger()
         
         self.searcher = SimpleSearcher()
         
@@ -271,6 +257,32 @@ class LocalSearch(ExplanationMinimizer):
             data[n1, n2] = (data[n1, n2] + 1) % 2
             if(not directed):
                 data[n2, n1] = (data[n2, n1] + 1) % 2
+
+
+    def swap_random(self, solution : set[int], i: int):  
+        self.remove_random(solution, i)
+        self.add_random(solution, i)
+        
+        return solution
+    
+    def add_random(self, solution : set[int], i: int):
+        available_numbers = set(range(1, self.EPlus)) - solution
+        
+        if len(available_numbers) < i:
+            raise ValueError("Not enough available numbers to add.")
+        
+        numbers_to_add = random.sample(available_numbers, i)
+        
+        solution.update(numbers_to_add)
+        
+        return solution
+    
+    def remove_random(self, solution : set[int], i: int):
+        numbers_to_remove = random.sample(solution, i)
+        
+        solution.difference_update(numbers_to_remove)
+        
+        return solution
     
     def reduce_random(self, solution : set[int], i: int):
         if len(solution) < i:
@@ -280,12 +292,13 @@ class LocalSearch(ExplanationMinimizer):
         
         return selected_elements
 
+
     def edge_swap(self, solution : set[int]) -> Generator[set[int], None, None]:
         cealing = min(len(solution), (self.EPlus - len(solution))) + 1
         step = int(cealing / self.max_neigh) + 1
         for i in range(1, cealing, step):
             for _ in range(self.neigh_factor ** 2):
-                yield self.tagger.swap(set(solution.copy()), i)
+                yield self.swap_random(set(solution.copy()), i)
                 
     
     def edge_add(self, solution : set[int], best) -> Generator[set[int], None, None]:
@@ -293,7 +306,7 @@ class LocalSearch(ExplanationMinimizer):
         step = int(cealing / self.max_neigh) + 1
         for i in range(1, cealing, step):
             for _ in range(self.neigh_factor ** 2):
-                yield self.tagger.add(set(solution.copy()), i)
+                yield self.add_random(set(solution.copy()), i)
                 
                 
     
@@ -303,17 +316,11 @@ class LocalSearch(ExplanationMinimizer):
         # cealing = random.randint(cealing - step, cealing)
         for i in range(0, cealing, step):
             for _ in range(self.neigh_factor ** 3):
-                yield self.tagger.remove(set(solution.copy()), i)
+                yield self.remove_random(set(solution.copy()), i)
                 
     def write(self):
         pass
 
     def read(self):
         pass
-                
-    
-    
-    
             
-            
-                

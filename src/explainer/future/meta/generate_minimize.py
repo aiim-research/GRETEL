@@ -58,11 +58,12 @@ class GenerateMinimize(Explainer):
         initial_cf_label = self.oracle.predict(initial_cf)
         # print("generated ctf -> " + str(initial_cf_label))
 
-        if initial_cf_label == initial_label:
-            # the generator was not able to produce a counterfactual
-            # so we can inmediately return, there is no point in minimizing
-            self.logger.info(f'The generator could not generate a counterfactual for instance with id {str(instance.id)}')
-            return initial_explanation
+        # Let the option to the Minimizer
+        # if initial_cf_label == initial_label:
+        #    # the generator was not able to produce a counterfactual
+        #    # so we can inmediately return, there is no point in minimizing
+        #    self.logger.info(f'The generator could not generate a counterfactual for instance with id {str(instance.id)}')
+        #    return initial_explanation
         # else:
         #     self.logger.info(f'The generator generated a counterfactual for instance with id {str(instance.id)}')
         
