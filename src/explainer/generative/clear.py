@@ -39,7 +39,7 @@ class CLEARExplainer(Trainable, Explainer):
         self.beta_adj = self.local_config['parameters']['beta_adj']
         self.n_nodes = self.local_config['parameters']['n_nodes']
 
-        self.device = 'cpu'
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
         self.model = CLEAR(feature_dim=self.feature_dim,
                            graph_pool_type=self.graph_pool_type,

@@ -17,7 +17,11 @@ class TopKPoolingDiscriminator(nn.Module):
         self.fc = nn.Linear(num_nodes * dim, 1).double()
         
         self.device = (
-            "cpu"
+            "cuda"
+            if torch.cuda.is_available()
+            else "mps"
+            if torch.backends.mps.is_available()
+            else "cpu"
         )
         
         self.init_weights()
@@ -82,7 +86,11 @@ class SimpleDiscriminator(nn.Module):
         self.fc = nn.Linear(num_nodes * dim, 1).double()
         
         self.device = (
-            "cpu"
+            "cuda"
+            if torch.cuda.is_available()
+            else "mps"
+            if torch.backends.mps.is_available()
+            else "cpu"
         )
         
         self.init_weights()

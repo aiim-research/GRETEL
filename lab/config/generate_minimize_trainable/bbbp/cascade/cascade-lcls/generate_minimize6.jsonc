@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "meta_trainable",
+        "scope": "meta",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[
@@ -25,7 +25,7 @@
                         }
                     },
                     "minimizer": {
-                        "class": "src.explainer.future.metaheuristic.local_search.local_search_trainable.LocalSearchTrainable",
+                        "class": "src.explainer.future.metaheuristic.local_search.local_search.LocalSearch",
                         "parameters": {                            
                             "neigh_factor" : 4,
                             "runtime_factor" : 4,

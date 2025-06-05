@@ -26,7 +26,11 @@ class TranslatingGenerator(nn.Module):
         self.gaussian_std = gaussian_std
         
         self.device = (
-                    "cpu"
+                    "cuda"
+                    if torch.cuda.is_available()
+                    else "mps"
+                    if torch.backends.mps.is_available()
+                    else "cpu"
                 )
         
         self.init_weights()

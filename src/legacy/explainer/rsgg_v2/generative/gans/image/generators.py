@@ -21,7 +21,11 @@ class ResGenerator(nn.Module):
         self.num_nodes = num_nodes
         
         self.device = (
-            "cpu"
+            "cuda"
+            if torch.cuda.is_available()
+            else "mps"
+            if torch.backends.mps.is_available()
+            else "cpu"
         )
         
         self.conv1 = nn.Conv2d(in_channels=1, out_channels=64, kernel_size=conv_kernel, stride=conv_stride)
