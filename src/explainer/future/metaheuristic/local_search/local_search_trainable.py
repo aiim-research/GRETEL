@@ -33,7 +33,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         if 'max_runtime' not in self.local_config['parameters']:
             self.local_config['parameters']['max_runtime'] = 50
             
-        if 'proportion' not in self.local_config['proportion']:
+        if 'proportion' not in self.local_config['parameters']:
             self.local_config['parameters']['proportion'] = 25
 
         if 'max_neigh' not in self.local_config['parameters']:
@@ -54,10 +54,26 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         module = __import__(module_path, fromlist=[class_name])
         return getattr(module, class_name)
 
+    def convert(self, method):
+        if method == "average_smoothing":
+            return lambda data, features: average_smoothing(data, features, iterations=1)
+        elif method == "average_smoothing_zero":
+            return lambda data, features: average_smoothing_zero(data, features, iterations=1)
+        elif method == "weighted_smoothing":
+            return lambda data, features: weighted_smoothing(data, features, iterations=1)
+        elif method == "laplacian_regularization":
+            return lambda data, features: laplacian_regularization(data, features, lambda_reg=0.01, iterations=1)
+        elif method == "feature_aggregation":
+            return lambda data, features: feature_aggregation(data, features, alpha=0.5, iterations=1)
+        elif method == "heat_kernel_diffusion":
+            return lambda data, features: heat_kernel_diffusion(data, features, t=0.5)
+        elif method == "random_walk_diffusion":
+            return lambda data, features: random_walk_diffusion(data, features, steps=1)
+        elif method == "identity":
+            return lambda data, features: identity(data, features)
 
     def init(self):
         super().init()
-        self.model = {}
         self.training = False
         self.last_method = -1
         self.logger = self.context.logger
@@ -77,6 +93,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         self.distance_metric = GraphEditDistanceMetric() 
         self.device = "cpu" 
         
+        self.model = {}
     def minimize(self, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
         #self.logger.info("The firsts " + str(self.last_method) + " are in using")
 
@@ -244,8 +261,9 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
             if self.training:
                 ans = None
                 for i, (score, method) in enumerate(self.model["methods"]):
+                    true_method = self.convert(method)
                     self.k += 1
-                    node_features = method(new_data, self.G.node_features)
+                    node_features = true_method(new_data, self.G.node_features)
                     new_g = GraphInstance(id=self.G.id,
                                         label=0,
                                         data=new_data,
@@ -262,9 +280,10 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
                     return ans
             else:
                 for i, (score, method) in enumerate(self.model["methods"]):
+                    true_method = self.convert(method)
                     self.last_method = max(self.last_method, i+1)
                     self.k += 1
-                    node_features = method(new_data, self.G.node_features)
+                    node_features = true_method(new_data, self.G.node_features)
                     new_g = GraphInstance(id=self.G.id,
                                             label=0,
                                             data=new_data,
@@ -323,12 +342,6 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
             for _ in range(self.neigh_factor ** 3):
                 yield self.tagger.remove(set(solution.copy()), i)
                 
-    def write(self):
-        pass
-
-    def read(self):
-        pass
-                
     def real_fit(self):
         super().real_fit()
 
@@ -379,35 +392,25 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
                     medoid = graph
             
             medoids[category] = medoid
-
         self.model["medoids"] = medoids
         self.logger.info("end train_medoid")
 
     def train_methods(self):
         self.logger.info("start train_methods")
         methods = [
-            lambda data, features: average_smoothing(data, features, iterations=1),
-            lambda data, features: average_smoothing_zero(data, features, iterations=1),
-            lambda data, features: weighted_smoothing(data, features, iterations=1),
-            lambda data, features: laplacian_regularization(data, features, lambda_reg=0.01, iterations=1),
-            lambda data, features: feature_aggregation(data, features, alpha=0.5, iterations=1),
-            lambda data, features: heat_kernel_diffusion(data, features, t=0.5),
-            lambda data, features: random_walk_diffusion(data, features, steps=1),
-            lambda data, features: identity(data, features)
+            "average_smoothing",
+            "average_smoothing_zero",
+            "weighted_smoothing",
+            "laplacian_regularization",
+            "feature_aggregation",
+            "heat_kernel_diffusion",
+            "random_walk_diffusion",
+            "identity"
         ]
-        methods[0].__name__ = "average_smoothing"
-        methods[1].__name__ = "average_smoothing_zero"
-        methods[2].__name__ = "weighted_smoothing"
-        methods[3].__name__ = "laplacian_regularization"
-        methods[4].__name__ = "feature_aggregation"
-        methods[5].__name__ = "heat_kernel_diffusion"
-        methods[6].__name__ = "random_walk_diffusion"
-        methods[7].__name__ = "identity"
-
 
         self.model["methods"] = [(0, method) for method in methods]
         
-        for instance in random.sample(self.dataset.instances, k=len(self.dataset.instances)//20):  
+        for instance in random.sample(self.dataset.instances, k=len(self.dataset.instances)//self.proportion):  
             self.logger.info("new instance")
             exp = self.explain(instance=instance)
             self.minimize(exp)
@@ -415,9 +418,8 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         self.model["methods"] = sorted(self.model["methods"], key=lambda x: x[0], reverse=True) 
         mid = (self.model["methods"][0][0] + self.model["methods"][7][0]) // 2
         self.model["methods"] = list(filter(lambda x: x[0] >= mid, self.model["methods"]))
-        
-        for score, method in self.model["methods"]:
-            self.logger.info(f"Score: {score}, Method: {method.__name__}")
+        for i, (score, method) in enumerate(self.model["methods"]):
+            self.logger.info(f"Score: {score}, Method: {method}")
 
         self.logger.info("end train_methods")
    
@@ -509,6 +511,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         for _ in range(20):
             candidate = {
                 'val': 0,
+                'oracle_calls': 0,
                 'params': self.perturb_parameter(base)
             }
             candidates.append(candidate)
@@ -526,10 +529,10 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
                 exp = self.explain(instance=instance)
                 solution = self.minimize(exp)
                 if(self.oracle.predict(instance) != self.oracle.predict(solution)):
-                    ED = get_edge_differences(instance, solution)[0]
-                    candidate['val'] += ED + ED*self.k//self.max_oracle_calls
+                    candidate['val'] += get_edge_differences(instance, solution)[0]
+                    candidate['oracle_calls'] += self.k
         
-        candidates.sort(key=lambda x: x['val'])
+        candidates.sort(key=lambda x: (x['val'], x['oracle_calls']))
         self.logger.info("Conserving:")
         self.logger.info(candidates[:10])
         self.logger.info("Deleting:")
