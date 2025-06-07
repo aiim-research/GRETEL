@@ -33,7 +33,7 @@ class ExplanationMinimizer(Trainable):
 
 
     def real_fit(self):
-        pass
+        super().real_fit()
     
     @abstractmethod
     def minimize(self, instance, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
