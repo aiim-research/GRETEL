@@ -525,6 +525,10 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
 
             sample_instances = random.sample(self.dataset.instances, 
                                          k=len(self.dataset.instances)//self.proportion)
+            
+            for candidate in candidates:
+                candidate['val'] = 0
+                candidate['oracle_calls'] = 0
         
             for instance in sample_instances:
                 for candidate in candidates:
