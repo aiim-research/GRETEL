@@ -508,7 +508,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         
         self.logger.info("Generating candidates")
         candidates = []
-        for _ in range(20):
+        for _ in range(30):
             candidate = {
                 'val': 0,
                 'oracle_calls': 0,
@@ -534,10 +534,10 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         
         candidates.sort(key=lambda x: (x['val'], x['oracle_calls']))
         self.logger.info("Conserving:")
-        self.logger.info(candidates[:10])
+        self.logger.info(candidates[:14])
         self.logger.info("Deleting:")
-        self.logger.info(candidates[10:])
-        best_candidates = candidates[:10]
+        self.logger.info(candidates[14:])
+        best_candidates = candidates[:14]
         random.shuffle(best_candidates)
         
         self.logger.info("Merging best candidates")
@@ -546,10 +546,10 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
             a = best_candidates.pop()
             b = best_candidates.pop()
             merged = self.merge_parameters(a['params'], b['params'])
-            new_candidates.append({'val': 0, 'params': merged})
+            new_candidates.append({'val': 0, 'oracle_calls': 0 ,'params': merged})
             
             mutated = self.perturb_parameter(merged)
-            new_candidates.append({'val': 0, 'params': mutated})
+            new_candidates.append({'val': 0, 'oracle_calls':0, 'params': mutated})
         
         sample_instances = random.sample(self.dataset.instances, 
                                          k=len(self.dataset.instances)//self.proportion)
@@ -565,12 +565,11 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
 
                 if(self.oracle.predict(instance) != self.oracle.predict(solution)):
                     candidate['val'] += get_edge_differences(instance, solution)[0]
-                else:
-                    candidate['val'] += instance.num_edges*100
+                    candidate['oracle_calls'] += self.k
         
         self.logger.info("New candidates:")
         self.logger.info(new_candidates)
-        new_candidates.sort(key=lambda x: x['val'])
+        new_candidates.sort(key=lambda x: (x['val'], x['oracle_calls']))
         best_params = new_candidates[0]['params']
         self.try_parameters(best_params)
 
