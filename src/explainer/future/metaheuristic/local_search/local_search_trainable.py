@@ -508,7 +508,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         
         self.logger.info("Generating candidates")
         candidates = []
-        for _ in range(16):
+        for _ in range(12):
             candidate = {
                 'val': 0,
                 'oracle_calls': 0,
@@ -518,7 +518,8 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         
         epochs = 0
 
-        while epochs < 3:
+        while epochs < 20:
+        
             epochs+=1
             self.logger.info("Epoch: " + str(epochs))
 
@@ -535,27 +536,23 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         
             self.logger.info("Selecting candidates")
             candidates.sort(key=lambda x: (x['val'], x['oracle_calls']))
-            best_candidates = candidates[:8]
-            random.shuffle(best_candidates)
+            best_candidates = candidates[:4]
         
-            new_candidates = []
             self.logger.info("Merging candidates")
-            while best_candidates:
-                a = best_candidates.pop()
-                b = best_candidates.pop()
-                merged = self.merge_parameters(a['params'], b['params'])
-                new_candidates.append({'val': 0, 'oracle_calls': 0 ,'params': merged})
-                
-                mutated = self.perturb_parameter(merged)
-                new_candidates.append({'val': 0, 'oracle_calls':0, 'params': mutated})
+            for a in best_candidates[:4]:
+                for b in best_candidates[:4]:
+                    if a == b:
+                        continue
+                    merged = self.merge_parameters(a['params'], b['params'])
+                    best_candidates.append({'val': 0, 'oracle_calls': 0 ,'params': merged})
+            self.logger.info("Perturbing candidates")
+            mutated = self.perturb_parameter(best_candidates[0]['params'])
+            best_candidates.append({'val': 0, 'oracle_calls':0, 'params': mutated})
 
-                mutated = self.perturb_parameter(a)
-                new_candidates.append({'val': 0, 'oracle_calls':0, 'params': mutated})
-
-                mutated = self.perturb_parameter(b)
-                new_candidates.append({'val': 0, 'oracle_calls':0, 'params': mutated})
+            mutated = self.perturb_parameter(best_candidates[1]['params'])
+            best_candidates.append({'val': 0, 'oracle_calls':0, 'params': mutated})
             
-            candidates = new_candidates
+            candidates = best_candidates
         
         sample_instances = random.sample(self.dataset.instances, 
                                             k=len(self.dataset.instances)//self.proportion)
