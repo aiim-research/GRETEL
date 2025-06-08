@@ -30,7 +30,7 @@
                             "neigh_factor" : 3,
                             "runtime_factor" : 3,
                             "max_runtime" : 20,
-                            "proportion": 25,
+                            "proportion": 40,
                             "max_neigh" : 20,
                             "attributed": true,
                             "starting_amount": 5
