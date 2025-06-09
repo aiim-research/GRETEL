@@ -447,22 +447,22 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
     def perturb_neigh(self, neigh_factor):
         delta = int(round(np.random.normal(0, 5)))
         new_factor = neigh_factor + delta
-        return min(max(1, new_factor), 10)
+        return min(max(1, new_factor), 15)
         
     def perturb_runtime(self, runtime_factor):
         delta = int(round(np.random.normal(0, 5)))
         new_factor = runtime_factor + delta
-        return min(max(1, new_factor), 10)
+        return min(max(1, new_factor), 15)
         
     def perturb_max_runtime(self, max_runtime):
         delta = int(round(np.random.normal(0, 35)))
         new_runtime = max_runtime + delta
-        return min(max(1, new_runtime), 70)
+        return min(max(1, new_runtime), 80)
     
     def perturb_max_neigh(self, max_neigh):
         delta = int(round(np.random.normal(0, 25)))
         new_max_neigh = max_neigh + delta
-        return min(max(1, new_max_neigh), 50)
+        return min(max(1, new_max_neigh), 80)
     
     #def perturb_max_oracle(self, max_oracle_calls):
     #    delta = int(round(np.random.normal(0, 500)))
@@ -508,7 +508,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         
         self.logger.info("Generating candidates")
         candidates = []
-        for _ in range(12):
+        for _ in range(16):
             candidate = {
                 'val': 0,
                 'oracle_calls': 0,
@@ -518,7 +518,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         
         epochs = 0
 
-        while epochs < 20:
+        while epochs < 3:
         
             epochs+=1
             self.logger.info("Epoch: " + str(epochs))
@@ -540,22 +540,30 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         
             self.logger.info("Selecting candidates")
             candidates.sort(key=lambda x: (x['val'], x['oracle_calls']))
-            best_candidates = candidates[:4]
+            candidates = candidates[:8]
+            random.shuffle(candidates)
+            best_candidates = []
         
             self.logger.info("Merging candidates")
-            for i in range(4):
-                for j in range(i+1, 4):
-                    a = best_candidates[i]
-                    b = best_candidates[j]
-                    merged = self.merge_parameters(a['params'], b['params'])
-                    best_candidates.append({'val': 0, 'oracle_calls': 0 ,'params': merged})
-            self.logger.info("Perturbing candidates")
-            mutated = self.perturb_parameter(best_candidates[0]['params'])
-            best_candidates.append({'val': 0, 'oracle_calls':0, 'params': mutated})
+            while candidates:
+                a = candidates.pop()
+                b = candidates.pop()
 
-            mutated = self.perturb_parameter(best_candidates[1]['params'])
-            best_candidates.append({'val': 0, 'oracle_calls':0, 'params': mutated})
-            
+                merged = self.merge_parameters(a['params'], b['params'])
+                best_candidates.append({'val': 0, 'oracle_calls': 0 ,'params': merged})
+
+                mutated = self.perturb_parameter(a['params'])
+                best_candidates.append({'val': 0, 'oracle_calls':0, 'params': mutated})
+
+                mutated = self.perturb_parameter(b['params'])
+                best_candidates.append({'val': 0, 'oracle_calls':0, 'params': mutated})
+
+                mutated = self.perturb_parameter(merged)
+                best_candidates.append({'val': 0, 'oracle_calls': 0 ,'params': mutated})
+
+                best_candidates.append({'val': 0, 'oracle_calls': 0 ,'params': a})
+                best_candidates.append({'val': 0, 'oracle_calls': 0 ,'params': b})
+
             candidates = best_candidates
         
         sample_instances = random.sample(self.dataset.instances, 
