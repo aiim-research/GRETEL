@@ -543,10 +543,10 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
             best_candidates = candidates[:4]
         
             self.logger.info("Merging candidates")
-            for a in best_candidates[:4]:
-                for b in best_candidates[:4]:
-                    if a == b:
-                        continue
+            for i in range(4):
+                for j in range(i+1, 4):
+                    a = best_candidates[i]
+                    b = best_candidates[j]
                     merged = self.merge_parameters(a['params'], b['params'])
                     best_candidates.append({'val': 0, 'oracle_calls': 0 ,'params': merged})
             self.logger.info("Perturbing candidates")
