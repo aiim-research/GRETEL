@@ -508,6 +508,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         
         self.logger.info("Generating candidates")
         candidates = []
+        candidates.append({'val': 0,'oracle_calls': 0,'params': base})
         for _ in range(16):
             candidate = {
                 'val': 0,
@@ -518,7 +519,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         
         epochs = 0
 
-        while epochs < 3:
+        while epochs < 20:
         
             epochs+=1
             self.logger.info("Epoch: " + str(epochs))
@@ -561,8 +562,8 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
                 mutated = self.perturb_parameter(merged)
                 best_candidates.append({'val': 0, 'oracle_calls': 0 ,'params': mutated})
 
-                best_candidates.append({'val': 0, 'oracle_calls': 0 ,'params': a})
-                best_candidates.append({'val': 0, 'oracle_calls': 0 ,'params': b})
+                best_candidates.append({'val': 0, 'oracle_calls': 0 ,'params': a['params']})
+                best_candidates.append({'val': 0, 'oracle_calls': 0 ,'params': b['params']})
 
             candidates = best_candidates
         
