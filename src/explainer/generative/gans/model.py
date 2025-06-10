@@ -39,11 +39,7 @@ class BaseGAN(TorchBase):
                                            local_params['loss_fn']['parameters'])
         
         self.device = (
-            "cuda"
-            if torch.cuda.is_available()
-            else "mps"
-            if torch.backends.mps.is_available()
-            else "cpu"
+            "cpu"
         )        
         self.generator.to(torch.double)
         self.discriminator.to(torch.double)
