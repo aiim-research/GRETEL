@@ -509,12 +509,13 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         self.logger.info("Generating candidates")
         candidates = []
         candidates.append({'val': 0,'oracle_calls': 0,'params': base})
-        for _ in range(16):
+        for _ in range(15):
             candidate = {
                 'val': 0,
                 'oracle_calls': 0,
                 'params': self.perturb_parameter(base)
             }
+            base = candidate['params']
             candidates.append(candidate)
         
         epochs = 0
@@ -559,16 +560,15 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
                 mutated = self.perturb_parameter(b['params'])
                 best_candidates.append({'val': 0, 'oracle_calls':0, 'params': mutated})
 
-                mutated = self.perturb_parameter(merged)
-                best_candidates.append({'val': 0, 'oracle_calls': 0 ,'params': mutated})
-
-                best_candidates.append({'val': 0, 'oracle_calls': 0 ,'params': a['params']})
-                best_candidates.append({'val': 0, 'oracle_calls': 0 ,'params': b['params']})
+                if (a['val'], a['oracle_calls']) <=  (b['val'], b['oracle_calls']):
+                    best_candidates.append({'val': 0, 'oracle_calls': 0 ,'params': a['params']})
+                else:
+                    best_candidates.append({'val': 0, 'oracle_calls': 0 ,'params': b['params']})
 
             candidates = best_candidates
         
         sample_instances = random.sample(self.dataset.instances, 
-                                            k=len(self.dataset.instances)//self.proportion)
+                                            k=len(self.dataset.instances)//5)
             
         for candidate in candidates:
             candidate['val'] = 0
