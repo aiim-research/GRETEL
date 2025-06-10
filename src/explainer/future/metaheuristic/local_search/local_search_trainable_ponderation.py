@@ -519,8 +519,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         
         epochs = 0
 
-        while epochs < 5:
-        
+        while epochs < 20:
             epochs+=1
             self.logger.info("Epoch: " + str(epochs))
 
@@ -568,7 +567,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
             candidates = best_candidates
         
         sample_instances = random.sample(self.dataset.instances, 
-                                            k=len(self.dataset.instances)//30)
+                                            k=len(self.dataset.instances)//10)
             
         for candidate in candidates:
             candidate['val'] = 0
