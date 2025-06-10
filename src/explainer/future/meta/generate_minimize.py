@@ -1,3 +1,5 @@
+import time
+
 from src.core.explainer_base import Explainer
 from src.core.factory_base import get_class, get_instance_kvargs
 from src.core.trainable_base import Trainable
@@ -50,9 +52,14 @@ class GenerateMinimize(Explainer):
         initial_label = self.oracle.predict(instance)
         
         # Using the generator to obtain an initial explanation
+        start_time = time.time()
         initial_explanation = self.explanation_generator.explain(instance)
         
         initial_cf  = initial_explanation.counterfactual_instances[0]
+        # initial_cf  = initial_explanation.counterfactual_instances[0]
+        generator_runtime = time.time() - start_time # Getting the runtime of the generator
+        initial_explanation._info['runtime'] = generator_runtime # Writing the runtime in the explanation
+        initial_explanation._info['oracle_calls'] = self.oracle.get_calls_count() # Getting the number of oracle calls
 
         # Getting the predicted label of the initial explanation
         initial_cf_label = self.oracle.predict(initial_cf)
@@ -78,6 +85,8 @@ class GenerateMinimize(Explainer):
                                                                     explainer=self,
                                                                     input_instance=instance,
                                                                     counterfactual_instances=[minimum_cf])
+        
+        minimal_explanation._info['generator_explanation'] = initial_explanation
         
         return minimal_explanation
     
