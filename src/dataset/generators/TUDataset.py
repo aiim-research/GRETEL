@@ -44,7 +44,7 @@ class TUDataset(Generator):
             self.populate()
 
     def populate(self):
-       data = torch.load(self.read_file)
+       data = torch.load(self.read_file, weights_only=False)
 
        features_map = {f'attribute_{i}': i for i in range(data[0].x.size(1))}
        self.dataset.node_features_map = features_map

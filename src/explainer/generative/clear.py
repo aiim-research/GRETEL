@@ -39,7 +39,7 @@ class CLEARExplainer(Trainable, Explainer):
         self.beta_adj = self.local_config['parameters']['beta_adj']
         self.n_nodes = self.local_config['parameters']['n_nodes']
 
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.device = 'cpu'
 
         self.model = CLEAR(feature_dim=self.feature_dim,
                            graph_pool_type=self.graph_pool_type,
@@ -83,7 +83,7 @@ class CLEARExplainer(Trainable, Explainer):
             
             cf_instance = GraphInstance(id=instance.id,
                                         label=instance.label,
-                                        data=adj_reconst_binary.to("cpu").detach().numpy(),
+                                        data=adj_reconst_binary.to("").detach().numpy(),
                                         node_features=features_reconst.squeeze().to("cpu").detach().numpy())
             
             return cf_instance
@@ -234,7 +234,7 @@ class CLEAR(nn.Module):
                  encoder_type='gcn',
                  graph_pool_type='mean',
                  disable_u=False,
-                 device='cuda'
+                 device='cpu'
                 ):
         super(CLEAR, self).__init__()
         

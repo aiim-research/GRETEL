@@ -237,7 +237,7 @@ class MEGAgent:
         self.num_output = num_output
         self.replay_buffer_size = replay_buffer_size
 
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = "cpu"
 
         self.dqn, self.target_dqn = (
             DQN(self.context, num_input, num_output).to(self.device),

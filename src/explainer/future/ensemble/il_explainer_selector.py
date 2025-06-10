@@ -115,11 +115,7 @@ class InstanceLearningExplainerSelector(ExplainerSelector):
         self.lr_scheduler =  lr_scheduler.LinearLR(self.optimizer, start_factor=1.0, end_factor=0.5, total_iters=self.epochs)
 
         self.device = (
-            "cuda"
-            if torch.cuda.is_available()
-            else "mps"
-            if torch.backends.mps.is_available()
-            else "cpu"
+            "cpu"
         )
 
         self.model.to(self.device) 

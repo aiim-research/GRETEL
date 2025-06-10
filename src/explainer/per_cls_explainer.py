@@ -14,11 +14,7 @@ class PerClassExplainer(Trainable, Explainer):
                     {'context':self.context,'local_config':model}) for model in self.local_config['parameters']['models']]
         
         self.device = (
-            "cuda"
-            if torch.cuda.is_available()
-            else "mps"
-            if torch.backends.mps.is_available()
-            else "cpu"
+            "cpu"
     )
         
     def real_fit(self):
