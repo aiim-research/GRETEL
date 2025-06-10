@@ -6,10 +6,18 @@ from src.dataset.generators.base import Generator
 from src.dataset.instances.graph import GraphInstance
 
 from torch_geometric.datasets import TUDataset as downloader
+import torch_geometric.datasets.tu_dataset as tu
+from torch_geometric.data import Data
+try:
+    from torch_geometric.data import DataEdgeAttr
+    torch.serialization.add_safe_globals([tu.TUDataset, Data, DataEdgeAttr])
+except ImportError:
+    torch.serialization.add_safe_globals([tu.TUDataset, Data])
 
 class TUDataset(Generator):
 
     def prepare_data(self):
+
         base_path = join(self.context.working_store_path,self.dataset_name)
         self.context.logger.info("Dataset Data Path:\t" + base_path)
 
@@ -24,6 +32,7 @@ class TUDataset(Generator):
        
     
     def init(self):
+        
         self.dataset_name = self.local_config['parameters']['alias']
         base_path = self.prepare_data()
         # read the dataset and process it
