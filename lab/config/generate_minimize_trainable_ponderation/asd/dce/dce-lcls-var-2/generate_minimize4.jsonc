@@ -1,0 +1,49 @@
+{  
+    "experiment" : {
+        "scope": "lcls-var-2",
+        "parameters" : {
+            "lock_release_tout":120,
+            "propagate":[
+                {"in_sections" : ["doe-triplets/explainer"],"params" : {"fold_id": 4}},
+                {"in_sections" : ["doe-triplets/oracle"],"params" : {"fold_id": -1,"retrain":false}},
+                {"in_sections": ["doe-triplets/dataset"],"params": { "compose_man" : "lab/config/snippets/datasets/padding.json" }}
+            ],
+            "expand" : {  "folds" : ["doe-triplets/explainer"], "triplets" : true }
+        }
+    },
+    "doe-triplets":[
+        {
+            "compose_do": "./lab/config/snippets/do-pairs/ASD_ASD-Custom.json",
+            "explainer": { 
+                "class": "src.explainer.future.meta.generate_minimize.GenerateMinimize",
+                "parameters":{
+                    "fold_id": 1,
+                    "generator": { 
+                        "class": "src.explainer.future.search.dces.DCESExplainer",
+                        "parameters":{
+                            "epochs": 500
+                        }
+                    },
+                    "minimizer": {
+                        "class": "src.explainer.future.metaheuristic.local_search.local_search_var_2.LocalSearch",
+                        "parameters": {
+                            "neigh_factor" : 4,
+                            "runtime_factor" : 4,
+                            "max_runtime" : 20,
+                            "proportion": 25,
+                            "max_neigh" : 20,
+                            "attributed": true
+                        }
+                    }
+                }
+            }
+        }
+    ],
+    "evaluator": {
+        "class": "src.evaluation.future.evaluator.Evaluator",
+        "parameters": {
+            "compose_pip": "./lab/config/snippets/minimizing_pipeline.json"
+        }
+    },
+    "compose_strs" : "./lab/config/snippets/default_store_paths.json"
+}

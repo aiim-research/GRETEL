@@ -508,7 +508,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         
         self.logger.info("Generating candidates")
         candidates = []
-        for _ in range(20):
+        for _ in range(12):
             candidate = {
                 'val': 0,
                 'oracle_calls': 0,
@@ -516,62 +516,67 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
             }
             candidates.append(candidate)
         
-        sample_instances = random.sample(self.dataset.instances, 
+        epochs = 0
+
+        while epochs < 20:
+        
+            epochs+=1
+            self.logger.info("Epoch: " + str(epochs))
+
+            sample_instances = random.sample(self.dataset.instances, 
                                          k=len(self.dataset.instances)//self.proportion)
-        
-        self.logger.info(candidates)
-        
-        for instance in sample_instances:
-            self.logger.info("new instance")
+            
             for candidate in candidates:
-                self.logger.info("new candidate")
-                self.try_parameters(candidate['params'])
-                exp = self.explain(instance=instance)
-                solution = self.minimize(exp)
-                if(self.oracle.predict(instance) != self.oracle.predict(solution)):
+                candidate['val'] = 0
+                candidate['oracle_calls'] = 0
+        
+            for instance in sample_instances:
+                for candidate in candidates:
+                    self.try_parameters(candidate['params'])
+                    exp = self.explain(instance=instance)
+                    solution = self.minimize(exp)
                     candidate['val'] += get_edge_differences(instance, solution)[0]
                     candidate['oracle_calls'] += self.k
         
-        candidates.sort(key=lambda x: (x['val'], x['oracle_calls']))
-        self.logger.info("Conserving:")
-        self.logger.info(candidates[:10])
-        self.logger.info("Deleting:")
-        self.logger.info(candidates[10:])
-        best_candidates = candidates[:10]
-        random.shuffle(best_candidates)
+            self.logger.info("Selecting candidates")
+            candidates.sort(key=lambda x: (x['val'], x['oracle_calls']))
+            best_candidates = candidates[:4]
         
-        self.logger.info("Merging best candidates")
-        new_candidates = []
-        while best_candidates:
-            a = best_candidates.pop()
-            b = best_candidates.pop()
-            merged = self.merge_parameters(a['params'], b['params'])
-            new_candidates.append({'val': 0, 'params': merged})
+            self.logger.info("Merging candidates")
+            for i in range(4):
+                for j in range(i+1, 4):
+                    a = best_candidates[i]
+                    b = best_candidates[j]
+                    merged = self.merge_parameters(a['params'], b['params'])
+                    best_candidates.append({'val': 0, 'oracle_calls': 0 ,'params': merged})
+            self.logger.info("Perturbing candidates")
+            mutated = self.perturb_parameter(best_candidates[0]['params'])
+            best_candidates.append({'val': 0, 'oracle_calls':0, 'params': mutated})
+
+            mutated = self.perturb_parameter(best_candidates[1]['params'])
+            best_candidates.append({'val': 0, 'oracle_calls':0, 'params': mutated})
             
-            mutated = self.perturb_parameter(merged)
-            new_candidates.append({'val': 0, 'params': mutated})
+            candidates = best_candidates
         
         sample_instances = random.sample(self.dataset.instances, 
-                                         k=len(self.dataset.instances)//self.proportion)
+                                            k=len(self.dataset.instances)//self.proportion)
+            
+        for candidate in candidates:
+            candidate['val'] = 0
+            candidate['oracle_calls'] = 0
         
-        self.logger.info("Final selection of the best candidate")
         for instance in sample_instances:
-            self.logger.info("new instance")
-            for candidate in new_candidates:
-                self.logger.info("new candidate")
+            for candidate in candidates:
                 self.try_parameters(candidate['params'])
                 exp = self.explain(instance=instance)
                 solution = self.minimize(exp)
-
-                if(self.oracle.predict(instance) != self.oracle.predict(solution)):
-                    candidate['val'] += get_edge_differences(instance, solution)[0]
-                else:
-                    candidate['val'] += instance.num_edges*100
+              
+                candidate['val'] += get_edge_differences(instance, solution)[0]
+                candidate['oracle_calls'] += self.k
         
-        self.logger.info("New candidates:")
-        self.logger.info(new_candidates)
-        new_candidates.sort(key=lambda x: x['val'])
-        best_params = new_candidates[0]['params']
+        self.logger.info("Final selecting")
+        candidates.sort(key=lambda x: (x['val'], x['oracle_calls']))
+        best_params = candidates[0]['params']
         self.try_parameters(best_params)
 
         self.logger.info("Parameters:")
