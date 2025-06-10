@@ -6,13 +6,6 @@ from src.dataset.generators.base import Generator
 from src.dataset.instances.graph import GraphInstance
 
 from torch_geometric.datasets import TUDataset as downloader
-import torch_geometric.datasets.tu_dataset as tu
-from torch_geometric.data import Data
-try:
-    from torch_geometric.data import DataEdgeAttr
-    torch.serialization.add_safe_globals([tu.TUDataset, Data, DataEdgeAttr])
-except ImportError:
-    torch.serialization.add_safe_globals([tu.TUDataset, Data])
 
 class TUDataset(Generator):
 
