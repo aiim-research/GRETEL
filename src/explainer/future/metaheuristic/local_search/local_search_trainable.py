@@ -410,7 +410,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
 
         self.model["methods"] = [(0, method) for method in methods]
         
-        for instance in random.sample(self.dataset.instances, k=len(self.dataset.instances)//self.proportion):  
+        for instance in random.sample(self.dataset.instances, k=len(self.dataset.instances)):  
             self.logger.info("new instance")
             exp = self.explain(instance=instance)
             self.minimize(exp)
