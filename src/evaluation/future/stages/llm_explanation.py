@@ -20,26 +20,13 @@ class LLMexplanation(Stage):
 
     def init(self):
         super().init()
-        if not hasattr(self.context, 'llm'):
-            self.gemini = LocalLlamaExplainer()
-            self.context.llm = self.gemini
-        else:
-            self.gemini = getattr(self.context, 'llm', None)
-
-        if not hasattr(self.context, 'llm'):
-            self.logger("ISSUE")
         
-        
-    
 
     def process(self, explanation: Explanation) -> Explanation:
         # Get the input instance from the explanation and get its label
         input_inst = explanation.input_instance
         input_inst_lbl = explanation.oracle.predict(input_inst)
         explanation.oracle._call_counter -= 1
-
-
-
 
         i = 0
         explanations = {'direct_explanation':[], 'inverse_explanation':[], 'graph_text': [], 'modifications_text': []}
@@ -57,13 +44,13 @@ class LLMexplanation(Stage):
             prompt = prompt_generator.generate_prompt()
             prompt_generator.export_prompt(f"./lab/llm_explanations/prompt_{explanation.dataset.name}_{input_inst.id}_{i}.txt")
 
-            response = self.gemini.explain_counterfactual(prompt= prompt)
-            self.gemini.export_explanation(response, file = f"./lab/llm_explanations/explanation_{explanation.dataset.name}_{input_inst.id}_{i}.txt")
+            response = explanation.context.llm.explain_counterfactual(prompt= prompt)
+            explanation.context.llm.export_explanation(response, file = f"./lab/llm_explanations/explanation_{explanation.dataset.name}_{input_inst.id}_{i}.txt")
 
             prompt_generator2 = PromptGenerator(counterfactual_feature, graph_feature, explanation.dataset.domain)
             prompt2 = prompt_generator2.generate_prompt()
 
-            response2 = self.gemini.explain_counterfactual(prompt= prompt2)
+            response2 = explanation.context.llm.explain_counterfactual(prompt= prompt2)
 
 
             explanations['direct_explanation'].append(response)

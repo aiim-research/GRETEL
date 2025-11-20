@@ -3,65 +3,42 @@ from google import genai
 import os
 import time
 import random as rd
+from src.core.llm_base import LLM
 from transformers import AutoTokenizer, AutoModelForCausalLM #, BitsAndBytesConfig
 import torch
 
 from src.utils.logger import GLogger
 
 
-class LLMExplainer:
-    def __init__(self, api_key, model):
-        self.api_key = api_key
-        self.model = model
+class GeminiExplainer(LLM):
+
+    def init(self):
+        self.api_key= "AIzaSyCIOT_W5yg0s-Yan1A1StnHRftEl4OI4jk"
+        self.model = "gemini-2.5-pro"
+        self.client = genai.Client(api_key = self.api_key)
 
     def explain_counterfactual(self, prompt):
-        pass
-
-    def export_explanation(self, explanation = None, prompt = None, file = "explanation.txt"):
-        if explanation == None:
-            explanation = self.explain_counterfactual(prompt)
-        
-        with open(file, "w", encoding="utf-8") as f:
-            f.write(explanation)          # sobrescribe si existe
-    
-
-
-
-class GeminiExplainer(LLMExplainer):
-
-    def __init__(self):
-        api_key= "AIzaSyCIOT_W5yg0s-Yan1A1StnHRftEl4OI4jk"
-        model = "gemini-2.5-pro"
-        super().__init__(api_key, model)
-
-    def explain_counterfactual(self, prompt):
-
-        # time.sleep(seconds) # wait for 60 seconds before retrying
-        client = genai.Client()
 
         num_tries = 0
-        # while num_tries < 30:
-        try:
-            resp = client.models.generate_content(
-                model=self.model,
-                contents=prompt
-            )
-            
-            return resp.text
-        except Exception as e:
-            num_tries += 1
-            # time.sleep(60) # wait for 60 seconds before retrying
-            
-        # raise Exception("Failed to get response from the model after multiple attempts.")
+        while num_tries < 30:
+            try:
+                resp = self.client.models.generate_content(
+                    model=self.model,
+                    contents=prompt
+                )
+                
+                return resp.text
+            except Exception as e:
+                num_tries += 1
+                time.sleep(60) # wait for 60 seconds before retrying
+                
+        raise Exception("Failed to get response from the model after multiple attempts.")
     
 
-  
-class LocalLlamaExplainer(LLMExplainer):
+class LocalLlamaExplainer(LLM):
 
-    def __init__(self):
+    def init(self):
         self.repo_id =  "meta-llama/Llama-3.2-1B" # "Qwen/Qwen3-0.6B" "meta-llama/Llama-3.1-8B" "meta-llama/Llama-3.2-1B"
-        self.path = os.path.abspath(os.path.join('..', ''))
-        super().__init__(None, self.repo_id)
 
         '''bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
