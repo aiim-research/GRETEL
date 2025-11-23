@@ -1,13 +1,13 @@
 import copy
 import math
 import random
-import sys
 import numpy as np
 from src.core.explainer_base import Explainer
 from src.dataset.instances.base import DataInstance
 from src.dataset.instances.graph import GraphInstance
 from src.explainer.future.meta.minimizer.base import ExplanationMinimizer
 from src.explainer.future.metaheuristic.Tagging.ann import ANNIndexWeighted
+from src.explainer.future.metaheuristic.Tagging.simple_tagger import SimpleTagger
 from src.explainer.future.metaheuristic.Tagging.vectors_builder import VectorsBuilder
 from typing import Generator
 
@@ -56,7 +56,7 @@ class LocalSearch(ExplanationMinimizer):
         self.attributed = self.local_config['parameters']['attributed']
         self.max_oracle_calls = self.local_config['parameters']['max_oracle_calls']
 
-
+        self.tagger = SimpleTagger()
 
         self.searcher = SimpleSearcher()
         
@@ -204,7 +204,7 @@ class LocalSearch(ExplanationMinimizer):
                 expand = len(actual) + min(to_expand, random.randint(1, to_expand * 4))
                 # self.logger.info("expand: " + str(expand) + ", best: " + str(len(best)))
                 if(expand > len(best)): break
-                actual, _, _ = self.reduce_random(best, reduce)
+                actual = self.reduce_random(best, expand)
                 self.logger.info("actual +++> " + str(len(actual)))
           
         if(self.oracle.predict(result) == self.oracle.predict(self.G)):

@@ -132,7 +132,6 @@ class ANNIndexWeighted:
         self,
         S: set[int],
         top_k: int,
-        rng: np.random.Generator | None = None,
     ) -> tuple[set[int], set[int]]:
         """
         For each s in S, retrieve its neighbors in the weighted-cosine space,
@@ -144,8 +143,8 @@ class ANNIndexWeighted:
         Returns:
             (full_solution_indices, added_indices) as sets of 0-based dataset indices.
         """
-        if rng is None:
-            rng = np.random.default_rng()
+        # if rng is None:
+        rng = np.random.default_rng()
 
         if top_k <= 0 or not S:
             return set(S), set()
@@ -188,7 +187,7 @@ class ANNIndexWeighted:
 
     def neighbors_of_centroid(
         self,
-        S: list[int],
+        S: set[int],
         top_k: int,
     ) -> tuple[set[int], set[int]]:
         """
@@ -196,7 +195,7 @@ class ANNIndexWeighted:
         Returns (full_solution_indices, added_indices) as sets of 0-based dataset indices.
         """
         # Work in arrays, but avoid Python lists
-        S_arr = np.asarray(S, dtype=np.int32)
+        S_arr = np.fromiter((int(i) for i in S), dtype=np.int32, count=len(S))
 
         top_k_per_query = min(self.N, top_k + S_arr.size)
 
@@ -231,7 +230,6 @@ class ANNIndexWeighted:
         S: set[int],                        # set of 0-based dataset indices
         remove_k: int,                      # how many to drop
         temperature: float = 0.3,           # lower = greedier, 0 -> deterministic farthest
-        rng: np.random.Generator | None = None,
     ) -> tuple[set[int], set[int]]:
         """
         Stochastically remove `remove_k` elements from S, biased toward those farthest
@@ -244,7 +242,7 @@ class ANNIndexWeighted:
             (kept_indices, removed_indices) as sets of dataset indices.
         """
         # Stable ordering for reproducibility / deterministic tie-breaking
-        S_arr = np.fromiter(sorted(S), dtype=np.int32)
+        S_arr = np.fromiter((int(i) for i in S), dtype=np.int32, count=len(S))
 
         n = S_arr.size
         if remove_k <= 0 or n == 0:
@@ -252,8 +250,7 @@ class ANNIndexWeighted:
         if remove_k >= n:
             return set(), set(S_arr.tolist())
 
-        if rng is None:
-            rng = np.random.default_rng()
+        rng = np.random.default_rng()
 
         # Weighted + normalized reps of S
         Xs = self._normalize(self._weighted(self.X_raw[S_arr]))
@@ -317,7 +314,7 @@ class ANNIndexWeighted:
         self.index.init_index(
             max_elements=self.N,
             ef_construction=self.ef_construction,
-            M=self.M,
+            M=16,
             random_seed=(self.seed if self.seed is not None else 100),
         )
         labels = np.arange(self.N, dtype=np.int32)
