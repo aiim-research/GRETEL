@@ -14,14 +14,20 @@ class ANNIndexWeighted:
         ef_construction: int = 100,
         ef: int = 100,
         initial_weight: float = 0.5,   # start all dims at 0.5
-        seed: Optional[int] = None
+        seed: Optional[int] = None,
+        weights: Optional[np.ndarray] = None
     ):
         assert X.ndim == 2, "X must be (N,K)"
         self.X_raw = X.astype(np.float32, copy=True)
         self.N, self.K = self.X_raw.shape   # pairs of nodes, each with K-dim vector
-
-        # weights in [0,1], start at 0.5
-        self.w = np.full(self.K, float(initial_weight), dtype=np.float32)
+        
+        if(weights is not None):
+            assert weights.shape == (self.K,), "weights must have shape (K,)"
+            print("inherited weights: ", np.round(weights, 2))
+            self.w = weights.astype(np.float32)
+        else:
+            # weights in [0,1], start at 0.5
+            self.w = np.full(self.K, float(initial_weight), dtype=np.float32)
         self.ef_construction = ef_construction
         self.ef = ef
         self.seed = seed
@@ -195,7 +201,7 @@ class ANNIndexWeighted:
         Returns (full_solution_indices, added_indices) as sets of 0-based dataset indices.
         """
         # Work in arrays, but avoid Python lists
-        S_arr = np.fromiter((int(i) for i in S), dtype=np.int32, count=len(S))
+        S_arr = np.fromiter(S, dtype=np.int32, count=len(S))
 
         top_k_per_query = min(self.N, top_k + S_arr.size)
 
@@ -242,7 +248,7 @@ class ANNIndexWeighted:
             (kept_indices, removed_indices) as sets of dataset indices.
         """
         # Stable ordering for reproducibility / deterministic tie-breaking
-        S_arr = np.fromiter((int(i) for i in S), dtype=np.int32, count=len(S))
+        S_arr = np.fromiter(S, dtype=np.int32, count=len(S))
 
         n = S_arr.size
         if remove_k <= 0 or n == 0:

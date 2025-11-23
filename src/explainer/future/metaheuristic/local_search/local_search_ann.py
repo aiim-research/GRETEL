@@ -55,6 +55,7 @@ class LocalSearch(ExplanationMinimizer):
         self.max_neigh = self.local_config['parameters']['max_neigh']
         self.attributed = self.local_config['parameters']['attributed']
         self.max_oracle_calls = self.local_config['parameters']['max_oracle_calls']
+        
 
         self.tagger = SimpleTagger()
 
@@ -75,6 +76,8 @@ class LocalSearch(ExplanationMinimizer):
 
     def minimize(self, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
         print("-------------")
+        
+            
         instance = explaination.input_instance
         self.G = instance
         self.N = instance.num_nodes
@@ -115,8 +118,44 @@ class LocalSearch(ExplanationMinimizer):
 
         result = min_ctf
         
-        builder = VectorsBuilder(["degree"], self.G.data)
-        self.indexer = ANNIndexWeighted(builder.X)
+        metrics = [
+            # centralities you already had
+            "degree",
+            "closeness",
+            "eigenvector",
+            "betweenness",
+            "katz",
+            "pagerank",
+
+            # very cheap node-level stuff
+            "component_id",         # connected components / component ID
+            "eccentricity",         # approximate eccentricity
+            "coreness",             # k-core / coreness
+            "local_efficiency",     # ego-network efficiency
+
+            # pairwise structural flags/buckets
+            "same_component_flag",  # same-component flag for pairs
+            "core_periphery",       # core–core / core–periphery buckets
+
+            # cheap–moderate local structure
+            "local_clustering",     # local clustering coefficient
+            "triangle_count",       # triangle counts per node
+
+            # pairwise similarity indices
+            "common_neighbors",
+            "jaccard",
+            "adamic_adar",
+            "resource_allocation",
+        ]
+
+        builder = VectorsBuilder(metrics, self.G.data)
+        
+        try:
+            weights = self.local_config['weights']
+        except KeyError:
+            weights = None
+
+        self.indexer = ANNIndexWeighted(builder.X, weights=weights)
 
         n = min(self.max_runtime, self.runtime_factor * len(actual))
         self.k = 0
@@ -152,7 +191,7 @@ class LocalSearch(ExplanationMinimizer):
             
             half = int(len(actual) / 2)
             reduce = min(half, random.randint(1, half * 4))
-            actual, _, _ = self.reduce_random(best, reduce)
+            actual = self.reduce_random(best, reduce)
             self.logger.info("actual ---> " + str(len(actual)))
             
             while(len(best) - len(actual) > 1):
@@ -177,7 +216,7 @@ class LocalSearch(ExplanationMinimizer):
                     self.logger.info("============> (=) Found solution with size: " + str(len(actual)))
                     break
 
-                actual, _, _ = self.reduce_random(best, reduce)
+                actual = self.reduce_random(best, len(actual))
                 self.logger.info("actual ===> " + str(len(actual)))
                 
                 for s, _, added in self.edge_add(actual, best):
@@ -211,6 +250,8 @@ class LocalSearch(ExplanationMinimizer):
             self.logger.info("ERROR, returning non ctf ")
             self.logger.info("instance -> " + str(self.oracle.predict(self.G)))
             self.logger.info("result -> " + str(self.oracle.predict(result)))
+            
+        self.local_config["weights"] = self.indexer.w
         return result
     
     def evaluate(self, solution : set[int]) -> tuple[bool, GraphInstance]:
@@ -253,13 +294,13 @@ class LocalSearch(ExplanationMinimizer):
 
 
     
-    def reduce_random(self, solution : set[int], i: int) -> tuple[set[int], set[int], set[int]]:
+    def reduce_random(self, solution : set[int], i: int) -> set[int]:
         if len(solution) < i:
             raise ValueError("The set does not have enough elements.")
         
-        new_s, removed = self.indexer.prune_farthest_in_S(solution, i)
+        selected_elements = set(random.sample(solution, i))
         
-        return [new_s, removed, []]
+        return selected_elements
 
 
     # returns (new solution, removed edges, added edges)
