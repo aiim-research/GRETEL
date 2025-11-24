@@ -1,5 +1,5 @@
 import os
-os.environ["OMP_NUM_THREADS"] = os.environ["SLURM_CPUS_PER_TASK"] # export OMP_NUM_THREADS=1
+os.environ["OMP_NUM_THREADS"] = "16" # export OMP_NUM_THREADS=1
 os.environ["OPENBLAS_NUM_THREADS"] = "4" # export OPENBLAS_NUM_THREADS=1 
 os.environ["MKL_NUM_THREADS"] = "4" # export MKL_NUM_THREADS=1
 os.environ["VECLIB_MAXIMUM_THREADS"] = "4" # export VECLIB_MAXIMUM_THREADS=1

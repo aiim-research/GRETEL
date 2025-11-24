@@ -6,6 +6,7 @@ from src.explainer.explainer_factory import ExplainerFactory
 from src.oracle.embedder_factory import EmbedderFactory
 from src.oracle.oracle_factory import OracleFactory
 from src.utils.context import Context
+from src.LLMexplaneability.llm_factory import LLMFactory
 from src.evaluation.future.evaluator_factory import EvaluatorFactory
 
 
@@ -23,6 +24,7 @@ class EvaluatorManager:
         self.context.factories['oracles'] = OracleFactory(context)
         self.context.factories['explainers'] = ExplainerFactory(context)
         self.context.factories['evaluators'] = EvaluatorFactory(context)
+        self.context.factories['llms'] = LLMFactory(context)
         # self.context.factories['metrics'] = EvaluationMetricFactory(context.conf)
 
         self._create_evaluators()
@@ -51,6 +53,7 @@ class EvaluatorManager:
             dataset.domain = triplet_snippet['domain'] if 'domain' in triplet_snippet.keys() else "DOMAIN: UNKNOWN\n\n"
             oracle = self.context.factories['oracles'].get_oracle(triplet_snippet['oracle'], dataset)
             explainer = self.context.factories['explainers'].get_explainer(triplet_snippet['explainer'], dataset, oracle)
+            llm = self.context.factories['llms'].get_llm(triplet_snippet['llm']) if 'llm' in triplet_snippet.keys() else None
             evaluator = self.context.factories['evaluators'].get_evaluator(evaluator_snippet=evaluator_conf, 
                                                                            dataset=dataset, 
                                                                            oracle=oracle,
@@ -58,6 +61,7 @@ class EvaluatorManager:
                                                                            scope=experiment_scope,
                                                                            results_store_path=self._output_store_path,
                                                                            run_number=self.context.run_number)
+            evaluator.context.llm = llm
 
             self._evaluators.append(evaluator)
 

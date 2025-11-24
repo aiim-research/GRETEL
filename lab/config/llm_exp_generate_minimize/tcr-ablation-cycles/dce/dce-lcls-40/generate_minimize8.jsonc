@@ -13,7 +13,7 @@
     },
     "doe-triplets":[
         {
-            "compose_do": "./lab/config/snippets/do-pairs/ablation-TCR-300-256-0.40_TCO.json",
+            "compose_do": "./lab/config/snippets/do-pairs/ablation-TCR-100-64-0.40_TCO.json",
             "compose_dataset_info": "./lab/config/snippets/dataset_infos/tcr-ablation-cycles.json",
             "explainer": { 
                 "class": "src.explainer.future.meta.generate_minimize.GenerateMinimize",
@@ -35,13 +35,16 @@
                         }
                     }
                 }
-            }
-        }
+            },
+            "llm": {
+                "class": "src.LLMexplaneability.llm_explainer.GeminiExplainer",
+                "parameters": {}
+            }        }
     ],
     "evaluator": {
         "class": "src.evaluation.future.evaluator.Evaluator",
         "parameters": {
-            "compose_pip": "./lab/config/snippets/minimizing_llm_pipeline.json"son"son"son"
+            "compose_pip": "./lab/config/snippets/minimizing_llm_pipeline.json"
         }
     },
     "compose_strs" : "./lab/config/snippets/default_store_paths.json"

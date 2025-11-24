@@ -17,6 +17,15 @@ class LLMexplanationFlipRate(MetricStage):
 
     def init(self):
         super().init()
+        # if not hasattr(self.context, 'llm'):
+        #     explanation.context.llm = LocalLlamaExplainer()
+        #     self.context.llm = explanation.context.llm
+        # else:
+        #     explanation.context.llm = getattr(self.context, 'llm', None)
+
+        # if not hasattr(self.context, 'llm'):
+        #     self.logger("ISSUE")
+
 
     def process(self, explanation: Explanation) -> Explanation:
         # Get the input instance from the explanation and get its label
@@ -26,7 +35,6 @@ class LLMexplanationFlipRate(MetricStage):
 
 
 
-        gemini = LocalLlamaExplainer()
         flipped = 0
 
         if(explanation.stages_info.get('src.evaluation.future.stages.llm_explanation.LLMexplanation', False)):
@@ -37,7 +45,7 @@ class LLMexplanationFlipRate(MetricStage):
                 prompt2 = flipRate.flip_rate_prompt()
 
 
-                response2 = gemini.explain_counterfactual(prompt= prompt2)
+                response2 = explanation.context.llm.explain_counterfactual(prompt= prompt2)
                 flip_modifications = flipRate.parse_proposals(response2)
 
                 new_graph = flipRate.edit_graph(input_inst, flip_modifications)
