@@ -49,7 +49,6 @@ class VectorsBuilder:
             self.fill_dimension_katz_centrality(dim=dim, **kwargs)
         elif m in {"pagerank", "page_rank"}:
             self.fill_dimension_pagerank(dim=dim, **kwargs)
-        # ---- new metrics ----
         elif m in {"component", "components", "component_id", "connected_components"}:
             self.fill_dimension_component_id(dim=dim, **kwargs)
         elif m in {"eccentricity", "ecc"}:
@@ -78,15 +77,12 @@ class VectorsBuilder:
             raise ValueError(f"Unknown metric: {metric}")
 
 
-    # -------- centralities: implementers just produce node scores --------
-
     def fill_dimension_degree_centrality(
         self,
         dim: int,
         aggregator: Aggregator = "sum",
         normalized: bool = True,
     ) -> None:
-        # degree centrality = degree / (n-1) if normalized else degree
         deg = self.Matrix.sum(axis=1)
         scores = (deg / (self.n - 1)) if normalized else deg
         self._fill_from_scores(dim, scores.astype(np.float32), aggregator)
@@ -102,16 +98,12 @@ class VectorsBuilder:
             cc = nx.closeness_centrality(G, wf_improved=wf_improved)
             scores = np.array([cc[i] for i in range(self.n)], dtype=np.float32)
         else:
-            # Unweighted closeness via BFS all-pairs shortest paths
             dist = self._all_pairs_shortest_path_lengths_unweighted()
             with np.errstate(divide="ignore", invalid="ignore"):
-                # sum of distances to reachable nodes
                 reachable = np.isfinite(dist)
                 s = (dist * reachable).sum(axis=1)
-                r = reachable.sum(axis=1)  # includes self
-                # classic closeness with Wasserman-Faust improvement (if desired)
+                r = reachable.sum(axis=1)
                 if wf_improved:
-                    # r-1 excludes self
                     scores = np.where(s > 0, (r - 1) / s * (r - 1) / (self.n - 1), 0.0)
                 else:
                     scores = np.where(s > 0, (r - 1) / s, 0.0)
@@ -126,20 +118,18 @@ class VectorsBuilder:
         max_iter: int = 1000,
         tol: float = 1e-6,
     ) -> None:
-        # Power iteration on symmetric adjacency (handles weighted)
         A = self.Matrix
         x = np.ones(self.n, dtype=np.float64) / np.sqrt(self.n)
         for _ in range(max_iter):
             x_new = A @ x
             norm = np.linalg.norm(x_new)
-            if norm == 0.0:  # empty graph
+            if norm == 0.0:
                 break
             x_new /= norm
             if np.linalg.norm(x_new - x) < tol:
                 x = x_new
                 break
             x = x_new
-        # Make nonnegative (can flip sign arbitrarily)
         if x.mean() < 0:
             x = -x
         scores = (x / x.max()) if x.max() > 0 else x
@@ -171,9 +161,7 @@ class VectorsBuilder:
         if nx is None:
             raise ImportError("katz_centrality requires networkx")
         G = self._to_nx_graph()
-        # If alpha not provided, pick a safe value: < 1/lambda_max
         if alpha is None:
-            # quick spectral radius estimate via power iteration
             A = self.Matrix.astype(np.float64)
             x = np.ones(self.n) / np.sqrt(self.n)
             for _ in range(100):
@@ -181,7 +169,7 @@ class VectorsBuilder:
                 nrm = np.linalg.norm(x)
                 if nrm == 0: break
                 x /= nrm
-            lam = np.linalg.norm(A @ x)  # Rayleigh estimate
+            lam = np.linalg.norm(A @ x)
             alpha = 0.85 / (lam + 1e-12) if lam > 0 else 0.1
         kc = nx.katz_centrality_numpy(G, alpha=alpha, beta=beta, normalized=True)
         scores = np.array([kc[i] for i in range(self.n)], dtype=np.float32)
@@ -237,7 +225,7 @@ class VectorsBuilder:
             )
 
         nbr_lists = self._neighbors_list()
-        _, deg = self._triangles_per_node()  # deg from helper (cheap reuse)
+        _, deg = self._triangles_per_node()
         start = int(np.argmax(deg)) if n > 0 else 0
 
         lower = np.zeros(n, dtype=np.float64)
@@ -257,20 +245,17 @@ class VectorsBuilder:
             lower[finite] = np.maximum(lower[finite], dist[finite])
             upper[finite] = np.minimum(upper[finite], dist[finite] + ecc_p)
 
-            # next pivot: farthest reachable node from current
             next_pivot = int(np.argmax(np.where(finite, dist, -1.0)))
             if next_pivot == pivot:
                 break
             pivot = next_pivot
 
-        # approx eccentricity
         ecc_approx = np.where(
             np.isfinite(upper),
             0.5 * (lower + upper),
             lower,
         )
 
-        # radius / diameter bounds
         finite_mask = np.isfinite(upper)
         if finite_mask.any():
             rad_lower = float(lower[finite_mask].min())
@@ -317,7 +302,7 @@ class VectorsBuilder:
             )
 
         nbr_lists = self._neighbors_list()
-        _, deg = self._triangles_per_node()  # deg from helper (cheap reuse)
+        _, deg = self._triangles_per_node()
         start = int(np.argmax(deg)) if n > 0 else 0
 
         lower = np.zeros(n, dtype=np.float64)
@@ -337,20 +322,17 @@ class VectorsBuilder:
             lower[finite] = np.maximum(lower[finite], dist[finite])
             upper[finite] = np.minimum(upper[finite], dist[finite] + ecc_p)
 
-            # next pivot: farthest reachable node from current
             next_pivot = int(np.argmax(np.where(finite, dist, -1.0)))
             if next_pivot == pivot:
                 break
             pivot = next_pivot
 
-        # approx eccentricity
         ecc_approx = np.where(
             np.isfinite(upper),
             0.5 * (lower + upper),
             lower,
         )
 
-        # radius / diameter bounds
         finite_mask = np.isfinite(upper)
         if finite_mask.any():
             rad_lower = float(lower[finite_mask].min())
@@ -426,7 +408,6 @@ class VectorsBuilder:
             denom = d_float * (d_float - 1.0)
             sum_inv = 0.0
 
-            # all-pairs shortest paths in ego network via BFS from each neighbor
             for s_idx, s in enumerate(nbrs):
                 dist = np.full(d, np.inf, dtype=np.float64)
                 dist[s_idx] = 0.0
@@ -575,7 +556,6 @@ class VectorsBuilder:
     ) -> None:
         nbr_sets, deg = self._neighbors_sets_and_deg()
         n = self.n
-        # precompute 1/log(deg) where deg > 1
         inv_log = np.zeros(n, dtype=np.float64)
         for v in range(n):
             dv = int(deg[v])
@@ -662,7 +642,7 @@ class VectorsBuilder:
         den = m * 0.5 * (sum_x2 + sum_y2) - 0.25 * (sum_x + sum_y) ** 2
         return float(num / den) if den != 0.0 else 0.0
 
-    # -------- centrality-rank similarity helpers --------
+    # -------- helpers --------
 
     @staticmethod
     def _rank_with_ties(x: np.ndarray) -> np.ndarray:
@@ -680,7 +660,6 @@ class VectorsBuilder:
             j = i + 1
             while j < n and x[order[j]] == x[order[i]]:
                 j += 1
-            # average rank for tie group [i, j)
             avg_rank = 0.5 * (i + j - 1) + 1.0
             for k in range(i, j):
                 ranks[order[k]] = avg_rank
@@ -727,7 +706,7 @@ class VectorsBuilder:
                 dx = x[j] - x[i]
                 dy = y[j] - y[i]
                 if dx == 0 or dy == 0:
-                    continue  # tie in at least one -> ignore
+                    continue
                 if dx * dy > 0:
                     concordant += 1
                 else:
@@ -799,12 +778,10 @@ class VectorsBuilder:
             return deg
 
         max_deg = int(deg.max(initial=0))
-        # bin[d] = how many vertices have degree d
         bin_counts = np.zeros(max_deg + 1, dtype=np.int32)
         for d in deg:
             bin_counts[d] += 1
 
-        # transform to starting index of vertices with degree d
         start = 0
         for d in range(max_deg + 1):
             num = bin_counts[d]
@@ -814,7 +791,6 @@ class VectorsBuilder:
         vert = np.empty(n, dtype=np.int32)
         pos = np.empty(n, dtype=np.int32)
 
-        # place vertices into buckets by current degree
         next_index = bin_counts.copy()
         for v in range(n):
             d = deg[v]
@@ -822,13 +798,11 @@ class VectorsBuilder:
             vert[next_index[d]] = v
             next_index[d] += 1
 
-        # restore bin_counts as starting positions
         for d in range(max_deg, 0, -1):
             bin_counts[d] = bin_counts[d - 1]
         bin_counts[0] = 0
 
         core = deg.copy()
-        # main peeling loop
         for i in range(n):
             v = int(vert[i])
             for u in nbr_lists[v]:
@@ -840,7 +814,6 @@ class VectorsBuilder:
                     w = vert[pw]
 
                     if u != w:
-                        # swap u and w in vert[]
                         vert[pu], vert[pw] = vert[pw], vert[pu]
                         pos[u], pos[w] = pw, pu
 
@@ -867,7 +840,6 @@ class VectorsBuilder:
         for a, b in zip(u, v):
             a = int(a)
             b = int(b)
-            # orient from lower degree to higher degree
             if deg[a] > deg[b]:
                 a, b = b, a
             common = nbr_sets[a].intersection(nbr_sets[b])
@@ -886,9 +858,7 @@ class VectorsBuilder:
         if scores.shape != (self.n,):
             raise ValueError(f"scores must have shape ({self.n},)")
         agg = self._get_aggregator(aggregator)
-        col = self.X[:, dim]  # view
-
-        # Fill pairs ordered by i then j
+        col = self.X[:, dim]
         idx = 0
         for i in range(self.n - 1):
             si = scores[i]
@@ -904,12 +874,10 @@ class VectorsBuilder:
         G = nx.Graph()
         G.add_nodes_from(range(self.n))
         A = self.Matrix
-        # Add only upper triangle to avoid duplicate edges
         iu, ju = np.triu_indices(self.n, k=1)
         w = A[iu, ju]
         nz = np.nonzero(w)[0]
         edges = [(int(iu[k]), int(ju[k]), float(w[nz_idx])) for k, nz_idx in enumerate(nz)]
-        # Faster: iterate over nz directly
         edges = [(int(iu[k]), int(ju[k]), float(w[k])) for k in nz]
         G.add_weighted_edges_from(edges)
         return G
@@ -921,13 +889,11 @@ class VectorsBuilder:
         dists = np.full((n, n), np.inf, dtype=np.float32)
         for s in range(n):
             dists[s, s] = 0.0
-            # BFS queue
             q = [s]
             seen = np.zeros(n, dtype=bool)
             seen[s] = True
             while q:
                 v = q.pop(0)
-                # neighbors: A[v]==1
                 nbrs = np.flatnonzero(A[v])
                 for u in nbrs:
                     if not seen[u]:

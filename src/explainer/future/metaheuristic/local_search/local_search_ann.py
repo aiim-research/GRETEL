@@ -298,7 +298,8 @@ class LocalSearch(ExplanationMinimizer):
         if len(solution) < i:
             raise ValueError("The set does not have enough elements.")
         
-        selected_elements = set(random.sample(solution, i))
+        # Convert set to list for random.sample, then back to set
+        selected_elements = set(random.sample(list(solution), i))
         
         return selected_elements
 
