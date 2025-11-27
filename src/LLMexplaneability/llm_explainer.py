@@ -17,14 +17,14 @@ class GeminiExplainer(LLM):
         self.model = "gemini-2.5-pro"
         self.client = genai.Client(api_key = self.api_key)
 
-    def explain_counterfactual(self, prompt):
+    def explain_counterfactual(self, system, prompt):
 
         num_tries = 0
         while num_tries < 30:
             try:
                 resp = self.client.models.generate_content(
                     model=self.model,
-                    contents=prompt
+                    contents= system+prompt
                 )
                 
                 return resp.text
@@ -38,19 +38,28 @@ class GeminiExplainer(LLM):
 class LocalLlamaExplainer(LLM):
 
     def init(self):
-        self.repo_id =  "meta-llama/Llama-3.2-1B" # "Qwen/Qwen3-0.6B" "meta-llama/Llama-3.1-8B" "meta-llama/Llama-3.2-1B"
-
-        '''bnb_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_compute_dtype=torch.bfloat16,   # or torch.float16
-            bnb_4bit_use_double_quant=True,
-            bnb_4bit_quant_type="nf4",               # good default
-        )'''
+        self.repo_id = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.repo_id)
-        self.model = AutoModelForCausalLM.from_pretrained(self.repo_id, device_map="auto",trust_remote_code=True) #quantization_config=bnb_config
 
-        # Mover a GPU si está disponible
+        # Chat template (fine)
+        self.tokenizer.chat_template = """{% for message in messages %}
+{% if message['role'] == 'system' %}
+<|im_start|>system
+{{ message['content'] }}<|im_end|>
+{% elif message['role'] == 'user' %}
+<|im_start|>user
+{{ message['content'] }}<|im_end|>
+{% elif message['role'] == 'assistant' %}
+<|im_start|>assistant
+{{ message['content'] }}<|im_end|>
+{% endif %}
+{% endfor %}
+<|im_start|>assistant
+"""
+
+        # ---- MODEL LOADING / DEVICE HANDLING ----
+        # Drop device_map="auto" and use a single explicit device
         self.device = (
             "cuda"
             if torch.cuda.is_available()
@@ -58,44 +67,89 @@ class LocalLlamaExplainer(LLM):
             if torch.backends.mps.is_available()
             else "cpu"
         )
+
+        torch_dtype = torch.bfloat16 if self.device == "cuda" else torch.float32
+
+        self.model = AutoModelForCausalLM.from_pretrained(
+            self.repo_id,
+            dtype=torch_dtype,
+            trust_remote_code=True,
+        ).to(self.device)
+
         if self.device == "mps":
+            # MPS does not like bfloat16/float16
             self.model = self.model.to(torch.float32)
-        self.model = self.model.to(self.device)
-        GLogger.getLogger().info('LLM - Model '+self.repo_id+' Loaded')
+
+        # Ensure pad token is set (Llama often has pad = eos)
+        if self.tokenizer.pad_token_id is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+
+        GLogger.getLogger().info('LLM - Model ' + self.repo_id + ' Loaded')
 
 
-    def explain_counterfactual(self, prompt):      
+    def explain_counterfactual(self, system, prompt):
         self.model.eval()
-        # Tokenizar
- 
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
 
-        
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": prompt},
+        ]
+
+        # 1) Build chat text via template (string, not tokens yet)
+        chat_text = self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+
+        # 2) Tokenize normally to get input_ids + attention_mask
+        inputs = self.tokenizer(
+            chat_text,
+            return_tensors="pt",
+        )
+
+        # 3) Move EVERYTHING to the same device as the model
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+
         num_tries = 0
         while num_tries < 30:
             try:
-                # Generar texto
                 with torch.no_grad():
                     outputs = self.model.generate(
-                        **inputs,
-                        max_new_tokens=1024,  # cuántos tokens generar
-                        temperature=0.7,     # creatividad
-                        do_sample=True,      # True para sampling
-                        top_p=0.9,           # nucleus sampling
-                        repetition_penalty=1.2
+                        **inputs,                      # input_ids + attention_mask
+                        max_new_tokens=1024,
+                        pad_token_id=self.tokenizer.pad_token_id,
+                        temperature=0.7,
+                        do_sample=True,
+                        top_p=0.9,
+                        repetition_penalty=1.2,
                     )
 
-                # Decodificar y mostrar
-                resp = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-                GLogger.getLogger().info('Generated...')
-                del inputs, outputs  # drop GPU references
-                torch.cuda.empty_cache()
+                # 1) Longitud del prompt (input)
+                input_length = inputs["input_ids"].shape[1]
+
+                # 2) Nos quedamos solo con los tokens generados
+                generated_tokens = outputs[0][input_length:]
+
+                # 3) Decodificamos SOLO la respuesta del assistant
+                resp = self.tokenizer.decode(
+                    generated_tokens,
+                    skip_special_tokens=True,
+                ).strip()
+
+                # Optional: free GPU memory if you're looping a lot
+                # del inputs, outputs
+                if self.device == "cuda":
+                    torch.cuda.empty_cache()
+
                 return resp
+
             except Exception as e:
                 num_tries += 1
                 GLogger.getLogger().info(e)
-            
+
         raise Exception("Failed to get response from the model after multiple attempts.")
+
 
 # class OllamaExplainer(LLMExplainer):
 

@@ -42,19 +42,23 @@ class LLMexplanationFlipRate(MetricStage):
             for exp, graph_text, modif in zip(explanation.stages_info['src.evaluation.future.stages.llm_explanation.LLMexplanation']['direct_explanation'], explanation.stages_info['src.evaluation.future.stages.llm_explanation.LLMexplanation']['graph_text'], explanation.stages_info['src.evaluation.future.stages.llm_explanation.LLMexplanation']['modifications_text']):
 
                 flipRate = FlipRateEvaluator(graph_text, modif, explanation.dataset.domain ,"EXPLANATION:\n" + exp + "\n\n")
-                prompt2 = flipRate.flip_rate_prompt()
+                sys, prompt2 = flipRate.flip_rate_prompt()
 
 
-                response2 = explanation.context.llm.explain_counterfactual(prompt= prompt2)
-                flip_modifications = flipRate.parse_proposals(response2)
+                response2 = explanation.context.llm.explain_counterfactual(sytem =sys, prompt= prompt2)
+                
+                try:
+                    flip_modifications = flipRate.parse_proposals(response2)
 
-                new_graph = flipRate.edit_graph(input_inst, flip_modifications)
+                    new_graph = flipRate.edit_graph(input_inst, flip_modifications)
 
-                new_class = explanation.oracle.predict(new_graph)
-                explanation.oracle._call_counter -= 1
+                    new_class = explanation.oracle.predict(new_graph)
+                    explanation.oracle._call_counter -= 1
 
-                if new_class != input_inst_lbl:
-                    flipped +=1
+                    if new_class != input_inst_lbl:
+                        flipped +=1
+                except:
+                    self.logger.warning("Error parsing flip rate response or editing graph.")
 
         self.write_into_explanation(explanation, flipped / np.max((len(explanation.counterfactual_instances), 1)))
         return explanation

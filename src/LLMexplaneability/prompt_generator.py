@@ -7,7 +7,7 @@ class PromptGenerator:
         self.Domain = Domain
         
     def export_prompt(self, file = "salida.txt"):
-        prompt = self.generate_prompt()
+        sys, prompt = self.generate_prompt()
         with open(file, "w", encoding="utf-8") as f:
             f.write(prompt)          # sobrescribe si existe
 
@@ -21,7 +21,7 @@ class PromptGenerator:
 
 
     def generate_prompt(self, add_features = False):
-        prompt = f"You are an analyst who explains classification changes in graphs to experts in the specified DOMAIN.\n\
+        system = f"You are an analyst who explains classification changes in graphs to experts in the specified DOMAIN.\n\
 Your task: explain, in DOMAIN terms, why the graph changed class after certain modifications (a counterfactual).\n\n\
 \
 RULES:\n\
@@ -48,14 +48,15 @@ OUTPUT FORMAT:\n\
 \n\
 Now process the following INPUT:\n\n"
 
-        prompt += self.Domain + "\n"
-        prompt +=  self.graph_to_text()   
+        system += self.Domain + "\n"
+        prompt =  self.graph_to_text()   
         prompt += self.modifications_to_text()
         if add_features:
             features = self.graph_extracted_features_prompt()
             prompt += features[0] + "\n\n" + features[1]
 
-        return prompt
+        return system, prompt
+    
     
     def graph_nodes_prompt(self) -> str:
         GraphNodes = "Nodes: {" if self.GraphFeatures.is_directed else "Vertex: {"

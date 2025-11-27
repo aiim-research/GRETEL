@@ -28,7 +28,7 @@ class LLMexplanationContrastiveExplanation(MetricStage):
 
             for direct, inverse in zip(explanation.stages_info['src.evaluation.future.stages.llm_explanation.LLMexplanation']['direct_explanation'], explanation.stages_info['src.evaluation.future.stages.llm_explanation.LLMexplanation']['inverse_explanation']):
 
-                prompt = f"You are given two texts about a graph counterfactual process.\n\n\
+                sys = f"You are given two texts about a graph counterfactual process.\n\n\
 Goal: Decide if they describe the SAME process but in OPPOSITE DIRECTIONS\n\
 (A: input → counterfactual, B: counterfactual → input).\n\
 \n\
@@ -39,16 +39,15 @@ Criteria for YES (all must hold):\n\
 \n\
 If any criterion is not met or information is insufficient, answer NO.\n\
 \n\
-Do not explain or justify. Output exactly one word: YES or NO.\n\
-\n\
---- TEXT A ---\n\
+Do not explain or justify. Output exactly one word: YES or NO."
+                prompt = f"--- TEXT A ---\n\
 {direct}\n\
 \n\
 --- TEXT B ---\n\
 {inverse}"
 
 
-                response = explanation.context.llm.explain_counterfactual(prompt= prompt)
+                response = explanation.context.llm.explain_counterfactual(system = sys,prompt= prompt)
             
 
                 if response.strip().upper() == "YES":
