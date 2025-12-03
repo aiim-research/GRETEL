@@ -9,6 +9,9 @@ class Tagger:
     def tag(self, graph: GraphInstance) -> list[(int, int)]:
         pass
     
+    def untag(self, graph: GraphInstance, tags: list[(int, int)]) -> set[int]:
+        pass
+    
     def get_indices(self, labels: list[(int, int)], tuples: list[(int, int)]) -> set[int]:
         result = set()
         for (i, j) in tuples:

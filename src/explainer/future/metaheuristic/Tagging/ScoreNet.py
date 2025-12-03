@@ -51,7 +51,7 @@ class OnlineNNEdgeSelector:
         num_hidden_layers: int = 2,
         lr: float = 1e-3,
         exploration_prob: float = 0.2,
-        device: torch.device | None = None,
+        device: torch.device | None = None
     ):
         self.k = k
         self.input_dim = 4 * k + 4           # based on our feature design
@@ -71,7 +71,7 @@ class OnlineNNEdgeSelector:
         self.opt_remove = optim.Adam(self.model_remove.parameters(), lr=lr)
 
         self.loss_fn = nn.BCEWithLogitsLoss()
-
+    
         self.node_vecs: torch.Tensor | None = None  # will be set by set_node_vectors()
 
     # ---------- Node vectors & features ----------
@@ -123,64 +123,121 @@ class OnlineNNEdgeSelector:
     def _sample_indices(self, probs_np: np.ndarray, X: int):
         """
         Sample X indices using epsilon-greedy over probs_np.
-        probs_np: array of length M, in [0,1]
+        probs_np: array of length M, ideally in [0,1]
         """
         n = len(probs_np)
         if n <= X:
+            # not enough candidates to worry about sampling
             return list(range(n))
 
-        # Exploration: random choice
+        # Exploration: pure random choice
         if np.random.rand() < self.exploration_prob:
             return random.sample(range(n), X)
 
-        # Exploitation: weighted by probs
-        probs = np.clip(probs_np, 0.0, 1.0)
-        total = probs.sum()
-        if total <= 0.0:
-            # Degenerate case -> uniform
+        probs = np.asarray(probs_np, dtype=float)
+        probs = np.maximum(probs, 0.0)
+
+        # If too few non-zero entries, fall back to uniform sample
+        nonzero_count = np.count_nonzero(probs)
+        if nonzero_count < X:
             return random.sample(range(n), X)
 
+        # Ensure no entry is exactly zero (avoid the numpy error)
+        eps = 1e-12
+        probs[probs < eps] = eps
+
+        total = probs.sum()
+        if total <= 0.0:
+            # degenerate case, uniform again
+            return random.sample(range(n), X)
         probs = probs / total
+
         idx = np.random.choice(np.arange(n), size=X, replace=False, p=probs)
         return idx.tolist()
 
     # ---------- Propose pairs ----------
 
-    def _propose(self, candidate_pairs, X: int, mode: str):
+    def _propose(self, solution_pairs, X: int, mode: str):
         """
         Internal: propose X pairs for given mode ('add' or 'remove').
-        candidate_pairs: list of (u, v)
+
+        Parameters
+        ----------
+        solution_pairs : list[tuple[int, int]]
+            Pairs (u, v) that are currently in the solution.
+            Assumed to be node indices in [0, num_nodes).
+
+        X : int
+            Number of pairs to propose.
+
+        mode : str
+            'add'  -> propose pairs from the universe that are NOT in solution_pairs.
+            'remove' -> propose pairs that ARE in solution_pairs.
         """
-        if not candidate_pairs or X <= 0:
+        if X <= 0:
+            return []
+
+        if self.node_vecs is None:
+            raise RuntimeError("set_node_vectors() must be called before _propose().")
+
+        num_nodes = self.node_vecs.shape[0]
+
+        # Canonicalize and deduplicate the current solution as a set of (min(u,v), max(u,v))
+        solution_set = {
+            (int(min(u, v)), int(max(u, v)))
+            for (u, v) in solution_pairs
+        }
+
+        # Build candidate list depending on the mode
+        if mode == "remove":
+            # Candidates are exactly the edges in the current solution
+            candidate_pairs = list(solution_set)
+
+        elif mode == "add":
+            # Candidates are all pairs in the universe that are NOT in the current solution
+            candidate_pairs = []
+            for u in range(num_nodes):
+                for v in range(u + 1, num_nodes):
+                    if (u, v) not in solution_set:
+                        candidate_pairs.append((u, v))
+
+        else:
+            raise ValueError(f"Unknown mode '{mode}', expected 'add' or 'remove'.")
+
+        # If there are no candidates, or fewer than X, return them all
+        if not candidate_pairs:
             return []
 
         M = len(candidate_pairs)
         if M <= X:
             return list(candidate_pairs)
 
+        # Score candidates with the appropriate model
         pairs_tensor = torch.as_tensor(candidate_pairs, dtype=torch.long, device=self.device)
 
         model = self.model_add if mode == "add" else self.model_remove
         model.eval()
         with torch.no_grad():
-            feats = self._pair_features(pairs_tensor)  # (M, input_dim)
-            logits = model(feats)                     # (M,)
-            probs = torch.sigmoid(logits).cpu().numpy()  # P(success)
+            feats = self._pair_features(pairs_tensor)          # (M, input_dim)
+            logits = model(feats)                              # (M,)
+            probs = torch.sigmoid(logits).cpu().numpy()        # P(success)
 
+        # Sample indices according to probs (epsilon-greedy)
         idx = self._sample_indices(probs, X)
         return [candidate_pairs[i] for i in idx]
 
-    def propose_additions(self, candidate_pairs, X: int):
+
+    def propose_additions(self, solution, X: int):
         """
         Choose X candidate pairs to ADD.
         """
-        return self._propose(candidate_pairs, X, mode="add")
+        return self._propose(solution, X, mode="add")
 
-    def propose_removals(self, candidate_pairs, X: int):
+    def propose_removals(self, solution, X: int):
         """
         Choose X candidate pairs to REMOVE.
         """
-        return self._propose(candidate_pairs, X, mode="remove")
+        return self._propose(solution, X, mode="remove")
 
     # ---------- Online update ----------
 
