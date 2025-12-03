@@ -119,29 +119,20 @@ class LocalSearch(ExplanationMinimizer):
         result = min_ctf
         
         metrics = [
-            # centralities you already had
             "degree",
             "closeness",
             "eigenvector",
             "betweenness",
             "katz",
             "pagerank",
-
-            # very cheap node-level stuff
-            "component_id",         # connected components / component ID
-            "eccentricity",         # approximate eccentricity
-            "coreness",             # k-core / coreness
-            "local_efficiency",     # ego-network efficiency
-
-            # pairwise structural flags/buckets
-            "same_component_flag",  # same-component flag for pairs
-            "core_periphery",       # core–core / core–periphery buckets
-
-            # cheap–moderate local structure
-            "local_clustering",     # local clustering coefficient
-            "triangle_count",       # triangle counts per node
-
-            # pairwise similarity indices
+            "component_id",
+            "eccentricity",
+            "coreness", 
+            "local_efficiency",   
+            "same_component_flag", 
+            "core_periphery",       
+            "local_clustering",     
+            "triangle_count",       
             "common_neighbors",
             "jaccard",
             "adamic_adar",
