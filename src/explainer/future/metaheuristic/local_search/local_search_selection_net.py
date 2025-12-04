@@ -8,7 +8,7 @@ from src.core.explainer_base import Explainer
 from src.dataset.instances.base import DataInstance
 from src.dataset.instances.graph import GraphInstance
 from src.explainer.future.meta.minimizer.base import ExplanationMinimizer
-from src.explainer.future.metaheuristic.Tagging.ScoreNet import OnlineNNEdgeSelector
+from src.explainer.future.metaheuristic.Tagging.OnlineSelector import OnlineNNEdgeSelector
 from src.explainer.future.metaheuristic.Tagging.ann import ANNIndexWeighted
 from src.explainer.future.metaheuristic.Tagging.vectors_builder import VectorsBuilder
 from typing import Generator
@@ -64,7 +64,7 @@ class LocalSearch(ExplanationMinimizer):
         self.distance_metric = GraphEditDistanceMetric()  
         
         
-
+        
         
         self.methods = [
             lambda data, features: average_smoothing(data, features, iterations=1),
@@ -98,18 +98,39 @@ class LocalSearch(ExplanationMinimizer):
             for j in range(i + 1, self.G.num_nodes):
                 self.labels.append((i,j))
         
-        K = instance.node_features.shape[1]
         
+        
+        metrics = [
+            "degree",
+            "closeness",
+            "eigenvector",
+            "betweenness",
+            "pagerank",
+            "component_id",
+            "eccentricity",
+            "local_clustering",     
+            "triangle_count",
+        ]
+
+        vectorsBuilder = VectorsBuilder(metrics, self.G.data)
+        node_features = np.concatenate((instance.node_features, vectorsBuilder.X), axis=1)
+        
+        print("Vectors builder shape: " + str(vectorsBuilder.X.shape))
+        print("Original node features shape: " + str(instance.node_features.shape))
+        print("New node features shape: " + str(node_features.shape))
+        
+        K = node_features.shape[1]
+        print("Node feature dimension: " + str(K))
         self.selector = self.load_or_initialize_selector(
                 dataset_id=self.dataset.name,
                 k=K,
                 hidden_dim=64,
                 num_hidden_layers=2,
-                lr=3e-3,
-                exploration_prob=0.2,
+                lr=2e-3,
+                exploration_prob=0.3,
             )
 
-        self.selector.set_node_vectors(instance.node_features)  # convert once to torch
+        self.selector.set_node_vectors(node_features)  # convert once to torch
         
         min_ctf = explaination.counterfactual_instances[0]
 
@@ -146,8 +167,8 @@ class LocalSearch(ExplanationMinimizer):
         while(n > 0):
             self.selector.exploration_prob = max(0.05, self.selector.exploration_prob * 0.995)
             self.log_selector_metrics(prefix="[progress] ")
-            self.logger.info("n: " + str(n))
-            self.logger.info("k: " + str(self.k))
+            # self.logger.info("n: " + str(n))
+            # self.logger.info("k: " + str(self.k))
             n-=1
             if(len(best) == 1) : break
             if(self.k > self.max_oracle_calls) :
@@ -156,38 +177,49 @@ class LocalSearch(ExplanationMinimizer):
             found = False
             actual = best
             old_best_size = len(best)
-            self.logger.info("actual ---> " + str(len(actual)))
+            # self.logger.info("actual ---> " + str(len(actual)))
             
             for s, removed, _ in self.edge_remove(actual):
-                if(self.cache.contains(s)):
+                if self.cache.contains(s):
                     continue
                 self.cache.add(s)
+                # print("removed: " + str(removed))
+                old_best_size = len(best)
+                new_size = len(s)
+
                 found_, inst = self.evaluate(s)
-                
-                if(found_ and len(s) < len(best)):
+                reward = self.compute_reward(old_best_size, new_size, found_)
+
+                if found_ and new_size < old_best_size:
                     found = True
                     best = s
                     actual = s
                     result = inst
+                    
+                    # reward > 0 here
+                    if(min(self.max_runtime, self.runtime_factor * len(actual)) -1 == n):
+                        self._update_search_stats(
+                            old_best_size=old_best_size,
+                            new_size=len(s),
+                            success=True,
+                            chosen_pairs_uv=self.id_to_uv(removed),
+                            mode="remove",
+                        )
+                        
                     n = min(self.max_runtime, self.runtime_factor * len(actual))
-                    self._update_search_stats(
-                        old_best_size=old_best_size,
-                        new_size=len(s),
-                        success=found_,
-                        chosen_pairs_uv=self.id_to_uv(removed),
-                        mode="remove",
-                    )
-                    self.selector.update_removals(self.id_to_uv(removed), True)
+                    self.selector.update_removals(self.id_to_uv(removed), reward)
                     break
                 else:
-                    self._update_search_stats(
-                        old_best_size=old_best_size,
-                        new_size=len(s),
-                        success=found_,
-                        chosen_pairs_uv=self.id_to_uv(removed),
-                        mode="remove",
-                    )
-                    self.selector.update_removals(self.id_to_uv(removed), False)
+                    # reward will be 0 for non-improvements / invalid
+                    self.selector.update_removals(self.id_to_uv(removed), reward)
+                    if(min(self.max_runtime, self.runtime_factor * len(actual)) -1 == n):
+                        self._update_search_stats(
+                            old_best_size=old_best_size,
+                            new_size=len(s),
+                            success=False,
+                            chosen_pairs_uv=self.id_to_uv(removed),
+                            mode="remove",
+                        )
                 
             if(found):
                 self.logger.info("============> (-) Found solution with size: " + str(len(actual)))
@@ -196,59 +228,66 @@ class LocalSearch(ExplanationMinimizer):
             half = int(len(actual) / 2)
             reduce = min(half, random.randint(1, half * 4))
             actual = self.reduce_random(best, reduce)
-            self.logger.info("actual ---> " + str(len(actual)))
+            # self.logger.info("actual ---> " + str(len(actual)))
             
             while(len(best) - len(actual) > 1):
                 n-=1
                 for s, removed, added in self.edge_swap(actual):
-                    if(self.cache.contains(s)):
-                        # print("in cache")
+                    if self.cache.contains(s):
                         continue
-                        
                     self.cache.add(s)
+
+                    old_best_size = len(best)
+                    new_size = len(s)
+
                     found_, inst = self.evaluate(s)
-                    
-                    
-                    if(found_ and len(s) < len(best)):
+                    reward = self.compute_reward(old_best_size, new_size, found_)
+
+                    if found_ and new_size < old_best_size:
                         found = True
                         best = s
                         actual = s
                         result = inst
+                        
+                        if(min(self.max_runtime, self.runtime_factor * len(actual)) -1 == n):
+                            self._update_search_stats(
+                                    old_best_size=old_best_size,
+                                    new_size=len(s),
+                                    success=True,
+                                    chosen_pairs_uv=self.id_to_uv(removed),
+                                    mode="remove",
+                                )
+                            self._update_search_stats(
+                                    old_best_size=old_best_size,
+                                    new_size=len(s),
+                                    success=True,
+                                    chosen_pairs_uv=self.id_to_uv(added),
+                                    mode="add",
+                                )
+                        
                         n = min(self.max_runtime, self.runtime_factor * len(actual))
-                        self._update_search_stats(
-                                old_best_size=old_best_size,
-                                new_size=len(s),
-                                success=True,
-                                chosen_pairs_uv=self.id_to_uv(removed),
-                                mode="remove",
-                            )
-                        self.selector.update_removals(self.id_to_uv(removed), True)
-                        self._update_search_stats(
-                                old_best_size=old_best_size,
-                                new_size=len(s),
-                                success=True,
-                                chosen_pairs_uv=self.id_to_uv(added),
-                                mode="add",
-                            )
-                        self.selector.update_additions(self.id_to_uv(added), True)
+                        self.selector.update_additions(self.id_to_uv(added), reward)
+                        self.selector.update_removals(self.id_to_uv(removed), reward)
                         break
                     else:
-                        self._update_search_stats(
-                                old_best_size=old_best_size,
-                                new_size=len(s),
-                                success=False,
-                                chosen_pairs_uv=self.id_to_uv(removed),
-                                mode="remove",
-                            )
-                        self.selector.update_removals(self.id_to_uv(removed), False)
-                        self._update_search_stats(
-                                old_best_size=old_best_size,
-                                new_size=len(s),
-                                success=False,
-                                chosen_pairs_uv=self.id_to_uv(added),
-                                mode="add",
-                            )
-                        self.selector.update_additions(self.id_to_uv(added), False)
+                        if(min(self.max_runtime, self.runtime_factor * len(actual)) -1 == n):
+                            self._update_search_stats(
+                                    old_best_size=old_best_size,
+                                    new_size=len(s),
+                                    success=False,
+                                    chosen_pairs_uv=self.id_to_uv(removed),
+                                    mode="remove",
+                                )
+                            self._update_search_stats(
+                                    old_best_size=old_best_size,
+                                    new_size=len(s),
+                                    success=False,
+                                    chosen_pairs_uv=self.id_to_uv(added),
+                                    mode="add",
+                                )
+                        self.selector.update_additions(self.id_to_uv(added), reward)
+                        self.selector.update_removals(self.id_to_uv(removed), reward)
+
                     
                     
                 if(found):
@@ -256,39 +295,47 @@ class LocalSearch(ExplanationMinimizer):
                     break
 
                 actual = self.reduce_random(best, len(actual))
-                self.logger.info("actual ===> " + str(len(actual)))
+                # self.logger.info("actual ===> " + str(len(actual)))
                 
                 for s, _, added in self.edge_add(actual, best):
-                    if(self.cache.contains(s)):
-                        # print("in cache")
+                    if self.cache.contains(s):
                         continue
-                        
                     self.cache.add(s)
-                    found_, inst = self.evaluate(s)
 
-                    if(found_ and len(s) < len(best)):
+                    old_best_size = len(best)
+                    new_size = len(s)
+
+                    found_, inst = self.evaluate(s)
+                    reward = self.compute_reward(old_best_size, new_size, found_)
+
+                    if found_ and new_size < old_best_size:
                         found = True
                         best = s
                         actual = s
                         result = inst
-                        self._update_search_stats(
-                            old_best_size=old_best_size,
-                            new_size=len(s),
-                            success=True,
-                            chosen_pairs_uv=self.id_to_uv(added),
-                            mode="add",
-                        )
-                        self.selector.update_additions(self.id_to_uv(added), True)
+                        if(min(self.max_runtime, self.runtime_factor * len(actual)) -1 == n):
+                            self._update_search_stats(
+                                old_best_size=old_best_size,
+                                new_size=len(s),
+                                success=True,
+                                chosen_pairs_uv=self.id_to_uv(added),
+                                mode="add",
+                            )
+                        n = min(self.max_runtime, self.runtime_factor * len(actual))
+                        
+                        self.selector.update_additions(self.id_to_uv(added), reward)
                         break
                     else:
-                        self._update_search_stats(
-                            old_best_size=old_best_size,
-                            new_size=len(s),
-                            success=False,
-                            chosen_pairs_uv=self.id_to_uv(added),
-                            mode="add",
-                        )
-                        self.selector.update_additions(self.id_to_uv(added), False)
+                        if(min(self.max_runtime, self.runtime_factor * len(actual)) -1 == n):
+                            self._update_search_stats(
+                                    old_best_size=old_best_size,
+                                    new_size=len(s),
+                                    success=False,
+                                    chosen_pairs_uv=self.id_to_uv(added),
+                                    mode="add",
+                                )
+                        self.selector.update_additions(self.id_to_uv(added), reward)
+
                     
                 if(found):
                     self.logger.info("============> (+) Found solution with size: " + str(len(actual)))
@@ -340,7 +387,8 @@ class LocalSearch(ExplanationMinimizer):
 
         return (False, None)
     
-        
+    
+    ## ------ Neighborhood methods ----- ##
     def disturb(self, data, directed, solution : set[int]):
         for i in solution:
             (n1, n2) = self.labels[i]
@@ -394,12 +442,8 @@ class LocalSearch(ExplanationMinimizer):
                 new_s = solution.difference(removed_set)
                 yield [new_s, removed_set, []]
 
-    def write(self):
-        pass
 
-    def read(self):
-        pass
-            
+    ## ------ Selector persistence helpers ----- ##
     def id_to_uv(self, ids: set[int]) -> list[(int, int)]:
         result = []
         for i in ids:
@@ -557,3 +601,28 @@ class LocalSearch(ExplanationMinimizer):
         # model_confidence: average predicted p(success) for chosen pairs
         conf = self._selector_confidence(chosen_pairs_uv, mode)
         self.stats_total_confidence += conf
+        
+    def compute_reward(self, old_size: int, new_size: int, found_: bool) -> float:
+        """
+        Map (valid move, size improvement) -> reward in [0, 1].
+
+        - If the new solution is not a valid counterfactual (found_ == False) -> reward 0.
+        - If new_size >= old_size -> no improvement -> reward 0.
+        - Otherwise: reward proportional to relative size reduction.
+        """
+        if not found_:
+            return 0.0
+        if new_size >= old_size:
+            return 0.0
+
+        delta = old_size - new_size  # positive
+        # normalize by old_size to get something in (0,1]
+        reward = delta / old_size
+        # clamp safely
+        return float(max(0.0, min(1.0, reward)))
+
+    def write(self):
+        pass
+
+    def read(self):
+        pass

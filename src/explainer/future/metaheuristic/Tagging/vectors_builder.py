@@ -2,6 +2,7 @@ import numpy as np
 from typing import Callable, Literal, Optional
 import math
 from collections import deque
+
 try:
     import networkx as nx
 except ImportError:
@@ -9,13 +10,14 @@ except ImportError:
 
 Aggregator = Literal["sum", "product", "mean", "max", "min"]
 
+
 class VectorsBuilder:
     n: int                    # number of nodes
-    Eplus: int               # number of unordered pairs, n choose 2
-    K: int                   # feature dimensions
+    Eplus: int                # number of unordered pairs, n choose 2
+    K: int                    # feature dimensions
     metrics: list[str]
-    Matrix: np.ndarray       # (n, n) adjacency (assumed undirected, 0/1 or weights)
-    X: np.ndarray            # (Eplus, K)
+    Matrix: np.ndarray        # (n, n) adjacency (assumed undirected, 0/1 or weights)
+    X: np.ndarray             # (n, K) node-feature matrix
 
     def __init__(self, metrics: list[str], matrix: np.ndarray):
         if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
@@ -24,7 +26,10 @@ class VectorsBuilder:
         self.Eplus = self.n * (self.n - 1) // 2
         self.K = len(metrics)
         self.metrics = metrics
-        self.X = np.zeros((self.Eplus, self.K), dtype=np.float32)
+
+        # NODE-WISE matrix: one row per node, one column per metric
+        self.X = np.zeros((self.n, self.K), dtype=np.float32)
+
         self.Matrix = matrix.astype(np.float32, copy=False)
 
         for dim, metric in enumerate(metrics):
@@ -76,11 +81,12 @@ class VectorsBuilder:
         else:
             raise ValueError(f"Unknown metric: {metric}")
 
+    # -------- node-wise metrics (scores per node) --------
 
     def fill_dimension_degree_centrality(
         self,
         dim: int,
-        aggregator: Aggregator = "sum",
+        aggregator: Aggregator = "sum",  # ignored in node-wise mode
         normalized: bool = True,
     ) -> None:
         deg = self.Matrix.sum(axis=1)
@@ -90,7 +96,7 @@ class VectorsBuilder:
     def fill_dimension_closeness_centrality(
         self,
         dim: int,
-        aggregator: Aggregator = "sum",
+        aggregator: Aggregator = "sum",  # ignored in node-wise mode
         wf_improved: bool = True,
     ) -> None:
         if nx is not None:
@@ -104,7 +110,11 @@ class VectorsBuilder:
                 s = (dist * reachable).sum(axis=1)
                 r = reachable.sum(axis=1)
                 if wf_improved:
-                    scores = np.where(s > 0, (r - 1) / s * (r - 1) / (self.n - 1), 0.0)
+                    scores = np.where(
+                        s > 0,
+                        (r - 1) / s * (r - 1) / (self.n - 1),
+                        0.0,
+                    )
                 else:
                     scores = np.where(s > 0, (r - 1) / s, 0.0)
             scores = scores.astype(np.float32)
@@ -114,7 +124,7 @@ class VectorsBuilder:
     def fill_dimension_eigenvector_centrality(
         self,
         dim: int,
-        aggregator: Aggregator = "sum",
+        aggregator: Aggregator = "sum",  # ignored in node-wise mode
         max_iter: int = 1000,
         tol: float = 1e-6,
     ) -> None:
@@ -138,21 +148,25 @@ class VectorsBuilder:
     def fill_dimension_betweenness_centrality(
         self,
         dim: int,
-        aggregator: Aggregator = "sum",
+        aggregator: Aggregator = "sum",  # ignored in node-wise mode
         normalized: bool = True,
         weight: Optional[str] = None,
     ) -> None:
         if nx is None:
             raise ImportError("betweenness_centrality requires networkx")
         G = self._to_nx_graph()
-        bc = nx.betweenness_centrality(G, normalized=normalized, weight=None if weight is None else "weight")
+        bc = nx.betweenness_centrality(
+            G,
+            normalized=normalized,
+            weight=None if weight is None else "weight",
+        )
         scores = np.array([bc[i] for i in range(self.n)], dtype=np.float32)
         self._fill_from_scores(dim, scores, aggregator)
 
     def fill_dimension_katz_centrality(
         self,
         dim: int,
-        aggregator: Aggregator = "sum",
+        aggregator: Aggregator = "sum",  # ignored in node-wise mode
         alpha: Optional[float] = None,
         beta: float = 1.0,
         max_iter: int = 1000,
@@ -167,7 +181,8 @@ class VectorsBuilder:
             for _ in range(100):
                 x = A @ x
                 nrm = np.linalg.norm(x)
-                if nrm == 0: break
+                if nrm == 0:
+                    break
                 x /= nrm
             lam = np.linalg.norm(A @ x)
             alpha = 0.85 / (lam + 1e-12) if lam > 0 else 0.1
@@ -178,7 +193,7 @@ class VectorsBuilder:
     def fill_dimension_pagerank(
         self,
         dim: int,
-        aggregator: Aggregator = "sum",
+        aggregator: Aggregator = "sum",  # ignored in node-wise mode
         damping: float = 0.85,
         max_iter: int = 200,
         tol: float = 1.0e-06,
@@ -193,7 +208,7 @@ class VectorsBuilder:
     def fill_dimension_component_id(
         self,
         dim: int,
-        aggregator: Aggregator = "mean",
+        aggregator: Aggregator = "mean",  # ignored in node-wise mode
         normalized: bool = True,
     ) -> None:
         comp_id, n_comp = self._connected_components_labels()
@@ -270,84 +285,7 @@ class VectorsBuilder:
     def fill_dimension_eccentricity_approx(
         self,
         dim: int,
-        aggregator: Aggregator = "sum",
-        k: int = 8,
-        normalize: bool = True,
-    ) -> None:
-        ecc, _, _ = self.approximate_eccentricity_bounds(k=k)
-        if normalize and ecc.size > 0:
-            max_e = float(ecc.max())
-            if max_e > 0:
-                ecc = ecc / max_e
-        self._fill_from_scores(dim, ecc.astype(np.float32), aggregator)
-
-    def approximate_eccentricity_bounds(
-        self,
-        k: int = 8,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Approximate eccentricity and radius/diameter bounds using k BFS sweeps.
-
-        Returns:
-            ecc_approx: shape (n,), approximate eccentricity
-            radius_bounds: (rad_lower, rad_upper)
-            diameter_bounds: (diam_lower, diam_upper)
-        """
-        n = self.n
-        if n == 0:
-            return (
-                np.zeros(0, dtype=np.float32),
-                (0.0, 0.0),
-                (0.0, 0.0),
-            )
-
-        nbr_lists = self._neighbors_list()
-        _, deg = self._triangles_per_node()
-        start = int(np.argmax(deg)) if n > 0 else 0
-
-        lower = np.zeros(n, dtype=np.float64)
-        upper = np.full(n, np.inf, dtype=np.float64)
-
-        pivot = start
-        pivots: list[int] = []
-
-        for _ in range(max(1, k)):
-            dist = self._bfs_distances_from(pivot, nbr_lists).astype(np.float64)
-            finite = np.isfinite(dist)
-            if not finite.any():
-                break
-            ecc_p = dist[finite].max()
-            pivots.append(pivot)
-
-            lower[finite] = np.maximum(lower[finite], dist[finite])
-            upper[finite] = np.minimum(upper[finite], dist[finite] + ecc_p)
-
-            next_pivot = int(np.argmax(np.where(finite, dist, -1.0)))
-            if next_pivot == pivot:
-                break
-            pivot = next_pivot
-
-        ecc_approx = np.where(
-            np.isfinite(upper),
-            0.5 * (lower + upper),
-            lower,
-        )
-
-        finite_mask = np.isfinite(upper)
-        if finite_mask.any():
-            rad_lower = float(lower[finite_mask].min())
-            rad_upper = float(upper[finite_mask].min())
-            diam_lower = float(lower[finite_mask].max())
-            diam_upper = float(upper[finite_mask].max())
-        else:
-            rad_lower = rad_upper = diam_lower = diam_upper = 0.0
-
-        return ecc_approx.astype(np.float32), (rad_lower, rad_upper), (diam_lower, diam_upper)
-
-    def fill_dimension_eccentricity_approx(
-        self,
-        dim: int,
-        aggregator: Aggregator = "sum",
+        aggregator: Aggregator = "sum",  # ignored in node-wise mode
         k: int = 8,
         normalize: bool = True,
     ) -> None:
@@ -361,20 +299,7 @@ class VectorsBuilder:
     def fill_dimension_coreness(
         self,
         dim: int,
-        aggregator: Aggregator = "sum",
-        normalize: bool = True,
-    ) -> None:
-        core = self._core_numbers().astype(np.float32)
-        if normalize and core.size > 0:
-            max_c = float(core.max())
-            if max_c > 0:
-                core = core / max_c
-        self._fill_from_scores(dim, core, aggregator)
-
-    def fill_dimension_coreness(
-        self,
-        dim: int,
-        aggregator: Aggregator = "sum",
+        aggregator: Aggregator = "sum",  # ignored in node-wise mode
         normalize: bool = True,
     ) -> None:
         core = self._core_numbers().astype(np.float32)
@@ -387,7 +312,7 @@ class VectorsBuilder:
     def fill_dimension_local_efficiency(
         self,
         dim: int,
-        aggregator: Aggregator = "mean",
+        aggregator: Aggregator = "mean",  # ignored in node-wise mode
     ) -> None:
         """
         Local efficiency E_loc(v) in ego network Γ(v) (node removed).
@@ -433,58 +358,10 @@ class VectorsBuilder:
 
         self._fill_from_scores(dim, eff.astype(np.float32), aggregator)
 
-    def fill_dimension_same_component(
-        self,
-        dim: int,
-    ) -> None:
-        """
-        X[:, dim] = 1 if two nodes are in the same connected component, else 0.
-        """
-        comp_id, _ = self._connected_components_labels()
-        col = self.X[:, dim]
-        idx = 0
-        for i in range(self.n - 1):
-            ci = comp_id[i]
-            for j in range(i + 1, self.n):
-                col[idx] = 1.0 if ci == comp_id[j] else 0.0
-                idx += 1
-
-    def fill_dimension_core_buckets(
-        self,
-        dim: int,
-        core_threshold: Optional[int] = None,
-    ) -> None:
-        """
-        Encode pair as:
-          1.0  -> core-core
-          0.5  -> core-periphery
-          0.0  -> periphery-periphery
-        based on coreness threshold.
-        """
-        core = self._core_numbers()
-        max_c = int(core.max(initial=0))
-        if core_threshold is None:
-            core_threshold = max_c
-        core_mask = core >= core_threshold
-
-        col = self.X[:, dim]
-        idx = 0
-        for i in range(self.n - 1):
-            ci = core_mask[i]
-            for j in range(i + 1, self.n):
-                cj = core_mask[j]
-                if ci and cj:
-                    col[idx] = 1.0
-                elif ci or cj:
-                    col[idx] = 0.5
-                else:
-                    col[idx] = 0.0
-                idx += 1
-
     def fill_dimension_local_clustering(
         self,
         dim: int,
-        aggregator: Aggregator = "mean",
+        aggregator: Aggregator = "mean",  # ignored in node-wise mode
     ) -> None:
         tri, deg = self._triangles_per_node()
         n = self.n
@@ -500,7 +377,7 @@ class VectorsBuilder:
     def fill_dimension_triangle_count(
         self,
         dim: int,
-        aggregator: Aggregator = "sum",
+        aggregator: Aggregator = "sum",  # ignored in node-wise mode
         normalize: bool = True,
     ) -> None:
         tri, _ = self._triangles_per_node()
@@ -511,105 +388,7 @@ class VectorsBuilder:
                 tri = tri / mx
         self._fill_from_scores(dim, tri, aggregator)
 
-    def fill_dimension_common_neighbors(
-        self,
-        dim: int,
-        normalize: bool = True,
-    ) -> None:
-        nbr_sets, _ = self._neighbors_sets_and_deg()
-        col = self.X[:, dim]
-        idx = 0
-        for i in range(self.n - 1):
-            Ni = nbr_sets[i]
-            for j in range(i + 1, self.n):
-                Nj = nbr_sets[j]
-                col[idx] = float(len(Ni.intersection(Nj)))
-                idx += 1
-
-        if normalize and col.size > 0:
-            mx = float(col.max())
-            if mx > 0:
-                col[:] = col / mx
-
-    def fill_dimension_jaccard(
-        self,
-        dim: int,
-    ) -> None:
-        nbr_sets, deg = self._neighbors_sets_and_deg()
-        col = self.X[:, dim]
-        idx = 0
-        for i in range(self.n - 1):
-            Ni = nbr_sets[i]
-            di = float(deg[i])
-            for j in range(i + 1, self.n):
-                Nj = nbr_sets[j]
-                dj = float(deg[j])
-                inter = len(Ni.intersection(Nj))
-                union = di + dj - inter
-                col[idx] = 0.0 if union == 0.0 else float(inter) / float(union)
-                idx += 1
-
-    def fill_dimension_adamic_adar(
-        self,
-        dim: int,
-        normalize: bool = True,
-    ) -> None:
-        nbr_sets, deg = self._neighbors_sets_and_deg()
-        n = self.n
-        inv_log = np.zeros(n, dtype=np.float64)
-        for v in range(n):
-            dv = int(deg[v])
-            if dv > 1:
-                inv_log[v] = 1.0 / math.log(dv)
-
-        col = self.X[:, dim].astype(np.float64, copy=False)
-        idx = 0
-        for i in range(n - 1):
-            Ni = nbr_sets[i]
-            for j in range(i + 1, n):
-                Nj = nbr_sets[j]
-                s = 0.0
-                for w in Ni.intersection(Nj):
-                    s += inv_log[int(w)]
-                col[idx] = s
-                idx += 1
-
-        if normalize and col.size > 0:
-            mx = float(col.max())
-            if mx > 0:
-                col[:] = col / mx
-        self.X[:, dim] = col.astype(np.float32)
-
-    def fill_dimension_resource_allocation(
-        self,
-        dim: int,
-        normalize: bool = True,
-    ) -> None:
-        nbr_sets, deg = self._neighbors_sets_and_deg()
-        n = self.n
-        inv_deg = np.zeros(n, dtype=np.float64)
-        for v in range(n):
-            dv = int(deg[v])
-            if dv > 0:
-                inv_deg[v] = 1.0 / dv
-
-        col = self.X[:, dim].astype(np.float64, copy=False)
-        idx = 0
-        for i in range(n - 1):
-            Ni = nbr_sets[i]
-            for j in range(i + 1, n):
-                Nj = nbr_sets[j]
-                s = 0.0
-                for w in Ni.intersection(Nj):
-                    s += inv_deg[int(w)]
-                col[idx] = s
-                idx += 1
-
-        if normalize and col.size > 0:
-            mx = float(col.max())
-            if mx > 0:
-                col[:] = col / mx
-        self.X[:, dim] = col.astype(np.float32)
+    # -------- global metrics --------
 
     def degree_assortativity(self) -> float:
         """
@@ -717,8 +496,7 @@ class VectorsBuilder:
             return 0.0
         return float((concordant - discordant) / total)
 
-
-# -------- internal graph-structure helpers --------
+    # -------- internal graph-structure helpers --------
 
     def _neighbors_list(self) -> list[np.ndarray]:
         """Return adjacency lists Γ(v) as numpy arrays of neighbors (undirected, >0 edges)."""
@@ -853,19 +631,20 @@ class VectorsBuilder:
 
         return tri, deg
 
-    def _fill_from_scores(self, dim: int, scores: np.ndarray, aggregator: Aggregator) -> None:
-        """Given node scores (length n), fill X[:, dim] for all i<j using an aggregator."""
+    def _fill_from_scores(
+        self,
+        dim: int,
+        scores: np.ndarray,
+        aggregator: Aggregator = "sum",  # kept for compatibility, ignored
+    ) -> None:
+        """
+        Given node scores (length n), fill X[:, dim] with those scores.
+        Node-wise version: one score per node.
+        """
+        scores = np.asarray(scores, dtype=np.float32)
         if scores.shape != (self.n,):
-            raise ValueError(f"scores must have shape ({self.n},)")
-        agg = self._get_aggregator(aggregator)
-        col = self.X[:, dim]
-        idx = 0
-        for i in range(self.n - 1):
-            si = scores[i]
-            for j in range(i + 1, self.n):
-                sj = scores[j]
-                col[idx] = agg(float(si), float(sj))
-                idx += 1
+            raise ValueError(f"scores must have shape ({self.n},), got {scores.shape}")
+        self.X[:, dim] = scores
 
     def _to_nx_graph(self):
         """Undirected graph view of the adjacency matrix; weights kept if present."""
@@ -877,7 +656,6 @@ class VectorsBuilder:
         iu, ju = np.triu_indices(self.n, k=1)
         w = A[iu, ju]
         nz = np.nonzero(w)[0]
-        edges = [(int(iu[k]), int(ju[k]), float(w[nz_idx])) for k, nz_idx in enumerate(nz)]
         edges = [(int(iu[k]), int(ju[k]), float(w[k])) for k in nz]
         G.add_weighted_edges_from(edges)
         return G

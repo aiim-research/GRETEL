@@ -39,25 +39,30 @@ class OnlineNNEdgeSelector:
         selector.set_node_vectors(node_vecs)  # np.ndarray (num_nodes, k)
 
         # propose:
-        chosen_add_pairs = selector.propose_additions(candidate_pairs, X)
-        # after evaluating:
-        selector.update_additions(chosen_add_pairs, success=True/False)
+        chosen_add_pairs = selector.propose_additions(solution_pairs, X)
+
+        # after evaluating (reward in [0,1]):
+        selector.update_additions(chosen_add_pairs, reward)
     """
 
     def __init__(
         self,
-        k: int, # dimension of node vectors
+        k: int,  # dimension of node vectors
         hidden_dim: int = 128,
         num_hidden_layers: int = 2,
         lr: float = 1e-3,
         exploration_prob: float = 0.2,
-        device: torch.device | None = None
+        device: torch.device | None = None,
+        batch_size: int = 64,
+        replay_capacity: int = 50000,
     ):
         self.k = k
         self.input_dim = 4 * k + 4           # based on our feature design
         self.hidden_dim = hidden_dim
         self.num_hidden_layers = num_hidden_layers
         self.exploration_prob = exploration_prob
+        self.batch_size = batch_size
+        self.replay_capacity = replay_capacity
 
         if device is None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -71,8 +76,13 @@ class OnlineNNEdgeSelector:
         self.opt_remove = optim.Adam(self.model_remove.parameters(), lr=lr)
 
         self.loss_fn = nn.BCEWithLogitsLoss()
-    
+
         self.node_vecs: torch.Tensor | None = None  # will be set by set_node_vectors()
+        self.node_vecs_np: np.ndarray | None = None
+
+        # Replay buffers: list of (u, v, reward)
+        self.replay_add: list[tuple[int, int, float]] = []
+        self.replay_remove: list[tuple[int, int, float]] = []
 
     # ---------- Node vectors & features ----------
 
@@ -104,12 +114,12 @@ class OnlineNNEdgeSelector:
         v_u = self.node_vecs[u_idx]  # (M, k)
         v_v = self.node_vecs[v_idx]  # (M, k)
 
-        diff = v_u - v_v            # (M, k)
-        prod = v_u * v_v            # (M, k)
-        dot = (v_u * v_v).sum(dim=1, keepdim=True)        # (M, 1)
-        norm_u = v_u.norm(dim=1, keepdim=True)            # (M, 1)
-        norm_v = v_v.norm(dim=1, keepdim=True)            # (M, 1)
-        dist = diff.norm(dim=1, keepdim=True)             # (M, 1)
+        diff = v_u - v_v                             # (M, k)
+        prod = v_u * v_v                             # (M, k)
+        dot = (v_u * v_v).sum(dim=1, keepdim=True)   # (M, 1)
+        norm_u = v_u.norm(dim=1, keepdim=True)       # (M, 1)
+        norm_v = v_v.norm(dim=1, keepdim=True)       # (M, 1)
+        dist = diff.norm(dim=1, keepdim=True)        # (M, 1)
 
         feats = torch.cat(
             [v_u, v_v, diff, prod, dot, norm_u, norm_v, dist],
@@ -142,7 +152,7 @@ class OnlineNNEdgeSelector:
         if nonzero_count < X:
             return random.sample(range(n), X)
 
-        # Ensure no entry is exactly zero (avoid the numpy error)
+        # Ensure no entry is exactly zero (avoid numpy "Fewer non-zero entries" error)
         eps = 1e-12
         probs[probs < eps] = eps
 
@@ -226,37 +236,58 @@ class OnlineNNEdgeSelector:
         idx = self._sample_indices(probs, X)
         return [candidate_pairs[i] for i in idx]
 
-
     def propose_additions(self, solution, X: int):
         """
         Choose X candidate pairs to ADD.
+        `solution` is the current solution as a list of (u, v) pairs.
         """
         return self._propose(solution, X, mode="add")
 
     def propose_removals(self, solution, X: int):
         """
         Choose X candidate pairs to REMOVE.
+        `solution` is the current solution as a list of (u, v) pairs.
         """
         return self._propose(solution, X, mode="remove")
 
-    # ---------- Online update ----------
+    # ---------- Replay buffer & mini-batch training ----------
 
-    def _update(self, chosen_pairs, success: bool, mode: str):
+    def _append_replay(self, mode: str, pairs, reward: float):
         """
-        Internal: update model from chosen pairs & global success flag.
+        Store (pair, reward) experiences in replay buffer.
+        All pairs in this call share the same reward.
         """
-        if not chosen_pairs:
+        if not pairs:
             return
 
-        pairs_tensor = torch.as_tensor(chosen_pairs, dtype=torch.long, device=self.device)
-        feats = self._pair_features(pairs_tensor)
+        buf = self.replay_add if mode == "add" else self.replay_remove
+        r = float(reward)
 
-        labels = torch.full(
-            (feats.shape[0],),
-            float(bool(success)),
-            dtype=torch.float32,
-            device=self.device,
-        )
+        for (u, v) in pairs:
+            buf.append((int(u), int(v), r))
+
+        # Keep buffer size under capacity (drop oldest)
+        if len(buf) > self.replay_capacity:
+            overflow = len(buf) - self.replay_capacity
+            del buf[:overflow]
+
+    def _train_from_replay(self, mode: str):
+        """
+        Sample a mini-batch from replay buffer and do one optimizer step.
+        """
+        buf = self.replay_add if mode == "add" else self.replay_remove
+        if not buf:
+            return
+
+        batch_size = min(self.batch_size, len(buf))
+        idx = np.random.choice(len(buf), size=batch_size, replace=False)
+
+        pairs = [buf[i][:2] for i in idx]
+        rewards = [buf[i][2] for i in idx]
+
+        pairs_tensor = torch.as_tensor(pairs, dtype=torch.long, device=self.device)
+        feats = self._pair_features(pairs_tensor)
+        labels = torch.as_tensor(rewards, dtype=torch.float32, device=self.device)
 
         model = self.model_add if mode == "add" else self.model_remove
         opt = self.opt_add if mode == "add" else self.opt_remove
@@ -266,19 +297,31 @@ class OnlineNNEdgeSelector:
         logits = model(feats)
         loss = self.loss_fn(logits, labels)
         loss.backward()
+
+        # gradient clipping for stability
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
         opt.step()
 
-    def update_additions(self, chosen_pairs, success: bool):
-        """
-        Online training step for ADD actions.
-        """
-        self._update(chosen_pairs, success, mode="add")
+    # ---------- Online update (reward-based) ----------
 
-    def update_removals(self, chosen_pairs, success: bool):
+    def update_additions(self, chosen_pairs, reward: float):
         """
-        Online training step for REMOVE actions.
+        Online training for ADD actions, using a scaled reward in [0,1].
         """
-        self._update(chosen_pairs, success, mode="remove")
+        if not chosen_pairs:
+            return
+        self._append_replay("add", chosen_pairs, reward)
+        self._train_from_replay("add")
+
+    def update_removals(self, chosen_pairs, reward: float):
+        """
+        Online training for REMOVE actions, using a scaled reward in [0,1].
+        """
+        if not chosen_pairs:
+            return
+        self._append_replay("remove", chosen_pairs, reward)
+        self._train_from_replay("remove")
 
     # ---------- Save / load ----------
 
@@ -286,6 +329,7 @@ class OnlineNNEdgeSelector:
         """
         Save model and optimizer states to a file.
         (Node vectors are NOT saved; set them again with set_node_vectors.)
+        Replay buffers are NOT saved (they refill during new runs).
         """
         ckpt = {
             "k": self.k,
@@ -293,6 +337,8 @@ class OnlineNNEdgeSelector:
             "hidden_dim": self.hidden_dim,
             "num_hidden_layers": self.num_hidden_layers,
             "exploration_prob": self.exploration_prob,
+            "batch_size": self.batch_size,
+            "replay_capacity": self.replay_capacity,
             "model_add": self.model_add.state_dict(),
             "model_remove": self.model_remove.state_dict(),
             "opt_add": self.opt_add.state_dict(),
@@ -306,6 +352,10 @@ class OnlineNNEdgeSelector:
         Load model from file. You still need to call set_node_vectors() afterwards.
         """
         ckpt = torch.load(path, map_location=device if device is not None else "cpu")
+
+        batch_size = ckpt.get("batch_size", 64)
+        replay_capacity = ckpt.get("replay_capacity", 50000)
+
         obj = cls(
             k=ckpt["k"],
             hidden_dim=ckpt["hidden_dim"],
@@ -313,6 +363,8 @@ class OnlineNNEdgeSelector:
             lr=lr,
             exploration_prob=ckpt["exploration_prob"],
             device=device,
+            batch_size=batch_size,
+            replay_capacity=replay_capacity,
         )
         obj.model_add.load_state_dict(ckpt["model_add"])
         obj.model_remove.load_state_dict(ckpt["model_remove"])
