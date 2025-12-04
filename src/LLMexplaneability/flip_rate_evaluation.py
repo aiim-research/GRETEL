@@ -24,7 +24,7 @@ class FlipRateEvaluator():
     
 
     def flip_rate_prompt(self):
-        prompt = "**Goal.** Propose ONE alternative counterfactual edit sets (K={{K}}) that are **different from the edits in G'**, but that would **also flip the oracle's prediction in the same direction** as G' *for the same underlying reasons stated in the explanation*, and **respect the domain knowledge**.\n\n\
+        system = "**Goal.** Propose ONE alternative counterfactual edit sets (K={{K}}) that are **different from the edits in G'**, but that would **also flip the oracle's prediction in the same direction** as G' *for the same underlying reasons stated in the explanation*, and **respect the domain knowledge**.\n\n\
 **Important requirements**\n\
 1. Your edits must operationalize the causal mechanisms described in the Explanation not just arbitrary perturbations.\n\
 2. **Do not reuse** the exact edge or feature changes used in G'. Propose **different** edits that achieve the same effect via alternative paths/motifs/features.\n\
@@ -51,11 +51,11 @@ Node Features Modified:  \n\
 - Do **not** include any prose outside the required format.\n\
 \n\
 Return exactly ONE proposal in the specified format.\n\n"
-        prompt += self.domain
+        prompt = self.domain
         prompt += self.graph
         prompt += self.graph_counterfactual
         prompt += self.counterfactual_explanation
-        return prompt
+        return system, prompt
     
 
     def _parse_edge_block(self, block_text: str) -> List[Dict[str, str]]:

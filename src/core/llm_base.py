@@ -8,12 +8,12 @@ class LLM(Configurable, metaclass=ABCMeta):
         super().__init__(context, local_config)
        
 
-    def explain_counterfactual(self, prompt):
+    def explain_counterfactual(self, system, prompt):
         pass
 
-    def export_explanation(self, explanation = None, prompt = None, file = "explanation.txt"):
+    def export_explanation(self, explanation = None, system= None, prompt = None, file = "explanation.txt"):
         if explanation == None:
-            explanation = self.explain_counterfactual(prompt)
+            explanation = self.explain_counterfactual(system, prompt)
         
         with open(file, "w", encoding="utf-8") as f:
             f.write(explanation)          # sobrescribe si existe
