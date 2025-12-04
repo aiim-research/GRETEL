@@ -18,6 +18,7 @@ from src.explainer.future.metaheuristic.local_search.binary_model import BinaryM
 from src.explainer.future.metaheuristic.local_search.cache import FixedSizeCache
 from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, feature_aggregation, heat_kernel_diffusion, laplacian_regularization, random_walk_diffusion, weighted_smoothing
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
+import torch
 from src.utils.cfg_utils import init_dflts_to_of
 from src.utils.comparison import get_edge_differences
 from src.utils.metrics.ged import GraphEditDistanceMetric
@@ -74,7 +75,11 @@ class LocalSearch(ExplanationMinimizer):
             lambda data, features: random_walk_diffusion(data, features, steps=1)
         ]
         
-        
+        # --- stats for logging ---
+        self.stats_total_moves = 0              # how many neighbor moves evaluated
+        self.stats_accepted_moves = 0           # how many were accepted (improved best)
+        self.stats_total_improvement = 0.0      # sum of (old_size - new_size) for accepted moves
+        self.stats_total_confidence = 0.0       # sum of model_confidence over all moves
 
     def minimize(self, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
         print("-------------")
@@ -100,7 +105,7 @@ class LocalSearch(ExplanationMinimizer):
                 k=K,
                 hidden_dim=64,
                 num_hidden_layers=2,
-                lr=1e-3,
+                lr=3e-3,
                 exploration_prob=0.2,
             )
 
@@ -134,13 +139,15 @@ class LocalSearch(ExplanationMinimizer):
         self.logger.info("Initial solution size: " + str(len(actual)))
 
         result = min_ctf
-        
+        self.log_selector_metrics(prefix="[INIT] ")
 
         n = min(self.max_runtime, self.runtime_factor * len(actual))
         self.k = 0
         while(n > 0):
-            # self.logger.info("n: " + str(n))
-            # self.logger.info("k: " + str(self.k))
+            self.selector.exploration_prob = max(0.05, self.selector.exploration_prob * 0.995)
+            self.log_selector_metrics(prefix="[progress] ")
+            self.logger.info("n: " + str(n))
+            self.logger.info("k: " + str(self.k))
             n-=1
             if(len(best) == 1) : break
             if(self.k > self.max_oracle_calls) :
@@ -148,22 +155,38 @@ class LocalSearch(ExplanationMinimizer):
                  break
             found = False
             actual = best
-            # self.logger.info("actual ---> " + str(len(actual)))
+            old_best_size = len(best)
+            self.logger.info("actual ---> " + str(len(actual)))
             
             for s, removed, _ in self.edge_remove(actual):
                 if(self.cache.contains(s)):
                     continue
                 self.cache.add(s)
                 found_, inst = self.evaluate(s)
+                
                 if(found_ and len(s) < len(best)):
                     found = True
                     best = s
                     actual = s
                     result = inst
                     n = min(self.max_runtime, self.runtime_factor * len(actual))
+                    self._update_search_stats(
+                        old_best_size=old_best_size,
+                        new_size=len(s),
+                        success=found_,
+                        chosen_pairs_uv=self.id_to_uv(removed),
+                        mode="remove",
+                    )
                     self.selector.update_removals(self.id_to_uv(removed), True)
                     break
                 else:
+                    self._update_search_stats(
+                        old_best_size=old_best_size,
+                        new_size=len(s),
+                        success=found_,
+                        chosen_pairs_uv=self.id_to_uv(removed),
+                        mode="remove",
+                    )
                     self.selector.update_removals(self.id_to_uv(removed), False)
                 
             if(found):
@@ -173,7 +196,7 @@ class LocalSearch(ExplanationMinimizer):
             half = int(len(actual) / 2)
             reduce = min(half, random.randint(1, half * 4))
             actual = self.reduce_random(best, reduce)
-            # self.logger.info("actual ---> " + str(len(actual)))
+            self.logger.info("actual ---> " + str(len(actual)))
             
             while(len(best) - len(actual) > 1):
                 n-=1
@@ -184,25 +207,56 @@ class LocalSearch(ExplanationMinimizer):
                         
                     self.cache.add(s)
                     found_, inst = self.evaluate(s)
+                    
+                    
                     if(found_ and len(s) < len(best)):
                         found = True
                         best = s
                         actual = s
                         result = inst
                         n = min(self.max_runtime, self.runtime_factor * len(actual))
-                        self.selector.update_additions(self.id_to_uv(added), True)
+                        self._update_search_stats(
+                                old_best_size=old_best_size,
+                                new_size=len(s),
+                                success=True,
+                                chosen_pairs_uv=self.id_to_uv(removed),
+                                mode="remove",
+                            )
                         self.selector.update_removals(self.id_to_uv(removed), True)
+                        self._update_search_stats(
+                                old_best_size=old_best_size,
+                                new_size=len(s),
+                                success=True,
+                                chosen_pairs_uv=self.id_to_uv(added),
+                                mode="add",
+                            )
+                        self.selector.update_additions(self.id_to_uv(added), True)
                         break
                     else:
-                        self.selector.update_additions(self.id_to_uv(added), False)
+                        self._update_search_stats(
+                                old_best_size=old_best_size,
+                                new_size=len(s),
+                                success=False,
+                                chosen_pairs_uv=self.id_to_uv(removed),
+                                mode="remove",
+                            )
                         self.selector.update_removals(self.id_to_uv(removed), False)
+                        self._update_search_stats(
+                                old_best_size=old_best_size,
+                                new_size=len(s),
+                                success=False,
+                                chosen_pairs_uv=self.id_to_uv(added),
+                                mode="add",
+                            )
+                        self.selector.update_additions(self.id_to_uv(added), False)
+                    
                     
                 if(found):
                     self.logger.info("============> (=) Found solution with size: " + str(len(actual)))
                     break
 
                 actual = self.reduce_random(best, len(actual))
-                # self.logger.info("actual ===> " + str(len(actual)))
+                self.logger.info("actual ===> " + str(len(actual)))
                 
                 for s, _, added in self.edge_add(actual, best):
                     if(self.cache.contains(s)):
@@ -211,15 +265,29 @@ class LocalSearch(ExplanationMinimizer):
                         
                     self.cache.add(s)
                     found_, inst = self.evaluate(s)
+
                     if(found_ and len(s) < len(best)):
                         found = True
                         best = s
                         actual = s
                         result = inst
-                        n = min(self.max_runtime, self.runtime_factor * len(actual))
+                        self._update_search_stats(
+                            old_best_size=old_best_size,
+                            new_size=len(s),
+                            success=True,
+                            chosen_pairs_uv=self.id_to_uv(added),
+                            mode="add",
+                        )
                         self.selector.update_additions(self.id_to_uv(added), True)
                         break
                     else:
+                        self._update_search_stats(
+                            old_best_size=old_best_size,
+                            new_size=len(s),
+                            success=False,
+                            chosen_pairs_uv=self.id_to_uv(added),
+                            mode="add",
+                        )
                         self.selector.update_additions(self.id_to_uv(added), False)
                     
                 if(found):
@@ -239,6 +307,7 @@ class LocalSearch(ExplanationMinimizer):
             self.logger.info("result -> " + str(self.oracle.predict(result)))
         
         self.save_selector(self.selector, self.dataset.name)
+        self.log_selector_metrics(prefix="[FINAL] ")
         return result
     
     def evaluate(self, solution : set[int]) -> tuple[bool, GraphInstance]:
@@ -343,6 +412,9 @@ class LocalSearch(ExplanationMinimizer):
             result.add(self.labels.index((i, j)))
         return result
     
+    
+
+    
     def model_paths(self, dataset_id: str):
         path = f"models/edge_selector_{dataset_id}.pt"
         lock_path = path + ".lock"
@@ -399,3 +471,89 @@ class LocalSearch(ExplanationMinimizer):
         path, lock_path = self.model_paths(dataset_id)
         with FileLock(lock_path):
             selector.save(path) 
+            
+            
+    ## ------ Logging helpers ----- ##
+    
+    def log_selector_metrics(self, prefix: str = ""):
+        """
+        Log accept_rate, avg_improvement, and model_confidence
+        accumulated so far in this LocalSearch run.
+        """
+        total_moves = getattr(self, "stats_total_moves", 0)
+        accepted_moves = getattr(self, "stats_accepted_moves", 0)
+        total_improvement = getattr(self, "stats_total_improvement", 0.0)
+        total_confidence = getattr(self, "stats_total_confidence", 0.0)
+
+        if total_moves == 0:
+            accept_rate = 0.0
+            avg_improvement = 0.0
+            model_conf = 0.0
+        else:
+            accept_rate = accepted_moves / total_moves
+            avg_improvement = (
+                total_improvement / accepted_moves if accepted_moves > 0 else 0.0
+            )
+            model_conf = total_confidence / total_moves
+
+        msg = (
+            f"{prefix}selector_stats | "
+            f"moves={total_moves} "
+            f"accept_rate={accept_rate:.4f} "
+            f"avg_improvement={avg_improvement:.4f} "
+            f"model_confidence={model_conf:.4f} "
+            f"exploration_prob={self.selector.exploration_prob:.4f}"
+        )
+        self.logger.info(msg)
+
+
+    def _selector_confidence(self, uv_pairs: list[tuple[int, int]], mode: str) -> float:
+        """
+        Average predicted probability of success for the given pairs, according
+        to the current selector and mode ('add' or 'remove').
+        """
+        if not uv_pairs:
+            return 0.0
+
+        # Build a tensor of indices on the same device as the selector
+        pairs_tensor = torch.tensor(
+            uv_pairs,
+            dtype=torch.long,
+            device=self.selector.device,
+        )
+
+        model = self.selector.model_add if mode == "add" else self.selector.model_remove
+        model.eval()
+        with torch.no_grad():
+            feats = self.selector._pair_features(pairs_tensor)
+            logits = model(feats)
+            probs = torch.sigmoid(logits)  # (batch,)
+            return float(probs.mean().item())
+        
+    def _update_search_stats(
+        self,
+        old_best_size: int,
+        new_size: int,
+        success: bool,
+        chosen_pairs_uv: list[tuple[int, int]],
+        mode: str,
+    ):
+        """
+        Update cumulative stats for logging.
+
+        old_best_size: size of best solution before this move
+        new_size: size of candidate solution
+        success: True if this move produced a new best solution
+        chosen_pairs_uv: list of (u, v) pairs that were added/removed in this move
+        mode: 'add' or 'remove' (for model_confidence)
+        """
+        self.stats_total_moves += 1
+
+        if success:
+            self.stats_accepted_moves += 1
+            improvement = max(0, old_best_size - new_size)
+            self.stats_total_improvement += improvement
+
+        # model_confidence: average predicted p(success) for chosen pairs
+        conf = self._selector_confidence(chosen_pairs_uv, mode)
+        self.stats_total_confidence += conf
