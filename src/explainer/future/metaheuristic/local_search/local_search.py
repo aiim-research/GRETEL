@@ -250,64 +250,55 @@ class LocalSearch(ExplanationMinimizer):
                 data[n2, n1] = (data[n2, n1] + 1) % 2
 
 
-    def swap_random(self, solution : set[int], i: int):  
+    def swap_random(self, solution: set[int], i: int):
         self.remove_random(solution, i)
         self.add_random(solution, i)
-        
         return solution
-    
-    def add_random(self, solution : set[int], i: int):
+
+    def add_random(self, solution: set[int], i: int):
         available_numbers = set(range(1, self.EPlus)) - solution
-        
         if len(available_numbers) < i:
             raise ValueError("Not enough available numbers to add.")
-        
-        numbers_to_add = random.sample(available_numbers, i)
-        
-        solution.update(numbers_to_add)
-        
+        numbers_to_add = random.sample(list(available_numbers), i)
+        solution.update(set(numbers_to_add))
         return solution
-    
-    def remove_random(self, solution : set[int], i: int):
-        numbers_to_remove = random.sample(solution, i)
-        
-        solution.difference_update(numbers_to_remove)
-        
+
+    def remove_random(self, solution: set[int], i: int):
+        numbers_to_remove = random.sample(list(solution), i)
+        solution.difference_update(set(numbers_to_remove))
         return solution
-    
+
     def reduce_random(self, solution : set[int], i: int):
         if len(solution) < i:
             raise ValueError("The set does not have enough elements.")
         
-        selected_elements = set(random.sample(solution, i))
+        selected_elements = set(random.sample(list(solution), i))
         
         return selected_elements
 
 
-    def edge_swap(self, solution : set[int]) -> Generator[set[int], None, None]:
+    def edge_swap(self, solution: set[int]) -> Generator[set[int], None, None]:
         cealing = min(len(solution), (self.EPlus - len(solution))) + 1
         step = int(cealing / self.max_neigh) + 1
         for i in range(1, cealing, step):
             for _ in range(self.neigh_factor ** 2):
-                yield self.swap_random(set(solution.copy()), i)
-                
-    
-    def edge_add(self, solution : set[int], best) -> Generator[set[int], None, None]:
+                yield self.swap_random(set(solution), i)
+
+
+    def edge_add(self, solution: set[int], best) -> Generator[set[int], None, None]:
         cealing = (len(best) - len(solution)) + 1
         step = int(cealing / self.max_neigh) + 1
         for i in range(1, cealing, step):
             for _ in range(self.neigh_factor ** 2):
-                yield self.add_random(set(solution.copy()), i)
-                
-                
-    
-    def edge_remove(self, solution : set[int]) -> Generator[set[int], None, None]:
+                yield self.add_random(set(solution), i)
+
+
+    def edge_remove(self, solution: set[int]) -> Generator[set[int], None, None]:
         cealing = len(solution)
-        step = int((cealing / self.max_neigh) + 1) 
-        # cealing = random.randint(cealing - step, cealing)
+        step = int((cealing / self.max_neigh) + 1)
         for i in range(0, cealing, step):
             for _ in range(self.neigh_factor ** 3):
-                yield self.remove_random(set(solution.copy()), i)
+                yield self.remove_random(set(solution), i)
                 
     def write(self):
         pass

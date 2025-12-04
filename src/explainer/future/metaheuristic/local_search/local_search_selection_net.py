@@ -1,6 +1,8 @@
 import copy
 import math
+import os
 import random
+from filelock import FileLock
 import numpy as np
 from src.core.explainer_base import Explainer
 from src.dataset.instances.base import DataInstance
@@ -93,18 +95,14 @@ class LocalSearch(ExplanationMinimizer):
         
         K = instance.node_features.shape[1]
         
-        try:
-            self.selector = OnlineNNEdgeSelector.load("model_save_" + str(self.dataset.name) + ".pth")
-            print("Loaded existing model")
-            
-        except FileNotFoundError:
-            self.selector = OnlineNNEdgeSelector(
+        self.selector = self.load_or_initialize_selector(
+                dataset_id=self.dataset.name,
                 k=K,
                 hidden_dim=64,
                 num_hidden_layers=2,
                 lr=1e-3,
-            exploration_prob=0.2,
-        )
+                exploration_prob=0.2,
+            )
 
         self.selector.set_node_vectors(instance.node_features)  # convert once to torch
         
@@ -141,8 +139,8 @@ class LocalSearch(ExplanationMinimizer):
         n = min(self.max_runtime, self.runtime_factor * len(actual))
         self.k = 0
         while(n > 0):
-            self.logger.info("n: " + str(n))
-            self.logger.info("k: " + str(self.k))
+            # self.logger.info("n: " + str(n))
+            # self.logger.info("k: " + str(self.k))
             n-=1
             if(len(best) == 1) : break
             if(self.k > self.max_oracle_calls) :
@@ -153,7 +151,6 @@ class LocalSearch(ExplanationMinimizer):
             # self.logger.info("actual ---> " + str(len(actual)))
             
             for s, removed, _ in self.edge_remove(actual):
-                # print("removed:", removed)
                 if(self.cache.contains(s)):
                     continue
                 self.cache.add(s)
@@ -176,7 +173,7 @@ class LocalSearch(ExplanationMinimizer):
             half = int(len(actual) / 2)
             reduce = min(half, random.randint(1, half * 4))
             actual = self.reduce_random(best, reduce)
-            self.logger.info("actual ---> " + str(len(actual)))
+            # self.logger.info("actual ---> " + str(len(actual)))
             
             while(len(best) - len(actual) > 1):
                 n-=1
@@ -205,7 +202,7 @@ class LocalSearch(ExplanationMinimizer):
                     break
 
                 actual = self.reduce_random(best, len(actual))
-                self.logger.info("actual ===> " + str(len(actual)))
+                # self.logger.info("actual ===> " + str(len(actual)))
                 
                 for s, _, added in self.edge_add(actual, best):
                     if(self.cache.contains(s)):
@@ -234,14 +231,14 @@ class LocalSearch(ExplanationMinimizer):
                 # self.logger.info("expand: " + str(expand) + ", best: " + str(len(best)))
                 if(expand > len(best)): break
                 actual = self.reduce_random(best, expand)
-                self.logger.info("actual +++> " + str(len(actual)))
+                # self.logger.info("actual +++> " + str(len(actual)))
           
         if(self.oracle.predict(result) == self.oracle.predict(self.G)):
             self.logger.info("ERROR, returning non ctf ")
             self.logger.info("instance -> " + str(self.oracle.predict(self.G)))
             self.logger.info("result -> " + str(self.oracle.predict(result)))
         
-        self.selector.save("model_save_" + str(self.dataset.name) + ".pth")
+        self.save_selector(self.selector, self.dataset.name)
         return result
     
     def evaluate(self, solution : set[int]) -> tuple[bool, GraphInstance]:
@@ -288,13 +285,11 @@ class LocalSearch(ExplanationMinimizer):
         if len(solution) < i:
             raise ValueError("The set does not have enough elements.")
         
-        # Convert set to list for random.sample, then back to set
         selected_elements = set(random.sample(list(solution), i))
         
         return selected_elements
 
 
-    # returns (new solution, removed edges, added edges)
     def edge_swap(self, solution : set[int]) -> Generator[set[int], set[int], set[int]]:
         cealing = min(len(solution), (self.EPlus - len(solution))) + 1
         step = int(cealing / self.max_neigh) + 1
@@ -323,7 +318,6 @@ class LocalSearch(ExplanationMinimizer):
     def edge_remove(self, solution : set[int]) -> Generator[set[int], set[int], set[int]]:
         cealing = len(solution)
         step = int((cealing / self.max_neigh) + 1) 
-        # cealing = random.randint(cealing - step, cealing)
         for i in range(1, cealing, step):
             for _ in range(self.neigh_factor ** 3):
                 removed = self.selector.propose_removals(self.id_to_uv(solution), i)
@@ -348,3 +342,60 @@ class LocalSearch(ExplanationMinimizer):
         for (i, j) in uv:
             result.add(self.labels.index((i, j)))
         return result
+    
+    def model_paths(self, dataset_id: str):
+        path = f"models/edge_selector_{dataset_id}.pt"
+        lock_path = path + ".lock"
+        return path, lock_path
+
+
+    def load_or_initialize_selector(self, dataset_id: str, k: int, **selector_kwargs):
+        """
+        Safely load (or create) a selector for a dataset.
+        Caller still needs to call set_node_vectors() afterwards.
+
+        selector_kwargs can include:
+            - hidden_dim (int)
+            - num_hidden_layers (int)
+            - lr (float)
+            - exploration_prob (float)
+            - device (torch.device)
+        """
+        hidden_dim = selector_kwargs.get("hidden_dim", 128)
+        num_hidden_layers = selector_kwargs.get("num_hidden_layers", 2)
+        lr = selector_kwargs.get("lr", 1e-3)
+        exploration_prob = selector_kwargs.get("exploration_prob", 0.2)
+        device = selector_kwargs.get("device", None)
+
+        path, lock_path = self.model_paths(dataset_id)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+
+        with FileLock(lock_path):
+            if os.path.exists(path):
+                # Load existing model (architecture comes from checkpoint)
+                selector = OnlineNNEdgeSelector.load(path, lr=lr, device=device)
+
+                selector.exploration_prob = exploration_prob
+
+            else:
+                # Create a new model with the given architecture
+                selector = OnlineNNEdgeSelector(
+                    k=k,
+                    hidden_dim=hidden_dim,
+                    num_hidden_layers=num_hidden_layers,
+                    lr=lr,
+                    exploration_prob=exploration_prob,
+                    device=device,
+                )
+                selector.save(path)  # create initial checkpoint
+
+        return selector
+
+
+    def save_selector(self, selector: OnlineNNEdgeSelector, dataset_id: str):
+        """
+        Safely save a selector for a dataset.
+        """
+        path, lock_path = self.model_paths(dataset_id)
+        with FileLock(lock_path):
+            selector.save(path) 
