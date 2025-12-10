@@ -41,3 +41,11 @@ class GCN(nn.Module):
                                       out_channels=self.num_conv_layers[i][1]).double())
         graph_convs.append(self.pooling)
         return nn.Sequential(*graph_convs).double()
+
+    def get_node_embeddings(self, node_features, edge_index, edge_weight, batch):
+        # convolution operations
+        for conv_layer in self.graph_convs[:-1]:
+            node_features = conv_layer(node_features, edge_index, edge_weight)
+            node_features = nn.functional.relu(node_features)
+            
+        return node_features

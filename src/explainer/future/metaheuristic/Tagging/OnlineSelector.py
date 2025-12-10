@@ -92,11 +92,26 @@ class OnlineNNEdgeSelector:
 
         node_vecs_np: shape (num_nodes, k)
         """
-        self.node_vecs_np = node_vecs_np
         assert node_vecs_np.shape[1] == self.k
         self.node_vecs = torch.as_tensor(
             node_vecs_np, dtype=torch.float32, device=self.device
         )
+        
+    def set_node_vectors_from_tensor(self, node_vecs_list: list[torch.Tensor]):
+        """
+        node_vecs_list: list of length num_nodes,
+                        each a 1D tensor of shape (k,)
+                        possibly with requires_grad=True.
+        """
+        # Detach from computation graph and stack
+        with torch.no_grad():
+            node_vecs = torch.stack(
+                [v.detach() for v in node_vecs_list], dim=0
+            )  # (num_nodes, k)
+
+            assert node_vecs.shape[1] == self.k
+
+            self.node_vecs = node_vecs.to(self.device, dtype=torch.float32)
 
     def _pair_features(self, pairs_tensor: torch.Tensor) -> torch.Tensor:
         """

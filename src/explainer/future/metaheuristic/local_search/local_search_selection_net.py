@@ -100,24 +100,26 @@ class LocalSearch(ExplanationMinimizer):
         
         
         
-        metrics = [
-            "degree",
-            "closeness",
-            "eigenvector",
-            "betweenness",
-            "pagerank",
-            "component_id",
-            "eccentricity",
-            "local_clustering",     
-            "triangle_count",
-        ]
+        # metrics = [
+        #     "degree",
+        #     "closeness",
+        #     "eigenvector",
+        #     "betweenness",
+        #     "pagerank",
+        #     "component_id",
+        #     "eccentricity",
+        #     "local_clustering",     
+        #     "triangle_count",
+        # ]
 
-        vectorsBuilder = VectorsBuilder(metrics, self.G.data)
-        node_features = np.concatenate((instance.node_features, vectorsBuilder.X), axis=1)
+        # vectorsBuilder = VectorsBuilder(metrics, self.G.data)
+        # node_features = np.concatenate((instance.node_features, vectorsBuilder.X), axis=1)
         
-        print("Vectors builder shape: " + str(vectorsBuilder.X.shape))
-        print("Original node features shape: " + str(instance.node_features.shape))
-        print("New node features shape: " + str(node_features.shape))
+        # print("Vectors builder shape: " + str(vectorsBuilder.X.shape))
+        # print("Original node features shape: " + str(instance.node_features.shape))
+        # print("New node features shape: " + str(node_features.shape))
+        
+        node_features = self.oracle.get_node_embeddings(instance)
         
         K = node_features.shape[1]
         print("Node feature dimension: " + str(K))
@@ -129,8 +131,10 @@ class LocalSearch(ExplanationMinimizer):
                 lr=2e-3,
                 exploration_prob=0.3,
             )
-
-        self.selector.set_node_vectors(node_features)  # convert once to torch
+        
+        self.selector.set_node_vectors_from_tensor(list(node_features)) 
+        
+        
         
         min_ctf = explaination.counterfactual_instances[0]
 
@@ -506,7 +510,7 @@ class LocalSearch(ExplanationMinimizer):
                 selector.save(path)  # create initial checkpoint
 
         return selector
-
+    
 
     def save_selector(self, selector: OnlineNNEdgeSelector, dataset_id: str):
         """

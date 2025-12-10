@@ -48,6 +48,22 @@ class OracleTorch(TorchBase, Oracle):
         edge_weights = data_inst.edge_attr.to(self.device)
         
         return self.model(node_features,edge_index,edge_weights, None).cpu().squeeze()
+    
+    def get_embeddings(self, data_inst):
+        data_inst = TorchGeometricDataset.to_geometric(data_inst)
+        node_features = data_inst.x.to(self.device)
+        edge_index = data_inst.edge_index.to(self.device)
+        edge_weights = data_inst.edge_attr.to(self.device)
+        
+        return self.model.get_embeddings(node_features, edge_index, edge_weights, None)
+
+    def get_node_embeddings(self, data_inst):
+        data_inst = TorchGeometricDataset.to_geometric(data_inst)
+        node_features = data_inst.x.to(self.device)
+        edge_index = data_inst.edge_index.to(self.device)
+        edge_weights = data_inst.edge_attr.to(self.device)
+        
+        return self.model.get_node_embeddings(node_features, edge_index, edge_weights, None)
                      
     def check_configuration(self):#TODO: revise configuration
         super().check_configuration()
