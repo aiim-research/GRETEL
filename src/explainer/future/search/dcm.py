@@ -24,7 +24,7 @@ class DCM(Explainer, Trainable):
         for i in indices:
             graph = self.dataset.get_instance(i)
             category = graph.label
-            categorized_graph.append((category, graph))
+            categorized_graph.append((category, i))
 
         # Groups the graph by category
         graphs_by_category = {}
@@ -51,7 +51,7 @@ class DCM(Explainer, Trainable):
             self.logger.info("Starting category {}/{}".format(index, total))
             
             n = 0
-            for graph in graphs:
+            for graph_indice in graphs:
                 n +=1
                 self.logger.info("Processing graph {}/{}".format(n, len(graphs)))
                 distance = 0
@@ -59,7 +59,10 @@ class DCM(Explainer, Trainable):
                 for category_, graphs_ in graphs_by_category.items():
                     if category == category_:
                         continue
-                    for graph_ in graphs_: 
+                    for graph_indice_ in graphs_: 
+                        graph = self.dataset.get_instance(graph_indice)
+                        graph_ = self.dataset.get_instance(graph_indice_)
+                        
                         key = (graph.id, graph_.id)
 
                         if key in distances:
@@ -70,7 +73,7 @@ class DCM(Explainer, Trainable):
                             
                         distance += distances[key]
 
-                graphs_distance_total.append((graph, distance))
+                graphs_distance_total.append((graph_indice, distance))
             
             min_distance = float('inf')
             medoid = None
@@ -100,8 +103,9 @@ class DCM(Explainer, Trainable):
         min_distance = float('inf')
         closest_medoid = None
        
-        for other_category, medoid in self.model.items():
+        for other_category, medoid_indice in self.model.items():
             if other_category != category:
+                medoid = self.dataset.get_instance(medoid_indice)
                 distance = self.distance_metric.evaluate(instance, medoid)
                 if distance < min_distance:
                     min_distance = distance
