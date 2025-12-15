@@ -60,54 +60,45 @@ class ScoreNet(nn.Module):
 
 class PrioritizedReplayBuffer:
     def __init__(self, capacity: int, epsilon: float = 1e-5):
+        """
+        A class for Prioritized Experience Replay using total rewards as priority.
+        
+        Parameters:
+        - capacity: Maximum number of experiences in the buffer.
+        - epsilon: Small value to ensure priorities are never zero, preventing NaNs.
+        """
         self.capacity = capacity
-        self.epsilon = epsilon
+        self.epsilon = epsilon  # Small value to ensure priorities are not zero
         self.buffer = []
-        self.priorities = []
-        self.targets = []
+        self.rewards = []  # Store rewards as priorities
         self.pos = 0
 
-    def add(self, experience, priority: float, target: float):
-        # clamp target to [0,1] for BCE
-        target = float(np.clip(target, 0.0, 1.0))
-        priority = float(max(abs(priority), self.epsilon))
-
-        for i, exp in enumerate(self.buffer):
+    def add(self, experience, reward):
+        """
+        Add an experience to the buffer with priority based on its reward.
+        If the pair already exists, increment/decrement its priority based on the new reward.
+        """
+        # Check if the experience already exists in the buffer
+        for i, (exp, current_reward) in enumerate(zip(self.buffer, self.rewards)):
             if exp == experience:
-                self.priorities[i] = max(self.priorities[i] + priority, self.epsilon)
-                self.targets[i] = target
-                return
-
+                # If the experience exists, update its priority
+                new_priority = current_reward + reward  # Cumulative reward-based priority
+                self.rewards[i] = max(new_priority, self.epsilon)  # Ensure priority is never zero
+                return  # Exit the function since we updated the existing pair
+        
+        # If experience is not in the buffer, add it
         if len(self.buffer) < self.capacity:
             self.buffer.append(experience)
-            self.priorities.append(priority)
-            self.targets.append(target)
+            self.rewards.append(reward)
         else:
+            # If buffer is full, replace the oldest experience
             self.buffer[self.pos] = experience
-            self.priorities[self.pos] = priority
-            self.targets[self.pos] = target
+            self.rewards[self.pos] = reward
+
+        # Ensure reward (priority) is never zero
+        self.rewards[self.pos] = max(self.rewards[self.pos], self.epsilon)
 
         self.pos = (self.pos + 1) % self.capacity
-
-    def sample(self, batch_size: int):
-        priorities = np.array(self.priorities, dtype=np.float64)
-        probs = priorities / priorities.sum()
-
-        if np.any(np.isnan(probs)) or np.any(probs <= 0):
-            probs = np.ones_like(probs) / len(probs)
-
-        indices = np.random.choice(len(self.buffer), size=batch_size, p=probs, replace=False if batch_size < len(self.buffer) else True)
-        batch = [self.buffer[i] for i in indices]
-        targets = [self.targets[i] for i in indices]
-
-        weights = (len(self.buffer) * probs[indices]) ** -1
-        weights /= weights.max()
-
-        return batch, indices, targets, weights
-
-    def update_priorities(self, indices, new_priorities):
-        for i, p in zip(indices, new_priorities):
-            self.priorities[i] = max(float(abs(p)), self.epsilon)
 
     def sample(self, batch_size: int):
         """Sample experiences from the buffer according to their priority."""
@@ -125,8 +116,8 @@ class PrioritizedReplayBuffer:
 
         batch = [self.buffer[i] for i in indices]
         rewards = [self.rewards[i] for i in indices]
-        weights = (len(self.buffer) * probs[indices]) ** -1
-        weights /= weights.max()
+        weights = (len(self.buffer) * probs[indices]) ** -1  # Importance-sampling weights
+        weights /= weights.max()  # Normalize weights
 
         return batch, indices, rewards, weights
 
