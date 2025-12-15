@@ -6,30 +6,136 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
+import logging
+from typing import Any, Dict, Optional
+import math
+import time
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(message)s")
 
 class ScoreNet(nn.Module):
     """
-    Small MLP that takes pair features and outputs a logit (score).
+    MLP with Batch Normalization, alternate activation functions, residual connections, and Dropout.
     """
-
-    def __init__(self, input_dim: int, hidden_dim: int = 128, num_hidden_layers: int = 2):
+    def __init__(self, input_dim: int, hidden_dim: int = 128, num_hidden_layers: int = 2,
+                 activation_function: str = "ReLU", dropout_prob: float = 0.2):
         super().__init__()
+
+        # Choose activation function
+        if activation_function == "ReLU":
+            self.activation = nn.ReLU()
+        elif activation_function == "LeakyReLU":
+            self.activation = nn.LeakyReLU()
+        elif activation_function == "ELU":
+            self.activation = nn.ELU()
+        elif activation_function == "Swish":
+            self.activation = nn.SiLU()  # Swish is implemented as SiLU in PyTorch
+        else:
+            raise ValueError(f"Unknown activation function: {activation_function}")
+
         layers = []
         dim = input_dim
+        
         for _ in range(num_hidden_layers):
             layers.append(nn.Linear(dim, hidden_dim))
-            layers.append(nn.ReLU())
+            layers.append(nn.BatchNorm1d(hidden_dim))  # Add Batch Normalization
+            layers.append(self.activation)  # Apply chosen activation function
+            layers.append(nn.Dropout(dropout_prob))  # Apply Dropout
             dim = hidden_dim
-        layers.append(nn.Linear(dim, 1))  # output logit
+
+        layers.append(nn.Linear(dim, 1))  # Output logit
         self.net = nn.Sequential(*layers)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (batch, input_dim)
-        out = self.net(x)
-        return out.squeeze(-1)  # (batch,)
+        if x.size(0) == 1:  # If batch size is 1, disable BatchNorm
+            for layer in self.net:
+                if isinstance(layer, nn.BatchNorm1d):
+                    continue
+                x = layer(x)
+            return x.squeeze(-1)
+        else:
+            out = self.net(x)
+            return out.squeeze(-1)
 
 
+class PrioritizedReplayBuffer:
+    def __init__(self, capacity: int, epsilon: float = 1e-5):
+        self.capacity = capacity
+        self.epsilon = epsilon
+        self.buffer = []
+        self.priorities = []
+        self.targets = []
+        self.pos = 0
+
+    def add(self, experience, priority: float, target: float):
+        # clamp target to [0,1] for BCE
+        target = float(np.clip(target, 0.0, 1.0))
+        priority = float(max(abs(priority), self.epsilon))
+
+        for i, exp in enumerate(self.buffer):
+            if exp == experience:
+                self.priorities[i] = max(self.priorities[i] + priority, self.epsilon)
+                self.targets[i] = target
+                return
+
+        if len(self.buffer) < self.capacity:
+            self.buffer.append(experience)
+            self.priorities.append(priority)
+            self.targets.append(target)
+        else:
+            self.buffer[self.pos] = experience
+            self.priorities[self.pos] = priority
+            self.targets[self.pos] = target
+
+        self.pos = (self.pos + 1) % self.capacity
+
+    def sample(self, batch_size: int):
+        priorities = np.array(self.priorities, dtype=np.float64)
+        probs = priorities / priorities.sum()
+
+        if np.any(np.isnan(probs)) or np.any(probs <= 0):
+            probs = np.ones_like(probs) / len(probs)
+
+        indices = np.random.choice(len(self.buffer), size=batch_size, p=probs, replace=False if batch_size < len(self.buffer) else True)
+        batch = [self.buffer[i] for i in indices]
+        targets = [self.targets[i] for i in indices]
+
+        weights = (len(self.buffer) * probs[indices]) ** -1
+        weights /= weights.max()
+
+        return batch, indices, targets, weights
+
+    def update_priorities(self, indices, new_priorities):
+        for i, p in zip(indices, new_priorities):
+            self.priorities[i] = max(float(abs(p)), self.epsilon)
+
+    def sample(self, batch_size: int):
+        """Sample experiences from the buffer according to their priority."""
+        # Normalize priorities to sum to 1
+        priorities = np.array(self.rewards)
+        probs = priorities / priorities.sum()
+
+        # Check for NaNs in probabilities
+        if np.any(np.isnan(probs)) or np.any(probs < 0):
+            print("Warning: NaN probabilities encountered!")
+            probs = np.ones_like(probs) / len(probs)  # Fallback to uniform sampling
+
+        # Sample indices based on probability distribution
+        indices = np.random.choice(len(self.buffer), size=batch_size, p=probs)
+
+        batch = [self.buffer[i] for i in indices]
+        rewards = [self.rewards[i] for i in indices]
+        weights = (len(self.buffer) * probs[indices]) ** -1
+        weights /= weights.max()
+
+        return batch, indices, rewards, weights
+
+    def update_priorities(self, indices, rewards):
+        """Update the priorities of sampled experiences based on new rewards."""
+        for i, reward in zip(indices, rewards):
+            self.rewards[i] = max(reward, self.epsilon)  # Ensure priority is never zero
+
+            
 class OnlineNNEdgeSelector:
     """
     Online neural model to bias which edges to add/remove.
@@ -56,8 +162,9 @@ class OnlineNNEdgeSelector:
         batch_size: int = 64,
         replay_capacity: int = 50000,
     ):
+        self.example_count = 0
         self.k = k
-        self.input_dim = 4 * k + 4           # based on our feature design
+        self.input_dim = 4 * k + 4
         self.hidden_dim = hidden_dim
         self.num_hidden_layers = num_hidden_layers
         self.exploration_prob = exploration_prob
@@ -68,12 +175,16 @@ class OnlineNNEdgeSelector:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.device = device
 
-        # Separate models for add/remove actions
-        self.model_add = ScoreNet(self.input_dim, hidden_dim, num_hidden_layers).to(self.device)
-        self.model_remove = ScoreNet(self.input_dim, hidden_dim, num_hidden_layers).to(self.device)
+        self.model_add = ScoreNet(self.input_dim, hidden_dim, num_hidden_layers, activation_function='Swish').to(self.device)
+        self.model_remove = ScoreNet(self.input_dim, hidden_dim, num_hidden_layers, activation_function='Swish').to(self.device)
 
         self.opt_add = optim.Adam(self.model_add.parameters(), lr=lr)
         self.opt_remove = optim.Adam(self.model_remove.parameters(), lr=lr)
+        
+        # Learning rate scheduler (using ReduceLROnPlateau)
+        self.scheduler_add = optim.lr_scheduler.ReduceLROnPlateau(self.opt_add, mode='min', factor=0.5, patience=5)
+        self.scheduler_remove = optim.lr_scheduler.ReduceLROnPlateau(self.opt_remove, mode='min', factor=0.5, patience=5)
+
 
         self.loss_fn = nn.BCEWithLogitsLoss()
 
@@ -83,9 +194,26 @@ class OnlineNNEdgeSelector:
         # Replay buffers: list of (u, v, reward)
         self.replay_add: list[tuple[int, int, float]] = []
         self.replay_remove: list[tuple[int, int, float]] = []
-
+        
+        # Track performance for dynamic exploration adjustment
+        self.performance_counter = 0
+        self.last_best_size = None
+        
+        # Initialize a prioritized replay buffer for add and remove actions
+        self.replay_add = PrioritizedReplayBuffer(self.replay_capacity)
+        self.replay_remove = PrioritizedReplayBuffer(self.replay_capacity)
     # ---------- Node vectors & features ----------
 
+    def build_tensors(self, node_vecs_np: np.ndarray) -> torch.Tensor:
+        """
+        Call this once (or whenever node vectors change).
+
+        node_vecs_np: shape (num_nodes, k)
+        """
+        return torch.as_tensor(
+            node_vecs_np, dtype=torch.float32, device=self.device
+        )
+        
     def set_node_vectors(self, node_vecs_np: np.ndarray):
         """
         Call this once (or whenever node vectors change).
@@ -213,7 +341,6 @@ class OnlineNNEdgeSelector:
             for (u, v) in solution_pairs
         }
 
-        # Build candidate list depending on the mode
         if mode == "remove":
             # Candidates are exactly the edges in the current solution
             candidate_pairs = list(solution_set)
@@ -256,6 +383,7 @@ class OnlineNNEdgeSelector:
         Choose X candidate pairs to ADD.
         `solution` is the current solution as a list of (u, v) pairs.
         """
+        self._update_exploration_prob()
         return self._propose(solution, X, mode="add")
 
     def propose_removals(self, solution, X: int):
@@ -263,15 +391,39 @@ class OnlineNNEdgeSelector:
         Choose X candidate pairs to REMOVE.
         `solution` is the current solution as a list of (u, v) pairs.
         """
+        self._update_exploration_prob()
         return self._propose(solution, X, mode="remove")
+    
+    
+    def _update_exploration_prob(self):
+        """
+        Update exploration probability dynamically based on performance.
+        """
+        if self.last_best_size is None:
+            return
+
+        # Check if the current best solution size has improved
+        improvement = self.last_best_size - self.best_size if self.last_best_size else 0
+        if improvement < self.performance_threshold:
+            self.performance_counter += 1
+        else:
+            self.performance_counter = 0  # Reset if there is improvement
+
+        # If stuck for a while, increase exploration
+        if self.performance_counter >= self.exploration_update_interval:
+            self.exploration_prob = min(1.0, self.exploration_prob * 1.05)
+
+        # Decay exploration otherwise
+        else:
+            self.exploration_prob = max(0.05, self.exploration_prob * 0.995)
+
+        # Ensure that exploration_prob stays within bounds
+        self.exploration_prob = max(0.05, min(1.0, self.exploration_prob))
 
     # ---------- Replay buffer & mini-batch training ----------
 
     def _append_replay(self, mode: str, pairs, reward: float):
-        """
-        Store (pair, reward) experiences in replay buffer.
-        All pairs in this call share the same reward.
-        """
+        """Store (pair, reward) experiences in the replay buffer."""
         if not pairs:
             return
 
@@ -279,44 +431,56 @@ class OnlineNNEdgeSelector:
         r = float(reward)
 
         for (u, v) in pairs:
-            buf.append((int(u), int(v), r))
+            buf.add((u, v), r)  # Add experience with its corresponding TD error
 
-        # Keep buffer size under capacity (drop oldest)
-        if len(buf) > self.replay_capacity:
-            overflow = len(buf) - self.replay_capacity
-            del buf[:overflow]
 
     def _train_from_replay(self, mode: str):
-        """
-        Sample a mini-batch from replay buffer and do one optimizer step.
-        """
+        """Sample a mini-batch from replay buffer and do one optimizer step."""
         buf = self.replay_add if mode == "add" else self.replay_remove
         if not buf:
             return
 
-        batch_size = min(self.batch_size, len(buf))
-        idx = np.random.choice(len(buf), size=batch_size, replace=False)
+        batch_size = min(self.batch_size, len(buf.buffer))
+        if batch_size <= 1:
+            return
+        
+        batch, indices, rewards, weights = buf.sample(batch_size)
+         # Unpack the batch into pairs and rewards
+        pairs = [(b[0], b[1]) for b in batch]  # List of (u, v) pairs
 
-        pairs = [buf[i][:2] for i in idx]
-        rewards = [buf[i][2] for i in idx]
-
+        # Convert pairs and rewards to tensors
         pairs_tensor = torch.as_tensor(pairs, dtype=torch.long, device=self.device)
         feats = self._pair_features(pairs_tensor)
         labels = torch.as_tensor(rewards, dtype=torch.float32, device=self.device)
-
+        
         model = self.model_add if mode == "add" else self.model_remove
         opt = self.opt_add if mode == "add" else self.opt_remove
-
+        
         model.train()
         opt.zero_grad()
+        
         logits = model(feats)
         loss = self.loss_fn(logits, labels)
-        loss.backward()
 
-        # gradient clipping for stability
+        # Apply importance sampling weights to the loss
+        weighted_loss = (loss * torch.tensor(weights, dtype=torch.float32, device=self.device)).mean()
+
+        weighted_loss.backward()
+        
+        # Gradient clipping for stability
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-
+        
         opt.step()
+
+        # Update priorities based on TD errors
+        td_errors = logits - labels
+        buf.update_priorities(indices, td_errors.cpu().detach().numpy())
+
+    
+    def _adjust_buffer_size(self):
+        """Dynamically adjust the buffer size based on performance."""
+        if len(self.replay_add.buffer) > self.replay_capacity * 0.8:
+            self.replay_capacity = max(1000, self.replay_capacity - 1000)
 
     # ---------- Online update (reward-based) ----------
 
@@ -326,8 +490,11 @@ class OnlineNNEdgeSelector:
         """
         if not chosen_pairs:
             return
+        
         self._append_replay("add", chosen_pairs, reward)
+
         self._train_from_replay("add")
+
 
     def update_removals(self, chosen_pairs, reward: float):
         """
@@ -335,9 +502,23 @@ class OnlineNNEdgeSelector:
         """
         if not chosen_pairs:
             return
+        
         self._append_replay("remove", chosen_pairs, reward)
+
+        # Train the model from replay
         self._train_from_replay("remove")
 
+    # ---------- Reward computation ----------
+    def compute_reward(found_: bool) -> float:
+        """
+        Map (valid move, size improvement) -> reward in [0, 1].
+        """
+
+        if not found_:
+            return -1
+        return 1.0
+
+    
     # ---------- Save / load ----------
 
     def save(self, path: str):
@@ -386,3 +567,129 @@ class OnlineNNEdgeSelector:
         obj.opt_add.load_state_dict(ckpt["opt_add"])
         obj.opt_remove.load_state_dict(ckpt["opt_remove"])
         return obj
+
+    # ---------- logging ----------
+    def _param_stats(self, model: nn.Module) -> Dict[str, float]:
+        """Fast-ish summary stats to detect changes without dumping tensors."""
+        abs_sum = 0.0
+        sq_sum = 0.0
+        max_abs = 0.0
+        n = 0
+
+        with torch.no_grad():
+            for p in model.parameters():
+                if p is None:
+                    continue
+                t = p.detach()
+                if t.numel() == 0:
+                    continue
+                tf = t.float()
+                a = tf.abs()
+                abs_sum += a.sum().item()
+                sq_sum += (tf * tf).sum().item()
+                max_abs = max(max_abs, a.max().item())
+                n += tf.numel()
+
+        l2 = math.sqrt(sq_sum) if sq_sum > 0 else 0.0
+        mean_abs = abs_sum / max(n, 1)
+        return {
+            "param_numel": float(n),
+            "param_l2": float(l2),
+            "param_mean_abs": float(mean_abs),
+            "param_max_abs": float(max_abs),
+            # a simple "checksum" that should move if weights move:
+            "param_abs_sum": float(abs_sum),
+        }
+
+    def _bn_running_stats(self, model: nn.Module) -> Dict[str, float]:
+        """BatchNorm running stats are a good 'is training doing anything?' signal."""
+        means = []
+        vars_ = []
+        for m in model.modules():
+            if isinstance(m, nn.BatchNorm1d):
+                if hasattr(m, "running_mean") and m.running_mean is not None:
+                    means.append(m.running_mean.detach().float().mean().item())
+                if hasattr(m, "running_var") and m.running_var is not None:
+                    vars_.append(m.running_var.detach().float().mean().item())
+
+        return {
+            "bn_running_mean_mean": float(sum(means) / max(len(means), 1)) if means else float("nan"),
+            "bn_running_var_mean": float(sum(vars_) / max(len(vars_), 1)) if vars_ else float("nan"),
+            "bn_layers": float(len(means)),
+        }
+
+    def log_model_status(
+        self,
+        mode: str = "add",
+        step: Optional[int] = None,
+        loss: Optional[float] = None,
+        extra: Optional[Dict[str, Any]] = None,
+        logger: Optional[logging.Logger] = None,
+    ) -> Dict[str, Any]:
+        """
+        Logs + returns a dict describing whether the model is changing.
+        Call it occasionally (e.g. every N training steps).
+
+        mode: "add" or "remove"
+        step: optional global step counter
+        loss: last loss value if you have it
+        """
+        if logger is None:
+            logger = logging.getLogger(__name__)
+
+        model = self.model_add if mode == "add" else self.model_remove
+        opt = self.opt_add if mode == "add" else self.opt_remove
+        buf = self.replay_add if mode == "add" else self.replay_remove
+
+        stats = {}
+        stats.update(self._param_stats(model))
+        stats.update(self._bn_running_stats(model))
+
+        lr = opt.param_groups[0]["lr"] if opt.param_groups else float("nan")
+        stats.update({
+            "mode": mode,
+            "step": step if step is not None else -1,
+            "loss": float(loss) if loss is not None else float("nan"),
+            "lr": float(lr),
+            "exploration_prob": float(self.exploration_prob),
+            "replay_size": float(len(getattr(buf, "buffer", []))),
+            "model_training_flag": float(model.training),
+        })
+
+        # Compare against last snapshot to see if weights actually moved
+        if not hasattr(self, "_last_status"):
+            self._last_status = {"add": None, "remove": None}
+
+        last = self._last_status.get(mode)
+        if last is None:
+            stats["delta_param_abs_sum"] = float("nan")
+            stats["delta_param_l2"] = float("nan")
+            stats["changed"] = False
+        else:
+            stats["delta_param_abs_sum"] = stats["param_abs_sum"] - last["param_abs_sum"]
+            stats["delta_param_l2"] = stats["param_l2"] - last["param_l2"]
+            stats["changed"] = abs(stats["delta_param_abs_sum"]) > 1e-6
+
+        self._last_status[mode] = stats.copy()
+
+        if extra:
+            stats.update(extra)
+
+        logger.info(
+            "[%s] step=%s loss=%s lr=%.3g replay=%d eps=%.3f "
+            "abs_sum=%.6g (Δ%.3g) l2=%.6g bn_mean=%.3g bn_var=%.3g changed=%s",
+            mode,
+            stats["step"],
+            "nan" if math.isnan(stats["loss"]) else f"{stats['loss']:.6g}",
+            stats["lr"],
+            int(stats["replay_size"]),
+            stats["exploration_prob"],
+            stats["param_abs_sum"],
+            stats["delta_param_abs_sum"] if not math.isnan(stats["delta_param_abs_sum"]) else float("nan"),
+            stats["param_l2"],
+            stats["bn_running_mean_mean"],
+            stats["bn_running_var_mean"],
+            stats["changed"],
+        )
+
+        return stats
