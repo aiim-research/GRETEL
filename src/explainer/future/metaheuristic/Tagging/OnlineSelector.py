@@ -10,6 +10,8 @@ import logging
 from typing import Any, Dict, Optional
 import math
 import time
+import torch.nn.functional as F
+from collections import defaultdict
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(message)s")
 
 class ScoreNet(nn.Module):
@@ -44,6 +46,9 @@ class ScoreNet(nn.Module):
 
         layers.append(nn.Linear(dim, 1))  # Output logit
         self.net = nn.Sequential(*layers)
+        
+        
+        
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (batch, input_dim)
@@ -55,78 +60,7 @@ class ScoreNet(nn.Module):
             return x.squeeze(-1)
         else:
             out = self.net(x)
-            return out.squeeze(-1)
-
-
-class PrioritizedReplayBuffer:
-    def __init__(self, capacity: int, epsilon: float = 1e-5):
-        """
-        A class for Prioritized Experience Replay using total rewards as priority.
-        
-        Parameters:
-        - capacity: Maximum number of experiences in the buffer.
-        - epsilon: Small value to ensure priorities are never zero, preventing NaNs.
-        """
-        self.capacity = capacity
-        self.epsilon = epsilon  # Small value to ensure priorities are not zero
-        self.buffer = []
-        self.rewards = []  # Store rewards as priorities
-        self.pos = 0
-
-    def add(self, experience, reward):
-        """
-        Add an experience to the buffer with priority based on its reward.
-        If the pair already exists, increment/decrement its priority based on the new reward.
-        """
-        # Check if the experience already exists in the buffer
-        for i, (exp, current_reward) in enumerate(zip(self.buffer, self.rewards)):
-            if exp == experience:
-                # If the experience exists, update its priority
-                new_priority = current_reward + reward  # Cumulative reward-based priority
-                self.rewards[i] = max(new_priority, self.epsilon)  # Ensure priority is never zero
-                return  # Exit the function since we updated the existing pair
-        
-        # If experience is not in the buffer, add it
-        if len(self.buffer) < self.capacity:
-            self.buffer.append(experience)
-            self.rewards.append(reward)
-        else:
-            # If buffer is full, replace the oldest experience
-            self.buffer[self.pos] = experience
-            self.rewards[self.pos] = reward
-
-        # Ensure reward (priority) is never zero
-        self.rewards[self.pos] = max(self.rewards[self.pos], self.epsilon)
-
-        self.pos = (self.pos + 1) % self.capacity
-
-    def sample(self, batch_size: int):
-        """Sample experiences from the buffer according to their priority."""
-        # Normalize priorities to sum to 1
-        priorities = np.array(self.rewards)
-        probs = priorities / priorities.sum()
-
-        # Check for NaNs in probabilities
-        if np.any(np.isnan(probs)) or np.any(probs < 0):
-            print("Warning: NaN probabilities encountered!")
-            probs = np.ones_like(probs) / len(probs)  # Fallback to uniform sampling
-
-        # Sample indices based on probability distribution
-        indices = np.random.choice(len(self.buffer), size=batch_size, p=probs)
-
-        batch = [self.buffer[i] for i in indices]
-        rewards = [self.rewards[i] for i in indices]
-        weights = (len(self.buffer) * probs[indices]) ** -1  # Importance-sampling weights
-        weights /= weights.max()  # Normalize weights
-
-        return batch, indices, rewards, weights
-
-    def update_priorities(self, indices, rewards):
-        """Update the priorities of sampled experiences based on new rewards."""
-        for i, reward in zip(indices, rewards):
-            self.rewards[i] = max(reward, self.epsilon)  # Ensure priority is never zero
-
-            
+            return out.squeeze(-1)            
 class OnlineNNEdgeSelector:
     """
     Online neural model to bias which edges to add/remove.
@@ -150,18 +84,15 @@ class OnlineNNEdgeSelector:
         lr: float = 1e-3,
         exploration_prob: float = 0.2,
         device: torch.device | None = None,
-        batch_size: int = 64,
-        replay_capacity: int = 50000,
     ):
         self.example_count = 0
         self.k = k
-        self.input_dim = 4 * k + 4
+        self.input_dim = 4 * k + 4 + 5  # see _pair_features()
         self.hidden_dim = hidden_dim
         self.num_hidden_layers = num_hidden_layers
         self.exploration_prob = exploration_prob
-        self.batch_size = batch_size
-        self.replay_capacity = replay_capacity
-
+        self.loss_fn = nn.BCEWithLogitsLoss(reduction="none")
+        
         if device is None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.device = device
@@ -182,17 +113,42 @@ class OnlineNNEdgeSelector:
         self.node_vecs: torch.Tensor | None = None  # will be set by set_node_vectors()
         self.node_vecs_np: np.ndarray | None = None
 
-        # Replay buffers: list of (u, v, reward)
-        self.replay_add: list[tuple[int, int, float]] = []
-        self.replay_remove: list[tuple[int, int, float]] = []
-        
         # Track performance for dynamic exploration adjustment
         self.performance_counter = 0
         self.last_best_size = None
         
-        # Initialize a prioritized replay buffer for add and remove actions
-        self.replay_add = PrioritizedReplayBuffer(self.replay_capacity)
-        self.replay_remove = PrioritizedReplayBuffer(self.replay_capacity)
+        self.temp_add = 1.5      
+        self.temp_remove = 1.2
+        
+        self.neg_edge_counts_add = defaultdict(int)
+        self.neg_edge_counts_remove = defaultdict(int)
+        self.neg_edge_cap = 5  # tuneable
+        
+        # ---------------- Logging / stats ----------------
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+        self.log_every_propose_steps = 50
+
+        # counters
+        self.train_calls = 0
+        self.train_calls_add = 0
+        self.train_calls_remove = 0
+        self.propose_calls = 0
+
+        # moving averages (EMA)
+        self.ema_beta = 0.95
+        self._ema = {}  # name -> float
+
+        # store last events
+        self._last_train = {}
+        self._last_propose = {}
+
+        
+        self._use_cuda_timing = (self.device.type == "cuda")
+
+        # Use per-sample loss so we can log extra stats
+        self.loss_fn = nn.BCEWithLogitsLoss(reduction="none")
+        
     # ---------- Node vectors & features ----------
 
     def build_tensors(self, node_vecs_np: np.ndarray) -> torch.Tensor:
@@ -232,7 +188,7 @@ class OnlineNNEdgeSelector:
 
             self.node_vecs = node_vecs.to(self.device, dtype=torch.float32)
 
-    def _pair_features(self, pairs_tensor: torch.Tensor) -> torch.Tensor:
+    def _pair_features(self, pairs_tensor, degS=None, inS=None, sol_size=None, Eplus=None) -> torch.Tensor:
         """
         Build features for many pairs at once.
 
@@ -259,6 +215,30 @@ class OnlineNNEdgeSelector:
             [v_u, v_v, diff, prod, dot, norm_u, norm_v, dist],
             dim=1
         )
+        
+        # ----- context features (if provided) -----
+        if degS is None or inS is None or sol_size is None or Eplus is None:
+            # fallback: zeros if context not provided
+            M = pairs_tensor.size(0)
+            extra = torch.zeros((M, self.ctx_dim), device=self.device, dtype=torch.float32)
+        else:
+            u_idx = pairs_tensor[:, 0]
+            v_idx = pairs_tensor[:, 1]
+
+            deg_u = degS[u_idx].unsqueeze(1)
+            deg_v = degS[v_idx].unsqueeze(1)
+
+            in_u  = inS[u_idx].unsqueeze(1)
+            in_v  = inS[v_idx].unsqueeze(1)
+
+            sol_size_norm = (sol_size / max(1.0, float(Eplus))).expand(pairs_tensor.size(0), 1)
+
+            extra = torch.cat([deg_u, deg_v, in_u, in_v, sol_size_norm], dim=1)  # (M,5)
+
+        feats = torch.cat([feats, extra], dim=1)
+        assert feats.shape[1] == self.input_dim
+        return feats
+
         assert feats.shape[1] == self.input_dim
         return feats
 
@@ -270,13 +250,17 @@ class OnlineNNEdgeSelector:
         probs_np: array of length M, ideally in [0,1]
         """
         n = len(probs_np)
+        n = len(probs_np)
         if n <= X:
-            # not enough candidates to worry about sampling
+            self._last_propose["did_explore"] = False
             return list(range(n))
-
+        
         # Exploration: pure random choice
         if np.random.rand() < self.exploration_prob:
+            self._last_propose["did_explore"] = True
             return random.sample(range(n), X)
+
+        self._last_propose["did_explore"] = False
 
         probs = np.asarray(probs_np, dtype=float)
         probs = np.maximum(probs, 0.0)
@@ -331,18 +315,35 @@ class OnlineNNEdgeSelector:
             (int(min(u, v)), int(max(u, v)))
             for (u, v) in solution_pairs
         }
+        
+        degS, inS, sol_size = self._solution_context(solution_set, num_nodes)
+        Eplus = num_nodes * (num_nodes - 1) / 2  # undirected
+
+        
 
         if mode == "remove":
             # Candidates are exactly the edges in the current solution
             candidate_pairs = list(solution_set)
 
         elif mode == "add":
-            # Candidates are all pairs in the universe that are NOT in the current solution
-            candidate_pairs = []
-            for u in range(num_nodes):
-                for v in range(u + 1, num_nodes):
-                    if (u, v) not in solution_set:
-                        candidate_pairs.append((u, v))
+            # Candidates are sampled (pool) pairs NOT in the current solution
+            pool_size = getattr(self, "add_pool_size", None)
+            if pool_size is None:
+                # default: scale with X a bit, but cap
+                pool_size = int(min(20000, max(2000, 500 * X)))
+
+            # focus around nodes already involved in the current solution
+            focus_nodes = []
+            for (u, v) in solution_set:
+                focus_nodes.append(u)
+                focus_nodes.append(v)
+
+            candidate_pairs = self._sample_add_candidates(
+                solution_set=solution_set,
+                num_nodes=num_nodes,
+                pool_size=pool_size,
+                focus_nodes=focus_nodes,   # comment this out to use uniform only
+            )
 
         else:
             raise ValueError(f"Unknown mode '{mode}', expected 'add' or 'remove'.")
@@ -361,20 +362,107 @@ class OnlineNNEdgeSelector:
         model = self.model_add if mode == "add" else self.model_remove
         model.eval()
         with torch.no_grad():
-            feats = self._pair_features(pairs_tensor)          # (M, input_dim)
+            feats = self._pair_features(pairs_tensor, degS=degS, inS=inS, sol_size=sol_size, Eplus=Eplus) # (M, input_dim)
             logits = model(feats)                              # (M,)
             probs = torch.sigmoid(logits).cpu().numpy()        # P(success)
+        
+        # ---- save propose stats ----
+        self.propose_calls += 1
+        self._last_propose = {
+            "propose_calls": self.propose_calls,
+            "mode": mode,
+            "num_candidates": M,
+            "X": X,
+            "exploration_prob": float(self.exploration_prob),
+            "p_mean": float(np.mean(probs)),
+            "p_std": float(np.std(probs)),
+            "p_min": float(np.min(probs)),
+            "p_max": float(np.max(probs)),
+        }
 
-        # Sample indices according to probs (epsilon-greedy)
-        idx = self._sample_indices(probs, X)
+        if (self.propose_calls % self.log_every_propose_steps) == 0:
+            self._log_propose_status()
+            
+        logits_np = logits.detach().cpu().numpy()
+        weights = self._weights_from_logits(logits_np, mode=mode)
+        idx = self._sample_indices(weights, X)
         return [candidate_pairs[i] for i in idx]
+    
+    def _canonical_pair(self, u: int, v: int) -> tuple[int, int] | None:
+        if u == v:
+            return None
+        a, b = (u, v) if u < v else (v, u)
+        return (a, b)
+    
+    def _weights_from_logits(self, logits: np.ndarray, mode: str) -> np.ndarray:
+        T = float(self.temp_add if mode == "add" else self.temp_remove)
+        T = max(1e-6, T)
+
+        z = logits / T
+        z = z - np.max(z)
+        w = np.exp(z)
+
+        # avoid all-zero / nan
+        w[~np.isfinite(w)] = 0.0
+        s = w.sum()
+        if s <= 0:
+            w = np.ones_like(w, dtype=float)
+            s = w.sum()
+        return w / s
+
+    def _sample_add_candidates(
+        self,
+        solution_set: set[tuple[int, int]],
+        num_nodes: int,
+        pool_size: int,
+        focus_nodes: list[int] | None = None,
+        max_attempts_mult: int = 50,
+    ) -> list[tuple[int, int]]:
+        """
+        Sample up to pool_size candidate edges (u,v) that are NOT in solution_set.
+        If focus_nodes is provided, bias sampling so at least one endpoint is in focus_nodes.
+        """
+        if pool_size <= 0:
+            return []
+
+        # If focus_nodes is small/empty, fall back to uniform sampling
+        use_focus = focus_nodes is not None and len(focus_nodes) > 0
+        if use_focus:
+            # remove invalid nodes and deduplicate
+            focus = [n for n in set(map(int, focus_nodes)) if 0 <= n < num_nodes]
+            use_focus = len(focus) > 0
+        else:
+            focus = []
+
+        sampled: set[tuple[int, int]] = set()
+        attempts = 0
+        max_attempts = pool_size * max_attempts_mult
+
+        while len(sampled) < pool_size and attempts < max_attempts:
+            attempts += 1
+
+            if use_focus:
+                u = random.choice(focus)
+                v = random.randrange(num_nodes)
+            else:
+                u = random.randrange(num_nodes)
+                v = random.randrange(num_nodes)
+
+            p = self._canonical_pair(u, v)
+            if p is None:
+                continue
+            if p in solution_set:
+                continue
+            sampled.add(p)
+
+        return list(sampled)
 
     def propose_additions(self, solution, X: int):
         """
         Choose X candidate pairs to ADD.
         `solution` is the current solution as a list of (u, v) pairs.
         """
-        self._update_exploration_prob()
+        
         return self._propose(solution, X, mode="add")
 
     def propose_removals(self, solution, X: int):
@@ -382,132 +470,249 @@ class OnlineNNEdgeSelector:
         Choose X candidate pairs to REMOVE.
         `solution` is the current solution as a list of (u, v) pairs.
         """
-        self._update_exploration_prob()
+        
         return self._propose(solution, X, mode="remove")
     
     
-    def _update_exploration_prob(self):
-        """
-        Update exploration probability dynamically based on performance.
-        """
-        if self.last_best_size is None:
-            return
+    
 
-        # Check if the current best solution size has improved
-        improvement = self.last_best_size - self.best_size if self.last_best_size else 0
-        if improvement < self.performance_threshold:
-            self.performance_counter += 1
-        else:
-            self.performance_counter = 0  # Reset if there is improvement
+    # ---------- training ----------
 
-        # If stuck for a while, increase exploration
-        if self.performance_counter >= self.exploration_update_interval:
-            self.exploration_prob = min(1.0, self.exploration_prob * 1.05)
-
-        # Decay exploration otherwise
-        else:
-            self.exploration_prob = max(0.05, self.exploration_prob * 0.995)
-
-        # Ensure that exploration_prob stays within bounds
-        self.exploration_prob = max(0.05, min(1.0, self.exploration_prob))
-
-    # ---------- Replay buffer & mini-batch training ----------
-
-    def _append_replay(self, mode: str, pairs, reward: float):
-        """Store (pair, reward) experiences in the replay buffer."""
+    def _train_online(
+        self,
+        mode: str,
+        pairs: list[tuple[int, int]] | None = None,
+        success: bool = True,   # NEW
+    ):
         if not pairs:
             return
+        if mode not in ("add", "remove"):
+            raise ValueError(f"mode must be 'add' or 'remove', got {mode!r}")
+        if self.node_vecs is None:
+            raise RuntimeError("set_node_vectors() must be called before training.")
 
-        buf = self.replay_add if mode == "add" else self.replay_remove
-        r = float(reward)
-
-        for (u, v) in pairs:
-            buf.add((u, v), r)  # Add experience with its corresponding TD error
-
-
-    def _train_from_replay(self, mode: str):
-        """Sample a mini-batch from replay buffer and do one optimizer step."""
-        buf = self.replay_add if mode == "add" else self.replay_remove
-        if not buf:
-            return
-
-        batch_size = min(self.batch_size, len(buf.buffer))
-        if batch_size <= 1:
-            return
-        
-        batch, indices, rewards, weights = buf.sample(batch_size)
-         # Unpack the batch into pairs and rewards
-        pairs = [(b[0], b[1]) for b in batch]  # List of (u, v) pairs
-
-        # Convert pairs and rewards to tensors
         pairs_tensor = torch.as_tensor(pairs, dtype=torch.long, device=self.device)
-        feats = self._pair_features(pairs_tensor)
-        labels = torch.as_tensor(rewards, dtype=torch.float32, device=self.device)
-        
+        feats = self._pair_features(pairs_tensor).to(self.device)
+
+        y = 1.0 if success else 0.0
+
+        # Train ONLY the model corresponding to the action
+        if mode == "add":
+            steps = [("add", self.model_add, self.opt_add, y)]
+            # optional: only if success, teach remove model "this shouldn't be removed"
+            if success:
+                steps.append(("remove", self.model_remove, self.opt_remove, 0.0))
+        else:
+            steps = [("remove", self.model_remove, self.opt_remove, y)]
+            # optional: only if success, teach add model "this shouldn't be added back"
+            if success:
+                steps.append(("add", self.model_add, self.opt_add, 0.0))
+
+        self.train_calls += 1
+        if mode == "add":
+            self.train_calls_add += 1
+        else:
+            self.train_calls_remove += 1
+
+        for name, model, opt, target_value in steps:
+            targets = torch.full((feats.size(0),), float(target_value),
+                                dtype=torch.float32, device=self.device)
+
+            self._cuda_sync()
+            t0 = time.perf_counter()
+
+            with torch.no_grad():
+                param_abs_sum_pre = float(sum(p.detach().abs().sum().item() for p in model.parameters()))
+
+            model.train()
+            opt.zero_grad(set_to_none=True)
+
+            preds = model(feats)
+            per_sample = self.loss_fn(preds, targets)
+            loss = per_sample.mean()
+
+            if not torch.isfinite(loss):
+                self.logger.warning("[%s] loss is NaN/Inf, skipping step", name)
+                continue
+
+            loss.backward()
+            grad_norm = float(torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0).item())
+            opt.step()
+
+            self._cuda_sync()
+            dt = time.perf_counter() - t0
+
+            with torch.no_grad():
+                param_abs_sum_post = float(sum(p.detach().abs().sum().item() for p in model.parameters()))
+                param_abs_sum_delta = param_abs_sum_post - param_abs_sum_pre
+
+                # output distribution
+                probs = torch.sigmoid(preds.detach())
+                logits_mean = float(preds.detach().mean().item())
+                logits_std  = float(preds.detach().std(unbiased=False).item()) if preds.numel() > 1 else 0.0
+                logits_min  = float(preds.detach().min().item())
+                logits_max  = float(preds.detach().max().item())
+
+                probs_mean = float(probs.mean().item())
+                probs_std  = float(probs.std(unbiased=False).item()) if probs.numel() > 1 else 0.0
+                probs_min  = float(probs.min().item())
+                probs_max  = float(probs.max().item())
+
+            # optimizer LR
+            lr = float(opt.param_groups[0]["lr"])
+            examples = int(feats.size(0))
+            ex_per_s = float(examples / dt) if dt > 0 else float("inf")
+
+            # save last train event so _log_train_status()
+            self._last_train = {
+                "train_calls": self.train_calls,
+                "mode": mode + " " + str(success),
+                "name": name,
+                "loss": float(loss.item()),
+                "grad_norm": grad_norm,
+                "lr": lr,
+                "step_time_s": float(dt),
+                "examples_per_s": ex_per_s,
+                "param_abs_sum_pre": param_abs_sum_pre,
+                "param_abs_sum_post": param_abs_sum_post,
+                "param_abs_sum_delta": param_abs_sum_delta,
+                "logits_mean": logits_mean,
+                "logits_std": logits_std,
+                "logits_min": logits_min,
+                "logits_max": logits_max,
+                "probs_mean": probs_mean,
+                "probs_std": probs_std,
+                "probs_min": probs_min,
+                "probs_max": probs_max,
+            }
+
+            # update EMAs
+            self._ema_update(f"loss/{name}", float(loss.item()))
+            self._ema_update(f"grad/{name}", grad_norm)
+            self._ema_update(f"time/{name}", float(dt))
+            
+            self._last_train["success"] = bool(success)
+            self._last_train["target"] = float(target_value)
+
+            self._log_train_status()
+
+    def _train_online_moves(
+        self,
+        mode: str,
+        examples: list[tuple[list[tuple[int,int]], list[tuple[int,int]], bool]],
+        neg_weight: float = 0.35,
+        max_edges_per_move: int = 15,
+        hard_within_move_for_neg: bool = True,
+    ):
+        if not examples:
+            return
+        if mode not in ("add", "remove"):
+            raise ValueError(mode)
+        if self.node_vecs is None:
+            raise RuntimeError("set_node_vectors() must be called before training.")
+
         model = self.model_add if mode == "add" else self.model_remove
-        opt = self.opt_add if mode == "add" else self.opt_remove
-        
+        opt   = self.opt_add   if mode == "add" else self.opt_remove
+
+        num_nodes = int(self.node_vecs.shape[0])
+        Eplus = (num_nodes * (num_nodes - 1)) / 2
+
         model.train()
-        opt.zero_grad()
-        
-        logits = model(feats)
-        loss = self.loss_fn(logits, labels)
+        opt.zero_grad(set_to_none=True)
 
-        # Apply importance sampling weights to the loss
-        weighted_loss = (loss * torch.tensor(weights, dtype=torch.float32, device=self.device)).mean()
+        losses = []
+        for (solution_uv, move_uv, success) in examples:
+            if not move_uv:
+                continue
 
-        weighted_loss.backward()
-        
-        # Gradient clipping for stability
+            # canonicalize solution snapshot
+            solution_set = {(min(u,v), max(u,v)) for (u,v) in solution_uv if u != v}
+
+            degS, inS, sol_size = self._solution_context(solution_set, num_nodes)
+            
+            move_pairs = [(min(u,v), max(u,v)) for (u,v) in move_uv if u != v]
+            
+            if not success:
+                counter = self.neg_edge_counts_add if mode == "add" else self.neg_edge_counts_remove
+                filtered = []
+                for p in move_pairs:
+                    if counter[p] < self.neg_edge_cap:
+                        filtered.append(p)
+                        counter[p] += 1
+                move_pairs = filtered   
+                
+            if not move_pairs:
+                continue
+
+            # if move is big, sub-sample edges
+            if len(move_pairs) > max_edges_per_move:
+                pairs_tensor_all = torch.as_tensor(move_pairs, dtype=torch.long, device=self.device)
+                feats_all = self._pair_features(pairs_tensor_all, degS=degS, inS=inS, sol_size=sol_size, Eplus=Eplus)
+
+                with torch.no_grad():
+                    logits_all = model(feats_all)  # (m,)
+                    probs_all = torch.sigmoid(logits_all)
+
+                if (not success) and hard_within_move_for_neg:
+                    # for negatives: keep edges model currently thinks are good (hard negatives)
+                    idx = torch.topk(probs_all, k=max_edges_per_move, largest=True).indices
+                else:
+                    # for positives: random subset keeps diversity
+                    idx = torch.randperm(len(move_pairs), device=self.device)[:max_edges_per_move]
+
+                pairs_tensor = pairs_tensor_all[idx]
+                feats = feats_all[idx]
+            else:
+                pairs_tensor = torch.as_tensor(move_pairs, dtype=torch.long, device=self.device)
+                feats = self._pair_features(pairs_tensor, degS=degS, inS=inS, sol_size=sol_size, Eplus=Eplus)
+
+            logits = model(feats)  # (m,)
+            move_logit = logits.mean()  # mean pooling
+
+            target = torch.tensor([1.0 if success else 0.0], device=self.device)
+            loss = F.binary_cross_entropy_with_logits(move_logit.view(1), target)
+
+            # downweight negatives so they don't dominate
+            if not success:
+                loss = loss * float(neg_weight)
+
+            losses.append(loss)
+
+        if not losses:
+            return
+
+        total_loss = torch.stack(losses).mean()
+
+        if not torch.isfinite(total_loss):
+            self.logger.warning("[%s] move-loss is NaN/Inf, skipping", mode)
+            return
+
+        total_loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        
         opt.step()
 
-        # Update priorities based on TD errors
-        td_errors = logits - labels
-        buf.update_priorities(indices, td_errors.cpu().detach().numpy())
+        self.logger.info("[%s][moves] loss=%.6g examples=%d", mode, float(total_loss.item()), len(losses))
+
+
+    # ---------- Online update ----------
+
+    def update_additions(self, chosen_pairs, success: bool):
+        if not chosen_pairs:
+            return
+        self._train_online("add", chosen_pairs, success=success)
+
+    def update_removals(self, chosen_pairs, success: bool):
+        if not chosen_pairs:
+            return
+        self._train_online("remove", chosen_pairs, success=success)
+        
+    def update_addition_moves(self, examples: list[tuple[list[tuple[int,int]], list[tuple[int,int]], bool]]):
+        self._train_online_moves("add", examples)
+        
+    def update_removal_moves(self, examples: list[tuple[list[tuple[int,int]], list[tuple[int,int]], bool]]):
+        self._train_online_moves("remove", examples)
 
     
-    def _adjust_buffer_size(self):
-        """Dynamically adjust the buffer size based on performance."""
-        if len(self.replay_add.buffer) > self.replay_capacity * 0.8:
-            self.replay_capacity = max(1000, self.replay_capacity - 1000)
-
-    # ---------- Online update (reward-based) ----------
-
-    def update_additions(self, chosen_pairs, reward: float):
-        """
-        Online training for ADD actions, using a scaled reward in [0,1].
-        """
-        if not chosen_pairs:
-            return
-        
-        self._append_replay("add", chosen_pairs, reward)
-
-        self._train_from_replay("add")
-
-
-    def update_removals(self, chosen_pairs, reward: float):
-        """
-        Online training for REMOVE actions, using a scaled reward in [0,1].
-        """
-        if not chosen_pairs:
-            return
-        
-        self._append_replay("remove", chosen_pairs, reward)
-
-        # Train the model from replay
-        self._train_from_replay("remove")
-
-    # ---------- Reward computation ----------
-    def compute_reward(found_: bool) -> float:
-        """
-        Map (valid move, size improvement) -> reward in [0, 1].
-        """
-
-        if not found_:
-            return -1
-        return 1.0
 
     
     # ---------- Save / load ----------
@@ -524,8 +729,6 @@ class OnlineNNEdgeSelector:
             "hidden_dim": self.hidden_dim,
             "num_hidden_layers": self.num_hidden_layers,
             "exploration_prob": self.exploration_prob,
-            "batch_size": self.batch_size,
-            "replay_capacity": self.replay_capacity,
             "model_add": self.model_add.state_dict(),
             "model_remove": self.model_remove.state_dict(),
             "opt_add": self.opt_add.state_dict(),
@@ -540,8 +743,6 @@ class OnlineNNEdgeSelector:
         """
         ckpt = torch.load(path, map_location=device if device is not None else "cpu")
 
-        batch_size = ckpt.get("batch_size", 64)
-        replay_capacity = ckpt.get("replay_capacity", 50000)
 
         obj = cls(
             k=ckpt["k"],
@@ -550,137 +751,105 @@ class OnlineNNEdgeSelector:
             lr=lr,
             exploration_prob=ckpt["exploration_prob"],
             device=device,
-            batch_size=batch_size,
-            replay_capacity=replay_capacity,
         )
         obj.model_add.load_state_dict(ckpt["model_add"])
         obj.model_remove.load_state_dict(ckpt["model_remove"])
         obj.opt_add.load_state_dict(ckpt["opt_add"])
         obj.opt_remove.load_state_dict(ckpt["opt_remove"])
         return obj
+    
+    # ---------- context helpers ----------
+    def _solution_context(self, solution_set: set[tuple[int,int]], num_nodes: int):
+        # degree within solution-induced edge set
+        degS = torch.zeros(num_nodes, device=self.device, dtype=torch.float32)
+        inS  = torch.zeros(num_nodes, device=self.device, dtype=torch.float32)
+
+        for (a, b) in solution_set:
+            degS[a] += 1.0
+            degS[b] += 1.0
+            inS[a] = 1.0
+            inS[b] = 1.0
+
+        sol_size = float(len(solution_set))
+        sol_size_t = torch.tensor([sol_size], device=self.device, dtype=torch.float32)
+
+        return degS, inS, sol_size_t
 
     # ---------- logging ----------
-    def _param_stats(self, model: nn.Module) -> Dict[str, float]:
-        """Fast-ish summary stats to detect changes without dumping tensors."""
-        abs_sum = 0.0
-        sq_sum = 0.0
-        max_abs = 0.0
-        n = 0
+    def _cuda_sync(self):
+        if self._use_cuda_timing:
+            torch.cuda.synchronize()
 
-        with torch.no_grad():
-            for p in model.parameters():
-                if p is None:
-                    continue
-                t = p.detach()
-                if t.numel() == 0:
-                    continue
-                tf = t.float()
-                a = tf.abs()
-                abs_sum += a.sum().item()
-                sq_sum += (tf * tf).sum().item()
-                max_abs = max(max_abs, a.max().item())
-                n += tf.numel()
+    def _ema_update(self, key: str, value: float) -> float:
+        if value is None or not math.isfinite(value):
+            return self._ema.get(key, float("nan"))
+        old = self._ema.get(key, value)
+        new = self.ema_beta * old + (1.0 - self.ema_beta) * value
+        self._ema[key] = new
+        return new
 
-        l2 = math.sqrt(sq_sum) if sq_sum > 0 else 0.0
-        mean_abs = abs_sum / max(n, 1)
-        return {
-            "param_numel": float(n),
-            "param_l2": float(l2),
-            "param_mean_abs": float(mean_abs),
-            "param_max_abs": float(max_abs),
-            # a simple "checksum" that should move if weights move:
-            "param_abs_sum": float(abs_sum),
-        }
+    def _log_train_status(self):
+        """Logs whatever is in self._last_train + EMAs."""
+        if not self._last_train:
+            self.logger.info("[train] no training events yet")
+            return
 
-    def _bn_running_stats(self, model: nn.Module) -> Dict[str, float]:
-        """BatchNorm running stats are a good 'is training doing anything?' signal."""
-        means = []
-        vars_ = []
-        for m in model.modules():
-            if isinstance(m, nn.BatchNorm1d):
-                if hasattr(m, "running_mean") and m.running_mean is not None:
-                    means.append(m.running_mean.detach().float().mean().item())
-                if hasattr(m, "running_var") and m.running_var is not None:
-                    vars_.append(m.running_var.detach().float().mean().item())
-
-        return {
-            "bn_running_mean_mean": float(sum(means) / max(len(means), 1)) if means else float("nan"),
-            "bn_running_var_mean": float(sum(vars_) / max(len(vars_), 1)) if vars_ else float("nan"),
-            "bn_layers": float(len(means)),
-        }
-
-    def log_model_status(
-        self,
-        mode: str = "add",
-        step: Optional[int] = None,
-        loss: Optional[float] = None,
-        extra: Optional[Dict[str, Any]] = None,
-        logger: Optional[logging.Logger] = None,
-    ) -> Dict[str, Any]:
-        """
-        Logs + returns a dict describing whether the model is changing.
-        Call it occasionally (e.g. every N training steps).
-
-        mode: "add" or "remove"
-        step: optional global step counter
-        loss: last loss value if you have it
-        """
-        if logger is None:
-            logger = logging.getLogger(__name__)
-
-        model = self.model_add if mode == "add" else self.model_remove
-        opt = self.opt_add if mode == "add" else self.opt_remove
-        buf = self.replay_add if mode == "add" else self.replay_remove
-
-        stats = {}
-        stats.update(self._param_stats(model))
-        stats.update(self._bn_running_stats(model))
-
-        lr = opt.param_groups[0]["lr"] if opt.param_groups else float("nan")
-        stats.update({
-            "mode": mode,
-            "step": step if step is not None else -1,
-            "loss": float(loss) if loss is not None else float("nan"),
-            "lr": float(lr),
-            "exploration_prob": float(self.exploration_prob),
-            "replay_size": float(len(getattr(buf, "buffer", []))),
-            "model_training_flag": float(model.training),
-        })
-
-        # Compare against last snapshot to see if weights actually moved
-        if not hasattr(self, "_last_status"):
-            self._last_status = {"add": None, "remove": None}
-
-        last = self._last_status.get(mode)
-        if last is None:
-            stats["delta_param_abs_sum"] = float("nan")
-            stats["delta_param_l2"] = float("nan")
-            stats["changed"] = False
-        else:
-            stats["delta_param_abs_sum"] = stats["param_abs_sum"] - last["param_abs_sum"]
-            stats["delta_param_l2"] = stats["param_l2"] - last["param_l2"]
-            stats["changed"] = abs(stats["delta_param_abs_sum"]) > 1e-6
-
-        self._last_status[mode] = stats.copy()
-
-        if extra:
-            stats.update(extra)
-
-        logger.info(
-            "[%s] step=%s loss=%s lr=%.3g replay=%d eps=%.3f "
-            "abs_sum=%.6g (Δ%.3g) l2=%.6g bn_mean=%.3g bn_var=%.3g changed=%s",
-            mode,
-            stats["step"],
-            "nan" if math.isnan(stats["loss"]) else f"{stats['loss']:.6g}",
-            stats["lr"],
-            int(stats["replay_size"]),
-            stats["exploration_prob"],
-            stats["param_abs_sum"],
-            stats["delta_param_abs_sum"] if not math.isnan(stats["delta_param_abs_sum"]) else float("nan"),
-            stats["param_l2"],
-            stats["bn_running_mean_mean"],
-            stats["bn_running_var_mean"],
-            stats["changed"],
+        lt = self._last_train
+        # keep this compact but informative
+        self.logger.info(
+            "[train][call=%d mode=%s model=%s] "
+            "loss=%.6g (ema=%.6g) grad_norm=%.4g (ema=%.4g) "
+            "param_abs_sum=%.6g Δ=%.3g "
+            "lr=%.3g step_time=%.4fs (ema=%.4fs) ex/s=%.1f",
+            lt.get("train_calls", -1),
+            lt.get("mode", "?"),
+            lt.get("name", "?"),
+            lt.get("loss", float("nan")),
+            self._ema.get(f"loss/{lt.get('name','?')}", float("nan")),
+            lt.get("grad_norm", float("nan")),
+            self._ema.get(f"grad/{lt.get('name','?')}", float("nan")),
+            lt.get("param_abs_sum_post", float("nan")),
+            lt.get("param_abs_sum_delta", float("nan")),
+            lt.get("lr", float("nan")),
+            lt.get("step_time_s", float("nan")),
+            self._ema.get(f"time/{lt.get('name','?')}", float("nan")),
+            lt.get("examples_per_s", float("nan")),
         )
 
-        return stats
+        # extra debug line: output distribution
+        self.logger.debug(
+            "[train][%s] logits(mean=%.4g std=%.4g min=%.4g max=%.4g) "
+            "probs(mean=%.4g std=%.4g min=%.4g max=%.4g)",
+            lt.get("name", "?"),
+            lt.get("logits_mean", float("nan")),
+            lt.get("logits_std", float("nan")),
+            lt.get("logits_min", float("nan")),
+            lt.get("logits_max", float("nan")),
+            lt.get("probs_mean", float("nan")),
+            lt.get("probs_std", float("nan")),
+            lt.get("probs_min", float("nan")),
+            lt.get("probs_max", float("nan")),
+        )
+
+    def _log_propose_status(self):
+        """NO external params. Logs whatever is in self._last_propose."""
+        if not self._last_propose:
+            self.logger.info("[propose] no propose events yet")
+            return
+
+        lp = self._last_propose
+        self.logger.info(
+            "[propose][call=%d mode=%s] candidates=%d X=%d "
+            "explore=%s eps=%.3f "
+            "p(mean=%.4g std=%.4g min=%.4g max=%.4g)",
+            lp.get("propose_calls", -1),
+            lp.get("mode", "?"),
+            lp.get("num_candidates", -1),
+            lp.get("X", -1),
+            lp.get("did_explore", False),
+            lp.get("exploration_prob", float("nan")),
+            lp.get("p_mean", float("nan")),
+            lp.get("p_std", float("nan")),
+            lp.get("p_min", float("nan")),
+            lp.get("p_max", float("nan")),
+        )

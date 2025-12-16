@@ -70,7 +70,7 @@ class LocalSearch(ExplanationMinimizer):
 
         # smoothing factor for the moving average (0..1). bigger => reacts faster
         self.eff_alpha = self.local_config['parameters'].get('eff_alpha', 0.02)
-
+        self.add_pool_size = 10000 
 
         
         self.methods = [
@@ -122,29 +122,22 @@ class LocalSearch(ExplanationMinimizer):
         
         original_embeddings_tensors = self.oracle.get_node_embeddings(instance)
         
-        print("metrics features shape: " + str(metrics_features.shape))
-        print("Node feature shape: " + str(node_features.shape))
-        print("embeddings features shape: " + str(original_embeddings_tensors.shape))
-        
-        k = total_features.shape[1] + original_embeddings_tensors.shape[1]
-        
-        print("k: " +  str(k))
+        # k = total_features.shape[1] + original_embeddings_tensors.shape[1]
+        k = total_features.shape[1] 
         
         self.selector = self.load_or_initialize_selector(
                 dataset_id=self.dataset.name,
                 k=k,
                 hidden_dim=64,
                 num_hidden_layers=2,
-                lr=1e-5,
-                exploration_prob=0.3,
+                lr=1e-3,
+                exploration_prob=0.1,
             )
                 
         total_features_tensor = self.selector.build_tensors(total_features)
         
-        total_tensor = torch.cat((total_features_tensor, original_embeddings_tensors), dim=1)
-        
-
-        print("Total tensors: " + str(total_tensor.shape))
+        # total_tensor = torch.cat((total_features_tensor, original_embeddings_tensors), dim=1)
+        total_tensor = total_features_tensor
 
         
         self.selector.set_node_vectors_from_tensor(list(total_tensor))
@@ -182,9 +175,16 @@ class LocalSearch(ExplanationMinimizer):
         initial_solution = actual.copy()
         n = min(self.max_runtime, self.runtime_factor * len(actual))
         self.k = 0
+        remove_batch = []
+        add_batch = []
+        remove_move_examples = []
+        add_move_examples = []
+        p_neg_keep = 0.15  # keep 15% of failed moves
+        flush_every = 30
+        
         while(n > 0):
             # self.logger.info("n: " + str(n))
-            self.logger.info("k(-): " + str(self.k))
+            self.logger.info("oracle calls (before (-)): " + str(self.k))
             n-=1
             if(len(best) == 1) : break
             if(self.k > self.max_oracle_calls) :
@@ -197,7 +197,7 @@ class LocalSearch(ExplanationMinimizer):
             
             tries = 0
             descarted = 0
-            for s, removed, _ in self.edge_remove(actual):
+            for s, removed, _, sol_ctx in self.edge_remove(actual):
                 if self.cache.contains(s):
                     descarted += 1
                     continue
@@ -208,7 +208,23 @@ class LocalSearch(ExplanationMinimizer):
                 
                 tries += 1
                 found_, inst = self.evaluate(s)
-                reward = OnlineNNEdgeSelector.compute_reward(found_)
+                
+                sol_uv = self.id_to_uv(sol_ctx)
+                removed_uv = self.id_to_uv(removed)
+
+                is_success = bool(found_ and new_size < old_best_size)
+                
+                # ---- Model training ----
+                if is_success:
+                    remove_move_examples.append((sol_uv, removed_uv, True))
+                else:
+                    if random.random() < p_neg_keep:
+                        remove_move_examples.append((sol_uv, removed_uv, False))
+
+                if len(remove_move_examples) >= flush_every:
+                    self.selector.update_removal_moves(remove_move_examples)
+                    remove_move_examples = []
+                # ------------------------
 
                 if found_ and new_size < old_best_size:
                     found = True
@@ -217,8 +233,6 @@ class LocalSearch(ExplanationMinimizer):
                     result = inst
                         
                     n = min(self.max_runtime, self.runtime_factor * len(actual))
-                    # self.selector.update_removals(self.id_to_uv(removed), reward)
-                    # self.selector.update_additions(self.id_to_uv(removed), -reward)
                     break
 
                 
@@ -233,12 +247,13 @@ class LocalSearch(ExplanationMinimizer):
             # self.logger.info("actual ---> " + str(len(actual)))
             
             found = False
+            
             while(len(best) - len(actual) > 1):
                 n-=1
-                self.logger.info("k(=): " + str(self.k))
+                self.logger.info("oracle calls (before (=)): " + str(self.k))
                 tries = 0
                 descarted = 0
-                for s, removed, added in self.edge_swap(actual):
+                for s, removed, added, sol_ctx, temp_ctx in self.edge_swap(actual):
                     if self.cache.contains(s):
                         descarted += 1
                         continue
@@ -249,8 +264,40 @@ class LocalSearch(ExplanationMinimizer):
                     
                     tries += 1
                     found_, inst = self.evaluate(s)
-                    reward = OnlineNNEdgeSelector.compute_reward(found_)
+                    
+                    # ---- Model training ----
+                    sol_uv = self.id_to_uv(sol_ctx)
+                    temp_uv = self.id_to_uv(temp_ctx)
+                    removed_uv = self.id_to_uv(removed)
+                    added_uv = self.id_to_uv(added)
 
+                    is_success = bool(found_ and new_size < old_best_size)
+
+                    # removal move example
+                    if removed_uv:
+                        if is_success:
+                            remove_move_examples.append((sol_uv, removed_uv, True))
+                        else:
+                            if random.random() < p_neg_keep:
+                                remove_move_examples.append((sol_uv, removed_uv, False))
+
+                    # addition move example
+                    if added_uv:
+                        if is_success:
+                            add_move_examples.append((temp_uv, added_uv, True))
+                        else:
+                            if random.random() < p_neg_keep:
+                                add_move_examples.append((temp_uv, added_uv, False))
+
+                    if len(remove_move_examples) >= flush_every:
+                        self.selector.update_removal_moves(remove_move_examples)
+                        remove_move_examples = []
+
+                    if len(add_move_examples) >= flush_every:
+                        self.selector.update_addition_moves(add_move_examples)
+                        add_move_examples = []
+                    # ------------------------    
+                    
                     if found_ and new_size < old_best_size:
                         found = True
                         best = s
@@ -258,10 +305,6 @@ class LocalSearch(ExplanationMinimizer):
                         result = inst
                         
                         n = min(self.max_runtime, self.runtime_factor * len(actual))
-                        # self.selector.update_additions(self.id_to_uv(added), reward)
-                        # self.selector.update_removals(self.id_to_uv(removed), reward)
-                        # self.selector.update_removals(self.id_to_uv(added), -reward)
-                        # self.selector.update_additions(self.id_to_uv(removed), -reward)
                         break
 
                     
@@ -271,13 +314,13 @@ class LocalSearch(ExplanationMinimizer):
                     self.logger.info("============> (=) Found solution with size: " + str(len(actual)))
                     break
                 
-                self.logger.info("k(+): " + str(self.k))
+                self.logger.info("oracle calls (before (+)): " + str(self.k))
                 actual = self.reduce_random(best, len(actual))
                 # self.logger.info("actual ===> " + str(len(actual)))
                 
                 tries = 0
                 descarted = 0
-                for s, _, added in self.edge_add(actual, best):
+                for s, _, added, sol_ctx in self.edge_add(actual, best):
                     if self.cache.contains(s):
                         descarted += 1
                         continue
@@ -287,7 +330,23 @@ class LocalSearch(ExplanationMinimizer):
                     new_size = len(s)
 
                     found_, inst = self.evaluate(s)
-                    reward = OnlineNNEdgeSelector.compute_reward(found_)
+                    
+                    # ---- Model training ----
+                    sol_uv = self.id_to_uv(sol_ctx)
+                    added_uv = self.id_to_uv(added)
+
+                    is_success = bool(found_ and new_size < old_best_size)
+
+                    if is_success:
+                        add_move_examples.append((sol_uv, added_uv, True))
+                    else:
+                        if random.random() < p_neg_keep:
+                            add_move_examples.append((sol_uv, added_uv, False))
+
+                    if len(add_move_examples) >= flush_every:
+                        self.selector.update_addition_moves(add_move_examples)
+                        add_move_examples = []
+                    # ------------------------
 
                     if found_ and new_size < old_best_size:
                         found = True
@@ -295,9 +354,7 @@ class LocalSearch(ExplanationMinimizer):
                         actual = s
                         result = inst
                         n = min(self.max_runtime, self.runtime_factor * len(actual))
-                        
-                        # self.selector.update_additions(self.id_to_uv(added), reward)
-                        # self.selector.update_removals(self.id_to_uv(added), -reward)
+
                         break
 
                     
@@ -324,19 +381,27 @@ class LocalSearch(ExplanationMinimizer):
             self.logger.info("instance -> " + str(self.oracle.predict(self.G)))
             self.logger.info("result -> " + str(self.oracle.predict(result)))
         
-        reward = len(initial_solution) - len(best)
         removed_edges = initial_solution - best
         added_edges = best - initial_solution
         self.logger.info("original: " + str(len(initial_solution)) + ", final: " + str(len(best)))
         self.logger.info("removed edges: " + str(len(removed_edges)) + ", added edges: " + str(len(added_edges)))
-        self.logger.info("difference: " + str(reward))
-        self.selector.update_additions(self.id_to_uv(added_edges), reward)
-        self.selector.update_removals(self.id_to_uv(removed_edges), reward)
-        self.selector.update_removals(self.id_to_uv(added_edges), -reward)
-        self.selector.update_additions(self.id_to_uv(removed_edges), -reward)
         
-        self.selector.log_model_status(mode="add", logger=self.logger)
-        self.selector.log_model_status(mode="remove", logger=self.logger)
+        init_uv = self.id_to_uv(initial_solution)
+        best_uv = self.id_to_uv(best)
+
+        removed_uv = self.id_to_uv(removed_edges)
+        added_uv = self.id_to_uv(added_edges)
+
+        if removed_uv:
+            self.selector.update_removal_moves([(init_uv, removed_uv, True)])
+        if added_uv:
+            self.selector.update_addition_moves([(best_uv, added_uv, True)])
+        
+        if remove_move_examples:
+            self.selector.update_removal_moves(remove_move_examples)
+        if add_move_examples:
+            self.selector.update_addition_moves(add_move_examples)
+            
         self.save_selector(self.selector, self.dataset.name)
         return result
     
@@ -393,38 +458,38 @@ class LocalSearch(ExplanationMinimizer):
 
     def edge_swap(self, solution : set[int]) -> Generator[set[int], set[int], set[int]]:
         cealing = min(len(solution), (self.EPlus - len(solution))) + 1
-        step = int(cealing / self.max_neigh) + 1
+        step = int(cealing / self.max_neigh * 3) + 1
         for i in range(1, cealing, step):
-            for _ in range(self.neigh_factor ** 2):
+            for _ in range(self.neigh_factor):
                 removed = self.selector.propose_removals(self.id_to_uv(solution), i)
                 removed_set = self.uv_to_id(removed)
                 temp_solution = solution.difference(removed_set)
                 added = self.selector.propose_additions(self.id_to_uv(temp_solution), i)
                 added_set = self.uv_to_id(added)
                 new_s = temp_solution.union(added_set)
-                yield [new_s, removed_set, added_set]
+                yield [new_s, removed_set, added_set, solution, temp_solution]
                 
     
 
     def edge_add(self, solution : set[int], best) -> Generator[set[int], set[int], set[int]]:
         cealing = (len(best) - len(solution)) + 1
-        step = int(cealing / self.max_neigh) + 1
+        step = int(cealing / self.max_neigh * 3) + 1
         for i in range(1, cealing, step):
-            for _ in range(self.neigh_factor ** 2):
+            for _ in range(self.neigh_factor):
                 added = self.selector.propose_additions(self.id_to_uv(solution), i)
                 added_set = self.uv_to_id(added)
                 new_s = solution.union(added_set)
-                yield [new_s, [], added_set]
+                yield [new_s, [], added_set, solution]
 
     def edge_remove(self, solution : set[int]) -> Generator[set[int], set[int], set[int]]:
         cealing = len(solution)
-        step = int((cealing / self.max_neigh) + 1)
+        step = int((cealing / self.max_neigh * 3) + 1)
         for i in range(1, cealing, step):
-            for _ in range(self.neigh_factor ** 3):
+            for _ in range(self.neigh_factor):
                 removed = self.selector.propose_removals(self.id_to_uv(solution), i)
                 removed_set = self.uv_to_id(removed)
                 new_s = solution.difference(removed_set)
-                yield [new_s, removed_set, []]
+                yield [new_s, removed_set, [], solution]
 
 
     ## ------ Selector persistence helpers ----- ##
@@ -511,7 +576,7 @@ class LocalSearch(ExplanationMinimizer):
         self.efficiency = max(0.0, min(1.0, (1.0 - a) * old + a * score))
 
         self.logger.info(
-            f"Efficiency {tag}: tries={tries}, {self.efficiency:.4f}, "
+            f"{tag}: tries={tries}, Efficiency={self.efficiency:.4f}, "
         )
     
     def write(self):
