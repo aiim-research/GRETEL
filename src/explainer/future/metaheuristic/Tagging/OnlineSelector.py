@@ -13,55 +13,86 @@ import math
 import time
 import torch.nn.functional as F
 from collections import defaultdict
+
+
+from typing import Literal
+import torch
+import torch.nn as nn
+
+
+ActivationName = Literal["ReLU", "LeakyReLU", "ELU", "Swish"]
+
+
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(message)s")
 
 class ScoreNet(nn.Module):
     """
-    MLP with Batch Normalization, alternate activation functions, residual connections, and Dropout.
+    Small MLP that outputs a single logit score for each input feature vector.
+
+    Uses BatchNorm + activation + dropout after each hidden Linear layer.
+    BatchNorm is skipped when batch_size == 1 to avoid unstable statistics.
+
+    Args:
+        input_dim: Input feature dimension.
+        hidden_dim: Hidden layer width.
+        num_hidden_layers: Number of hidden layers.
+        activation_function: Activation to use ("ReLU", "LeakyReLU", "ELU", "Swish").
+        dropout_prob: Dropout probability.
     """
-    def __init__(self, input_dim: int, hidden_dim: int = 128, num_hidden_layers: int = 2,
-                 activation_function: str = "ReLU", dropout_prob: float = 0.2):
+
+    def __init__(
+        self,
+        input_dim: int,
+        hidden_dim: int = 128,
+        num_hidden_layers: int = 2,
+        activation_function: ActivationName = "ReLU",
+        dropout_prob: float = 0.2,
+    ) -> None:
         super().__init__()
 
-        # Choose activation function
         if activation_function == "ReLU":
-            self.activation = nn.ReLU()
+            act: nn.Module = nn.ReLU()
         elif activation_function == "LeakyReLU":
-            self.activation = nn.LeakyReLU()
+            act = nn.LeakyReLU()
         elif activation_function == "ELU":
-            self.activation = nn.ELU()
+            act = nn.ELU()
         elif activation_function == "Swish":
-            self.activation = nn.SiLU()  # Swish is implemented as SiLU in PyTorch
+            act = nn.SiLU()
         else:
             raise ValueError(f"Unknown activation function: {activation_function}")
 
-        layers = []
+        layers: list[nn.Module] = []
         dim = input_dim
-        
         for _ in range(num_hidden_layers):
             layers.append(nn.Linear(dim, hidden_dim))
-            layers.append(nn.BatchNorm1d(hidden_dim))  # Add Batch Normalization
-            layers.append(self.activation)  # Apply chosen activation function
-            layers.append(nn.Dropout(dropout_prob))  # Apply Dropout
+            layers.append(nn.BatchNorm1d(hidden_dim))
+            layers.append(act)
+            layers.append(nn.Dropout(dropout_prob))
             dim = hidden_dim
 
-        layers.append(nn.Linear(dim, 1))  # Output logit
+        layers.append(nn.Linear(dim, 1))
         self.net = nn.Sequential(*layers)
-        
-        
-        
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x: (batch, input_dim)
-        if x.size(0) == 1:  # If batch size is 1, disable BatchNorm
+        """
+        Forward pass.
+
+        Args:
+            x: Tensor of shape (batch, input_dim).
+
+        Returns:
+            Logits tensor of shape (batch,).
+        """
+        if x.size(0) == 1:
+            # Skip BatchNorm when batch=1.
             for layer in self.net:
                 if isinstance(layer, nn.BatchNorm1d):
                     continue
                 x = layer(x)
             return x.squeeze(-1)
-        else:
-            out = self.net(x)
-            return out.squeeze(-1)            
+
+        return self.net(x).squeeze(-1)
+         
 class OnlineNNEdgeSelector:
     """
     Online neural model to bias which edges to add/remove.
