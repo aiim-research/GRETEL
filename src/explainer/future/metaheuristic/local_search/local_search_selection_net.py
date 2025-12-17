@@ -100,18 +100,16 @@ class LocalSearch(ExplanationMinimizer):
             for j in range(i + 1, self.G.num_nodes):
                 self.labels.append((i,j))
                 
-                
+        self.label_to_id = {uv: idx for idx, uv in enumerate(self.labels)}
                 
         metrics = [
             "degree",
-            "closeness",
-            "eigenvector",
-            "betweenness",
-            "pagerank",
-            "component_id",
-            "eccentricity",
-            "local_clustering",     
+            "local_clustering",
             "triangle_count",
+            "coreness",
+            "avg_neighbor_degree",
+            "ego_density",
+            "pagerank"
         ]
 
         vectorsBuilder = VectorsBuilder(metrics, self.G.data)
@@ -141,7 +139,8 @@ class LocalSearch(ExplanationMinimizer):
 
         
         self.selector.set_node_vectors_from_tensor(list(total_tensor))
-
+        self.selector.set_base_graph(instance.data, directed=instance.directed)
+        self.selector.add_pool_size = self.add_pool_size
         
         
         min_ctf = explaination.counterfactual_instances[0]
@@ -175,8 +174,6 @@ class LocalSearch(ExplanationMinimizer):
         initial_solution = actual.copy()
         n = min(self.max_runtime, self.runtime_factor * len(actual))
         self.k = 0
-        remove_batch = []
-        add_batch = []
         remove_move_examples = []
         add_move_examples = []
         p_neg_keep = 0.15  # keep 15% of failed moves
@@ -197,6 +194,8 @@ class LocalSearch(ExplanationMinimizer):
             
             tries = 0
             descarted = 0
+            neg_removed_moves = []   # list of removed_uv (each is list[uv])
+            neg_keep_first = 8       # always keep first failures (they’re “most confident” under greedy)
             for s, removed, _, sol_ctx in self.edge_remove(actual):
                 if self.cache.contains(s):
                     descarted += 1
@@ -215,18 +214,24 @@ class LocalSearch(ExplanationMinimizer):
                 is_success = bool(found_ and new_size < old_best_size)
                 
                 # ---- Model training ----
-                if is_success:
-                    remove_move_examples.append((sol_uv, removed_uv, True))
-                else:
-                    if random.random() < p_neg_keep:
-                        remove_move_examples.append((sol_uv, removed_uv, False))
+                sol_uv = self.id_to_uv(sol_ctx)
+                removed_uv = self.id_to_uv(removed)
 
-                if len(remove_move_examples) >= flush_every:
-                    self.selector.update_removal_moves(remove_move_examples)
-                    remove_move_examples = []
+                is_success = bool(found_ and new_size < old_best_size)
+
+                if is_success:
+                    # train: rank this removed_uv above the failures in THIS context
+                    if neg_removed_moves:
+                        self.selector.update_removal_ranked(sol_uv, removed_uv, neg_removed_moves)
+                        neg_removed_moves = []
+                else:
+                    # keep early failures (hard negatives), and sample some later ones
+                    if tries <= neg_keep_first or random.random() < p_neg_keep:
+                        neg_removed_moves.append(removed_uv)
                 # ------------------------
 
                 if found_ and new_size < old_best_size:
+                    neg_removed_moves = []
                     found = True
                     best = s
                     actual = s
@@ -320,6 +325,7 @@ class LocalSearch(ExplanationMinimizer):
                 
                 tries = 0
                 descarted = 0
+                neg_added_moves = []
                 for s, _, added, sol_ctx in self.edge_add(actual, best):
                     if self.cache.contains(s):
                         descarted += 1
@@ -330,7 +336,7 @@ class LocalSearch(ExplanationMinimizer):
                     new_size = len(s)
 
                     found_, inst = self.evaluate(s)
-                    
+                    tries += 1
                     # ---- Model training ----
                     sol_uv = self.id_to_uv(sol_ctx)
                     added_uv = self.id_to_uv(added)
@@ -338,14 +344,13 @@ class LocalSearch(ExplanationMinimizer):
                     is_success = bool(found_ and new_size < old_best_size)
 
                     if is_success:
-                        add_move_examples.append((sol_uv, added_uv, True))
+                        if neg_added_moves:
+                            self.selector.update_addition_ranked(sol_uv, added_uv, neg_added_moves)
+                            neg_added_moves = []
                     else:
-                        if random.random() < p_neg_keep:
-                            add_move_examples.append((sol_uv, added_uv, False))
+                        if tries <= neg_keep_first or random.random() < p_neg_keep:
+                            neg_added_moves.append(added_uv)
 
-                    if len(add_move_examples) >= flush_every:
-                        self.selector.update_addition_moves(add_move_examples)
-                        add_move_examples = []
                     # ------------------------
 
                     if found_ and new_size < old_best_size:
@@ -458,9 +463,9 @@ class LocalSearch(ExplanationMinimizer):
 
     def edge_swap(self, solution : set[int]) -> Generator[set[int], set[int], set[int]]:
         cealing = min(len(solution), (self.EPlus - len(solution))) + 1
-        step = int(cealing / self.max_neigh * 3) + 1
+        step = int(cealing / self.max_neigh) + 1
         for i in range(1, cealing, step):
-            for _ in range(self.neigh_factor):
+            for _ in range(self.neigh_factor ** 2):
                 removed = self.selector.propose_removals(self.id_to_uv(solution), i)
                 removed_set = self.uv_to_id(removed)
                 temp_solution = solution.difference(removed_set)
@@ -473,9 +478,9 @@ class LocalSearch(ExplanationMinimizer):
 
     def edge_add(self, solution : set[int], best) -> Generator[set[int], set[int], set[int]]:
         cealing = (len(best) - len(solution)) + 1
-        step = int(cealing / self.max_neigh * 3) + 1
+        step = int(cealing / self.max_neigh) + 1
         for i in range(1, cealing, step):
-            for _ in range(self.neigh_factor):
+            for _ in range(self.neigh_factor ** 2):
                 added = self.selector.propose_additions(self.id_to_uv(solution), i)
                 added_set = self.uv_to_id(added)
                 new_s = solution.union(added_set)
@@ -483,9 +488,9 @@ class LocalSearch(ExplanationMinimizer):
 
     def edge_remove(self, solution : set[int]) -> Generator[set[int], set[int], set[int]]:
         cealing = len(solution)
-        step = int((cealing / self.max_neigh * 3) + 1)
+        step = int((cealing / self.max_neigh) + 1)
         for i in range(1, cealing, step):
-            for _ in range(self.neigh_factor):
+            for _ in range(self.neigh_factor ** 3):
                 removed = self.selector.propose_removals(self.id_to_uv(solution), i)
                 removed_set = self.uv_to_id(removed)
                 new_s = solution.difference(removed_set)
@@ -499,11 +504,8 @@ class LocalSearch(ExplanationMinimizer):
             result.append(self.labels[i])
         return result
     
-    def uv_to_id(self, uv: list[(int, int)]) -> set[int]:
-        result = set()
-        for (i, j) in uv:
-            result.add(self.labels.index((i, j)))
-        return result
+    def uv_to_id(self, uv: list[tuple[int, int]]) -> set[int]:
+        return { self.label_to_id[(i, j) if i < j else (j, i)] for (i, j) in uv if i != j }
     
     
 

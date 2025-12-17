@@ -1,6 +1,7 @@
 from __future__ import annotations
 import random
 from dataclasses import dataclass
+import math
 
 import numpy as np
 import torch
@@ -87,7 +88,8 @@ class OnlineNNEdgeSelector:
     ):
         self.example_count = 0
         self.k = k
-        self.input_dim = 4 * k + 4 + 5  # see _pair_features()
+        self.struct_dim = 26
+        self.input_dim = 4 * k + 4 + self.struct_dim
         self.hidden_dim = hidden_dim
         self.num_hidden_layers = num_hidden_layers
         self.exploration_prob = exploration_prob
@@ -123,6 +125,10 @@ class OnlineNNEdgeSelector:
         self.neg_edge_counts_add = defaultdict(int)
         self.neg_edge_counts_remove = defaultdict(int)
         self.neg_edge_cap = 5  # tuneable
+        
+        self.greedy_top1 = True          # if X==1 and not exploring -> argmax
+        self.greedy_topk = True          # if X small and not exploring -> take top-k
+        self.greedy_k_threshold = 3      # only do deterministic top-k when X<=this
         
         # ---------------- Logging / stats ----------------
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -188,97 +194,197 @@ class OnlineNNEdgeSelector:
 
             self.node_vecs = node_vecs.to(self.device, dtype=torch.float32)
 
-    def _pair_features(self, pairs_tensor, degS=None, inS=None, sol_size=None, Eplus=None) -> torch.Tensor:
+    def _pair_features(self, pairs_tensor: torch.Tensor, toggled_neighbors: dict[int, set[int]], solution_size: int) -> torch.Tensor:
         """
         Build features for many pairs at once.
-
-        pairs_tensor: LongTensor of shape (M, 2) with (u, v) indices.
-
-        Returns:
-            feats: (M, input_dim)
+        pairs_tensor: LongTensor (M,2)
+        toggled_neighbors: node -> set of toggled neighbors in current solution
+        solution_size: |solution_set|
         """
         assert self.node_vecs is not None, "Call set_node_vectors() first."
+        assert hasattr(self, "base_neighbors"), "Call set_base_graph() first."
+        assert hasattr(self, "num_nodes"), "Call set_base_graph() first."
+
         u_idx = pairs_tensor[:, 0]
         v_idx = pairs_tensor[:, 1]
 
-        v_u = self.node_vecs[u_idx]  # (M, k)
-        v_v = self.node_vecs[v_idx]  # (M, k)
+        v_u = self.node_vecs[u_idx]  # (M,k)
+        v_v = self.node_vecs[v_idx]  # (M,k)
 
-        diff = v_u - v_v                             # (M, k)
-        prod = v_u * v_v                             # (M, k)
-        dot = (v_u * v_v).sum(dim=1, keepdim=True)   # (M, 1)
-        norm_u = v_u.norm(dim=1, keepdim=True)       # (M, 1)
-        norm_v = v_v.norm(dim=1, keepdim=True)       # (M, 1)
-        dist = diff.norm(dim=1, keepdim=True)        # (M, 1)
+        diff = v_u - v_v
+        prod = v_u * v_v
+        dot = (v_u * v_v).sum(dim=1, keepdim=True)
+        norm_u = v_u.norm(dim=1, keepdim=True)
+        norm_v = v_v.norm(dim=1, keepdim=True)
+        dist = diff.norm(dim=1, keepdim=True)
+
+        # --- structural features (python loop; M is small/moderate) ---
+        M = pairs_tensor.size(0)
+        eps = 1e-9
+        N = float(self.num_nodes)
+        denom_deg = max(1.0, N - 1.0)
+        denom_cn  = max(1.0, N - 2.0)
+        sol_size = max(1, int(solution_size))
+
+        struct_rows = []
+        pairs_cpu = pairs_tensor.detach().cpu().numpy()
+
+        for (u, v) in pairs_cpu:
+            u = int(u); v = int(v)
+            tog_u = toggled_neighbors.get(u, set())
+            tog_v = toggled_neighbors.get(v, set())
+
+            base_edge = 1.0 if self.base_adj_bool[u, v] else 0.0
+            # current edge = base XOR toggled(pair)
+            # (pair is toggled if v in tog_u, symmetric if undirected)
+            pair_toggled = (v in tog_u)  # for undirected this is enough
+            curr_edge = 1.0 if (base_edge > 0.5) ^ pair_toggled else 0.0
+
+            deg_u_base = float(self.base_deg[u]) / denom_deg
+            deg_v_base = float(self.base_deg[v]) / denom_deg
+
+            deg_u_curr_raw = float(self._deg_current(u, tog_u))
+            deg_v_curr_raw = float(self._deg_current(v, tog_v))
+
+            deg_u_curr = deg_u_curr_raw / denom_deg
+            deg_v_curr = deg_v_curr_raw / denom_deg
+
+            sol_deg_u = float(len(tog_u)) / float(sol_size)
+            sol_deg_v = float(len(tog_v)) / float(sol_size)
+
+            cn_base, cn_curr = self._cn_current(u, v, tog_u, tog_v)
+
+            u_in_sol = 1.0 if len(tog_u) > 0 else 0.0
+            v_in_sol = 1.0 if len(tog_v) > 0 else 0.0
+
+            deg_u_base_raw = float(self.base_deg[u])
+            deg_v_base_raw = float(self.base_deg[v])
+
+            # normalized cn
+            cn_base_n = float(cn_base) / denom_cn
+            cn_curr_n = float(cn_curr) / denom_cn
+
+            # jaccard
+            union_base = (deg_u_base_raw + deg_v_base_raw - float(cn_base))
+            jacc_base = float(cn_base) / (union_base + eps)
+
+            union_curr = (deg_u_curr_raw + deg_v_curr_raw - float(cn_curr))
+            jacc_curr = float(cn_curr) / (union_curr + eps)
+
+            # cosine-like overlap: cn / sqrt(deg_u*deg_v)
+            cos_base = float(cn_base) / (math.sqrt(deg_u_base_raw * deg_v_base_raw) + eps)
+            cos_curr = float(cn_curr) / (math.sqrt(deg_u_curr_raw * deg_v_curr_raw) + eps)
+
+            # dice: 2cn / (deg_u+deg_v)
+            dice_base = (2.0 * float(cn_base)) / (deg_u_base_raw + deg_v_base_raw + eps)
+            dice_curr = (2.0 * float(cn_curr)) / (deg_u_curr_raw + deg_v_curr_raw + eps)
+
+            # overlap coefficient: cn / min(deg_u,deg_v)
+            overlap_base = float(cn_base) / (min(deg_u_base_raw, deg_v_base_raw) + eps)
+            overlap_curr = float(cn_curr) / (min(deg_u_curr_raw, deg_v_curr_raw) + eps)
+
+            # cn / max(deg_u,deg_v)
+            cn_over_max_base = float(cn_base) / (max(deg_u_base_raw, deg_v_base_raw) + eps)
+            cn_over_max_curr = float(cn_curr) / (max(deg_u_curr_raw, deg_v_curr_raw) + eps)
+
+            # preferential attachment (normalized product)
+            pref_base_n = (deg_u_base_raw * deg_v_base_raw) / (denom_deg * denom_deg + eps)
+            pref_curr_n = (deg_u_curr_raw * deg_v_curr_raw) / (denom_deg * denom_deg + eps)
+
+            # degree difference (normalized)
+            degdiff_base_n = abs(deg_u_base_raw - deg_v_base_raw) / denom_deg
+            degdiff_curr_n = abs(deg_u_curr_raw - deg_v_curr_raw) / denom_deg
+
+            struct_rows.append([
+                base_edge,
+                curr_edge,
+
+                u_in_sol, v_in_sol,
+
+                deg_u_base, deg_v_base,
+                deg_u_curr, deg_v_curr,
+
+                sol_deg_u, sol_deg_v,
+
+                cn_base_n, cn_curr_n,
+                jacc_base, jacc_curr,
+
+                cos_base, cos_curr,
+                dice_base, dice_curr,
+                overlap_base, overlap_curr,
+
+                pref_base_n, pref_curr_n,
+                degdiff_base_n, degdiff_curr_n,
+
+                cn_over_max_base, cn_over_max_curr,
+            ])
+
+        struct = torch.as_tensor(struct_rows, dtype=torch.float32, device=self.device)  # (M,struct_dim)
 
         feats = torch.cat(
-            [v_u, v_v, diff, prod, dot, norm_u, norm_v, dist],
+            [v_u, v_v, diff, prod, dot, norm_u, norm_v, dist, struct],
             dim=1
         )
-        
-        # ----- context features (if provided) -----
-        if degS is None or inS is None or sol_size is None or Eplus is None:
-            # fallback: zeros if context not provided
-            M = pairs_tensor.size(0)
-            extra = torch.zeros((M, self.ctx_dim), device=self.device, dtype=torch.float32)
-        else:
-            u_idx = pairs_tensor[:, 0]
-            v_idx = pairs_tensor[:, 1]
-
-            deg_u = degS[u_idx].unsqueeze(1)
-            deg_v = degS[v_idx].unsqueeze(1)
-
-            in_u  = inS[u_idx].unsqueeze(1)
-            in_v  = inS[v_idx].unsqueeze(1)
-
-            sol_size_norm = (sol_size / max(1.0, float(Eplus))).expand(pairs_tensor.size(0), 1)
-
-            extra = torch.cat([deg_u, deg_v, in_u, in_v, sol_size_norm], dim=1)  # (M,5)
-
-        feats = torch.cat([feats, extra], dim=1)
-        assert feats.shape[1] == self.input_dim
-        return feats
-
-        assert feats.shape[1] == self.input_dim
+        assert feats.shape[1] == self.input_dim, (feats.shape, self.input_dim)
         return feats
 
     # ---------- Sampling logic ----------
 
-    def _sample_indices(self, probs_np: np.ndarray, X: int):
+    def _sample_indices(self, weights_np: np.ndarray, X: int):
         """
-        Sample X indices using epsilon-greedy over probs_np.
-        probs_np: array of length M, ideally in [0,1]
+        weights_np: array length M, non-negative, doesn't need to sum to 1
         """
-        n = len(probs_np)
-        n = len(probs_np)
+        n = len(weights_np)
         if n <= X:
             self._last_propose["did_explore"] = False
             return list(range(n))
-        
-        # Exploration: pure random choice
+
+        # epsilon exploration (pure random)
         if np.random.rand() < self.exploration_prob:
             self._last_propose["did_explore"] = True
             return random.sample(range(n), X)
 
         self._last_propose["did_explore"] = False
 
+        w = np.asarray(weights_np, dtype=float)
+        w[~np.isfinite(w)] = 0.0
+        w = np.maximum(w, 0.0)
+
+        # ---- Greedy path (Efficiency-first) ----
+        if self.greedy_top1 and X == 1:
+            return [int(np.argmax(w))]
+
+        if self.greedy_topk and X <= self.greedy_k_threshold:
+            # deterministic top-k
+            idx = np.argsort(-w)[:X]
+            return idx.tolist()
+
+        # ---- Otherwise weighted sampling ----
+        eps = 1e-12
+        w[w < eps] = eps
+        s = w.sum()
+        if s <= 0.0:
+            return random.sample(range(n), X)
+
+        p = w / s
+        idx = np.random.choice(np.arange(n), size=X, replace=False, p=p)
+        return idx.tolist()
+    
+    def _sample_indices_no_explore(self, probs_np: np.ndarray, X: int):
+        n = len(probs_np)
+        if n <= X:
+            return list(range(n))
+
         probs = np.asarray(probs_np, dtype=float)
         probs = np.maximum(probs, 0.0)
 
         # If too few non-zero entries, fall back to uniform sample
-        nonzero_count = np.count_nonzero(probs)
-        if nonzero_count < X:
+        if np.count_nonzero(probs) < X:
             return random.sample(range(n), X)
 
-        # Ensure no entry is exactly zero (avoid numpy "Fewer non-zero entries" error)
         eps = 1e-12
         probs[probs < eps] = eps
-
-        total = probs.sum()
-        if total <= 0.0:
-            # degenerate case, uniform again
-            return random.sample(range(n), X)
-        probs = probs / total
+        probs = probs / probs.sum()
 
         idx = np.random.choice(np.arange(n), size=X, replace=False, p=probs)
         return idx.tolist()
@@ -316,8 +422,11 @@ class OnlineNNEdgeSelector:
             for (u, v) in solution_pairs
         }
         
-        degS, inS, sol_size = self._solution_context(solution_set, num_nodes)
-        Eplus = num_nodes * (num_nodes - 1) / 2  # undirected
+        toggled_neighbors = defaultdict(set)
+        for (a, b) in solution_set:
+            toggled_neighbors[a].add(b)
+            toggled_neighbors[b].add(a)  # undirected assumption
+        solution_size = len(solution_set)
 
         
 
@@ -362,11 +471,18 @@ class OnlineNNEdgeSelector:
         model = self.model_add if mode == "add" else self.model_remove
         model.eval()
         with torch.no_grad():
-            feats = self._pair_features(pairs_tensor, degS=degS, inS=inS, sol_size=sol_size, Eplus=Eplus) # (M, input_dim)
+            feats = self._pair_features(pairs_tensor, toggled_neighbors=toggled_neighbors, solution_size=solution_size) # (M, input_dim)
             logits = model(feats)                              # (M,)
             probs = torch.sigmoid(logits).cpu().numpy()        # P(success)
         
         # ---- save propose stats ----
+        if M >= 2:
+            top2 = np.partition(probs, -2)[-2:]
+            p_gap = float(np.max(top2) - np.min(top2))
+        else:
+            p_gap = 0.0
+        self._last_propose["p_gap_top2"] = p_gap
+
         self.propose_calls += 1
         self._last_propose = {
             "propose_calls": self.propose_calls,
@@ -385,7 +501,27 @@ class OnlineNNEdgeSelector:
             
         logits_np = logits.detach().cpu().numpy()
         weights = self._weights_from_logits(logits_np, mode=mode)
-        idx = self._sample_indices(weights, X)
+
+        # store scored candidates for rank training (Fix 4)
+        self._last_scored = getattr(self, "_last_scored", {})
+        self._last_scored[mode] = {
+            "candidate_pairs": candidate_pairs,
+            "logits": logits_np,
+        }
+
+        # Decide exploration HERE (not in _sample_indices)
+        did_explore = (np.random.rand() < self.exploration_prob)
+        self._last_propose["did_explore"] = bool(did_explore)
+
+        if did_explore:
+            idx = random.sample(range(M), X)
+        else:
+            if X == 1:
+                # Fix 3: greedy argmax when not exploring
+                idx = [int(np.argmax(logits_np))]
+            else:
+                idx = self._sample_indices_no_explore(weights, X)
+
         return [candidate_pairs[i] for i in idx]
     
     def _canonical_pair(self, u: int, v: int) -> tuple[int, int] | None:
@@ -478,124 +614,6 @@ class OnlineNNEdgeSelector:
 
     # ---------- training ----------
 
-    def _train_online(
-        self,
-        mode: str,
-        pairs: list[tuple[int, int]] | None = None,
-        success: bool = True,   # NEW
-    ):
-        if not pairs:
-            return
-        if mode not in ("add", "remove"):
-            raise ValueError(f"mode must be 'add' or 'remove', got {mode!r}")
-        if self.node_vecs is None:
-            raise RuntimeError("set_node_vectors() must be called before training.")
-
-        pairs_tensor = torch.as_tensor(pairs, dtype=torch.long, device=self.device)
-        feats = self._pair_features(pairs_tensor).to(self.device)
-
-        y = 1.0 if success else 0.0
-
-        # Train ONLY the model corresponding to the action
-        if mode == "add":
-            steps = [("add", self.model_add, self.opt_add, y)]
-            # optional: only if success, teach remove model "this shouldn't be removed"
-            if success:
-                steps.append(("remove", self.model_remove, self.opt_remove, 0.0))
-        else:
-            steps = [("remove", self.model_remove, self.opt_remove, y)]
-            # optional: only if success, teach add model "this shouldn't be added back"
-            if success:
-                steps.append(("add", self.model_add, self.opt_add, 0.0))
-
-        self.train_calls += 1
-        if mode == "add":
-            self.train_calls_add += 1
-        else:
-            self.train_calls_remove += 1
-
-        for name, model, opt, target_value in steps:
-            targets = torch.full((feats.size(0),), float(target_value),
-                                dtype=torch.float32, device=self.device)
-
-            self._cuda_sync()
-            t0 = time.perf_counter()
-
-            with torch.no_grad():
-                param_abs_sum_pre = float(sum(p.detach().abs().sum().item() for p in model.parameters()))
-
-            model.train()
-            opt.zero_grad(set_to_none=True)
-
-            preds = model(feats)
-            per_sample = self.loss_fn(preds, targets)
-            loss = per_sample.mean()
-
-            if not torch.isfinite(loss):
-                self.logger.warning("[%s] loss is NaN/Inf, skipping step", name)
-                continue
-
-            loss.backward()
-            grad_norm = float(torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0).item())
-            opt.step()
-
-            self._cuda_sync()
-            dt = time.perf_counter() - t0
-
-            with torch.no_grad():
-                param_abs_sum_post = float(sum(p.detach().abs().sum().item() for p in model.parameters()))
-                param_abs_sum_delta = param_abs_sum_post - param_abs_sum_pre
-
-                # output distribution
-                probs = torch.sigmoid(preds.detach())
-                logits_mean = float(preds.detach().mean().item())
-                logits_std  = float(preds.detach().std(unbiased=False).item()) if preds.numel() > 1 else 0.0
-                logits_min  = float(preds.detach().min().item())
-                logits_max  = float(preds.detach().max().item())
-
-                probs_mean = float(probs.mean().item())
-                probs_std  = float(probs.std(unbiased=False).item()) if probs.numel() > 1 else 0.0
-                probs_min  = float(probs.min().item())
-                probs_max  = float(probs.max().item())
-
-            # optimizer LR
-            lr = float(opt.param_groups[0]["lr"])
-            examples = int(feats.size(0))
-            ex_per_s = float(examples / dt) if dt > 0 else float("inf")
-
-            # save last train event so _log_train_status()
-            self._last_train = {
-                "train_calls": self.train_calls,
-                "mode": mode + " " + str(success),
-                "name": name,
-                "loss": float(loss.item()),
-                "grad_norm": grad_norm,
-                "lr": lr,
-                "step_time_s": float(dt),
-                "examples_per_s": ex_per_s,
-                "param_abs_sum_pre": param_abs_sum_pre,
-                "param_abs_sum_post": param_abs_sum_post,
-                "param_abs_sum_delta": param_abs_sum_delta,
-                "logits_mean": logits_mean,
-                "logits_std": logits_std,
-                "logits_min": logits_min,
-                "logits_max": logits_max,
-                "probs_mean": probs_mean,
-                "probs_std": probs_std,
-                "probs_min": probs_min,
-                "probs_max": probs_max,
-            }
-
-            # update EMAs
-            self._ema_update(f"loss/{name}", float(loss.item()))
-            self._ema_update(f"grad/{name}", grad_norm)
-            self._ema_update(f"time/{name}", float(dt))
-            
-            self._last_train["success"] = bool(success)
-            self._last_train["target"] = float(target_value)
-
-            self._log_train_status()
-
     def _train_online_moves(
         self,
         mode: str,
@@ -614,9 +632,6 @@ class OnlineNNEdgeSelector:
         model = self.model_add if mode == "add" else self.model_remove
         opt   = self.opt_add   if mode == "add" else self.opt_remove
 
-        num_nodes = int(self.node_vecs.shape[0])
-        Eplus = (num_nodes * (num_nodes - 1)) / 2
-
         model.train()
         opt.zero_grad(set_to_none=True)
 
@@ -627,11 +642,20 @@ class OnlineNNEdgeSelector:
 
             # canonicalize solution snapshot
             solution_set = {(min(u,v), max(u,v)) for (u,v) in solution_uv if u != v}
+            if not solution_set:
+                continue
 
-            degS, inS, sol_size = self._solution_context(solution_set, num_nodes)
-            
+            toggled_neighbors = defaultdict(set)
+            for (a, b) in solution_set:
+                toggled_neighbors[a].add(b)
+                toggled_neighbors[b].add(a)
+
+            solution_size = len(solution_set)
+
+            # canonicalize move edges
             move_pairs = [(min(u,v), max(u,v)) for (u,v) in move_uv if u != v]
-            
+
+            # cap repeated negatives
             if not success:
                 counter = self.neg_edge_counts_add if mode == "add" else self.neg_edge_counts_remove
                 filtered = []
@@ -639,40 +663,44 @@ class OnlineNNEdgeSelector:
                     if counter[p] < self.neg_edge_cap:
                         filtered.append(p)
                         counter[p] += 1
-                move_pairs = filtered   
-                
+                move_pairs = filtered
+
             if not move_pairs:
                 continue
 
-            # if move is big, sub-sample edges
+            # If move is big, sub-sample edges
             if len(move_pairs) > max_edges_per_move:
                 pairs_tensor_all = torch.as_tensor(move_pairs, dtype=torch.long, device=self.device)
-                feats_all = self._pair_features(pairs_tensor_all, degS=degS, inS=inS, sol_size=sol_size, Eplus=Eplus)
+                feats_all = self._pair_features(
+                    pairs_tensor_all,
+                    toggled_neighbors=toggled_neighbors,
+                    solution_size=solution_size
+                )
 
                 with torch.no_grad():
-                    logits_all = model(feats_all)  # (m,)
+                    logits_all = model(feats_all)
                     probs_all = torch.sigmoid(logits_all)
 
                 if (not success) and hard_within_move_for_neg:
-                    # for negatives: keep edges model currently thinks are good (hard negatives)
                     idx = torch.topk(probs_all, k=max_edges_per_move, largest=True).indices
                 else:
-                    # for positives: random subset keeps diversity
                     idx = torch.randperm(len(move_pairs), device=self.device)[:max_edges_per_move]
 
-                pairs_tensor = pairs_tensor_all[idx]
                 feats = feats_all[idx]
             else:
                 pairs_tensor = torch.as_tensor(move_pairs, dtype=torch.long, device=self.device)
-                feats = self._pair_features(pairs_tensor, degS=degS, inS=inS, sol_size=sol_size, Eplus=Eplus)
+                feats = self._pair_features(
+                    pairs_tensor,
+                    toggled_neighbors=toggled_neighbors,
+                    solution_size=solution_size
+                )
 
-            logits = model(feats)  # (m,)
-            move_logit = logits.mean()  # mean pooling
+            logits = model(feats)               # (m,)
+            move_logit = logits.mean()          # mean pooling
 
             target = torch.tensor([1.0 if success else 0.0], device=self.device)
             loss = F.binary_cross_entropy_with_logits(move_logit.view(1), target)
 
-            # downweight negatives so they don't dominate
             if not success:
                 loss = loss * float(neg_weight)
 
@@ -682,7 +710,6 @@ class OnlineNNEdgeSelector:
             return
 
         total_loss = torch.stack(losses).mean()
-
         if not torch.isfinite(total_loss):
             self.logger.warning("[%s] move-loss is NaN/Inf, skipping", mode)
             return
@@ -693,26 +720,124 @@ class OnlineNNEdgeSelector:
 
         self.logger.info("[%s][moves] loss=%.6g examples=%d", mode, float(total_loss.item()), len(losses))
 
+    def _move_score(self, mode: str, solution_uv: list[tuple[int,int]], move_uv: list[tuple[int,int]],
+                max_edges_per_move: int = 15) -> torch.Tensor:
+        """
+        Returns scalar logit score for a move = mean(edge_logits).
+        solution_uv: context snapshot
+        move_uv: list of edges involved in the move
+        """
+        model = self.model_add if mode == "add" else self.model_remove
+
+        # context
+        solution_set = {(min(u,v), max(u,v)) for (u,v) in solution_uv if u != v}
+        toggled_neighbors = defaultdict(set)
+        for (a, b) in solution_set:
+            toggled_neighbors[a].add(b)
+            toggled_neighbors[b].add(a)
+        solution_size = len(solution_set)
+
+        move_pairs = [(min(u,v), max(u,v)) for (u,v) in move_uv if u != v]
+        if not move_pairs:
+            return None
+
+        # subsample edges inside big move (cheap)
+        if len(move_pairs) > max_edges_per_move:
+            move_pairs = random.sample(move_pairs, max_edges_per_move)
+
+        pairs_tensor = torch.as_tensor(move_pairs, dtype=torch.long, device=self.device)
+        feats = self._pair_features(pairs_tensor, toggled_neighbors=toggled_neighbors, solution_size=solution_size)
+
+        logits = model(feats)      # (m,)
+        return logits.mean()       # scalar
+    
+    def _train_ranked_moves(
+        self,
+        mode: str,
+        solution_uv: list[tuple[int,int]],
+        pos_move_uv: list[tuple[int,int]],
+        neg_moves_uv: list[list[tuple[int,int]]],
+        margin: float = 0.5,
+        max_negs: int = 25,
+        max_edges_per_move: int = 15,
+        neg_cap_per_edge: int | None = None,
+    ):
+        if self.node_vecs is None:
+            raise RuntimeError("set_node_vectors() must be called before training.")
+        if not neg_moves_uv:
+            return
+
+        model = self.model_add if mode == "add" else self.model_remove
+        opt   = self.opt_add   if mode == "add" else self.opt_remove
+
+        # cap negatives count
+        if len(neg_moves_uv) > max_negs:
+            neg_moves_uv = neg_moves_uv[:max_negs]
+
+        # per-edge cap to avoid oversaturating repeats
+        if neg_cap_per_edge is not None:
+            counter = self.neg_edge_counts_add if mode == "add" else self.neg_edge_counts_remove
+            filtered = []
+            for mv in neg_moves_uv:
+                ok = False
+                for e in mv:
+                    p = (min(e[0], e[1]), max(e[0], e[1]))
+                    if counter[p] < neg_cap_per_edge:
+                        ok = True
+                        break
+                if ok:
+                    for e in mv:
+                        p = (min(e[0], e[1]), max(e[0], e[1]))
+                        counter[p] += 1
+                    filtered.append(mv)
+            neg_moves_uv = filtered
+            if not neg_moves_uv:
+                return
+
+        model.train()
+        opt.zero_grad(set_to_none=True)
+
+        pos_score = self._move_score(mode, solution_uv, pos_move_uv, max_edges_per_move=max_edges_per_move)
+        if pos_score is None:
+            return
+
+        losses = []
+        for neg_mv in neg_moves_uv:
+            neg_score = self._move_score(mode, solution_uv, neg_mv, max_edges_per_move=max_edges_per_move)
+            if neg_score is None:
+                continue
+            # softplus(margin - (pos - neg)) = softplus(margin + neg - pos)
+            losses.append(F.softplus(margin + neg_score - pos_score))
+
+        if not losses:
+            return
+
+        loss = torch.stack(losses).mean()
+        if not torch.isfinite(loss):
+            self.logger.warning("[%s][rank] loss NaN/Inf, skipping", mode)
+            return
+
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        opt.step()
+
+        self.logger.info("[%s][rank] loss=%.6g negs=%d", mode, float(loss.item()), len(losses))
 
     # ---------- Online update ----------
 
-    def update_additions(self, chosen_pairs, success: bool):
-        if not chosen_pairs:
-            return
-        self._train_online("add", chosen_pairs, success=success)
-
-    def update_removals(self, chosen_pairs, success: bool):
-        if not chosen_pairs:
-            return
-        self._train_online("remove", chosen_pairs, success=success)
-        
     def update_addition_moves(self, examples: list[tuple[list[tuple[int,int]], list[tuple[int,int]], bool]]):
         self._train_online_moves("add", examples)
         
     def update_removal_moves(self, examples: list[tuple[list[tuple[int,int]], list[tuple[int,int]], bool]]):
         self._train_online_moves("remove", examples)
 
-    
+    def update_removal_ranked(self, solution_uv, pos_removed_uv, neg_removed_uvs):
+        self._train_ranked_moves("remove", solution_uv, pos_removed_uv, neg_removed_uvs,
+                                neg_cap_per_edge=self.neg_edge_cap)
+
+    def update_addition_ranked(self, solution_uv, pos_added_uv, neg_added_uvs):
+        self._train_ranked_moves("add", solution_uv, pos_added_uv, neg_added_uvs,
+                                neg_cap_per_edge=self.neg_edge_cap)
 
     
     # ---------- Save / load ----------
@@ -774,6 +899,92 @@ class OnlineNNEdgeSelector:
         sol_size_t = torch.tensor([sol_size], device=self.device, dtype=torch.float32)
 
         return degS, inS, sol_size_t
+
+    # ---------- base graph + startup helpers ----------
+    def set_base_graph(self, adj_np: np.ndarray, directed: bool = False):
+        """
+        adj_np: (N,N) 0/1 numpy array for the ORIGINAL graph of the current instance.
+        Call once per instance before proposing/training.
+        """
+        assert adj_np.ndim == 2 and adj_np.shape[0] == adj_np.shape[1]
+        self.num_nodes = int(adj_np.shape[0])
+        self._directed = bool(directed)
+
+        # Store neighbors as python sets for fast membership.
+        self.base_neighbors = []
+        self.base_deg = np.zeros(self.num_nodes, dtype=np.int32)
+
+        if directed:
+            # treat adjacency row as outgoing neighbors
+            for u in range(self.num_nodes):
+                nbrs = set(np.nonzero(adj_np[u])[0].tolist())
+                if u in nbrs:
+                    nbrs.remove(u)
+                self.base_neighbors.append(nbrs)
+                self.base_deg[u] = len(nbrs)
+        else:
+            # undirected: neighbors where adj[u,v]=1
+            # assume adj is symmetric (or at least you want symmetric behavior)
+            for u in range(self.num_nodes):
+                nbrs = set(np.nonzero(adj_np[u])[0].tolist())
+                if u in nbrs:
+                    nbrs.remove(u)
+                self.base_neighbors.append(nbrs)
+                self.base_deg[u] = len(nbrs)
+
+        # Keep base adjacency available for base_edge flag
+        # (store as bool for cheap lookup)
+        self.base_adj_bool = (adj_np != 0)
+
+    def _count_intersection(self, set_a: set[int], set_b: set[int]) -> int:
+        # no temp set allocation
+        if len(set_a) > len(set_b):
+            set_a, set_b = set_b, set_a
+        return sum(1 for x in set_a if x in set_b)
+
+    def _deg_current(self, u: int, tog_u: set[int]) -> int:
+        """
+        Degree of u in current graph (base XOR toggles incident to u).
+        Computed in O(|tog_u|).
+        """
+        if not tog_u:
+            return int(self.base_deg[u])
+        baseN = self.base_neighbors[u]
+        in_base = sum(1 for w in tog_u if w in baseN)
+        # toggles flip: present->absent (-1), absent->present (+1)
+        return int(self.base_deg[u] + (len(tog_u) - 2 * in_base))
+
+    def _cn_current(self, u: int, v: int, tog_u: set[int], tog_v: set[int]) -> tuple[int, int]:
+        """
+        Returns (cn_base, cn_curr) using cheap correction over toggles.
+        cn_base computed by membership counting, cn_curr adjusted in O(|tog_u|+|tog_v|).
+        """
+        Nu = self.base_neighbors[u]
+        Nv = self.base_neighbors[v]
+
+        cn_base = self._count_intersection(Nu, Nv)
+
+        if not tog_u and not tog_v:
+            return cn_base, cn_base
+
+        # Only nodes in tog_u ∪ tog_v can change membership compared to base.
+        union_tog = tog_u.union(tog_v)
+        delta = 0
+        for w in union_tog:
+            bu = (w in Nu)
+            bv = (w in Nv)
+            base_in = (bu and bv)
+
+            cu = (bu ^ (w in tog_u))
+            cv = (bv ^ (w in tog_v))
+            curr_in = (cu and cv)
+
+            delta += (1 if curr_in else 0) - (1 if base_in else 0)
+
+        cn_curr = cn_base + delta
+        if cn_curr < 0:
+            cn_curr = 0
+        return cn_base, cn_curr
 
     # ---------- logging ----------
     def _cuda_sync(self):

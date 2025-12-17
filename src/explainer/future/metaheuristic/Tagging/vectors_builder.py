@@ -78,6 +78,11 @@ class VectorsBuilder:
             self.fill_dimension_adamic_adar(dim=dim, **kwargs)
         elif m in {"resource_allocation", "ra"}:
             self.fill_dimension_resource_allocation(dim=dim, **kwargs)
+        elif m in {"avg_neighbor_degree", "average_neighbor_degree"}:
+            self.fill_dimension_avg_neighbor_degree(dim=dim, **kwargs)
+        elif m in {"ego_density", "egonet_density"}:
+            self.fill_dimension_ego_density(dim=dim, **kwargs)
+
         else:
             raise ValueError(f"Unknown metric: {metric}")
 
@@ -389,6 +394,43 @@ class VectorsBuilder:
         self._fill_from_scores(dim, tri, aggregator)
 
     # -------- global metrics --------
+    def fill_dimension_avg_neighbor_degree(self, dim: int, normalized: bool = True) -> None:
+        A = (self.Matrix > 0).astype(np.float32, copy=False)
+        deg = A.sum(axis=1)  # (n,)
+        # sum of neighbor degrees: A @ deg
+        sum_nbr_deg = A @ deg
+        avg = np.zeros_like(deg, dtype=np.float32)
+        mask = deg > 0
+        avg[mask] = (sum_nbr_deg[mask] / deg[mask]).astype(np.float32)
+
+        if normalized:
+            # normalize by max possible degree (n-1) to keep scale stable
+            avg = avg / max(1.0, float(self.n - 1))
+
+        self._fill_from_scores(dim, avg.astype(np.float32), aggregator="sum")
+
+
+    def fill_dimension_ego_density(self, dim: int, normalized: bool = True) -> None:
+        # ego density: edges among neighbors / (deg choose 2)
+        A = (self.Matrix > 0).astype(np.float32, copy=False)
+        n = self.n
+        scores = np.zeros(n, dtype=np.float32)
+
+        for u in range(n):
+            nbrs = np.flatnonzero(A[u] > 0)
+            d = len(nbrs)
+            if d < 2:
+                scores[u] = 0.0
+                continue
+            sub = A[np.ix_(nbrs, nbrs)]
+            # undirected: count edges among neighbors
+            e = sub.sum() * 0.5
+            denom = d * (d - 1) * 0.5
+            scores[u] = float(e / denom) if denom > 0 else 0.0
+
+        # already in [0,1] for simple graphs
+        self._fill_from_scores(dim, scores.astype(np.float32), aggregator="sum")
+
 
     def degree_assortativity(self) -> float:
         """
