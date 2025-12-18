@@ -264,6 +264,21 @@ class OnlineNNEdgeSelector:
         self._remove_rank_cache_topk = None
         self._remove_rank_cache_seed = None
         
+        # ---- ranked addition pool cache ----
+        self._add_pool_cache_key = None
+        self._add_pool_cache_pairs = None     # list[tuple[int,int]] (ranked order)
+        self._add_pool_cache_logits = None    # np.ndarray aligned with ranked pairs
+
+        # settings that affect cache validity
+        self._add_pool_cache_pool_size = None
+        self._add_pool_cache_focus = None
+        self._add_pool_cache_explore_topk = None
+        self._add_pool_cache_seed = None
+
+        # refresh pool after N calls even if solution unchanged (prevents stagnation)
+        self.add_pool_refresh_every = 50
+        self._add_pool_calls_since_refresh = 0
+        
         # ---------------- Logging / stats ----------------
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -1049,7 +1064,167 @@ class OnlineNNEdgeSelector:
             return []
         return order[:min(X, len(order))]
     
-    
+    def get_addition_trial_order(
+        self,
+        solution_pairs: list[tuple[int, int]],
+        *,
+        pool_size: int | None = None,
+        use_focus: bool = True,
+        explore_topk: int = 0,
+        shuffle_topk_once: bool = True,
+        seed: int | None = None,
+        return_logits: bool = False,
+        force_refresh: bool = False,
+    ):
+        """
+        Build a sampled add-candidate pool ONCE, score it ONCE, and return a ranked list.
+
+        This is the analogue of get_removal_trial_order(), but:
+          - we do NOT enumerate all non-edges
+          - we sample a pool, then rank within the pool
+        """
+        if self.node_vecs is None:
+            raise RuntimeError("set_node_vectors() must be called before proposing.")
+        num_nodes = int(self.node_vecs.shape[0])
+
+        # canonicalize solution snapshot
+        solution_set = {
+            (int(min(u, v)), int(max(u, v)))
+            for (u, v) in solution_pairs
+            if u != v
+        }
+
+        # Cache key depends on solution snapshot + sampling settings
+        key = self._solution_cache_key(solution_set)
+
+        if pool_size is None:
+            pool_size = getattr(self, "add_pool_size", None)
+            if pool_size is None:
+                pool_size = 4000  # sane default for reuse; tune
+
+        focus_nodes = None
+        if use_focus and solution_set:
+            focus_nodes = []
+            for (u, v) in solution_set:
+                focus_nodes.append(u)
+                focus_nodes.append(v)
+
+        # Determine whether we can reuse cache
+        cache_hit = (
+            (not force_refresh)
+            and self._add_pool_cache_key == key
+            and self._add_pool_cache_pool_size == int(pool_size)
+            and self._add_pool_cache_focus == bool(use_focus)
+            and self._add_pool_cache_explore_topk == int(explore_topk)
+            and self._add_pool_cache_seed == seed
+            and self._add_pool_cache_pairs is not None
+            and self._add_pool_cache_logits is not None
+        )
+
+        # Refresh to avoid getting stuck even if snapshot unchanged
+        if not force_refresh and cache_hit:
+            self._add_pool_calls_since_refresh += 1
+            if self.add_pool_refresh_every and self._add_pool_calls_since_refresh >= self.add_pool_refresh_every:
+                cache_hit = False  # trigger refresh
+
+        if cache_hit:
+            if return_logits:
+                return self._add_pool_cache_pairs, self._add_pool_cache_logits
+            return self._add_pool_cache_pairs
+
+        # refresh counter
+        self._add_pool_calls_since_refresh = 0
+
+        # disturbed neighbors for structural features
+        disturbed_neighbors = defaultdict(set)
+        for (a, b) in solution_set:
+            disturbed_neighbors[a].add(b)
+            disturbed_neighbors[b].add(a)
+        solution_size = len(solution_set)
+
+        # sample pool once
+        candidate_pairs = self._sample_add_candidates(
+            solution_set=solution_set,
+            num_nodes=num_nodes,
+            pool_size=int(pool_size),
+            focus_nodes=focus_nodes,
+        )
+        if not candidate_pairs:
+            if return_logits:
+                return [], np.array([], dtype=np.float32)
+            return []
+
+        pairs_tensor = torch.as_tensor(candidate_pairs, dtype=torch.long, device=self.device)
+
+        self.model_add.eval()
+        with torch.no_grad():
+            feats = self._pair_features(
+                pairs_tensor,
+                disturbed_neighbors=disturbed_neighbors,
+                solution_size=solution_size
+            )
+            logits = self.model_add(feats).detach().cpu().numpy()  # (M,)
+
+        # rank once
+        order_idx = np.argsort(-logits)
+        ordered_pairs = [candidate_pairs[i] for i in order_idx]
+        ordered_logits = logits[order_idx].astype(np.float32, copy=False)
+
+        # shuffle within top-K (once per snapshot)
+        if explore_topk and explore_topk > 1:
+            k = min(int(explore_topk), len(ordered_pairs))
+            if shuffle_topk_once:
+                rng = random.Random(seed)
+                head_pairs = ordered_pairs[:k]
+                head_logits = ordered_logits[:k].copy()
+
+                perm = list(range(k))
+                rng.shuffle(perm)
+
+                ordered_pairs[:k] = [head_pairs[j] for j in perm]
+                ordered_logits[:k] = [head_logits[j] for j in perm]
+
+        # store cache
+        self._add_pool_cache_key = key
+        self._add_pool_cache_pool_size = int(pool_size)
+        self._add_pool_cache_focus = bool(use_focus)
+        self._add_pool_cache_explore_topk = int(explore_topk)
+        self._add_pool_cache_seed = seed
+        self._add_pool_cache_pairs = ordered_pairs
+        self._add_pool_cache_logits = ordered_logits
+
+        if return_logits:
+            return ordered_pairs, ordered_logits
+        return ordered_pairs
+
+    def propose_additions_ranked(
+        self,
+        solution: list[tuple[int, int]],
+        X: int,
+        *,
+        pool_size: int | None = None,
+        use_focus: bool = True,
+        explore_topk: int = 0,
+        seed: int | None = None,
+    ) -> list[tuple[int, int]]:
+        """
+        Return the first X additions from a cached ranked add-candidate pool.
+        """
+        if X <= 0:
+            return []
+
+        order = self.get_addition_trial_order(
+            solution,
+            pool_size=pool_size,
+            use_focus=use_focus,
+            explore_topk=explore_topk,
+            shuffle_topk_once=True,
+            seed=seed,
+            return_logits=False,
+        )
+        if not order:
+            return []
+        return order[:min(X, len(order))]
 
     # ---------- training ----------
 

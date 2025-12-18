@@ -479,17 +479,47 @@ class LocalSearch(ExplanationMinimizer):
                 
     
 
-    def edge_add(self, solution : set[int], best) -> Generator[set[int], set[int], set[int]]:
-        cealing = (len(best) - len(solution)) + 1
-        step = int(cealing / self.max_neigh) + 1
-        for i in range(1, cealing, step):
+    def edge_add(self, solution: set[int], best) -> Generator[set[int], set[int], set[int]]:
+        uv_solution = self.id_to_uv(solution)
+
+        ceiling = (len(best) - len(solution)) + 1
+        step = int(ceiling / self.max_neigh) + 1
+
+        explore_topk = 32  # tune: 16/32/64
+        seed = random.randrange(1_000_000_000)
+
+        # Build ranked pool ONCE for this snapshot
+        add_order = self.selector.get_addition_trial_order(
+            uv_solution,
+            pool_size=None,         # uses selector.add_pool_size or default
+            use_focus=True,
+            explore_topk=explore_topk,
+            seed=seed,
+        )
+        m = len(add_order)
+        if m == 0:
+            return
+
+        for i in range(1, ceiling, step):
             self.tries = 0
-            for _ in range(self.neigh_factor * 3):
-                added = self.selector.propose_additions(self.id_to_uv(solution), i)
+
+            num_trials = self.neigh_factor * 3
+            for t in range(num_trials):
+                k = min(i, m)
+
+                # produce multiple neighbors without rescoring:
+                start = (t * k) % m
+                end = start + k
+                if end <= m:
+                    added = add_order[start:end]
+                else:
+                    added = add_order[start:] + add_order[: end - m]
+
                 added_set = self.uv_to_id(added)
                 new_s = solution.union(added_set)
-                
+
                 yield [new_s, [], added_set, solution]
+
 
     def edge_remove(self, solution: set[int]) -> Generator[set[int], set[int], set[int]]:
         # Convert solution ids -> uv once
