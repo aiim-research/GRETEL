@@ -80,7 +80,6 @@ Two training styles are provided:
 
 Practical safeguards
 --------------------
-  - BatchNorm is skipped for batch_size == 1 inside ScoreNet to avoid degenerate statistics.
   - Gradients are clipped to max_norm=1.0 for stability.
   - Negative edges are exposure-capped so repeated failures do not dominate learning.
 """
@@ -250,12 +249,20 @@ class OnlineNNEdgeSelector:
         # Prevents training from being dominated by the same failing edges over and over.
         self.neg_edge_counts_add = defaultdict(int)
         self.neg_edge_counts_remove = defaultdict(int)
-        self.neg_edge_cap = 5  # tuneable
+        self.neg_edge_cap_add = 5
+        self.neg_edge_cap_remove = None   # None = no cap for remove
         
         # Deterministic greedy shortcuts when X is small to reduce variance.
         self.greedy_top1 = True          # if X==1 and not exploring -> argmax
         self.greedy_topk = True          # if X small and not exploring -> take top-k
         self.greedy_k_threshold = 3      # only do deterministic top-k when X<=this
+        
+        # ---- ranked removal trial-order cache ----
+        self._remove_rank_cache_key = None
+        self._remove_rank_cache_order = None          # list[tuple[int,int]]
+        self._remove_rank_cache_logits = None         # np.ndarray (aligned with _order)
+        self._remove_rank_cache_topk = None
+        self._remove_rank_cache_seed = None
         
         # ---------------- Logging / stats ----------------
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -917,6 +924,130 @@ class OnlineNNEdgeSelector:
         
         return self._propose(solution, X, mode="remove")
     
+    def get_removal_trial_order(
+        self,
+        solution_pairs: list[tuple[int, int]],
+        *,
+        explore_topk: int = 0,
+        shuffle_topk_once: bool = True,
+        seed: int | None = None,
+        return_logits: bool = False,
+    ):
+        """
+        Compute (and cache) a mostly-fixed ordering of removal candidates for the
+        given solution snapshot.
+
+        - Scores each disturbed edge once with model_remove
+        - Sorts by descending logit
+        - Optional exploration: shuffle only within the top-K of that ranking
+          (done once per snapshot if shuffle_topk_once=True)
+
+        Returns:
+            ordered_pairs OR (ordered_pairs, ordered_logits) if return_logits=True
+        """
+        # Canonicalize and deduplicate solution snapshot
+        solution_set = {
+            (int(min(u, v)), int(max(u, v)))
+            for (u, v) in solution_pairs
+            if u != v
+        }
+
+        if not solution_set:
+            if return_logits:
+                return [], np.array([], dtype=np.float32)
+            return []
+
+        key = self._solution_cache_key(solution_set)
+
+        # Reuse cache if same snapshot + same topK/seed settings
+        cache_hit = (
+            self._remove_rank_cache_key == key
+            and self._remove_rank_cache_topk == int(explore_topk)
+            and self._remove_rank_cache_seed == seed
+            and self._remove_rank_cache_order is not None
+            and self._remove_rank_cache_logits is not None
+        )
+        if cache_hit:
+            if return_logits:
+                return self._remove_rank_cache_order, self._remove_rank_cache_logits
+            return self._remove_rank_cache_order
+
+        # Build disturbed_neighbors for structural features
+        disturbed_neighbors = defaultdict(set)
+        for (a, b) in solution_set:
+            disturbed_neighbors[a].add(b)
+            disturbed_neighbors[b].add(a)
+        solution_size = len(solution_set)
+
+        candidate_pairs = list(solution_set)
+        pairs_tensor = torch.as_tensor(candidate_pairs, dtype=torch.long, device=self.device)
+
+        self.model_remove.eval()
+        with torch.no_grad():
+            feats = self._pair_features(
+                pairs_tensor,
+                disturbed_neighbors=disturbed_neighbors,
+                solution_size=solution_size
+            )
+            logits = self.model_remove(feats).detach().cpu().numpy()  # (M,)
+
+        # Sort by descending logit
+        order_idx = np.argsort(-logits)
+        ordered_pairs = [candidate_pairs[i] for i in order_idx]
+        ordered_logits = logits[order_idx].astype(np.float32, copy=False)
+
+        # Optional: randomize *within top-K* for exploration (once per snapshot)
+        if explore_topk and explore_topk > 1:
+            k = min(int(explore_topk), len(ordered_pairs))
+            if shuffle_topk_once:
+                rng = random.Random(seed)
+                head = ordered_pairs[:k]
+                rng.shuffle(head)
+                ordered_pairs = head + ordered_pairs[k:]
+                # logits stay aligned with original sorted order; that’s fine because
+                # exploration shuffles only the trial ordering, not the scores.
+                # If you want logits aligned with shuffled order too, also shuffle head logits.
+
+        # Save cache
+        self._remove_rank_cache_key = key
+        self._remove_rank_cache_order = ordered_pairs
+        self._remove_rank_cache_logits = ordered_logits
+        self._remove_rank_cache_topk = int(explore_topk)
+        self._remove_rank_cache_seed = seed
+
+        if return_logits:
+            return ordered_pairs, ordered_logits
+        return ordered_pairs
+
+    def propose_removals_ranked(
+        self,
+        solution: list[tuple[int, int]],
+        X: int,
+        *,
+        explore_topk: int = 0,
+        seed: int | None = None,
+    ) -> list[tuple[int, int]]:
+        """
+        Return the first X removals from a cached ranked trial order.
+        This is the drop-in alternative to propose_removals() when you want to
+        avoid rescore loops.
+
+        Typical use in a "ramp X" loop:
+            order = selector.get_removal_trial_order(solution, explore_topk=32)
+            try order[0], then order[1], then order[2], ...
+        """
+        if X <= 0:
+            return []
+        order = self.get_removal_trial_order(
+            solution,
+            explore_topk=explore_topk,
+            shuffle_topk_once=True,
+            seed=seed,
+            return_logits=False
+        )
+        if not order:
+            return []
+        return order[:min(X, len(order))]
     
     
 
@@ -926,7 +1057,7 @@ class OnlineNNEdgeSelector:
         self,
         mode: str,
         examples: list[tuple[list[tuple[int,int]], list[tuple[int,int]], bool]],
-        neg_weight: float = 0.35,
+        neg_weight: float = 0.2,
         max_edges_per_move: int = 15,
         hard_within_move_for_neg: bool = True,
     ) -> None:
@@ -981,15 +1112,26 @@ class OnlineNNEdgeSelector:
             # canonicalize move edges
             move_pairs = [(min(u,v), max(u,v)) for (u,v) in move_uv if u != v]
 
-            # cap repeated negatives
+            # cap repeated negatives (disabled for remove)
             if not success:
-                counter = self.neg_edge_counts_add if mode == "add" else self.neg_edge_counts_remove
-                filtered = []
-                for p in move_pairs:
-                    if counter[p] < self.neg_edge_cap:
-                        filtered.append(p)
-                        counter[p] += 1
-                move_pairs = filtered
+                if mode == "add":
+                    cap = self.neg_edge_cap_add
+                    counter = self.neg_edge_counts_add
+                else:
+                    cap = self.neg_edge_cap_remove
+                    counter = self.neg_edge_counts_remove
+
+                if cap is not None:
+                    filtered = []
+                    for p in move_pairs:
+                        if counter[p] < cap:
+                            filtered.append(p)
+                            counter[p] += 1
+                    move_pairs = filtered
+                    
+            if (mode == "remove") and (not success):
+                self.logger.debug("[remove] neg cap disabled: using all %d edges in move", len(move_pairs))
+
 
             if not move_pairs:
                 continue
@@ -1215,7 +1357,7 @@ class OnlineNNEdgeSelector:
             neg_removed_uvs: list of alternative removed-edge sets.
         """
         self._train_ranked_moves("remove", solution_uv, pos_removed_uv, neg_removed_uvs,
-                                neg_cap_per_edge=self.neg_edge_cap)
+                         neg_cap_per_edge=None)
 
     def update_addition_ranked(
         self,
@@ -1454,6 +1596,16 @@ class OnlineNNEdgeSelector:
         if cn_curr < 0:
             cn_curr = 0
         return cn_base, cn_curr
+    
+    def _solution_cache_key(self, solution_set: set[tuple[int, int]]) -> tuple:
+        """
+        Cache key for a given solution snapshot. We include:
+          - size
+          - a deterministic ordering of edges
+        """
+        # Sorting is OK because solution sizes are typically small/moderate.
+        return (len(solution_set), tuple(sorted(solution_set)))
+
 
     # ---------- logging ----------
     def _cuda_sync(self) -> None:

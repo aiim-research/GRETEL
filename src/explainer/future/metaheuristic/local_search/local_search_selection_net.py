@@ -65,13 +65,14 @@ class LocalSearch(ExplanationMinimizer):
         
         
         self.efficiency = 0.5
-        # how fast efficiency penalizes high tries (bigger => less penalty)
-        self.eff_tau = self.local_config['parameters'].get('eff_tau', 2)
+        # how fast efficiency penalizes high self.tries (bigger => less penalty)
+        self.eff_tau = self.local_config['parameters'].get('eff_tau', 4)
 
         # smoothing factor for the moving average (0..1). bigger => reacts faster
         self.eff_alpha = self.local_config['parameters'].get('eff_alpha', 0.02)
         self.add_pool_size = 10000 
-
+        self.total_tries = 0
+        self.total_tries_steps = 0
         
         self.methods = [
             lambda data, features: average_smoothing(data, features, iterations=1),
@@ -118,7 +119,7 @@ class LocalSearch(ExplanationMinimizer):
         node_features = instance.node_features
         total_features = np.concatenate((node_features, metrics_features), axis=1)
         
-        original_embeddings_tensors = self.oracle.get_node_embeddings(instance)
+        # original_embeddings_tensors = self.oracle.get_node_embeddings(instance)
         
         # k = total_features.shape[1] + original_embeddings_tensors.shape[1]
         k = total_features.shape[1] 
@@ -192,7 +193,7 @@ class LocalSearch(ExplanationMinimizer):
             old_best_size = len(best)
             # self.logger.info("actual ---> " + str(len(actual)))
             
-            tries = 0
+            self.tries = 0
             descarted = 0
             neg_removed_moves = []   # list of removed_uv (each is list[uv])
             neg_keep_first = 8       # always keep first failures (they’re “most confident” under greedy)
@@ -204,8 +205,8 @@ class LocalSearch(ExplanationMinimizer):
                 # print("removed: " + str(removed))
                 old_best_size = len(best)
                 new_size = len(s)
+                self.tries += 1
                 
-                tries += 1
                 found_, inst = self.evaluate(s)
                 
                 sol_uv = self.id_to_uv(sol_ctx)
@@ -226,7 +227,7 @@ class LocalSearch(ExplanationMinimizer):
                         neg_removed_moves = []
                 else:
                     # keep early failures (hard negatives), and sample some later ones
-                    if tries <= neg_keep_first or random.random() < p_neg_keep:
+                    if self.tries <= neg_keep_first or random.random() < p_neg_keep:
                         neg_removed_moves.append(removed_uv)
                 # ------------------------
 
@@ -242,7 +243,7 @@ class LocalSearch(ExplanationMinimizer):
 
                 
             if(found):
-                self._update_efficiency_from_tries(tries, tag="(-)")
+                self._update_efficiency_from_tries(tag="(-)")
                 self.logger.info("============> (-) Found solution with size: " + str(len(actual)))
                 continue
             
@@ -256,18 +257,18 @@ class LocalSearch(ExplanationMinimizer):
             while(len(best) - len(actual) > 1):
                 n-=1
                 self.logger.info("oracle calls (before (=)): " + str(self.k))
-                tries = 0
+                self.tries = 0
                 descarted = 0
                 for s, removed, added, sol_ctx, temp_ctx in self.edge_swap(actual):
                     if self.cache.contains(s):
                         descarted += 1
                         continue
                     self.cache.add(s)
-
+                    self.tries += 1
                     old_best_size = len(best)
                     new_size = len(s)
                     
-                    tries += 1
+                    
                     found_, inst = self.evaluate(s)
                     
                     # ---- Model training ----
@@ -315,7 +316,7 @@ class LocalSearch(ExplanationMinimizer):
                     
                     
                 if(found):
-                    self._update_efficiency_from_tries(tries, tag="(=)")
+                    self._update_efficiency_from_tries(tag="(=)")
                     self.logger.info("============> (=) Found solution with size: " + str(len(actual)))
                     break
                 
@@ -323,7 +324,7 @@ class LocalSearch(ExplanationMinimizer):
                 actual = self.reduce_random(best, len(actual))
                 # self.logger.info("actual ===> " + str(len(actual)))
                 
-                tries = 0
+                self.tries = 0
                 descarted = 0
                 neg_added_moves = []
                 for s, _, added, sol_ctx in self.edge_add(actual, best):
@@ -331,12 +332,12 @@ class LocalSearch(ExplanationMinimizer):
                         descarted += 1
                         continue
                     self.cache.add(s)
-
+                    self.tries += 1
                     old_best_size = len(best)
                     new_size = len(s)
 
                     found_, inst = self.evaluate(s)
-                    tries += 1
+                    
                     # ---- Model training ----
                     sol_uv = self.id_to_uv(sol_ctx)
                     added_uv = self.id_to_uv(added)
@@ -348,7 +349,7 @@ class LocalSearch(ExplanationMinimizer):
                             self.selector.update_addition_ranked(sol_uv, added_uv, neg_added_moves)
                             neg_added_moves = []
                     else:
-                        if tries <= neg_keep_first or random.random() < p_neg_keep:
+                        if self.tries <= neg_keep_first or random.random() < p_neg_keep:
                             neg_added_moves.append(added_uv)
 
                     # ------------------------
@@ -364,7 +365,7 @@ class LocalSearch(ExplanationMinimizer):
 
                     
                 if(found):
-                    self._update_efficiency_from_tries(tries, tag="(+)")
+                    self._update_efficiency_from_tries(tag="(+)")
                     self.logger.info("============> (+) Found solution with size: " + str(len(actual)))
                     break
                 
@@ -465,13 +466,15 @@ class LocalSearch(ExplanationMinimizer):
         cealing = min(len(solution), (self.EPlus - len(solution))) + 1
         step = int(cealing / self.max_neigh) + 1
         for i in range(1, cealing, step):
-            for _ in range(self.neigh_factor ** 2):
+            self.tries = 0
+            for _ in range(self.neigh_factor * 3):
                 removed = self.selector.propose_removals(self.id_to_uv(solution), i)
                 removed_set = self.uv_to_id(removed)
                 temp_solution = solution.difference(removed_set)
                 added = self.selector.propose_additions(self.id_to_uv(temp_solution), i)
                 added_set = self.uv_to_id(added)
                 new_s = temp_solution.union(added_set)
+                
                 yield [new_s, removed_set, added_set, solution, temp_solution]
                 
     
@@ -480,21 +483,64 @@ class LocalSearch(ExplanationMinimizer):
         cealing = (len(best) - len(solution)) + 1
         step = int(cealing / self.max_neigh) + 1
         for i in range(1, cealing, step):
-            for _ in range(self.neigh_factor ** 2):
+            self.tries = 0
+            for _ in range(self.neigh_factor * 3):
                 added = self.selector.propose_additions(self.id_to_uv(solution), i)
                 added_set = self.uv_to_id(added)
                 new_s = solution.union(added_set)
+                
                 yield [new_s, [], added_set, solution]
 
-    def edge_remove(self, solution : set[int]) -> Generator[set[int], set[int], set[int]]:
-        cealing = len(solution)
-        step = int((cealing / self.max_neigh) + 1)
-        for i in range(1, cealing, step):
-            for _ in range(self.neigh_factor ** 3):
-                removed = self.selector.propose_removals(self.id_to_uv(solution), i)
+    def edge_remove(self, solution: set[int]) -> Generator[set[int], set[int], set[int]]:
+        # Convert solution ids -> uv once
+        uv_solution = self.id_to_uv(solution)
+        ceiling = len(uv_solution)
+
+        if ceiling == 0:
+            return
+
+        # Score ONCE + sort ONCE for this snapshot (cache inside selector handles repeats)
+        # explore_topk: randomize within top-K once, but keep a mostly-fixed order.
+        explore_topk = min(32, ceiling)  # tune (e.g. 16/32/64). Keep small for speed.
+        seed = random.randrange(1_000_000_000)
+
+        removal_order = self.selector.get_removal_trial_order(
+            uv_solution,
+            explore_topk=explore_topk,
+            shuffle_topk_once=True,
+            seed=seed,
+            return_logits=False,
+        )
+        m = len(removal_order)
+        if m == 0:
+            return
+
+        step = int((ceiling / self.max_neigh) + 1)
+
+        for i in range(1, ceiling, step):
+            self.tries = 0
+
+            # Produce multiple neighbors WITHOUT rescoring:
+            # take sliding windows / wrapped slices from the ranked order.
+            num_trials = self.neigh_factor * 3
+            for t in range(num_trials):
+                k = min(i, m)
+                if k == m:
+                    removed = removal_order
+                else:
+                    # vary which edges are removed each trial, but preserve the ranked bias
+                    start = (t * k) % m
+                    end = start + k
+                    if end <= m:
+                        removed = removal_order[start:end]
+                    else:
+                        removed = removal_order[start:] + removal_order[: end - m]
+
                 removed_set = self.uv_to_id(removed)
                 new_s = solution.difference(removed_set)
+
                 yield [new_s, removed_set, [], solution]
+
 
 
     ## ------ Selector persistence helpers ----- ##
@@ -568,17 +614,19 @@ class LocalSearch(ExplanationMinimizer):
             selector.save(path) 
             
            
-    def _update_efficiency_from_tries(self, tries: int, tag: str):
-        # normalized score: tries=0 -> 1.0, tries grows -> approaches 0.0
+    def _update_efficiency_from_tries(self, tag: str):
+        self.total_tries += self.tries
+        self.total_tries_steps += 1
+        # normalized score: self.tries=0 -> 1.0, self.tries grows -> approaches 0.0
         tau = max(1e-9, float(self.eff_tau))
-        score = 1.0 / (1.0 + (max(0, int(tries)) / tau))   # in (0,1]
+        score = 1.0 / (1.0 + (max(0, int(self.tries)) / tau))   # in (0,1]
 
         old = float(self.efficiency)
         a = float(self.eff_alpha)
         self.efficiency = max(0.0, min(1.0, (1.0 - a) * old + a * score))
 
         self.logger.info(
-            f"{tag}: tries={tries}, Efficiency={self.efficiency:.4f}, "
+            f"{tag}: tries={self.tries}, Efficiency={self.efficiency:.4f}, AvgTries={self.total_tries / self.total_tries_steps:.2f}"
         )
     
     def write(self):
