@@ -212,13 +212,13 @@ class OnlineNNEdgeSelector:
     ) -> None:
         self.example_count = 0
         self.k = k
-        self.struct_dim = 26
+        # Original structural features (26) + causal after/delta block (12) = 38
+        self.struct_dim = 38
         # input features = [u, v, u-v, u*v] (4k) + [dot,norm_u,norm_v,dist] (4) + struct (26)
         self.input_dim = 4 * k + 4 + self.struct_dim
         self.hidden_dim = hidden_dim
         self.num_hidden_layers = num_hidden_layers
         self.exploration_prob = exploration_prob
-        self.loss_fn = nn.BCEWithLogitsLoss(reduction="none")
         
         if device is None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -229,13 +229,6 @@ class OnlineNNEdgeSelector:
 
         self.opt_add = optim.Adam(self.model_add.parameters(), lr=lr)
         self.opt_remove = optim.Adam(self.model_remove.parameters(), lr=lr)
-        
-        # Learning rate scheduler (using ReduceLROnPlateau)
-        self.scheduler_add = optim.lr_scheduler.ReduceLROnPlateau(self.opt_add, mode='min', factor=0.5, patience=5)
-        self.scheduler_remove = optim.lr_scheduler.ReduceLROnPlateau(self.opt_remove, mode='min', factor=0.5, patience=5)
-
-
-        self.loss_fn = nn.BCEWithLogitsLoss()
 
         self.node_vecs: torch.Tensor | None = None  # will be set by set_node_vectors()
         self.node_vecs_np: np.ndarray | None = None
@@ -404,6 +397,8 @@ class OnlineNNEdgeSelector:
             # For undirected, checking v in tog_u is enough given symmetric insertion above.
             pair_disturbed = (v in tog_u)
             curr_edge = 1.0 if (base_edge > 0.5) ^ pair_disturbed else 0.0
+            
+            
 
             # Base degrees normalized by (N-1)
             deg_u_base = float(self.base_deg[u]) / denom_deg
@@ -466,6 +461,47 @@ class OnlineNNEdgeSelector:
             # degree difference (normalized)
             degdiff_base_n = abs(deg_u_base_raw - deg_v_base_raw) / denom_deg
             degdiff_curr_n = abs(deg_u_curr_raw - deg_v_curr_raw) / denom_deg
+            
+            # ---------------- Causal "after-toggle" features ----------------
+            # Toggling disturbed(u,v) always flips the current edge existence:
+            # edge_after = base XOR (disturbed flipped) = 1 - curr_edge
+            edge_after = 1.0 - curr_edge
+            delta_edge = edge_after - curr_edge  # +1 if edge added to current graph, -1 if removed
+
+            # Degree change in the *current* graph for both endpoints equals whether the edge appears/disappears.
+            # (Adding edge increases deg by 1; removing decreases by 1.)
+            d_deg_raw = int(delta_edge)  # +1 or -1
+            deg_u_after_raw = deg_u_curr_raw + d_deg_raw
+            deg_v_after_raw = deg_v_curr_raw + d_deg_raw
+
+            # normalized degree deltas and after-values
+            d_deg_u_n = float(d_deg_raw) / denom_deg
+            d_deg_v_n = float(d_deg_raw) / denom_deg
+            deg_u_after = float(deg_u_after_raw) / denom_deg
+            deg_v_after = float(deg_v_after_raw) / denom_deg
+
+            # Solution-size / solution-degree after toggling the disturbed edge
+            # If pair not disturbed -> toggle IN (size +1, incident disturbed deg +1)
+            # If pair disturbed     -> toggle OUT (size -1, incident disturbed deg -1)
+            d_sol_size = 1 if not pair_disturbed else -1
+            sol_size_after = max(1, int(solution_size) + d_sol_size)
+
+            len_tog_u_after = max(0, len(tog_u) + d_sol_size)
+            len_tog_v_after = max(0, len(tog_v) + d_sol_size)
+
+            sol_deg_u_after = float(len_tog_u_after) / float(sol_size_after)
+            sol_deg_v_after = float(len_tog_v_after) / float(sol_size_after)
+
+            d_sol_deg_u = sol_deg_u_after - sol_deg_u
+            d_sol_deg_v = sol_deg_v_after - sol_deg_v
+
+            # Cheap causal proxy for Δtriangles involving (u,v):
+            # triangles_on_edge = edge_exists * cn_curr
+            # cn_curr does NOT change when toggling (u,v) itself, but triangles appear/disappear with the edge.
+            tri_curr_n  = curr_edge * cn_curr_n
+            tri_after_n = edge_after * cn_curr_n
+            d_tri_n     = tri_after_n - tri_curr_n
+            # ----------------------------------------------------------------
 
             struct_rows.append([
                 base_edge,
@@ -489,6 +525,14 @@ class OnlineNNEdgeSelector:
                 degdiff_base_n, degdiff_curr_n,
 
                 cn_over_max_base, cn_over_max_curr,
+
+                # causal after-toggle + deltas (12) ----
+                edge_after,
+                d_deg_u_n, d_deg_v_n,
+                deg_u_after, deg_v_after,
+                sol_deg_u_after, sol_deg_v_after, 
+                d_sol_deg_u, d_sol_deg_v,
+                tri_curr_n, tri_after_n, d_tri_n,
             ])
 
         struct = torch.as_tensor(struct_rows, dtype=torch.float32, device=self.device)  # (M,struct_dim)
@@ -690,7 +734,6 @@ class OnlineNNEdgeSelector:
             p_gap = float(np.max(top2) - np.min(top2))
         else:
             p_gap = 0.0
-        self._last_propose["p_gap_top2"] = p_gap
 
         self.propose_calls += 1
         self._last_propose = {
@@ -703,6 +746,7 @@ class OnlineNNEdgeSelector:
             "p_std": float(np.std(probs)),
             "p_min": float(np.min(probs)),
             "p_max": float(np.max(probs)),
+            "p_gap_top2": p_gap,
         }
 
         if (self.propose_calls % self.log_every_propose_steps) == 0:
