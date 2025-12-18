@@ -1,6 +1,92 @@
+"""
+OnlineNNEdgeSelector: online edge-move proposal + learning for graph edit search.
+
+High-level idea
+---------------
+This module implements an *online* policy that proposes which edges to disturb in a graph-editing
+local search. The policy is learned incrementally from
+feedback about whether proposed moves were "good" (success) or "bad" (failure), and it is used
+to bias future proposals.
+
+Key modeling assumption: current graph = base graph XOR disturbs
+--------------------------------------------------------------
+We assume each instance provides a fixed *base/original* graph G_base, represented by an adjacency
+matrix. The algorithm maintains a *solution* represented as a set of undirected edges S, where each
+edge in S means "disturb this edge relative to the base graph".
+
+For any pair (u, v):
+  - If (u, v) exists in G_base and (u, v) is disturbed in S -> it is removed in the current graph.
+  - If (u, v) does NOT exist in G_base and (u, v) is disturbed in S -> it is added in the current graph.
+This is exactly the XOR relation:
+    edge_current(u,v) = edge_base(u,v) XOR disturbed(u,v)
+
+Because only edges in S are modified, many structural quantities of the current graph can be computed
+cheaply by "correcting" base-graph quantities using only the disturb sets incident to nodes.
+
+Two policies / two models
+-------------------------
+The class maintains two independent edge-scoring networks:
+  - model_add: scores candidate edges to ADD (disturb into the solution)
+  - model_remove: scores candidate edges to REMOVE (disturb out of the solution)
+
+Both networks are ScoreNet MLPs that output a single logit per candidate edge. The logit is interpreted
+as an (uncalibrated) "probability of success" after sigmoid.
+
+Feature construction
+--------------------
+For a candidate edge (u, v), the model receives a concatenation of:
+
+(1) Embedding-based features from precomputed node vectors:
+    - v_u, v_v, (v_u - v_v), (v_u * v_v)         -> 4k features
+    - dot(v_u, v_v), ||v_u||, ||v_v||, ||v_u-v_v|| -> 4 features
+
+(2) Structural graph features computed for both base and current graph:
+    - base edge existence, current edge existence
+    - degrees in base/current, solution-degree (disturb-degree)
+    - common neighbors in base/current (normalized)
+    - similarity indices (Jaccard, cosine-like, Dice, overlap) in base/current
+    - preferential attachment, degree difference, etc.
+These structural features encode how the candidate edge relates to current graph topology and to the
+edits already present in the solution.
+
+Proposal mechanism (exploration/exploitation)
+---------------------------------------------
+Given a set of candidates:
+  - Score candidates with the appropriate model -> logits
+  - Convert logits to sampling weights using a temperature-scaled exp transform
+  - With probability exploration_prob: choose uniformly at random
+  - Otherwise:
+      * if X == 1: choose argmax(logit) deterministically
+      * else: sample without replacement using the weights
+
+For additions, candidates are not enumerated globally (O(N^2)). Instead, a pool is sampled, optionally
+biased so that one endpoint is from "focus nodes" that already appear in the current solution (a local
+search heuristic that tends to concentrate changes around active regions).
+
+Online training signals
+-----------------------
+Two training styles are provided:
+
+1) Move-level BCE (supervised success/failure):
+   - A move may disturb multiple edges.
+   - Compute per-edge logits and mean-pool them into a single move logit.
+   - Apply BCEWithLogitsLoss against target success ∈ {0,1}.
+   - Optionally down-weight negative examples to stabilize training.
+
+2) Pairwise ranked moves (margin-based):
+   - Given a positive move and several negative alternatives, enforce:
+       score(pos) >= score(neg) + margin
+   - Uses softplus(margin + neg - pos), a smooth hinge-like objective.
+
+Practical safeguards
+--------------------
+  - BatchNorm is skipped for batch_size == 1 inside ScoreNet to avoid degenerate statistics.
+  - Gradients are clipped to max_norm=1.0 for stability.
+  - Negative edges are exposure-capped so repeated failures do not dominate learning.
+"""
+
 from __future__ import annotations
 import random
-from dataclasses import dataclass
 import math
 
 import numpy as np
@@ -8,9 +94,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import logging
-from typing import Any, Dict, Optional
 import math
-import time
 import torch.nn.functional as F
 from collections import defaultdict
 
@@ -84,7 +168,9 @@ class ScoreNet(nn.Module):
             Logits tensor of shape (batch,).
         """
         if x.size(0) == 1:
-            # Skip BatchNorm when batch=1.
+            # Theoretical note:
+            # BatchNorm uses batch statistics; with batch_size=1 those stats are degenerate,
+            # leading to unstable/meaningless normalization. So we skip BatchNorm layers.
             for layer in self.net:
                 if isinstance(layer, nn.BatchNorm1d):
                     continue
@@ -97,15 +183,22 @@ class OnlineNNEdgeSelector:
     """
     Online neural model to bias which edges to add/remove.
 
+    Conceptually:
+      - Given a *current solution* (a set of disturbed edges), build candidate edge moves.
+      - Score each candidate with an MLP using:
+          (a) node embeddings features (u, v, diff, prod, dot, norms, dist)
+          (b) structural graph features under:
+              - base graph (original instance)
+              - current graph (base XOR disturbs induced by current solution)
+      - Sample actions with an exploration/exploitation policy.
+
     Usage:
         selector = OnlineNNEdgeSelector(k=node_vecs.shape[1])
         selector.set_node_vectors(node_vecs)  # np.ndarray (num_nodes, k)
+        selector.set_base_graph(adj_np)
 
-        # propose:
         chosen_add_pairs = selector.propose_additions(solution_pairs, X)
-
-        # after evaluating (reward in [0,1]):
-        selector.update_additions(chosen_add_pairs, reward)
+        selector.update_addition_moves(examples)  # online supervised signal (success/failure)
     """
 
     def __init__(
@@ -116,10 +209,11 @@ class OnlineNNEdgeSelector:
         lr: float = 1e-3,
         exploration_prob: float = 0.2,
         device: torch.device | None = None,
-    ):
+    ) -> None:
         self.example_count = 0
         self.k = k
         self.struct_dim = 26
+        # input features = [u, v, u-v, u*v] (4k) + [dot,norm_u,norm_v,dist] (4) + struct (26)
         self.input_dim = 4 * k + 4 + self.struct_dim
         self.hidden_dim = hidden_dim
         self.num_hidden_layers = num_hidden_layers
@@ -150,13 +244,18 @@ class OnlineNNEdgeSelector:
         self.performance_counter = 0
         self.last_best_size = None
         
+        # Temperatures used in a softmax-like weighting of logits (see _weights_from_logits).
+        # Higher temperature => flatter distribution (more uniform sampling).
         self.temp_add = 1.5      
         self.temp_remove = 1.2
         
+        # Repeated-negative cap:
+        # Prevents training from being dominated by the same failing edges over and over.
         self.neg_edge_counts_add = defaultdict(int)
         self.neg_edge_counts_remove = defaultdict(int)
         self.neg_edge_cap = 5  # tuneable
         
+        # Deterministic greedy shortcuts when X is small to reduce variance.
         self.greedy_top1 = True          # if X==1 and not exploring -> argmax
         self.greedy_topk = True          # if X small and not exploring -> take top-k
         self.greedy_k_threshold = 3      # only do deterministic top-k when X<=this
@@ -174,11 +273,11 @@ class OnlineNNEdgeSelector:
 
         # moving averages (EMA)
         self.ema_beta = 0.95
-        self._ema = {}  # name -> float
+        self._ema: dict[str, float] = {}  # name -> float
 
         # store last events
-        self._last_train = {}
-        self._last_propose = {}
+        self._last_train: dict[str, object] = {}
+        self._last_propose: dict[str, object] = {}
 
         
         self._use_cuda_timing = (self.device.type == "cuda")
@@ -190,30 +289,39 @@ class OnlineNNEdgeSelector:
 
     def build_tensors(self, node_vecs_np: np.ndarray) -> torch.Tensor:
         """
-        Call this once (or whenever node vectors change).
+        Convert node vectors to a device tensor.
 
-        node_vecs_np: shape (num_nodes, k)
+        Args:
+            node_vecs_np: numpy array of shape (num_nodes, k)
+
+        Returns:
+            Tensor on self.device of shape (num_nodes, k), dtype float32.
         """
         return torch.as_tensor(
             node_vecs_np, dtype=torch.float32, device=self.device
         )
         
-    def set_node_vectors(self, node_vecs_np: np.ndarray):
+    def set_node_vectors(self, node_vecs_np: np.ndarray) -> None:
         """
-        Call this once (or whenever node vectors change).
+        Store node vectors as a tensor (detached from any graph).
 
-        node_vecs_np: shape (num_nodes, k)
+        Args:
+            node_vecs_np: numpy array of shape (num_nodes, k)
         """
         assert node_vecs_np.shape[1] == self.k
         self.node_vecs = torch.as_tensor(
             node_vecs_np, dtype=torch.float32, device=self.device
         )
         
-    def set_node_vectors_from_tensor(self, node_vecs_list: list[torch.Tensor]):
+    def set_node_vectors_from_tensor(self, node_vecs_list: list[torch.Tensor]) -> None:
         """
-        node_vecs_list: list of length num_nodes,
-                        each a 1D tensor of shape (k,)
-                        possibly with requires_grad=True.
+        Alternative setter when node vectors are already torch tensors.
+
+        This explicitly detaches the vectors (no gradients tracked), since the selector
+        treats node embeddings as fixed features (not jointly trained here).
+
+        Args:
+            node_vecs_list: list length num_nodes; each tensor shape (k,)
         """
         # Detach from computation graph and stack
         with torch.no_grad():
@@ -225,12 +333,29 @@ class OnlineNNEdgeSelector:
 
             self.node_vecs = node_vecs.to(self.device, dtype=torch.float32)
 
-    def _pair_features(self, pairs_tensor: torch.Tensor, toggled_neighbors: dict[int, set[int]], solution_size: int) -> torch.Tensor:
+    def _pair_features(
+        self,
+        pairs_tensor: torch.Tensor,
+        disturbed_neighbors: dict[int, set[int]],
+        solution_size: int
+    ) -> torch.Tensor:
         """
-        Build features for many pairs at once.
-        pairs_tensor: LongTensor (M,2)
-        toggled_neighbors: node -> set of toggled neighbors in current solution
-        solution_size: |solution_set|
+        Build feature matrix for a batch of candidate edges.
+
+        Key theoretical piece:
+          - The "current graph" is modeled as:  current = base XOR disturbs
+            where `disturbs` come from the current solution edge set.
+          - Structural features are computed for both base and current graph:
+              edge existence, degrees, common neighbors, similarity indices, etc.
+
+        Args:
+            pairs_tensor: LongTensor of shape (M, 2) with node indices (u, v).
+            disturbed_neighbors: adjacency-like structure for the current solution disturbs:
+                              node -> set of nodes whose incident edge is disturbed.
+            solution_size: number of disturbed edges in the current solution.
+
+        Returns:
+            FloatTensor of shape (M, input_dim).
         """
         assert self.node_vecs is not None, "Call set_node_vectors() first."
         assert hasattr(self, "base_neighbors"), "Call set_base_graph() first."
@@ -242,6 +367,10 @@ class OnlineNNEdgeSelector:
         v_u = self.node_vecs[u_idx]  # (M,k)
         v_v = self.node_vecs[v_idx]  # (M,k)
 
+        # Standard pairwise embedding features:
+        # - difference captures directionality in feature space (even if edge is undirected)
+        # - product captures "agreement"/interaction (like factorization machines)
+        # - dot/norm/dist are scalar geometry summaries
         diff = v_u - v_v
         prod = v_u * v_v
         dot = (v_u * v_v).sum(dim=1, keepdim=True)
@@ -250,6 +379,8 @@ class OnlineNNEdgeSelector:
         dist = diff.norm(dim=1, keepdim=True)
 
         # --- structural features (python loop; M is small/moderate) ---
+        # Structural features are computed with set operations and "disturb corrections".
+        # This part is deliberately in Python for clarity; could be vectorized later.
         M = pairs_tensor.size(0)
         eps = 1e-9
         N = float(self.num_nodes)
@@ -257,32 +388,42 @@ class OnlineNNEdgeSelector:
         denom_cn  = max(1.0, N - 2.0)
         sol_size = max(1, int(solution_size))
 
-        struct_rows = []
+        struct_rows: list[list[float]] = []
         pairs_cpu = pairs_tensor.detach().cpu().numpy()
 
         for (u, v) in pairs_cpu:
             u = int(u); v = int(v)
-            tog_u = toggled_neighbors.get(u, set())
-            tog_v = toggled_neighbors.get(v, set())
+            tog_u = disturbed_neighbors.get(u, set())
+            tog_v = disturbed_neighbors.get(v, set())
 
             base_edge = 1.0 if self.base_adj_bool[u, v] else 0.0
-            # current edge = base XOR toggled(pair)
-            # (pair is toggled if v in tog_u, symmetric if undirected)
-            pair_toggled = (v in tog_u)  # for undirected this is enough
-            curr_edge = 1.0 if (base_edge > 0.5) ^ pair_toggled else 0.0
 
+            # Theoretical note (XOR model):
+            # - A solution edge means "disturb this base edge": if it existed, remove it; if not, add it.
+            # - So current_edge = base_edge XOR disturbed(u,v).
+            # For undirected, checking v in tog_u is enough given symmetric insertion above.
+            pair_disturbed = (v in tog_u)
+            curr_edge = 1.0 if (base_edge > 0.5) ^ pair_disturbed else 0.0
+
+            # Base degrees normalized by (N-1)
             deg_u_base = float(self.base_deg[u]) / denom_deg
             deg_v_base = float(self.base_deg[v]) / denom_deg
 
+            # Current degrees incorporate disturbs incident to each node.
+            # This is computed cheaply as base_deg + (added - removed) using membership in base neighbors.
             deg_u_curr_raw = float(self._deg_current(u, tog_u))
             deg_v_curr_raw = float(self._deg_current(v, tog_v))
 
             deg_u_curr = deg_u_curr_raw / denom_deg
             deg_v_curr = deg_v_curr_raw / denom_deg
 
+            # "solution degree" = number of disturbed incident edges for this node,
+            # normalized by current solution size.
             sol_deg_u = float(len(tog_u)) / float(sol_size)
             sol_deg_v = float(len(tog_v)) / float(sol_size)
 
+            # Common neighbors in base and current graphs.
+            # cn_curr computed by correcting cn_base only over nodes whose adjacency changed (tog_u ∪ tog_v).
             cn_base, cn_curr = self._cn_current(u, v, tog_u, tog_v)
 
             u_in_sol = 1.0 if len(tog_u) > 0 else 0.0
@@ -295,7 +436,7 @@ class OnlineNNEdgeSelector:
             cn_base_n = float(cn_base) / denom_cn
             cn_curr_n = float(cn_curr) / denom_cn
 
-            # jaccard
+            # jaccard = cn / (deg_u + deg_v - cn)
             union_base = (deg_u_base_raw + deg_v_base_raw - float(cn_base))
             jacc_base = float(cn_base) / (union_base + eps)
 
@@ -361,9 +502,23 @@ class OnlineNNEdgeSelector:
 
     # ---------- Sampling logic ----------
 
-    def _sample_indices(self, weights_np: np.ndarray, X: int):
+    def _sample_indices(self, weights_np: np.ndarray, X: int) -> list[int]:
         """
-        weights_np: array length M, non-negative, doesn't need to sum to 1
+        Sample indices from a non-negative weight vector.
+
+        Notes:
+          - This method includes epsilon-random exploration (pure random sampling).
+          - If not exploring, it supports:
+              * greedy top-1 if X==1
+              * greedy top-k if X is small
+              * otherwise weighted sampling without replacement
+
+        Args:
+            weights_np: array shape (M,), non-negative (doesn't need to sum to 1).
+            X: number of indices to sample.
+
+        Returns:
+            List of selected indices (length X, unless M<=X).
         """
         n = len(weights_np)
         if n <= X:
@@ -381,7 +536,7 @@ class OnlineNNEdgeSelector:
         w[~np.isfinite(w)] = 0.0
         w = np.maximum(w, 0.0)
 
-        # ---- Greedy path (Efficiency-first) ----
+        # Greedy path (Efficiency-first)
         if self.greedy_top1 and X == 1:
             return [int(np.argmax(w))]
 
@@ -390,7 +545,7 @@ class OnlineNNEdgeSelector:
             idx = np.argsort(-w)[:X]
             return idx.tolist()
 
-        # ---- Otherwise weighted sampling ----
+        # Otherwise weighted sampling
         eps = 1e-12
         w[w < eps] = eps
         s = w.sum()
@@ -401,7 +556,20 @@ class OnlineNNEdgeSelector:
         idx = np.random.choice(np.arange(n), size=X, replace=False, p=p)
         return idx.tolist()
     
-    def _sample_indices_no_explore(self, probs_np: np.ndarray, X: int):
+    def _sample_indices_no_explore(self, probs_np: np.ndarray, X: int) -> list[int]:
+        """
+        Sample indices without epsilon-random exploration.
+
+        This is used in the newer proposal path where the exploration decision is made
+        outside, and this function purely performs probability-weighted sampling.
+
+        Args:
+            probs_np: array shape (M,), non-negative.
+            X: number of indices to sample.
+
+        Returns:
+            List of selected indices (length X, unless M<=X).
+        """
         n = len(probs_np)
         if n <= X:
             return list(range(n))
@@ -422,22 +590,30 @@ class OnlineNNEdgeSelector:
 
     # ---------- Propose pairs ----------
 
-    def _propose(self, solution_pairs, X: int, mode: str):
+    def _propose(self, solution_pairs: list[tuple[int, int]], X: int, mode: str) -> list[tuple[int, int]]:
         """
-        Internal: propose X pairs for given mode ('add' or 'remove').
+        Internal: propose X edge pairs for a given mode ('add' or 'remove').
 
-        Parameters
-        ----------
-        solution_pairs : list[tuple[int, int]]
-            Pairs (u, v) that are currently in the solution.
-            Assumed to be node indices in [0, num_nodes).
+        Theoretical overview:
+          - Maintain solution_set = disturbed edges (canonical undirected pairs).
+          - For 'remove': candidates are exactly the current disturbed edges.
+          - For 'add': candidates are sampled from non-solution edges, biased toward
+            nodes already present in the solution (focus sampling).
+          - Score each candidate with a model (add/remove) to produce logits.
+          - Convert logits to sampling weights (temperature-scaled softmax-like).
+          - Apply exploration/exploitation:
+              * with probability exploration_prob: uniform random sample
+              * else:
+                  - if X==1: greedy argmax (lowest variance)
+                  - else: weighted sampling w/out replacement
 
-        X : int
-            Number of pairs to propose.
+        Args:
+            solution_pairs: current solution as list of (u,v) edges (undirected assumed).
+            X: number of pairs to propose.
+            mode: "add" or "remove".
 
-        mode : str
-            'add'  -> propose pairs from the universe that are NOT in solution_pairs.
-            'remove' -> propose pairs that ARE in solution_pairs.
+        Returns:
+            List of proposed pairs (canonical (min,max) ordering).
         """
         if X <= 0:
             return []
@@ -453,10 +629,11 @@ class OnlineNNEdgeSelector:
             for (u, v) in solution_pairs
         }
         
-        toggled_neighbors = defaultdict(set)
+        # Build per-node "disturbed neighbor sets" for the current solution.
+        disturbed_neighbors = defaultdict(set)
         for (a, b) in solution_set:
-            toggled_neighbors[a].add(b)
-            toggled_neighbors[b].add(a)  # undirected assumption
+            disturbed_neighbors[a].add(b)
+            disturbed_neighbors[b].add(a)  # undirected assumption
         solution_size = len(solution_set)
 
         
@@ -472,7 +649,8 @@ class OnlineNNEdgeSelector:
                 # default: scale with X a bit, but cap
                 pool_size = int(min(20000, max(2000, 500 * X)))
 
-            # focus around nodes already involved in the current solution
+            # Focus around nodes already involved in the current solution:
+            # idea: local moves around recently-changed structure are more informative/useful.
             focus_nodes = []
             for (u, v) in solution_set:
                 focus_nodes.append(u)
@@ -488,7 +666,7 @@ class OnlineNNEdgeSelector:
         else:
             raise ValueError(f"Unknown mode '{mode}', expected 'add' or 'remove'.")
 
-        # If there are no candidates, or fewer than X, return them all
+        # If there are no candidates, return empty
         if not candidate_pairs:
             return []
 
@@ -502,7 +680,7 @@ class OnlineNNEdgeSelector:
         model = self.model_add if mode == "add" else self.model_remove
         model.eval()
         with torch.no_grad():
-            feats = self._pair_features(pairs_tensor, toggled_neighbors=toggled_neighbors, solution_size=solution_size) # (M, input_dim)
+            feats = self._pair_features(pairs_tensor, disturbed_neighbors=disturbed_neighbors, solution_size=solution_size) # (M, input_dim)
             logits = model(feats)                              # (M,)
             probs = torch.sigmoid(logits).cpu().numpy()        # P(success)
         
@@ -548,7 +726,7 @@ class OnlineNNEdgeSelector:
             idx = random.sample(range(M), X)
         else:
             if X == 1:
-                # Fix 3: greedy argmax when not exploring
+                # Greedy argmax when not exploring: reduces noise and stabilizes search.
                 idx = [int(np.argmax(logits_np))]
             else:
                 idx = self._sample_indices_no_explore(weights, X)
@@ -556,12 +734,37 @@ class OnlineNNEdgeSelector:
         return [candidate_pairs[i] for i in idx]
     
     def _canonical_pair(self, u: int, v: int) -> tuple[int, int] | None:
+        """
+        Canonicalize an undirected pair.
+
+        Args:
+            u: node id
+            v: node id
+
+        Returns:
+            (min(u,v), max(u,v)) or None if u==v.
+        """
         if u == v:
             return None
         a, b = (u, v) if u < v else (v, u)
         return (a, b)
     
     def _weights_from_logits(self, logits: np.ndarray, mode: str) -> np.ndarray:
+        """
+        Convert logits to sampling weights via a temperature-scaled softmax-like transform.
+
+        Theoretical note:
+          - Using exp(logit / T) is equivalent to softmax up to normalization.
+          - Lower T => sharper distribution (more greedy).
+          - Higher T => flatter distribution (more exploratory without randomness).
+
+        Args:
+            logits: array shape (M,)
+            mode: "add" or "remove" (selects temperature)
+
+        Returns:
+            Probability vector shape (M,) that sums to 1.
+        """
         T = float(self.temp_add if mode == "add" else self.temp_remove)
         T = max(1e-6, T)
 
@@ -586,8 +789,22 @@ class OnlineNNEdgeSelector:
         max_attempts_mult: int = 50,
     ) -> list[tuple[int, int]]:
         """
-        Sample up to pool_size candidate edges (u,v) that are NOT in solution_set.
-        If focus_nodes is provided, bias sampling so at least one endpoint is in focus_nodes.
+        Sample up to pool_size candidate edges (u,v) not in solution_set.
+
+        Theoretical note:
+          - For 'add' moves, enumerating all non-edges is O(N^2). Instead, sample a pool.
+          - If focus_nodes is provided, enforce that one endpoint is in focus_nodes
+            (local search heuristic around active nodes).
+
+        Args:
+            solution_set: canonical set of currently disturbed edges.
+            num_nodes: number of nodes in the graph.
+            pool_size: target number of sampled candidates.
+            focus_nodes: optional list of nodes to bias sampling.
+            max_attempts_mult: attempts budget multiplier to avoid infinite loops.
+
+        Returns:
+            List of unique canonical pairs not in solution_set, size <= pool_size.
         """
         if pool_size <= 0:
             return []
@@ -624,18 +841,30 @@ class OnlineNNEdgeSelector:
 
         return list(sampled)
 
-    def propose_additions(self, solution, X: int):
+    def propose_additions(self, solution: list[tuple[int, int]], X: int) -> list[tuple[int, int]]:
         """
-        Choose X candidate pairs to ADD.
-        `solution` is the current solution as a list of (u, v) pairs.
+        Propose X candidate pairs to ADD (i.e., disturb into the solution).
+
+        Args:
+            solution: current solution edges as list of (u,v).
+            X: number of proposals.
+
+        Returns:
+            List of proposed edge pairs (canonical ordering).
         """
         
         return self._propose(solution, X, mode="add")
 
-    def propose_removals(self, solution, X: int):
+    def propose_removals(self, solution: list[tuple[int, int]], X: int) -> list[tuple[int, int]]:
         """
-        Choose X candidate pairs to REMOVE.
-        `solution` is the current solution as a list of (u, v) pairs.
+        Propose X candidate pairs to REMOVE (i.e., disturb out of the solution).
+
+        Args:
+            solution: current solution edges as list of (u,v).
+            X: number of proposals.
+
+        Returns:
+            List of proposed edge pairs (canonical ordering).
         """
         
         return self._propose(solution, X, mode="remove")
@@ -652,7 +881,27 @@ class OnlineNNEdgeSelector:
         neg_weight: float = 0.35,
         max_edges_per_move: int = 15,
         hard_within_move_for_neg: bool = True,
-    ):
+    ) -> None:
+        """
+        Online supervised training on *moves* labeled success/failure.
+
+        Key theoretical choice:
+          - A move can involve multiple edges; the model is edge-scoring.
+          - The move is represented by mean-pooling the edge logits.
+          - Train with BCE on the pooled logit (success=1, failure=0).
+          - Failures are down-weighted (neg_weight) to reduce destabilizing gradients.
+          - When a move includes many edges, subsample edges to control compute.
+            For negative moves, optionally choose "hard" edges (those the model currently
+            thinks are likely) to improve discrimination.
+
+        Args:
+            mode: "add" or "remove" (selects model/optimizer and negative counters).
+            examples: list of tuples:
+                (solution_uv_snapshot, move_edges, success_bool)
+            neg_weight: multiplicative factor applied to negative move loss.
+            max_edges_per_move: cap on edges considered per move.
+            hard_within_move_for_neg: if True, for negative moves pick top-prob edges.
+        """
         if not examples:
             return
         if mode not in ("add", "remove"):
@@ -673,13 +922,11 @@ class OnlineNNEdgeSelector:
 
             # canonicalize solution snapshot
             solution_set = {(min(u,v), max(u,v)) for (u,v) in solution_uv if u != v}
-            if not solution_set:
-                continue
 
-            toggled_neighbors = defaultdict(set)
+            disturbed_neighbors = defaultdict(set)
             for (a, b) in solution_set:
-                toggled_neighbors[a].add(b)
-                toggled_neighbors[b].add(a)
+                disturbed_neighbors[a].add(b)
+                disturbed_neighbors[b].add(a)
 
             solution_size = len(solution_set)
 
@@ -704,7 +951,7 @@ class OnlineNNEdgeSelector:
                 pairs_tensor_all = torch.as_tensor(move_pairs, dtype=torch.long, device=self.device)
                 feats_all = self._pair_features(
                     pairs_tensor_all,
-                    toggled_neighbors=toggled_neighbors,
+                    disturbed_neighbors=disturbed_neighbors,
                     solution_size=solution_size
                 )
 
@@ -722,7 +969,7 @@ class OnlineNNEdgeSelector:
                 pairs_tensor = torch.as_tensor(move_pairs, dtype=torch.long, device=self.device)
                 feats = self._pair_features(
                     pairs_tensor,
-                    toggled_neighbors=toggled_neighbors,
+                    disturbed_neighbors=disturbed_neighbors,
                     solution_size=solution_size
                 )
 
@@ -751,33 +998,45 @@ class OnlineNNEdgeSelector:
 
         self.logger.info("[%s][moves] loss=%.6g examples=%d", mode, float(total_loss.item()), len(losses))
 
-    def _move_score(self, mode: str, solution_uv: list[tuple[int,int]], move_uv: list[tuple[int,int]],
-                max_edges_per_move: int = 15) -> torch.Tensor:
+    def _move_score(
+        self,
+        mode: str,
+        solution_uv: list[tuple[int,int]],
+        move_uv: list[tuple[int,int]],
+        max_edges_per_move: int = 15
+    ) -> torch.Tensor:
         """
-        Returns scalar logit score for a move = mean(edge_logits).
-        solution_uv: context snapshot
-        move_uv: list of edges involved in the move
+        Compute a scalar move score (logit) by mean-pooling edge logits.
+
+        Args:
+            mode: "add" or "remove".
+            solution_uv: context snapshot edges.
+            move_uv: edges involved in the move.
+            max_edges_per_move: subsample cap.
+
+        Returns:
+            Scalar tensor (mean logit). Returns None if move has no valid edges.
         """
         model = self.model_add if mode == "add" else self.model_remove
 
         # context
         solution_set = {(min(u,v), max(u,v)) for (u,v) in solution_uv if u != v}
-        toggled_neighbors = defaultdict(set)
+        disturbed_neighbors = defaultdict(set)
         for (a, b) in solution_set:
-            toggled_neighbors[a].add(b)
-            toggled_neighbors[b].add(a)
+            disturbed_neighbors[a].add(b)
+            disturbed_neighbors[b].add(a)
         solution_size = len(solution_set)
 
         move_pairs = [(min(u,v), max(u,v)) for (u,v) in move_uv if u != v]
         if not move_pairs:
             return None
 
-        # subsample edges inside big move (cheap)
+        # subsample edges inside big move
         if len(move_pairs) > max_edges_per_move:
             move_pairs = random.sample(move_pairs, max_edges_per_move)
 
         pairs_tensor = torch.as_tensor(move_pairs, dtype=torch.long, device=self.device)
-        feats = self._pair_features(pairs_tensor, toggled_neighbors=toggled_neighbors, solution_size=solution_size)
+        feats = self._pair_features(pairs_tensor, disturbed_neighbors=disturbed_neighbors, solution_size=solution_size)
 
         logits = model(feats)      # (m,)
         return logits.mean()       # scalar
@@ -792,7 +1051,26 @@ class OnlineNNEdgeSelector:
         max_negs: int = 25,
         max_edges_per_move: int = 15,
         neg_cap_per_edge: int | None = None,
-    ):
+    ) -> None:
+        """
+        Pairwise ranking loss training: enforce pos_move scores higher than neg_move scores.
+
+        Theoretical note:
+          - Uses a margin-based soft ranking objective:
+                loss = softplus(margin + neg_score - pos_score)
+            which is a smooth hinge. It pushes pos_score >= neg_score + margin.
+          - Each move score is mean(edge_logits).
+
+        Args:
+            mode: "add" or "remove".
+            solution_uv: context snapshot.
+            pos_move_uv: the chosen "good" move.
+            neg_moves_uv: list of alternative "bad" moves.
+            margin: separation margin.
+            max_negs: cap number of negatives per update.
+            max_edges_per_move: subsample cap for edge lists.
+            neg_cap_per_edge: optional per-edge negative exposure cap.
+        """
         if self.node_vecs is None:
             raise RuntimeError("set_node_vectors() must be called before training.")
         if not neg_moves_uv:
@@ -856,28 +1134,69 @@ class OnlineNNEdgeSelector:
 
     # ---------- Online update ----------
 
-    def update_addition_moves(self, examples: list[tuple[list[tuple[int,int]], list[tuple[int,int]], bool]]):
+    def update_addition_moves(self, examples: list[tuple[list[tuple[int,int]], list[tuple[int,int]], bool]]) -> None:
+        """
+        Online update for addition moves using supervised success/failure signals.
+
+        Args:
+            examples: (solution_snapshot, move_edges, success_bool) tuples.
+        """
         self._train_online_moves("add", examples)
         
-    def update_removal_moves(self, examples: list[tuple[list[tuple[int,int]], list[tuple[int,int]], bool]]):
+    def update_removal_moves(self, examples: list[tuple[list[tuple[int,int]], list[tuple[int,int]], bool]]) -> None:
+        """
+        Online update for removal moves using supervised success/failure signals.
+
+        Args:
+            examples: (solution_snapshot, move_edges, success_bool) tuples.
+        """
         self._train_online_moves("remove", examples)
 
-    def update_removal_ranked(self, solution_uv, pos_removed_uv, neg_removed_uvs):
+    def update_removal_ranked(
+        self,
+        solution_uv: list[tuple[int,int]],
+        pos_removed_uv: list[tuple[int,int]],
+        neg_removed_uvs: list[list[tuple[int,int]]]
+    ) -> None:
+        """
+        Ranking update for removals: pos_removed should score above neg_removed options.
+
+        Args:
+            solution_uv: current context snapshot.
+            pos_removed_uv: removed edges for the accepted move.
+            neg_removed_uvs: list of alternative removed-edge sets.
+        """
         self._train_ranked_moves("remove", solution_uv, pos_removed_uv, neg_removed_uvs,
                                 neg_cap_per_edge=self.neg_edge_cap)
 
-    def update_addition_ranked(self, solution_uv, pos_added_uv, neg_added_uvs):
+    def update_addition_ranked(
+        self,
+        solution_uv: list[tuple[int,int]],
+        pos_added_uv: list[tuple[int,int]],
+        neg_added_uvs: list[list[tuple[int,int]]]
+    ) -> None:
+        """
+        Ranking update for additions: pos_added should score above neg_added options.
+
+        Args:
+            solution_uv: current context snapshot.
+            pos_added_uv: added edges for the accepted move.
+            neg_added_uvs: list of alternative added-edge sets.
+        """
         self._train_ranked_moves("add", solution_uv, pos_added_uv, neg_added_uvs,
                                 neg_cap_per_edge=self.neg_edge_cap)
 
     
     # ---------- Save / load ----------
 
-    def save(self, path: str):
+    def save(self, path: str) -> None:
         """
         Save model and optimizer states to a file.
         (Node vectors are NOT saved; set them again with set_node_vectors.)
         Replay buffers are NOT saved (they refill during new runs).
+
+        Args:
+            path: filesystem path to write checkpoint.
         """
         ckpt = {
             "k": self.k,
@@ -896,6 +1215,14 @@ class OnlineNNEdgeSelector:
     def load(cls, path: str, lr: float = 1e-3, device: torch.device | None = None) -> "OnlineNNEdgeSelector":
         """
         Load model from file. You still need to call set_node_vectors() afterwards.
+
+        Args:
+            path: checkpoint path.
+            lr: learning rate to reinitialize optimizers (state is restored after init).
+            device: torch device to map the checkpoint to.
+
+        Returns:
+            A reconstructed OnlineNNEdgeSelector with loaded weights/optimizer states.
         """
         ckpt = torch.load(path, map_location=device if device is not None else "cpu")
 
@@ -915,7 +1242,19 @@ class OnlineNNEdgeSelector:
         return obj
     
     # ---------- context helpers ----------
-    def _solution_context(self, solution_set: set[tuple[int,int]], num_nodes: int):
+    def _solution_context(self, solution_set: set[tuple[int,int]], num_nodes: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Build quick per-node context features from the current solution set.
+
+        Args:
+            solution_set: set of canonical solution edges.
+            num_nodes: number of nodes.
+
+        Returns:
+            degS: tensor (num_nodes,) solution-induced degrees
+            inS: tensor (num_nodes,) binary indicator node participates in solution
+            sol_size_t: tensor (1,) number of solution edges
+        """
         # degree within solution-induced edge set
         degS = torch.zeros(num_nodes, device=self.device, dtype=torch.float32)
         inS  = torch.zeros(num_nodes, device=self.device, dtype=torch.float32)
@@ -932,10 +1271,18 @@ class OnlineNNEdgeSelector:
         return degS, inS, sol_size_t
 
     # ---------- base graph + startup helpers ----------
-    def set_base_graph(self, adj_np: np.ndarray, directed: bool = False):
+    def set_base_graph(self, adj_np: np.ndarray, directed: bool = False) -> None:
         """
-        adj_np: (N,N) 0/1 numpy array for the ORIGINAL graph of the current instance.
-        Call once per instance before proposing/training.
+        Register the base/original graph for the current problem instance.
+
+        Theoretical role:
+          - The "base graph" is the unmodified graph.
+          - The "current graph" is derived as base XOR solution_disturbs.
+          - Structural features compare base vs current properties.
+
+        Args:
+            adj_np: (N,N) numpy array with 0/1 adjacency for original instance.
+            directed: if True, treat adjacency as directed (neighbors from rows).
         """
         assert adj_np.ndim == 2 and adj_np.shape[0] == adj_np.shape[1]
         self.num_nodes = int(adj_np.shape[0])
@@ -968,27 +1315,70 @@ class OnlineNNEdgeSelector:
         self.base_adj_bool = (adj_np != 0)
 
     def _count_intersection(self, set_a: set[int], set_b: set[int]) -> int:
-        # no temp set allocation
+        """
+        Count |set_a ∩ set_b| efficiently by iterating the smaller set.
+
+        Args:
+            set_a: first set
+            set_b: second set
+
+        Returns:
+            Intersection size.
+        """
         if len(set_a) > len(set_b):
             set_a, set_b = set_b, set_a
         return sum(1 for x in set_a if x in set_b)
 
     def _deg_current(self, u: int, tog_u: set[int]) -> int:
         """
-        Degree of u in current graph (base XOR toggles incident to u).
+        Degree of u in current graph (base XOR disturbs incident to u).
+
+        Theoretical note:
+          - If an incident edge (u,w) is disturbed:
+              * if (u,w) exists in base, degree decreases by 1
+              * else degree increases by 1
+          - So:
+              deg_curr = deg_base + (#disturbed_not_in_base) - (#disturbed_in_base)
+                       = deg_base + len(tog_u) - 2*(#disturbed_in_base)
+
         Computed in O(|tog_u|).
+
+        Args:
+            u: node id
+            tog_u: set of nodes w for which edge (u,w) is disturbed.
+
+        Returns:
+            Current degree of u.
         """
         if not tog_u:
             return int(self.base_deg[u])
         baseN = self.base_neighbors[u]
         in_base = sum(1 for w in tog_u if w in baseN)
-        # toggles flip: present->absent (-1), absent->present (+1)
+        # disturbs flip: present->absent (-1), absent->present (+1)
         return int(self.base_deg[u] + (len(tog_u) - 2 * in_base))
 
     def _cn_current(self, u: int, v: int, tog_u: set[int], tog_v: set[int]) -> tuple[int, int]:
         """
-        Returns (cn_base, cn_curr) using cheap correction over toggles.
-        cn_base computed by membership counting, cn_curr adjusted in O(|tog_u|+|tog_v|).
+        Compute common neighbors in base and current graphs: (cn_base, cn_curr).
+
+        Theoretical trick:
+          - cn_base = |N_base(u) ∩ N_base(v)|
+          - Only nodes whose adjacency changed for u or v can affect cn in the XOR model,
+            i.e. nodes in (tog_u ∪ tog_v).
+          - For each such node w, we correct whether w is a neighbor in base vs current
+            for u and v, then adjust the intersection count.
+
+        Complexity:
+          O(|tog_u| + |tog_v|) after computing cn_base.
+
+        Args:
+            u: node id
+            v: node id
+            tog_u: disturbed neighbors for u
+            tog_v: disturbed neighbors for v
+
+        Returns:
+            (cn_base, cn_curr)
         """
         Nu = self.base_neighbors[u]
         Nv = self.base_neighbors[v]
@@ -1018,11 +1408,22 @@ class OnlineNNEdgeSelector:
         return cn_base, cn_curr
 
     # ---------- logging ----------
-    def _cuda_sync(self):
+    def _cuda_sync(self) -> None:
+        """Synchronize CUDA for accurate timing (no-op on CPU)."""
         if self._use_cuda_timing:
             torch.cuda.synchronize()
 
     def _ema_update(self, key: str, value: float) -> float:
+        """
+        Update an exponential moving average for a metric.
+
+        Args:
+            key: metric name.
+            value: new value.
+
+        Returns:
+            Updated EMA value (or existing value if input is not finite).
+        """
         if value is None or not math.isfinite(value):
             return self._ema.get(key, float("nan"))
         old = self._ema.get(key, value)
@@ -1030,14 +1431,13 @@ class OnlineNNEdgeSelector:
         self._ema[key] = new
         return new
 
-    def _log_train_status(self):
+    def _log_train_status(self) -> None:
         """Logs whatever is in self._last_train + EMAs."""
         if not self._last_train:
             self.logger.info("[train] no training events yet")
             return
 
         lt = self._last_train
-        # keep this compact but informative
         self.logger.info(
             "[train][call=%d mode=%s model=%s] "
             "loss=%.6g (ema=%.6g) grad_norm=%.4g (ema=%.4g) "
@@ -1073,7 +1473,7 @@ class OnlineNNEdgeSelector:
             lt.get("probs_max", float("nan")),
         )
 
-    def _log_propose_status(self):
+    def _log_propose_status(self) -> None:
         """NO external params. Logs whatever is in self._last_propose."""
         if not self._last_propose:
             self.logger.info("[propose] no propose events yet")
