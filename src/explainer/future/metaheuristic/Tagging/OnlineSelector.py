@@ -109,19 +109,16 @@ ActivationName = Literal["ReLU", "LeakyReLU", "ELU", "Swish"]
 
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(message)s")
 
+NormName = Literal["none", "layernorm"]  # keep simple; LayerNorm works great for tiny batches
+
+
 class ScoreNet(nn.Module):
     """
-    Small MLP that outputs a single logit score for each input feature vector.
+    Small MLP -> single logit.
 
-    Uses BatchNorm + activation + dropout after each hidden Linear layer.
-    BatchNorm is skipped when batch_size == 1 to avoid unstable statistics.
-
-    Args:
-        input_dim: Input feature dimension.
-        hidden_dim: Hidden layer width.
-        num_hidden_layers: Number of hidden layers.
-        activation_function: Activation to use ("ReLU", "LeakyReLU", "ELU", "Swish").
-        dropout_prob: Dropout probability.
+    Online-friendly defaults:
+      - LayerNorm instead of BatchNorm (batch-size agnostic)
+      - Dropout disabled by default (avoid extra stochasticity on noisy feedback)
     """
 
     def __init__(
@@ -129,11 +126,13 @@ class ScoreNet(nn.Module):
         input_dim: int,
         hidden_dim: int = 128,
         num_hidden_layers: int = 2,
-        activation_function: ActivationName = "ReLU",
-        dropout_prob: float = 0.2,
+        activation_function: ActivationName = "Swish",
+        norm: NormName = "layernorm",
+        dropout_prob: float = 0.0,
     ) -> None:
         super().__init__()
 
+        # activation
         if activation_function == "ReLU":
             act: nn.Module = nn.ReLU()
         elif activation_function == "LeakyReLU":
@@ -145,38 +144,28 @@ class ScoreNet(nn.Module):
         else:
             raise ValueError(f"Unknown activation function: {activation_function}")
 
+        def make_norm(dim: int) -> nn.Module:
+            if norm == "none":
+                return nn.Identity()
+            if norm == "layernorm":
+                return nn.LayerNorm(dim)
+            raise ValueError(f"Unknown norm: {norm}")
+
         layers: list[nn.Module] = []
         dim = input_dim
+
         for _ in range(num_hidden_layers):
             layers.append(nn.Linear(dim, hidden_dim))
-            layers.append(nn.BatchNorm1d(hidden_dim))
+            layers.append(make_norm(hidden_dim))
             layers.append(act)
-            layers.append(nn.Dropout(dropout_prob))
+            if dropout_prob and dropout_prob > 0.0:
+                layers.append(nn.Dropout(dropout_prob))
             dim = hidden_dim
 
         layers.append(nn.Linear(dim, 1))
         self.net = nn.Sequential(*layers)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass.
-
-        Args:
-            x: Tensor of shape (batch, input_dim).
-
-        Returns:
-            Logits tensor of shape (batch,).
-        """
-        if x.size(0) == 1:
-            # Theoretical note:
-            # BatchNorm uses batch statistics; with batch_size=1 those stats are degenerate,
-            # leading to unstable/meaningless normalization. So we skip BatchNorm layers.
-            for layer in self.net:
-                if isinstance(layer, nn.BatchNorm1d):
-                    continue
-                x = layer(x)
-            return x.squeeze(-1)
-
         return self.net(x).squeeze(-1)
          
 class OnlineNNEdgeSelector:
@@ -224,8 +213,23 @@ class OnlineNNEdgeSelector:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.device = device
 
-        self.model_add = ScoreNet(self.input_dim, hidden_dim, num_hidden_layers, activation_function='Swish').to(self.device)
-        self.model_remove = ScoreNet(self.input_dim, hidden_dim, num_hidden_layers, activation_function='Swish').to(self.device)
+        self.model_add = ScoreNet(
+            self.input_dim,
+            hidden_dim,
+            num_hidden_layers,
+            activation_function="Swish",
+            norm="layernorm",
+            dropout_prob=0.0,
+        ).to(self.device)
+
+        self.model_remove = ScoreNet(
+            self.input_dim,
+            hidden_dim,
+            num_hidden_layers,
+            activation_function="Swish",
+            norm="layernorm",
+            dropout_prob=0.0,
+        ).to(self.device)
 
         self.opt_add = optim.Adam(self.model_add.parameters(), lr=lr)
         self.opt_remove = optim.Adam(self.model_remove.parameters(), lr=lr)
