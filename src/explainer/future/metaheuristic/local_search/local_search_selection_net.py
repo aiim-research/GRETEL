@@ -175,6 +175,7 @@ class LocalSearch(ExplanationMinimizer):
         initial_solution = actual.copy()
         n = min(self.max_runtime, self.runtime_factor * len(actual))
         self.k = 0
+        self.k_local = 0
         remove_move_examples = []
         add_move_examples = []
         p_neg_keep = 0.15  # keep 15% of failed moves
@@ -184,9 +185,10 @@ class LocalSearch(ExplanationMinimizer):
             # self.logger.info("n: " + str(n))
             self.logger.info("oracle calls (before (-)): " + str(self.k))
             n-=1
+            self.k_local = 0
             if(len(best) == 1) : break
-            if(self.k > self.max_oracle_calls) :
-                 self.logger.info("Oracle calls limit reached")
+            if(self.k > self.max_oracle_calls or self.k_local > self.max_oracle_calls / 5) :
+                 self.logger.info("Oracle calls limit reached, global: " + str(self.k) + ", local: " + str(self.k_local))
                  break
             found = False
             actual = best
@@ -198,6 +200,9 @@ class LocalSearch(ExplanationMinimizer):
             neg_removed_moves = []   # list of removed_uv (each is list[uv])
             neg_keep_first = 8       # always keep first failures (they’re “most confident” under greedy)
             for s, removed, _, sol_ctx in self.edge_remove(actual):
+                if(self.k > self.max_oracle_calls or self.k_local > self.max_oracle_calls / 5) :
+                 self.logger.info("Oracle calls limit reached, global: " + str(self.k) + ", local: " + str(self.k_local))
+                 break
                 if self.cache.contains(s):
                     descarted += 1
                     continue
@@ -255,11 +260,17 @@ class LocalSearch(ExplanationMinimizer):
             found = False
             
             while(len(best) - len(actual) > 1):
+                if(self.k > self.max_oracle_calls or self.k_local > self.max_oracle_calls / 5) :
+                    self.logger.info("Oracle calls limit reached, global: " + str(self.k) + ", local: " + str(self.k_local))
+                    break
                 n-=1
                 self.logger.info("oracle calls (before (=)): " + str(self.k))
                 self.tries = 0
                 descarted = 0
                 for s, removed, added, sol_ctx, temp_ctx in self.edge_swap(actual):
+                    if(self.k > self.max_oracle_calls or self.k_local > self.max_oracle_calls / 5) :
+                        self.logger.info("Oracle calls limit reached, global: " + str(self.k) + ", local: " + str(self.k_local))
+                        break
                     if self.cache.contains(s):
                         descarted += 1
                         continue
@@ -328,6 +339,9 @@ class LocalSearch(ExplanationMinimizer):
                 descarted = 0
                 neg_added_moves = []
                 for s, _, added, sol_ctx in self.edge_add(actual, best):
+                    if(self.k > self.max_oracle_calls or self.k_local > self.max_oracle_calls / 5) :
+                        self.logger.info("Oracle calls limit reached, global: " + str(self.k) + ", local: " + str(self.k_local))
+                        break
                     if self.cache.contains(s):
                         descarted += 1
                         continue
@@ -419,6 +433,7 @@ class LocalSearch(ExplanationMinimizer):
         if(self.attributed):
             for method in self.methods:
                 self.k += 1
+                self.k_local += 1
                 node_features = method(new_data, self.G.node_features)
                 new_g = GraphInstance(id=self.G.id,
                                         label=0,

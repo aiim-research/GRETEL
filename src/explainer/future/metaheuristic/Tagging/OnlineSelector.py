@@ -1549,7 +1549,7 @@ class OnlineNNEdgeSelector:
             neg_added_uvs: list of alternative added-edge sets.
         """
         self._train_ranked_moves("add", solution_uv, pos_added_uv, neg_added_uvs,
-                                neg_cap_per_edge=self.neg_edge_cap)
+                                neg_cap_per_edge=self.neg_edge_cap_add)
 
     
     # ---------- Save / load ----------
