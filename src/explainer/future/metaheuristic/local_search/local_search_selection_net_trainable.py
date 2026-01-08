@@ -16,7 +16,7 @@ from typing import Generator
 from src.explainer.future.metaheuristic.initial_solution_search.simple_searcher import SimpleSearcher
 from src.explainer.future.metaheuristic.local_search.binary_model import BinaryModel
 from src.explainer.future.metaheuristic.local_search.cache import FixedSizeCache
-from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, feature_aggregation, heat_kernel_diffusion, laplacian_regularization, random_walk_diffusion, weighted_smoothing
+from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, feature_aggregation, heat_kernel_diffusion, laplacian_regularization, random_walk_diffusion, weighted_smoothing, average_smoothing_zero, identity
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 import torch
 from src.utils.cfg_utils import init_dflts_to_of
@@ -107,6 +107,8 @@ class LocalSearch(ExplanationMinimizer):
         dcm_conf = {
                 "generator": {
                     "class": "src.explainer.future.search.dcm.DCM",
+                    "dataset": self.dataset,
+                    "oracle": self.oracle,
                     "parameters":{
                         "epochs": 500
                     }
