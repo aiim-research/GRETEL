@@ -19,6 +19,7 @@ from src.explainer.future.metaheuristic.manipulation.methods import average_smoo
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.comparison import get_edge_differences
 from src.utils.metrics.ged import GraphEditDistanceMetric
+from src.core.factory_base import get_instance_kvargs
 
 class LocalSearch(ExplanationMinimizer):
     def check_configuration(self):
@@ -98,6 +99,20 @@ class LocalSearch(ExplanationMinimizer):
         self.last_method = -1
         self.device = "cpu"
         self.model = {}
+
+        dcm_conf = {
+                "generator": {
+                    "class": "src.explainer.future.search.dcm.DCM",
+                    "parameters":{
+                        "epochs": 500
+                    }
+            } 
+        } 
+        
+        kls = dcm_conf['generator']['class']
+        param = { 'context' : self.context, 'local_config': dcm_conf['generator']['parameters']}
+
+        self.explanation_generator_dcm = get_instance_kvargs(kls, param)
 
     def minimize(self, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
         print("-------------")
@@ -740,10 +755,12 @@ class LocalSearch(ExplanationMinimizer):
         ]
 
         self.model["methods"] = [(0, method) for method in methods]
+
+        
         
         for instance in random.sample(self.dataset.instances, k=len(self.dataset.instances)):  
             self.logger.info("new instance")
-            exp = self.explain(instance=instance)
+            exp = self.explanation_generator_dcm.explain(instance=instance)
             self.minimize(exp)
         
         self.model["methods"] = sorted(self.model["methods"], key=lambda x: x[0], reverse=True) 
