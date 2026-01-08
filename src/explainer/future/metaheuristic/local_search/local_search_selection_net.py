@@ -9,7 +9,6 @@ from src.dataset.instances.base import DataInstance
 from src.dataset.instances.graph import GraphInstance
 from src.explainer.future.meta.minimizer.base import ExplanationMinimizer
 from src.explainer.future.metaheuristic.Tagging.OnlineSelector import OnlineNNEdgeSelector
-from src.explainer.future.metaheuristic.Tagging.ann import ANNIndexWeighted
 from src.explainer.future.metaheuristic.Tagging.vectors_builder import VectorsBuilder
 from typing import Generator
 
@@ -18,11 +17,8 @@ from src.explainer.future.metaheuristic.local_search.binary_model import BinaryM
 from src.explainer.future.metaheuristic.local_search.cache import FixedSizeCache
 from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, feature_aggregation, heat_kernel_diffusion, laplacian_regularization, random_walk_diffusion, weighted_smoothing
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
-import torch
-from src.utils.cfg_utils import init_dflts_to_of
 from src.utils.comparison import get_edge_differences
 from src.utils.metrics.ged import GraphEditDistanceMetric
-from collections import OrderedDict
 
 class LocalSearch(ExplanationMinimizer):
     def check_configuration(self):
