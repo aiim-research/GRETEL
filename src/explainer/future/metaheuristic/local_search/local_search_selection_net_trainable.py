@@ -103,6 +103,8 @@ class LocalSearch(ExplanationMinimizer):
         dcm_conf = {
                 "generator": {
                     "class": "src.explainer.future.search.dcm.DCM",
+                    "dataset": self.dataset,
+                    "oracle": self.oracle,
                     "parameters":{
                         "epochs": 500
                     }
