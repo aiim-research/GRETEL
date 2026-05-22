@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "ablation-nodes-4096",
+        "scope": "tcr-ablation-nodes_dce_lcls-4096",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[

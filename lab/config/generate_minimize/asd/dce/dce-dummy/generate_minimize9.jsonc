@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "meta",
+        "scope": "asd_dce_dummy",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[

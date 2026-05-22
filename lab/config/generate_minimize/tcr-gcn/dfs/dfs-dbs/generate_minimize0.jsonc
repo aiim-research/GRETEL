@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "meta",
+        "scope": "tcr-gcn_dfs_dbs",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[

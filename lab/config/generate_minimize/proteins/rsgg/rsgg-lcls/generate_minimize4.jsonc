@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "meta",
+        "scope": "proteins_rsgg_lcls",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[

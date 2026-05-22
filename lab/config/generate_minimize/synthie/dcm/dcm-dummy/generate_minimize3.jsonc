@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "meta",
+        "scope": "synthie_dcm_dummy",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[

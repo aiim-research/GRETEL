@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "meta",
+        "scope": "bzr_dcm_dummy",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[
