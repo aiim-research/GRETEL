@@ -12,7 +12,7 @@ class DCM(Explainer, Trainable):
         self.distance_metric = GraphEditDistanceMetric()
         self.logger = self.context.logger
         self.fold_id = self.local_config['parameters']['fold_id']
-        self.proportion = self.local_config['parameters'].get('proportion', 0.2)
+        self.proportion = self.local_config['parameters'].get('proportion', 1.0)
         super().init()
     
     def real_fit(self):
