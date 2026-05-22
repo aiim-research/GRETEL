@@ -112,7 +112,7 @@ class LocalSearch(ExplanationMinimizer):
         } 
         
         kls = dcm_conf['generator']['class']
-        param = { 'context' : self.context, 'local_config': dcm_conf['generator']['parameters']}
+        param = { 'context' : self.context, 'local_config': dcm_conf['generator']}
 
         self.explanation_generator_dcm = get_instance_kvargs(kls, param)
 
