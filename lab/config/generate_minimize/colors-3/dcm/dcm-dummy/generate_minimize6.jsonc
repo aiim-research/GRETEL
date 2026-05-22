@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "meta",
+        "scope": "colors-3_dcm_dummy",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[

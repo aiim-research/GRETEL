@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "meta",
+        "scope": "cuneiform_rsgg_dummy",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[
