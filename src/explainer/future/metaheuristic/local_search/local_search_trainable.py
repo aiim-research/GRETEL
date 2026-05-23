@@ -13,7 +13,9 @@ from typing import Generator
 from src.explainer.future.metaheuristic.initial_solution_search.simple_searcher import SimpleSearcher
 from src.explainer.future.metaheuristic.local_search.binary_model import BinaryModel
 from src.explainer.future.metaheuristic.local_search.cache import FixedSizeCache
+from src.explainer.future.metaheuristic.local_search.lst_shared import LSTMethodsArtifact
 from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, average_smoothing_zero, feature_aggregation, heat_kernel_diffusion, laplacian_regularization, random_walk_diffusion, weighted_smoothing, identity
+from src.explainer.future.search.dcm import DCM
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.cfg_utils import init_dflts_to_of
 from src.utils.comparison import get_edge_differences
@@ -23,7 +25,13 @@ from collections import OrderedDict
 class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
     def check_configuration(self):
         super().check_configuration()
-        
+
+        # Pin fold_id to -1 so the variant's own on-disk cache is dataset-wide
+        # rather than fold-wide (one pickle per dataset, not ten). The actual
+        # medoid + methods artifacts come from DCM / LSTMethodsArtifact, which
+        # are also dataset-wide.
+        self.local_config['parameters']['fold_id'] = -1
+
         if 'neigh_factor' not in self.local_config['parameters']:
             self.local_config['parameters']['neigh_factor'] = 4
         
@@ -345,6 +353,14 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
     def real_fit(self):
         super().real_fit()
 
+    def load_or_create(self, condition=False):
+        super().load_or_create(condition)
+        # After either read() or create()+fit() populates self.model, apply any
+        # cached hyperparameters so the loaded variant uses the trained values
+        # instead of the config-default starting point.
+        if isinstance(self.model, dict) and self.model.get("params"):
+            self.try_parameters(self.model["params"])
+
     def fit(self):
         self.logger.info("start training")
         self.training = True
@@ -356,86 +372,79 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         super().fit()
 
     def train_medoid(self):
-        self.logger.info("start train_medoid")
-        # Get the category of the graphs
-        categorized_graph = [(self.oracle.predict(graph), graph) for graph in self.dataset.instances]
-        
-        # Groups the graph by category
-        graphs_by_category = {}
-        for category, graph in categorized_graph:
-            if category not in graphs_by_category:
-                graphs_by_category[category] = []
-            graphs_by_category[category].append(graph)
-        
-        # Get the medoid of each category
-        medoids = {}
-        for category, graphs in graphs_by_category.items():
-            graphs_distance_total = []
-            
-            for graph in graphs:
-                distance = 0
-                
-                for category_, graphs_ in graphs_by_category.items():
-                    if category == category_:
-                        continue
-                    for graph_ in graphs_: 
-                        distance += self.distance_metric.evaluate(graph, graph_)
-                
-                graphs_distance_total.append((graph, distance))
-            
-            min_distance = float('inf')
-            medoid = None
-            
-            for graph, distance in graphs_distance_total:
-                if min_distance > distance:
-                    min_distance = distance
-                    medoid = graph
-            
-            medoids[category] = medoid
-        self.model["medoids"] = medoids
-        self.logger.info("end train_medoid")
+        """Load (or train) the dataset-wide DCM medoids artifact.
+
+        The actual medoid computation lives in
+        :class:`src.explainer.future.search.dcm.DCM`; this method just looks the
+        artifact up by the dataset hash and stores ``{class: dataset_index}``
+        in ``self.model["medoids"]``. The index is resolved back to a
+        :class:`GraphInstance` lazily in :meth:`explain`.
+        """
+        self.logger.info("loading medoids from DCM artifact")
+        dcm = DCM(
+            context=self.context,
+            local_config={
+                "class": "src.explainer.future.search.dcm.DCM",
+                "dataset": self.dataset,
+                "oracle": self.oracle,
+                "parameters": {
+                    "fold_id": -1,
+                    "proportion": float(self.local_config["parameters"].get("medoid_proportion", 1.0)),
+                },
+            },
+        )
+        # DCM.model is {class_id: dataset_index}. We keep the same compact form
+        # so the variant's own pickle stays small.
+        self.model["medoids"] = dict(dcm.model)
+        self.logger.info(f"medoids loaded: {self.model['medoids']}")
 
     def train_methods(self):
-        self.logger.info("start train_methods")
-        methods = [
-            "average_smoothing",
-            "average_smoothing_zero",
-            "weighted_smoothing",
-            "laplacian_regularization",
-            "feature_aggregation",
-            "heat_kernel_diffusion",
-            "random_walk_diffusion",
-            "identity"
-        ]
+        """Load (or train) the dataset-wide LSTMethodsArtifact.
 
-        self.model["methods"] = [(0, method) for method in methods]
-        
-        for instance in random.sample(self.dataset.instances, k=len(self.dataset.instances)):  
-            self.logger.info("new instance")
-            exp = self.explain(instance=instance)
-            self.minimize(exp)
-        
-        self.model["methods"] = sorted(self.model["methods"], key=lambda x: x[0], reverse=True) 
-        mid = (self.model["methods"][0][0] + self.model["methods"][7][0]) // 2
-        self.model["methods"] = list(filter(lambda x: x[0] >= mid, self.model["methods"]))
-        for i, (score, method) in enumerate(self.model["methods"]):
+        Scoring of the 8 manipulation methods is now centralised in
+        :class:`src.explainer.future.metaheuristic.local_search.lst_shared.LSTMethodsArtifact`
+        — every trainable LST variant calls into the same artifact for the
+        same dataset, so the on-disk pickle is shared.
+        """
+        self.logger.info("loading methods from LSTMethodsArtifact")
+        artifact = LSTMethodsArtifact(
+            context=self.context,
+            local_config={
+                "class": "src.explainer.future.metaheuristic.local_search.lst_shared.LSTMethodsArtifact",
+                "dataset": self.dataset,
+                "oracle": self.oracle,
+                "parameters": {
+                    "fold_id": -1,
+                    "proportion": float(self.local_config["parameters"].get("methods_proportion", 1.0)),
+                },
+            },
+        )
+        self.model["methods"] = list(artifact.model["methods"])
+        for score, method in self.model["methods"]:
             self.logger.info(f"Score: {score}, Method: {method}")
-
-        self.logger.info("end train_methods")
    
     def explain(self, instance):
         # Get the category of the instance
         category = self.oracle.predict(instance)
-        
-        # Get the closest medoid to the instance that belong to a different category 
+
+        # Get the closest medoid (of a different category) to the instance.
+        # self.model["medoids"] is now {class_id: dataset_index}; we resolve
+        # the index to a GraphInstance via self.dataset.instances. Same DCM
+        # cache, dataset-wide.
         min_distance = float('inf')
         closest_medoid = None
-        for other_category, medoid in self.model["medoids"].items():
+        for other_category, medoid_idx in self.model["medoids"].items():
             if other_category != category:
+                medoid = self.dataset.instances[medoid_idx]
                 distance = self.distance_metric.evaluate(instance, medoid)
                 if distance < min_distance:
                     min_distance = distance
-                    closest_medoid = medoid       
+                    closest_medoid = medoid
+
+        if closest_medoid is None:
+            # No medoid for any other class — return the input unchanged so the
+            # downstream minimizer detects the no-counterfactual case.
+            closest_medoid = instance
 
         # Create a graph's instance of the closest medoid
         cf_instance = GraphInstance(id=closest_medoid.id, label=closest_medoid.label, data=closest_medoid.data, node_features=closest_medoid.node_features)
@@ -578,6 +587,10 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         candidates.sort(key=lambda x: (x['val'], x['oracle_calls']))
         best_params = candidates[0]['params']
         self.try_parameters(best_params)
+        # Persist the trained hyperparameters so they survive a reload of the
+        # variant's pickle. Without this, every (variant, dataset) cache hit
+        # would still need to retrain hyperparameters, defeating the cache.
+        self.model["params"] = dict(best_params)
 
         self.logger.info("Parameters:")
         self.logger.info("neigh_factor:" + str(self.neigh_factor))

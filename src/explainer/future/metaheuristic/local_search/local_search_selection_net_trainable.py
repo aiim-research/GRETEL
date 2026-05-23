@@ -744,31 +744,24 @@ class LocalSearch(ExplanationMinimizer):
         super().fit()
 
     def train_methods(self):
-        self.logger.info("start train_methods")
-        methods = [
-            "average_smoothing",
-            "average_smoothing_zero",
-            "weighted_smoothing",
-            "laplacian_regularization",
-            "feature_aggregation",
-            "heat_kernel_diffusion",
-            "random_walk_diffusion",
-            "identity"
-        ]
-
-        self.model["methods"] = [(0, method) for method in methods]
-
-        
-        
-        for instance in random.sample(self.dataset.instances, k=len(self.dataset.instances)):  
-            self.logger.info("new instance")
-            exp = self.explanation_generator_dcm.explain(instance=instance)
-            self.minimize(exp)
-        
-        self.model["methods"] = sorted(self.model["methods"], key=lambda x: x[0], reverse=True) 
-        mid = (self.model["methods"][0][0] + self.model["methods"][7][0]) // 2
-        self.model["methods"] = list(filter(lambda x: x[0] >= mid, self.model["methods"]))
-        for i, (score, method) in enumerate(self.model["methods"]):
+        """Load the dataset-wide LSTMethodsArtifact (shared with the other LST
+        trainable variants — see lst_shared.py)."""
+        from src.explainer.future.metaheuristic.local_search.lst_shared import (
+            LSTMethodsArtifact,
+        )
+        self.logger.info("loading methods from LSTMethodsArtifact")
+        artifact = LSTMethodsArtifact(
+            context=self.context,
+            local_config={
+                "class": "src.explainer.future.metaheuristic.local_search.lst_shared.LSTMethodsArtifact",
+                "dataset": self.dataset,
+                "oracle": self.oracle,
+                "parameters": {
+                    "fold_id": -1,
+                    "proportion": float(self.local_config["parameters"].get("methods_proportion", 1.0)),
+                },
+            },
+        )
+        self.model["methods"] = list(artifact.model["methods"])
+        for score, method in self.model["methods"]:
             self.logger.info(f"Score: {score}, Method: {method}")
-
-        self.logger.info("end train_methods")

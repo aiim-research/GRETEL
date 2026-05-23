@@ -13,6 +13,8 @@ from typing import Generator
 from src.explainer.future.metaheuristic.initial_solution_search.simple_searcher import SimpleSearcher
 from src.explainer.future.metaheuristic.local_search.binary_model import BinaryModel
 from src.explainer.future.metaheuristic.local_search.cache import FixedSizeCache
+from src.explainer.future.metaheuristic.local_search.lst_shared import LSTMethodsArtifact
+from src.explainer.future.search.dcm import DCM
 from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, average_smoothing_zero, feature_aggregation, heat_kernel_diffusion, laplacian_regularization, random_walk_diffusion, weighted_smoothing, identity
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.cfg_utils import init_dflts_to_of
@@ -23,6 +25,11 @@ from collections import OrderedDict
 class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
     def check_configuration(self):
         super().check_configuration()
+
+        # Pin fold_id to -1 so the variant's on-disk pickle is dataset-wide.
+        # The medoids and methods themselves live in DCM / LSTMethodsArtifact
+        # caches, both also dataset-wide.
+        self.local_config['parameters']['fold_id'] = -1
         
         if 'neigh_factor' not in self.local_config['parameters']:
             self.local_config['parameters']['neigh_factor'] = 4
@@ -331,6 +338,13 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
     def real_fit(self):
         super().real_fit()
 
+    def load_or_create(self, condition=False):
+        super().load_or_create(condition)
+        # Re-apply trained hyperparameters after a cache hit so they aren't
+        # lost between sessions. See LocalSearchTrainable.load_or_create.
+        if isinstance(self.model, dict) and self.model.get("params"):
+            self.try_parameters(self.model["params"])
+
     def fit(self):
         self.logger.info("start training")
         self.training = True
@@ -342,86 +356,64 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         super().fit()
 
     def train_medoid(self):
-        self.logger.info("start train_medoid")
-        # Get the category of the graphs
-        categorized_graph = [(self.oracle.predict(graph), graph) for graph in self.dataset.instances]
-        
-        # Groups the graph by category
-        graphs_by_category = {}
-        for category, graph in categorized_graph:
-            if category not in graphs_by_category:
-                graphs_by_category[category] = []
-            graphs_by_category[category].append(graph)
-        
-        # Get the medoid of each category
-        medoids = {}
-        for category, graphs in graphs_by_category.items():
-            graphs_distance_total = []
-            
-            for graph in graphs:
-                distance = 0
-                
-                for category_, graphs_ in graphs_by_category.items():
-                    if category == category_:
-                        continue
-                    for graph_ in graphs_: 
-                        distance += self.distance_metric.evaluate(graph, graph_)
-                
-                graphs_distance_total.append((graph, distance))
-            
-            min_distance = float('inf')
-            medoid = None
-            
-            for graph, distance in graphs_distance_total:
-                if min_distance > distance:
-                    min_distance = distance
-                    medoid = graph
-            
-            medoids[category] = medoid
-        self.model["medoids"] = medoids
-        self.logger.info("end train_medoid")
+        """Load the dataset-wide DCM medoids artifact (see local_search_trainable
+        for the rationale). Stores ``{class_id: dataset_index}``; the index is
+        resolved to a GraphInstance in :meth:`explain`."""
+        self.logger.info("loading medoids from DCM artifact")
+        dcm = DCM(
+            context=self.context,
+            local_config={
+                "class": "src.explainer.future.search.dcm.DCM",
+                "dataset": self.dataset,
+                "oracle": self.oracle,
+                "parameters": {
+                    "fold_id": -1,
+                    "proportion": float(self.local_config["parameters"].get("medoid_proportion", 1.0)),
+                },
+            },
+        )
+        self.model["medoids"] = dict(dcm.model)
+        self.logger.info(f"medoids loaded: {self.model['medoids']}")
 
     def train_methods(self):
-        self.logger.info("start train_methods")
-        methods = [
-            "average_smoothing",
-            "average_smoothing_zero",
-            "weighted_smoothing",
-            "laplacian_regularization",
-            "feature_aggregation",
-            "heat_kernel_diffusion",
-            "random_walk_diffusion",
-            "identity"
-        ]
-
-        self.model["methods"] = [(0, method) for method in methods]
-        
-        for instance in random.sample(self.dataset.instances, k=len(self.dataset.instances)):  
-            self.logger.info("new instance")
-            exp = self.explain(instance=instance)
-            self.minimize(exp)
-        
-        self.model["methods"] = sorted(self.model["methods"], key=lambda x: x[0], reverse=True) 
-        mid = (self.model["methods"][0][0] + self.model["methods"][7][0]) // 2
-        self.model["methods"] = list(filter(lambda x: x[0] >= mid, self.model["methods"]))
-        for i, (score, method) in enumerate(self.model["methods"]):
+        """Load the dataset-wide LSTMethodsArtifact (shared across LST trainable
+        variants — see lst_shared.py)."""
+        self.logger.info("loading methods from LSTMethodsArtifact")
+        artifact = LSTMethodsArtifact(
+            context=self.context,
+            local_config={
+                "class": "src.explainer.future.metaheuristic.local_search.lst_shared.LSTMethodsArtifact",
+                "dataset": self.dataset,
+                "oracle": self.oracle,
+                "parameters": {
+                    "fold_id": -1,
+                    "proportion": float(self.local_config["parameters"].get("methods_proportion", 1.0)),
+                },
+            },
+        )
+        self.model["methods"] = list(artifact.model["methods"])
+        for score, method in self.model["methods"]:
             self.logger.info(f"Score: {score}, Method: {method}")
-
-        self.logger.info("end train_methods")
    
     def explain(self, instance):
         # Get the category of the instance
         category = self.oracle.predict(instance)
         
-        # Get the closest medoid to the instance that belong to a different category 
+        # Get the closest medoid (of a different category) to the instance.
+        # self.model["medoids"] is {class_id: dataset_index}; the index resolves
+        # against self.dataset.instances. Same dataset-wide DCM cache.
         min_distance = float('inf')
         closest_medoid = None
-        for other_category, medoid in self.model["medoids"].items():
+        for other_category, medoid_idx in self.model["medoids"].items():
             if other_category != category:
+                medoid = self.dataset.instances[medoid_idx]
                 distance = self.distance_metric.evaluate(instance, medoid)
                 if distance < min_distance:
                     min_distance = distance
-                    closest_medoid = medoid       
+                    closest_medoid = medoid
+
+        if closest_medoid is None:
+            closest_medoid = instance
 
         # Create a graph's instance of the closest medoid
         cf_instance = GraphInstance(id=closest_medoid.id, label=closest_medoid.label, data=closest_medoid.data, node_features=closest_medoid.node_features)
@@ -571,6 +563,9 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         candidates.sort(key=lambda x: x['val'])
         best_params = candidates[0]['params']
         self.try_parameters(best_params)
+        # Persist trained hyperparameters in self.model so the cache actually
+        # captures them (see LocalSearchTrainable for the rationale).
+        self.model["params"] = dict(best_params)
 
         self.logger.info("Parameters:")
         self.logger.info("neigh_factor:" + str(self.neigh_factor))
