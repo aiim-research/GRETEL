@@ -135,6 +135,32 @@ data/*
 data/cache*
 data/working*
 lab/data/cache*
+
+# Keep the small trained-artifact pickles in the repo: DCM medoids,
+# LST node-attribute method scores, and the upcoming hyperparameters cache.
+# Walk back the negation through every level (gitignore won't re-include a file
+# inside an ignored directory), then explicitly re-ignore siblings we don't
+# want tracked (the big dataset/oracle caches, lock files, anything else).
+!lab/data/
+!lab/data/cache/
+!lab/data/cache/explainers/
+!lab/data/cache/explainers/*/
+
+# Keep dataset / oracle caches out of git — they're large and rebuildable.
+lab/data/cache/datasets/
+lab/data/cache/oracles/
+lab/data/cache/working/
+
+# By default still ignore everything inside the per-dataset explainer dir,
+# then surgically re-include just the artifact files we want to ship.
+lab/data/cache/explainers/*/*
+!lab/data/cache/explainers/*/DCM-*
+!lab/data/cache/explainers/*/LSTMethodsArtifact-*
+!lab/data/cache/explainers/*/LSTHyperparameters-*
+
+# Re-ignore lock files / sidecars that look like our artifact name pattern.
+lab/data/cache/explainers/**/*.lck*
+
 lab/results_legacy*
 lab/output_legacy/
 lab/stats_legacy*
