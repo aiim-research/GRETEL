@@ -379,6 +379,9 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
         """Load the dataset-wide LSTMethodsArtifact (shared across LST trainable
         variants — see lst_shared.py)."""
         self.logger.info("loading methods from LSTMethodsArtifact")
+        # Note: parameter insertion order MUST match scripts/compute_lst_methods.py
+        # (fold_id, proportion, retrain) — get_name() hashes via insertion-ordered
+        # dict iteration, so a different order yields a different on-disk hash.
         artifact = LSTMethodsArtifact(
             context=self.context,
             local_config={
@@ -388,6 +391,7 @@ class LocalSearchTrainable(ExplanationMinimizer, Explainer, Trainable):
                 "parameters": {
                     "fold_id": -1,
                     "proportion": float(self.local_config["parameters"].get("methods_proportion", 1.0)),
+                    "retrain": False,
                 },
             },
         )
