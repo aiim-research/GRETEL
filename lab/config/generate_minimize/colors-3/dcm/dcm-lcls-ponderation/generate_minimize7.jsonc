@@ -1,50 +1,78 @@
-{  
-    "experiment" : {
-        "scope": "colors-3_dcm_lcls-ponderation",
-        "parameters" : {
-            "lock_release_tout":120,
-            "propagate":[
-                {"in_sections" : ["doe-triplets/explainer"],"params" : {"fold_id": 7}},
-                {"in_sections" : ["doe-triplets/oracle"],"params" : {"fold_id": -1,"retrain":false}},
-                {"in_sections": ["doe-triplets/dataset"],"params": { "compose_man" : "lab/config/snippets/datasets/padding.json" }}
-            ],
-            "expand" : {  "folds" : ["doe-triplets/explainer"], "triplets" : true }
-        }
-    },
-    "doe-triplets":[
+{
+  "experiment": {
+    "scope": "colors-3_dcm_lcls-ponderation",
+    "parameters": {
+      "lock_release_tout": 120,
+      "propagate": [
         {
-            "compose_do": "./lab/config/snippets/do-pairs/COLORS-3_GCN.json",
-            "explainer": { 
-                "class": "src.explainer.future.meta.generate_minimize.GenerateMinimize",
-                "parameters":{
-                    "fold_id": 1,
-                    "generator": { 
-                        "class": "src.explainer.future.search.dcm.DCM",
-                        "parameters":{
-                            "epochs": 500,
-                            "proportion": 0.5
-                        }
-                    },
-                    "minimizer": {
-                        "class": "src.explainer.future.metaheuristic.local_search.local_search_trainable_ponderation.LocalSearchTrainable",
-                        "parameters": {
-                            "neigh_factor": 4,
-                            "runtime_factor": 4,
-                            "max_runtime": 20,
-                            "proportion": 30,
-                            "max_neigh": 20,
-                            "attributed": true
-                        }
-                    }
-                }
-            }
+          "in_sections": [
+            "doe-triplets/explainer"
+          ],
+          "params": {
+            "fold_id": 7
+          }
+        },
+        {
+          "in_sections": [
+            "doe-triplets/oracle"
+          ],
+          "params": {
+            "fold_id": -1,
+            "retrain": false
+          }
+        },
+        {
+          "in_sections": [
+            "doe-triplets/dataset"
+          ],
+          "params": {
+            "compose_man": "lab/config/snippets/datasets/padding.json"
+          }
         }
-    ],
-    "evaluator": {
-        "class": "src.evaluation.future.evaluator.Evaluator",
+      ],
+      "expand": {
+        "folds": [
+          "doe-triplets/explainer"
+        ],
+        "triplets": true
+      }
+    }
+  },
+  "doe-triplets": [
+    {
+      "compose_do": "./lab/config/snippets/do-pairs/COLORS-3_GCN.json",
+      "explainer": {
+        "class": "src.explainer.future.meta.generate_minimize.GenerateMinimize",
         "parameters": {
-            "compose_pip": "./lab/config/snippets/minimizing_pipeline.json"
+          "fold_id": 1,
+          "generator": {
+            "class": "src.explainer.future.search.dcm.DCM",
+            "parameters": {
+              "proportion": 0.1
+            }
+          },
+          "minimizer": {
+            "class": "src.explainer.future.metaheuristic.local_search.local_search_trainable_ponderation.LocalSearchTrainable",
+            "parameters": {
+              "neigh_factor": 4,
+              "runtime_factor": 4,
+              "max_runtime": 20,
+              "proportion": 30,
+              "max_neigh": 20,
+              "attributed": true,
+              "methods_proportion": 0.2,
+              "medoid_proportion": 0.1
+            }
+          }
         }
-    },
-    "compose_strs" : "./lab/config/snippets/default_store_paths.json"
+      }
+    }
+  ],
+  "evaluator": {
+    "class": "src.evaluation.future.evaluator.Evaluator",
+    "parameters": {
+      "compose_pip": "./lab/config/snippets/minimizing_pipeline.json"
+    }
+  },
+  "compose_strs": "./lab/config/snippets/default_store_paths.json"
 }
