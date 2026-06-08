@@ -1,7 +1,10 @@
+import json
 import os
 import time
 from abc import ABC
+
 import jsonpickle
+import numpy as np
 import pickle
 
 from src.core.configurable import Configurable
@@ -127,15 +130,92 @@ class Evaluator(Configurable):
                                                      input_instance=instance,
                                                      counterfactual_instances=[]
                                                      )
-        # Pass the instance by the pipeline 
+        # Pass the instance by the pipeline
         explanation = self._pipeline.process(explanation)
 
         # Store the results in a backwards-compatible way
-        for stage in self._pipeline.stages:     
+        for stage in self._pipeline.stages:
                 self._results[Context.get_fullname(stage)].append({"id":str(explanation.input_instance.id),
                                                                    "value": explanation.stages_info[Context.get_fullname(stage)]})
         # Store the explanation internally
         self._explanations.append(explanation)
+
+        # Persist per-instance input + counterfactual + metrics so downstream
+        # analyses (Exps. 5/6/7 of REVISION_EXPERIMENTS.md) can run offline.
+        try:
+            self._dump_explanation_json(explanation, self._explainer.fold_id)
+        except Exception as e:
+            self._logger.warning("Per-instance JSON dump failed for %s: %s",
+                                 str(explanation.input_instance.id), e)
+
+    def _instance_to_dict(self, instance):
+        """Compact, JSON-ready view of a GraphInstance.
+
+        Edges are stored as an undirected upper-triangle list (or full list
+        when ``directed=True``) so dumps stay greppable for small graphs and
+        manageable for large ones. ``node_features`` are dropped when they
+        carry no real information (the GraphInstance default is a zero column
+        per node)."""
+        data = instance.data
+        nz = np.nonzero(data)
+        if instance.directed:
+            edges = [[int(i), int(j)] for i, j in zip(nz[0], nz[1])]
+        else:
+            edges = [[int(i), int(j)] for i, j in zip(nz[0], nz[1]) if int(i) < int(j)]
+
+        nf = getattr(instance, "node_features", None)
+        if nf is not None and hasattr(nf, "shape") and nf.shape[1] > 1:
+            node_features = nf.tolist()
+        else:
+            node_features = None
+
+        return {
+            "id": str(instance.id),
+            "label": int(instance.label) if instance.label is not None else None,
+            "num_nodes": int(data.shape[0]),
+            "directed": bool(getattr(instance, "directed", False)),
+            "edges": edges,
+            "node_features": node_features,
+        }
+
+    def _dump_explanation_json(self, explanation, fold_id):
+        """Write ``cf_<instance_id>.json`` with (input, counterfactual, metrics).
+
+        Skips silently when no counterfactual was produced (still writes the
+        input + metrics so failed cases are visible to Exp. 5's instance
+        counts)."""
+        output_dir = os.path.join(self._results_store_path, self._scope,
+                                  self._dataset.name, self._oracle.name,
+                                  self._explainer.name, "cf_per_instance",
+                                  f"fold_{fold_id}")
+        os.makedirs(output_dir, exist_ok=True)
+
+        metrics = {}
+        for stage_name, value in (explanation.stages_info or {}).items():
+            short = stage_name.rsplit(".", 1)[-1]
+            metrics[short] = value
+
+        ctfs = explanation.counterfactual_instances or []
+        payload = {
+            "id": str(explanation.input_instance.id),
+            "fold_id": int(fold_id),
+            "input": self._instance_to_dict(explanation.input_instance),
+            "counterfactual": self._instance_to_dict(ctfs[0]) if ctfs else None,
+            "metrics": metrics,
+        }
+
+        path = os.path.join(output_dir, f"cf_{explanation.input_instance.id}.json")
+        with open(path, "w") as f:
+            json.dump(payload, f, default=self._json_default)
+
+    @staticmethod
+    def _json_default(o):
+        """JSON fallback for numpy scalars/arrays leaked into metrics."""
+        if isinstance(o, np.ndarray):
+            return o.tolist()
+        if isinstance(o, np.generic):
+            return o.item()
+        raise TypeError(f"Object of type {type(o).__name__} is not JSON serializable")
 
 
     def write_results(self,fold_id):

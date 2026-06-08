@@ -87,6 +87,7 @@ class LocalSearch(ExplanationMinimizer):
         self.total_tries_steps = 0
         
         self.methods = [
+            lambda data, features: identity(data, features),
             lambda data, features: average_smoothing(data, features, iterations=1),
             lambda data, features: weighted_smoothing(data, features, iterations=1),
             lambda data, features: laplacian_regularization(data, features, lambda_reg=0.01, iterations=1),
@@ -100,21 +101,11 @@ class LocalSearch(ExplanationMinimizer):
         self.device = "cpu"
         self.model = {}
 
-        dcm_conf = {
-                "generator": {
-                    "class": "src.explainer.future.search.dcm.DCM",
-                    "dataset": self.dataset,
-                    "oracle": self.oracle,
-                    "parameters":{
-                        "epochs": 500
-                    }
-            } 
-        } 
-        
-        kls = dcm_conf['generator']['class']
-        param = { 'context' : self.context, 'local_config': dcm_conf['generator']}
-
-        self.explanation_generator_dcm = get_instance_kvargs(kls, param)
+        # NOTE: an internal DCM generator used to be constructed here for the
+        # legacy train_methods scoring loop. The refactor in lst_shared.py moved
+        # method scoring to a dataset-wide artifact, so this DCM is no longer
+        # referenced. Removing it avoids a redundant full-dataset DCM retrain
+        # on every variant load (which on COLORS-3 means 50M GEDs of dead work).
 
     def minimize(self, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
         print("-------------")
@@ -750,6 +741,10 @@ class LocalSearch(ExplanationMinimizer):
             LSTMethodsArtifact,
         )
         self.logger.info("loading methods from LSTMethodsArtifact")
+        # Note: parameter insertion order MUST match what scripts/compute_lst_methods.py
+        # passes (fold_id, proportion, retrain) — get_name() hashes the local_config
+        # via Python's insertion-ordered dict iteration, so a different order yields a
+        # different on-disk hash and a cache miss.
         artifact = LSTMethodsArtifact(
             context=self.context,
             local_config={
@@ -759,6 +754,7 @@ class LocalSearch(ExplanationMinimizer):
                 "parameters": {
                     "fold_id": -1,
                     "proportion": float(self.local_config["parameters"].get("methods_proportion", 1.0)),
+                    "retrain": False,
                 },
             },
         )

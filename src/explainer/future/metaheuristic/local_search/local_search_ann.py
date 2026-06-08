@@ -14,7 +14,7 @@ from typing import Generator
 from src.explainer.future.metaheuristic.initial_solution_search.simple_searcher import SimpleSearcher
 from src.explainer.future.metaheuristic.local_search.binary_model import BinaryModel
 from src.explainer.future.metaheuristic.local_search.cache import FixedSizeCache
-from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, feature_aggregation, heat_kernel_diffusion, laplacian_regularization, random_walk_diffusion, weighted_smoothing
+from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, average_smoothing_zero, feature_aggregation, heat_kernel_diffusion, identity, laplacian_regularization, random_walk_diffusion, weighted_smoothing
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.cfg_utils import init_dflts_to_of
 from src.utils.comparison import get_edge_differences
@@ -64,6 +64,7 @@ class LocalSearch(ExplanationMinimizer):
         self.distance_metric = GraphEditDistanceMetric()  
         
         self.methods = [
+            lambda data, features: identity(data, features),
             lambda data, features: average_smoothing(data, features, iterations=1),
             lambda data, features: weighted_smoothing(data, features, iterations=1),
             lambda data, features: laplacian_regularization(data, features, lambda_reg=0.01, iterations=1),
