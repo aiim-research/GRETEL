@@ -20,6 +20,7 @@ from src.explainer.future.metaheuristic.manipulation.methods import (
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.comparison import get_edge_differences
 from src.utils.metrics.ged import GraphEditDistanceMetric
+from src.utils.seeding import set_seed
 
 
 class RandomHillClimbing(ExplanationMinimizer):
@@ -56,6 +57,10 @@ class RandomHillClimbing(ExplanationMinimizer):
         self.manip_attr = params['manip_attr']
         self.max_oracle_calls = params['max_oracle_calls']
         self.patience = params['patience']
+
+        # Opt-in deterministic seeding (Note C). Legacy configs that omit
+        # ``seed`` keep their hash and stay non-deterministic as before.
+        set_seed(params.get('seed'))
 
         self.tagger = SimpleTagger()
         self.searcher = SimpleSearcher()

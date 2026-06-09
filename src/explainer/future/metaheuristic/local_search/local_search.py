@@ -18,6 +18,7 @@ from src.future.explanation.local.graph_counterfactual import LocalGraphCounterf
 from src.utils.cfg_utils import init_dflts_to_of
 from src.utils.comparison import get_edge_differences
 from src.utils.metrics.ged import GraphEditDistanceMetric
+from src.utils.seeding import set_seed
 from collections import OrderedDict
 
 class LocalSearch(ExplanationMinimizer):
@@ -54,7 +55,11 @@ class LocalSearch(ExplanationMinimizer):
         self.max_neigh = self.local_config['parameters']['max_neigh']
         self.attributed = self.local_config['parameters']['attributed']
         self.max_oracle_calls = self.local_config['parameters']['max_oracle_calls']
-        
+
+        # Opt-in deterministic seeding (Note C). Legacy configs that omit
+        # ``seed`` keep their hash and stay non-deterministic as before.
+        set_seed(self.local_config['parameters'].get('seed'))
+
         self.tagger = SimpleTagger()
         
         self.searcher = SimpleSearcher()
