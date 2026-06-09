@@ -10,6 +10,7 @@ from src.dataset.instances.graph import GraphInstance
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.comparison import get_all_edge_differences, get_edge_differences
 from src.utils.metrics.ged import GraphEditDistanceMetric
+from src.utils.seeding import set_seed
 
 
 class OBS(ExplanationMinimizer):
@@ -26,9 +27,13 @@ class OBS(ExplanationMinimizer):
     
     def init(self):
         super().init()
-        self.distance_metric = GraphEditDistanceMetric()  
+        self.distance_metric = GraphEditDistanceMetric()
         self.max_oc = self.local_config['parameters']['max_oc']
         self.changes_batch_size = self.local_config['parameters']['changes_batch_size']
+
+        # Opt-in deterministic seeding (Note C). Legacy configs that omit
+        # ``seed`` keep their hash and stay non-deterministic as before.
+        set_seed(self.local_config['parameters'].get('seed'))
 
 
     def minimize(self, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
