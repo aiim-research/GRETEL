@@ -48,7 +48,8 @@
                     "generator": {
                         "class": "src.explainer.future.generative.rsgg.RSGG",
                         "parameters": {
-                            "epochs": 500
+                            "epochs": 500,
+                            "seed": 1
                         }
                     },
                     "minimizer": {
