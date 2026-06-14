@@ -55,11 +55,12 @@
                     "minimizer": {
                         "class": "src.explainer.future.metaheuristic.local_search.random_hill_climbing.RandomHillClimbing",
                         "parameters": {
-                            "attributed": false,
+                            "attributed": true,
                             "manip_attr": false,
                             "max_oracle_calls": 10000,
                             "patience": 40,
-                            "seed": 0
+                            "seed": 0,
+                            "recompute_features": false
                         }
                     }
                 }

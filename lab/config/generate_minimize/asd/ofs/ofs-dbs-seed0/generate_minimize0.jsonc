@@ -61,7 +61,8 @@
                             "max_neigh": 20,
                             "max_oc": 4000,
                             "changes_batch_size": 5,
-                            "random_seed": 0
+                            "random_seed": 0,
+                            "recompute_features": false
                         }
                     }
                 }

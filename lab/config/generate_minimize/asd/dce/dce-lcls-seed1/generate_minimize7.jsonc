@@ -58,7 +58,8 @@
                             "runtime_factor": 4,
                             "max_runtime": 20,
                             "max_neigh": 20,
-                            "seed": 1
+                            "seed": 1,
+                            "recompute_features": false
                         }
                     }
                 }
