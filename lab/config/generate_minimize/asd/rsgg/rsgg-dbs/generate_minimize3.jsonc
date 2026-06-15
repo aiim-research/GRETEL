@@ -1,27 +1,55 @@
-{  
-    "experiment" : {
+{
+    "experiment": {
         "scope": "asd_rsgg_dbs",
-        "parameters" : {
-            "lock_release_tout":120,
-            "propagate":[
-                {"in_sections" : ["doe-triplets/explainer"],"params" : {"fold_id": 3}},
-                {"in_sections" : ["doe-triplets/oracle"],"params" : {"fold_id": -1,"retrain":false}},
-                {"in_sections": ["doe-triplets/dataset"],"params": { "compose_man" : "lab/config/snippets/datasets/centr_and_weights.json" }}
+        "parameters": {
+            "lock_release_tout": 120,
+            "propagate": [
+                {
+                    "in_sections": [
+                        "doe-triplets/explainer"
+                    ],
+                    "params": {
+                        "fold_id": 3
+                    }
+                },
+                {
+                    "in_sections": [
+                        "doe-triplets/oracle"
+                    ],
+                    "params": {
+                        "fold_id": -1,
+                        "retrain": false
+                    }
+                },
+                {
+                    "in_sections": [
+                        "doe-triplets/dataset"
+                    ],
+                    "params": {
+                        "compose_man": "lab/config/snippets/datasets/centr_and_weights.json"
+                    }
+                }
             ],
-            "expand" : {  "folds" : ["doe-triplets/explainer"], "triplets" : true }
+            "expand": {
+                "folds": [
+                    "doe-triplets/explainer"
+                ],
+                "triplets": true
+            }
         }
     },
-    "doe-triplets":[
+    "doe-triplets": [
         {
             "compose_do": "./lab/config/snippets/do-pairs/ASD_ASD-Custom.json",
-            "explainer": { 
+            "explainer": {
                 "class": "src.explainer.future.meta.generate_minimize.GenerateMinimize",
-                "parameters":{
+                "parameters": {
                     "fold_id": 1,
-                    "generator": { 
+                    "generator": {
                         "class": "src.explainer.future.generative.rsgg.RSGG",
-                        "parameters":{
-                            "epochs": 500
+                        "parameters": {
+                            "epochs": 500,
+                            "seed": 0
                         }
                     },
                     "minimizer": {
@@ -32,7 +60,9 @@
                             "max_runtime": 20,
                             "max_neigh": 20,
                             "max_oc": 4000,
-                            "changes_batch_size": 5
+                            "changes_batch_size": 5,
+                            "random_seed": 0,
+                            "recompute_features": false
                         }
                     }
                 }
@@ -45,5 +75,5 @@
             "compose_pip": "./lab/config/snippets/minimizing_pipeline.json"
         }
     },
-    "compose_strs" : "./lab/config/snippets/default_store_paths.json"
+    "compose_strs": "./lab/config/snippets/default_store_paths.json"
 }

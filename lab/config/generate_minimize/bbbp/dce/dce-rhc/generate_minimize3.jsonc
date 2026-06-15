@@ -57,7 +57,8 @@
                             "attributed": true,
                             "manip_attr": false,
                             "max_oracle_calls": 10000,
-                            "patience": 40
+                            "patience": 40,
+                            "seed": 0
                         }
                     }
                 }
