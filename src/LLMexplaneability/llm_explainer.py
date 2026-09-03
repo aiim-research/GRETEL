@@ -13,7 +13,14 @@ from src.utils.logger import GLogger
 class GeminiExplainer(LLM):
 
     def init(self):
-        self.api_key= "AIzaSyCIOT_W5yg0s-Yan1A1StnHRftEl4OI4jk"
+        # Credentials come from the environment, never from source. Export
+        # GEMINI_API_KEY (or GOOGLE_API_KEY) before running an LLM pipeline.
+        self.api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        if not self.api_key:
+            raise SystemExit(
+                "GeminiExplainer needs an API key: export GEMINI_API_KEY "
+                "(or GOOGLE_API_KEY) before running the LLM pipeline."
+            )
         self.model = "gemini-2.5-pro"
         self.client = genai.Client(api_key = self.api_key)
 

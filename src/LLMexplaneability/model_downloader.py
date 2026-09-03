@@ -5,7 +5,7 @@ import os, sys
 repo_id = "meta-llama/Llama-3.1-8B"
 out_dir = "Llama-3.1-8B"
 
-token = "TOKEN_DE_HUG"
+token = os.environ.get("HUGGINGFACE_HUB_TOKEN")
 if not token:
     raise SystemExit("Exporta HUGGINGFACE_HUB_TOKEN antes: export HUGGINGFACE_HUB_TOKEN=hf_...")
 
