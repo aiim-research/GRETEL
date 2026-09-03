@@ -40,6 +40,9 @@ class DBS(ExplanationMinimizer):
         params = self.local_config['parameters']
         self.max_oc = params['max_oc']
         self.changes_batch_size = params['changes_batch_size']
+        # Opt-in (hash-stable): skip per-candidate dataset.manipulate() when
+        # the oracle ignores recomputed node features (e.g. ASD, Tree-Cycles).
+        self.recompute_features = params.get('recompute_features', True)
         self.epsilon = params['epsilon']
         self._rng = np.random.default_rng(params['random_seed'])
         self.distance_metric = GraphEditDistanceMetric()
@@ -50,6 +53,16 @@ class DBS(ExplanationMinimizer):
         instance = explanation.input_instance
         cf_instance = explanation.counterfactual_instances[0]
         f_E = int(self.oracle.predict(instance))
+
+        # Guard: a minimizer must never alter the generator's correctness. If
+        # the generator did not actually produce a counterfactual (its output
+        # still has the original label), return it unchanged instead of running
+        # the backward search — otherwise reverting subsets of its edits can
+        # stumble onto a counterfactual the generator missed and spuriously
+        # *raise* correctness, breaking the "correctness is a generator
+        # property" invariant (matches the guard LBS/RHC already have).
+        if int(self.oracle.predict(cf_instance)) == f_E:
+            return cf_instance
 
         # Edges in the symmetric difference E Δ E_c — these are the only positions
         # we will touch during minimization (Algorithm 2, line 2).
@@ -109,7 +122,8 @@ class DBS(ExplanationMinimizer):
                 node_features=instance.node_features,
                 graph_features=instance.graph_features,
             )
-            self.dataset.manipulate(reduced_cf)
+            if self.recompute_features:
+                self.dataset.manipulate(reduced_cf)
             reduced_cf.label = int(self.oracle.predict(reduced_cf))
             oracle_calls += 1
 
@@ -135,7 +149,8 @@ class DBS(ExplanationMinimizer):
             directed=instance.directed,
             node_features=instance.node_features,
         )
-        self.dataset.manipulate(result_cf)
+        if self.recompute_features:
+            self.dataset.manipulate(result_cf)
         result_cf.label = int(self.oracle.predict(result_cf))
 
         if reduction_success:

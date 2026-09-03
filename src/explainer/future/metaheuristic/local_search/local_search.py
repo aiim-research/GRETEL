@@ -55,6 +55,9 @@ class LocalSearch(ExplanationMinimizer):
         self.max_neigh = self.local_config['parameters']['max_neigh']
         self.attributed = self.local_config['parameters']['attributed']
         self.max_oracle_calls = self.local_config['parameters']['max_oracle_calls']
+        # Opt-in (hash-stable): skip per-candidate dataset.manipulate() when
+        # the oracle ignores recomputed node features (e.g. ASD, Tree-Cycles).
+        self.recompute_features = self.local_config['parameters'].get('recompute_features', True)
 
         # Opt-in deterministic seeding (Note C). Legacy configs that omit
         # ``seed`` keep their hash and stay non-deterministic as before.
@@ -72,7 +75,7 @@ class LocalSearch(ExplanationMinimizer):
             lambda data, features: weighted_smoothing(data, features, iterations=1),
             lambda data, features: laplacian_regularization(data, features, lambda_reg=0.01, iterations=1),
             lambda data, features: feature_aggregation(data, features, alpha=0.5, iterations=1),
-            lambda data, features: heat_kernel_diffusion(data, features, t=0.5),
+            # lambda data, features: heat_kernel_diffusion(data, features, t=0.5),
             lambda data, features: random_walk_diffusion(data, features, steps=1)
         ]
         
@@ -242,7 +245,8 @@ class LocalSearch(ExplanationMinimizer):
                                         data=new_data,
                                         directed=self.G.directed,
                                         node_features= self.G.node_features)
-            self.dataset.manipulate(new_g)
+            if self.recompute_features:
+                self.dataset.manipulate(new_g)
             if(self.M.classify(new_g)): return (True, new_g)
 
         return (False, None)

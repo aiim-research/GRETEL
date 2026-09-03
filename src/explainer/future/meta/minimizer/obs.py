@@ -30,6 +30,9 @@ class OBS(ExplanationMinimizer):
         self.distance_metric = GraphEditDistanceMetric()
         self.max_oc = self.local_config['parameters']['max_oc']
         self.changes_batch_size = self.local_config['parameters']['changes_batch_size']
+        # Opt-in (hash-stable): skip per-candidate dataset.manipulate() when
+        # the oracle ignores recomputed node features (e.g. ASD, Tree-Cycles).
+        self.recompute_features = self.local_config['parameters'].get('recompute_features', True)
 
         # Opt-in deterministic seeding (Note C). Legacy configs that omit
         # ``seed`` keep their hash and stay non-deterministic as before.
@@ -55,6 +58,15 @@ class OBS(ExplanationMinimizer):
         #             min_ctf = ctf_candidate
                     
         cf_instance = min_ctf
+
+        # Guard: a minimizer must never alter the generator's correctness. If
+        # the generator failed to produce a counterfactual (its output still
+        # carries the original label), return it unchanged rather than running
+        # the backward search, which could otherwise revert edits into a
+        # counterfactual the generator missed and spuriously raise correctness.
+        if self.oracle.predict(cf_instance) == input_label:
+            return cf_instance
+
         # Get the changes between the original graph and the initial counterfactual
         changed_edges, _, _ = get_all_edge_differences(instance, [cf_instance])
 
@@ -100,7 +112,8 @@ class OBS(ExplanationMinimizer):
                     gci[j][i] = abs(1 - gci[j][i])
 
             reduced_cf_inst = GraphInstance(id=instance.id, label=0, data=gci, directed=instance.directed, node_features=instance.node_features, graph_features=instance.graph_features)
-            self.dataset.manipulate(reduced_cf_inst)
+            if self.recompute_features:
+                self.dataset.manipulate(reduced_cf_inst)
             reduced_cf_inst.label = self.oracle.predict(reduced_cf_inst)
             oracle_calls_count += 1
 
@@ -122,7 +135,8 @@ class OBS(ExplanationMinimizer):
                     changed_edges = changed_edges + edges_i
 
         result_cf = GraphInstance(id=instance.id, label=0, data=gc, directed=instance.directed, node_features=instance.node_features)
-        self.dataset.manipulate(result_cf)
+        if self.recompute_features:
+            self.dataset.manipulate(result_cf)
         result_cf.label = self.oracle.predict(result_cf)
         
         # print(self.oracle.predict(instance))

@@ -20,6 +20,7 @@ from src.future.explanation.local.graph_counterfactual import LocalGraphCounterf
 from src.utils.comparison import get_edge_differences
 from src.utils.metrics.ged import GraphEditDistanceMetric
 from src.core.factory_base import get_instance_kvargs
+from src.explainer.future.search.dcm import DCM
 
 class LocalSearch(ExplanationMinimizer):
     def check_configuration(self):
@@ -70,6 +71,9 @@ class LocalSearch(ExplanationMinimizer):
         self.max_neigh = self.local_config['parameters']['max_neigh']
         self.attributed = self.local_config['parameters']['attributed']
         self.max_oracle_calls = self.local_config['parameters']['max_oracle_calls']
+        # Opt-in (hash-stable): skip per-candidate dataset.manipulate() when
+        # the oracle ignores recomputed node features (e.g. ASD, Tree-Cycles).
+        self.recompute_features = self.local_config['parameters'].get('recompute_features', True)
 
         self.searcher = SimpleSearcher()
         
@@ -169,24 +173,29 @@ class LocalSearch(ExplanationMinimizer):
         
         min_ctf = explaination.counterfactual_instances[0]
 
-        
+        # DCEM fallback (mirrors LocalSearchTrainable): if the generator did
+        # not flip the label, replace the non-counterfactual with the closest
+        # cross-class medoid so correctness is rescued to 1 before search.
+        if self.oracle.predict(min_ctf) == self.oracle.predict(self.G):
+            min_ctf = self.explain(self.G).counterfactual_instances[0]
+
         _, diff_matrix = get_edge_differences(self.G, min_ctf)
-        different_coordinates = np.where(diff_matrix == 1)        
+        different_coordinates = np.where(diff_matrix == 1)
         different_coords_list = list(zip(different_coordinates[0], different_coordinates[1]))
         # Filter to avoid duplicate edges in undirected graphs
         filtered_coords_list = [coord for coord in different_coords_list if coord[0] < coord[1]]
         actual = self.uv_to_id(filtered_coords_list)
-        
-        best = actual
-        
 
-        
+        best = actual
+
+
+
         if(len(actual) == 0):
             return min_ctf
-        
+
         self.cache = FixedSizeCache(capacity=500000)
         result = self.get_approximation(actual, best, min_ctf)
-        
+
         return result
         
         
@@ -494,7 +503,8 @@ class LocalSearch(ExplanationMinimizer):
                                         data=new_data,
                                         directed=self.G.directed,
                                         node_features= self.G.node_features)
-            self.dataset.manipulate(new_g)
+            if self.recompute_features:
+                self.dataset.manipulate(new_g)
             if(self.M.classify(new_g)): return (True, new_g)
 
         return (False, None)
@@ -729,10 +739,72 @@ class LocalSearch(ExplanationMinimizer):
     def fit(self):
         self.logger.info("start training")
         self.training = True
+        self.train_medoid()
         self.train_methods()
         self.training = False
         self.logger.info("end training")
         super().fit()
+
+    def train_medoid(self):
+        """Load (or train) the dataset-wide DCM medoids artifact.
+
+        Mirrors :meth:`LocalSearchTrainable.train_medoid`: the medoid
+        computation lives in :class:`src.explainer.future.search.dcm.DCM`;
+        this just looks the artifact up by the dataset hash and stores
+        ``{class: dataset_index}`` in ``self.model["medoids"]``. The index
+        is resolved to a :class:`GraphInstance` lazily in :meth:`explain`,
+        which the DCEM fallback in :meth:`minimize` uses when the generator
+        failed to produce a valid counterfactual.
+        """
+        self.logger.info("loading medoids from DCM artifact")
+        dcm = DCM(
+            context=self.context,
+            local_config={
+                "class": "src.explainer.future.search.dcm.DCM",
+                "dataset": self.dataset,
+                "oracle": self.oracle,
+                "parameters": {
+                    "fold_id": -1,
+                    "proportion": float(self.local_config["parameters"].get("medoid_proportion", 1.0)),
+                },
+            },
+        )
+        # DCM.model is {class_id: dataset_index}. Keep the same compact form.
+        self.model["medoids"] = dict(dcm.model)
+        self.logger.info(f"medoids loaded: {self.model['medoids']}")
+
+    def explain(self, instance):
+        """Return the closest cross-class medoid as a counterfactual.
+
+        Identical strategy to :meth:`LocalSearchTrainable.explain`: pick the
+        medoid of a different class nearest to ``instance`` (by GED). Used as
+        a DCEM fallback so non-counterfactual generator output is rescued to a
+        valid counterfactual, lifting correctness to 1."""
+        category = self.oracle.predict(instance)
+
+        min_distance = float('inf')
+        closest_medoid = None
+        for other_category, medoid_idx in self.model["medoids"].items():
+            if other_category != category:
+                medoid = self.dataset.instances[medoid_idx]
+                distance = self.distance_metric.evaluate(instance, medoid)
+                if distance < min_distance:
+                    min_distance = distance
+                    closest_medoid = medoid
+
+        if closest_medoid is None:
+            # No medoid for any other class — return the input unchanged so the
+            # downstream search detects the no-counterfactual case.
+            closest_medoid = instance
+
+        cf_instance = GraphInstance(id=closest_medoid.id, label=closest_medoid.label,
+                                    data=closest_medoid.data,
+                                    node_features=closest_medoid.node_features)
+
+        return LocalGraphCounterfactualExplanation(
+            context=self.context, dataset=self.dataset, oracle=self.oracle,
+            explainer=self, input_instance=instance,
+            counterfactual_instances=[cf_instance])
 
     def train_methods(self):
         """Load the dataset-wide LSTMethodsArtifact (shared with the other LST

@@ -5,11 +5,17 @@ from src.core.factory_base import get_instance_kvargs
 from src.legacy.explainer.rsgg_v2.per_cls_explainer import PerClassExplainer
 from src.utils.cfg_utils import init_dflts_to_of
 from src.utils.samplers.abstract_sampler import Sampler
+from src.utils.seeding import set_seed
 
 class RSGG(PerClassExplainer):
 
     def init(self):
         super().init()
+
+        # Opt-in deterministic seeding (Note C). The GAN sampler is torch-
+        # based; legacy configs that omit ``seed`` keep their hash.
+        set_seed(self.local_config['parameters'].get('seed'))
+
         self.sampler: Sampler = get_instance_kvargs(self.local_config['parameters']['sampler']['class'],
                                                     self.local_config['parameters']['sampler']['parameters'])
         self.sampler.dataset = self.dataset
