@@ -18,13 +18,19 @@ class DataAnalyzer():
 
     @classmethod
     def get_json_file_paths(cls, folder_path):
-        """Given a folder return a list containing the file paths of all json files inside the folder
-          or its subfolders"""
+        """Return the paths of the per-fold aggregated result files under
+        ``folder_path``.
+
+        Only files matching ``results_<fold>_<run>.json`` are returned.
+        Other JSON files that may live in the same tree (notably the new
+        per-instance ``cf_<instance_id>.json`` dumps written by the
+        evaluator) lack the aggregated schema and would crash the
+        consumer with ``KeyError: 'config'`` if included."""
         result = []
 
         for root, dirs, files in os.walk(folder_path):
             for file in files:
-                if file.endswith(".json"):
+                if file.startswith("results_") and file.endswith(".json"):
                     result.append(os.path.join(root, file))
 
         return result

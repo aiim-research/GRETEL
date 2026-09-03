@@ -21,6 +21,8 @@ class GraphInstance(DataInstance):
 
         num_nodes = self.data.shape[0]
         num_edges = np.count_nonzero(self.data)
+        if(not len(self.node_features) == num_nodes):
+            print("error")
         assert len(self.node_features) == num_nodes
         assert len(self.edge_features) == num_edges
         assert len(self.edge_weights) == num_edges
@@ -99,7 +101,7 @@ class GraphInstance(DataInstance):
         return [ i for i in range(self.data.shape[0])]
 
     def neighbors(self, node):
-        return [i for i in self.data[node,:] if i != 0]
+        return [i for (i,ad) in enumerate(self.data[node,:]) if ad != 0]
     
     def degree(self,node):
         return len(self.neighbors(node))

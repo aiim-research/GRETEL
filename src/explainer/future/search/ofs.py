@@ -7,6 +7,7 @@ from src.core.explainer_base import Explainer
 from src.core.factory_base import get_class, get_instance_kvargs
 from src.core.trainable_base import Trainable
 from src.utils.cfg_utils import  inject_dataset, inject_oracle, init_dflts_to_of
+from src.utils.seeding import set_seed
 import src.utils.explanations.functions as exp_tools
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.dataset.instances.graph import GraphInstance
@@ -37,7 +38,11 @@ class OFS(Explainer):
         self.changes_batch_size = self.local_config['parameters']['changes_batch_size']
         self.p = self.local_config['parameters']['p']
 
-        self.distance_metric = get_instance_kvargs(self.local_config['parameters']['distance_metric']['class'], 
+        # Opt-in deterministic seeding (Note C). OFS uses random.shuffle and
+        # random.random(); legacy configs that omit ``seed`` keep their hash.
+        set_seed(self.local_config['parameters'].get('seed'))
+
+        self.distance_metric = get_instance_kvargs(self.local_config['parameters']['distance_metric']['class'],
                                                     self.local_config['parameters']['distance_metric']['parameters'])
         
 
@@ -107,12 +112,14 @@ class OFS(Explainer):
                         ki+=1
             ki=0
 
+            
             current_inst = GraphInstance(id=instance.id, 
-                                 label=0, 
+                                 label=r, 
                                  data=g_c,
                                  node_features=instance.node_features)
-
             r = self.oracle.predict(current_inst)
+            current_inst.label = r
+            
             l += 1 # Increase the oracle calls counter
 
             if r != instance.label:

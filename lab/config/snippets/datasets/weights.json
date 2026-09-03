@@ -1,0 +1,7 @@
+{
+    "manipulators": [
+        { "class": "src.dataset.manipulators.padding.AdjacencyMatrixPadder", "parameters": {} }   ,
+    { "class": "src.dataset.manipulators.weights.EdgeWeights", "parameters": {} }
+        
+    ]    
+}

@@ -1,0 +1,32 @@
+% Ablation of STRATEGY ORDERING (E3, R2.11): BLS variants 3 and 4.
+% Same format as Table \ref{tab:comparison-variants} (var 1 and var 2).
+% Copy/paste only. Values computed with the DCE generator over the four
+% datasets, decoupled protocol (a single run of the generator).
+% This is an updated version of the RQ7 paragraph (final experiments: the
+% ordering ablation now spans four datasets with DCE, not only Synthie).
+
+\paragraph{\rev{RQ7: Role of Strategy Ordering.}}
+\rev{Beyond \emph{which} strategies are included (RQ6), the priority \emph{order} in which they are attempted under first-improvement acceptance also shapes the search. Table \ref{tab:comparison-ordering} compares the default order against two reorderings, on four datasets with attributes (BBBP, Synthie) and without them (TCR, ASD), using DCE to isolate the effect of the order from generator quality. Var. 3 defers removal entirely, attempting compensating additions and then replacements before any pruning (add, swap, 1a, 1b), and Var. 4 attempts overshooting (Strategy 1b) before single-edit removal (Strategy 1a) (add, 1b, 1a, swap). Keeping the set of strategies fixed, this isolates the contribution of the order itself. The default order is the most robust across the four datasets: deferring removal (Var. 3) is catastrophic on attribute-free graphs (GED 81.58 on TCR and 128.82 on ASD, versus 3.02 and 9.30 for the default), since with no attributes to exploit the early repair finds no improvement and the budget is spent without pruning, whereas bringing overshooting forward (Var. 4) stays close to the default and occasionally matches or slightly beats it (GED 2.53 vs.\ 2.73 on Synthie) but loses on ASD.
+\emph{Takeaway.} A different ordering does change the results: checking small removals first, as in the default order, is the most robust choice across attributed and attribute-free graphs.}
+
+Overall, the ablation results demonstrate that controlled oracle budgeting, attribute-aware perturbations, \rev{complementary neighborhood operators, and a sensible strategy ordering} are all essential to effectively approximate \gcmin.
+
+\begin{table}[H]
+\centering
+\resizebox{\linewidth}{!}{
+\begin{tabular}{l|ccc|ccc|ccc|ccc}
+\hline
+\textbf{Dataset} & \multicolumn{3}{c|}{\textbf{GED}} & \multicolumn{3}{c|}{\textbf{FED}} & \multicolumn{3}{c|}{\textbf{Correctness}} & \multicolumn{3}{c}{\textbf{Oracle Calls}} \\
+\hline
+& bls & Var 3 & Var 4 & bls & Var 3 & Var 4 & bls & Var 3 & Var 4 & bls & Var 3 & Var 4 \\
+\hline
+BBBP    & \textbf{2.38} & 3.00   & 2.94  & 31.20  & 38.74  & 37.60  & 1.00 & 1.00 & 1.00 & 6617.58 & 6048.53 & 5487.69 \\
+Synthie & 2.73          & 4.07   & \textbf{2.53} & 608.03 & 578.95 & 571.41 & 1.00 & 1.00 & 1.00 & 3715.97 & 3054.64 & 3014.95 \\
+TCR     & 3.02          & 81.58  & \textbf{2.26} & - & - & - & 1.00 & 1.00 & 1.00 & 2095.82 & 5765.84 & 1940.39 \\
+ASD     & \textbf{9.30} & 128.82 & 17.07 & - & - & - & 1.00 & 1.00 & 1.00 & 3716.42 & 7164.41 & 6227.01 \\
+\hline
+\end{tabular}
+}
+\caption{Strategy-ordering ablation of Bounded Local Search (variants 3 and 4) across multiple datasets using the DCE generator. Var 3 uses the order add, swap, 1a, 1b, and Var 4 the order add, 1b, 1a, swap, compared against the canonical order (bls).}
+\label{tab:comparison-ordering}
+\end{table}

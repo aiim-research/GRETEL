@@ -1,0 +1,7 @@
+{
+    "dataset" : {"compose_gcn" : "lab/config/snippets/datasets/ablation-TCR-300-128-0.25.json"},
+    "oracle": {
+      "class": "src.oracle.custom.oracle_tree_cycles.TreeCyclesOracle",
+      "parameters": {} 
+    }
+}

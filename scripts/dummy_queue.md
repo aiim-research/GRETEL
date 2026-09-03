@@ -1,0 +1,122 @@
+# Gen-only (dummy minimizer) queue - 12 cells x 10 folds
+
+- [x] lab/config/generate_minimize/asd/dce/dce-dummy/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/asd/dce/dce-dummy/generate_minimize1.jsonc
+- [x] lab/config/generate_minimize/asd/dce/dce-dummy/generate_minimize2.jsonc
+- [x] lab/config/generate_minimize/asd/dce/dce-dummy/generate_minimize3.jsonc
+- [x] lab/config/generate_minimize/asd/dce/dce-dummy/generate_minimize4.jsonc
+- [x] lab/config/generate_minimize/asd/dce/dce-dummy/generate_minimize5.jsonc
+- [x] lab/config/generate_minimize/asd/dce/dce-dummy/generate_minimize6.jsonc
+- [x] lab/config/generate_minimize/asd/dce/dce-dummy/generate_minimize7.jsonc
+- [x] lab/config/generate_minimize/asd/dce/dce-dummy/generate_minimize8.jsonc
+- [x] lab/config/generate_minimize/asd/dce/dce-dummy/generate_minimize9.jsonc
+- [x] lab/config/generate_minimize/asd/ofs/ofs-dummy/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/asd/ofs/ofs-dummy/generate_minimize1.jsonc
+- [x] lab/config/generate_minimize/asd/ofs/ofs-dummy/generate_minimize2.jsonc
+- [x] lab/config/generate_minimize/asd/ofs/ofs-dummy/generate_minimize3.jsonc
+- [x] lab/config/generate_minimize/asd/ofs/ofs-dummy/generate_minimize4.jsonc
+- [x] lab/config/generate_minimize/asd/ofs/ofs-dummy/generate_minimize5.jsonc
+- [x] lab/config/generate_minimize/asd/ofs/ofs-dummy/generate_minimize6.jsonc
+- [x] lab/config/generate_minimize/asd/ofs/ofs-dummy/generate_minimize7.jsonc
+- [x] lab/config/generate_minimize/asd/ofs/ofs-dummy/generate_minimize8.jsonc
+- [x] lab/config/generate_minimize/asd/ofs/ofs-dummy/generate_minimize9.jsonc
+- [x] lab/config/generate_minimize/asd/rsgg/rsgg-dummy/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/asd/rsgg/rsgg-dummy/generate_minimize1.jsonc
+- [x] lab/config/generate_minimize/asd/rsgg/rsgg-dummy/generate_minimize2.jsonc
+- [x] lab/config/generate_minimize/asd/rsgg/rsgg-dummy/generate_minimize3.jsonc
+- [ ] lab/config/generate_minimize/asd/rsgg/rsgg-dummy/generate_minimize4.jsonc
+- [ ] lab/config/generate_minimize/asd/rsgg/rsgg-dummy/generate_minimize5.jsonc
+- [ ] lab/config/generate_minimize/asd/rsgg/rsgg-dummy/generate_minimize6.jsonc
+- [ ] lab/config/generate_minimize/asd/rsgg/rsgg-dummy/generate_minimize7.jsonc
+- [ ] lab/config/generate_minimize/asd/rsgg/rsgg-dummy/generate_minimize8.jsonc
+- [ ] lab/config/generate_minimize/asd/rsgg/rsgg-dummy/generate_minimize9.jsonc
+- [ ] lab/config/generate_minimize/synthie/dce/dce-dummy/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/synthie/dce/dce-dummy/generate_minimize1.jsonc
+- [ ] lab/config/generate_minimize/synthie/dce/dce-dummy/generate_minimize2.jsonc
+- [ ] lab/config/generate_minimize/synthie/dce/dce-dummy/generate_minimize3.jsonc
+- [ ] lab/config/generate_minimize/synthie/dce/dce-dummy/generate_minimize4.jsonc
+- [ ] lab/config/generate_minimize/synthie/dce/dce-dummy/generate_minimize5.jsonc
+- [ ] lab/config/generate_minimize/synthie/dce/dce-dummy/generate_minimize6.jsonc
+- [ ] lab/config/generate_minimize/synthie/dce/dce-dummy/generate_minimize7.jsonc
+- [ ] lab/config/generate_minimize/synthie/dce/dce-dummy/generate_minimize8.jsonc
+- [ ] lab/config/generate_minimize/synthie/dce/dce-dummy/generate_minimize9.jsonc
+- [ ] lab/config/generate_minimize/synthie/ofs/ofs-dummy/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/synthie/ofs/ofs-dummy/generate_minimize1.jsonc
+- [ ] lab/config/generate_minimize/synthie/ofs/ofs-dummy/generate_minimize2.jsonc
+- [ ] lab/config/generate_minimize/synthie/ofs/ofs-dummy/generate_minimize3.jsonc
+- [ ] lab/config/generate_minimize/synthie/ofs/ofs-dummy/generate_minimize4.jsonc
+- [ ] lab/config/generate_minimize/synthie/ofs/ofs-dummy/generate_minimize5.jsonc
+- [ ] lab/config/generate_minimize/synthie/ofs/ofs-dummy/generate_minimize6.jsonc
+- [ ] lab/config/generate_minimize/synthie/ofs/ofs-dummy/generate_minimize7.jsonc
+- [ ] lab/config/generate_minimize/synthie/ofs/ofs-dummy/generate_minimize8.jsonc
+- [ ] lab/config/generate_minimize/synthie/ofs/ofs-dummy/generate_minimize9.jsonc
+- [ ] lab/config/generate_minimize/synthie/rsgg/rsgg-dummy/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/synthie/rsgg/rsgg-dummy/generate_minimize1.jsonc
+- [ ] lab/config/generate_minimize/synthie/rsgg/rsgg-dummy/generate_minimize2.jsonc
+- [ ] lab/config/generate_minimize/synthie/rsgg/rsgg-dummy/generate_minimize3.jsonc
+- [ ] lab/config/generate_minimize/synthie/rsgg/rsgg-dummy/generate_minimize4.jsonc
+- [ ] lab/config/generate_minimize/synthie/rsgg/rsgg-dummy/generate_minimize5.jsonc
+- [ ] lab/config/generate_minimize/synthie/rsgg/rsgg-dummy/generate_minimize6.jsonc
+- [ ] lab/config/generate_minimize/synthie/rsgg/rsgg-dummy/generate_minimize7.jsonc
+- [ ] lab/config/generate_minimize/synthie/rsgg/rsgg-dummy/generate_minimize8.jsonc
+- [ ] lab/config/generate_minimize/synthie/rsgg/rsgg-dummy/generate_minimize9.jsonc
+- [ ] lab/config/generate_minimize/bbbp/dce/dce-dummy/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/bbbp/dce/dce-dummy/generate_minimize1.jsonc
+- [ ] lab/config/generate_minimize/bbbp/dce/dce-dummy/generate_minimize2.jsonc
+- [ ] lab/config/generate_minimize/bbbp/dce/dce-dummy/generate_minimize3.jsonc
+- [ ] lab/config/generate_minimize/bbbp/dce/dce-dummy/generate_minimize4.jsonc
+- [ ] lab/config/generate_minimize/bbbp/dce/dce-dummy/generate_minimize5.jsonc
+- [ ] lab/config/generate_minimize/bbbp/dce/dce-dummy/generate_minimize6.jsonc
+- [ ] lab/config/generate_minimize/bbbp/dce/dce-dummy/generate_minimize7.jsonc
+- [ ] lab/config/generate_minimize/bbbp/dce/dce-dummy/generate_minimize8.jsonc
+- [ ] lab/config/generate_minimize/bbbp/dce/dce-dummy/generate_minimize9.jsonc
+- [ ] lab/config/generate_minimize/bbbp/ofs/ofs-dummy/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/bbbp/ofs/ofs-dummy/generate_minimize1.jsonc
+- [ ] lab/config/generate_minimize/bbbp/ofs/ofs-dummy/generate_minimize2.jsonc
+- [ ] lab/config/generate_minimize/bbbp/ofs/ofs-dummy/generate_minimize3.jsonc
+- [ ] lab/config/generate_minimize/bbbp/ofs/ofs-dummy/generate_minimize4.jsonc
+- [ ] lab/config/generate_minimize/bbbp/ofs/ofs-dummy/generate_minimize5.jsonc
+- [ ] lab/config/generate_minimize/bbbp/ofs/ofs-dummy/generate_minimize6.jsonc
+- [ ] lab/config/generate_minimize/bbbp/ofs/ofs-dummy/generate_minimize7.jsonc
+- [ ] lab/config/generate_minimize/bbbp/ofs/ofs-dummy/generate_minimize8.jsonc
+- [ ] lab/config/generate_minimize/bbbp/ofs/ofs-dummy/generate_minimize9.jsonc
+- [ ] lab/config/generate_minimize/bbbp/rsgg/rsgg-dummy/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/bbbp/rsgg/rsgg-dummy/generate_minimize1.jsonc
+- [ ] lab/config/generate_minimize/bbbp/rsgg/rsgg-dummy/generate_minimize2.jsonc
+- [ ] lab/config/generate_minimize/bbbp/rsgg/rsgg-dummy/generate_minimize3.jsonc
+- [ ] lab/config/generate_minimize/bbbp/rsgg/rsgg-dummy/generate_minimize4.jsonc
+- [ ] lab/config/generate_minimize/bbbp/rsgg/rsgg-dummy/generate_minimize5.jsonc
+- [ ] lab/config/generate_minimize/bbbp/rsgg/rsgg-dummy/generate_minimize6.jsonc
+- [ ] lab/config/generate_minimize/bbbp/rsgg/rsgg-dummy/generate_minimize7.jsonc
+- [ ] lab/config/generate_minimize/bbbp/rsgg/rsgg-dummy/generate_minimize8.jsonc
+- [ ] lab/config/generate_minimize/bbbp/rsgg/rsgg-dummy/generate_minimize9.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/dce/dce-dummy/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/dce/dce-dummy/generate_minimize1.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/dce/dce-dummy/generate_minimize2.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/dce/dce-dummy/generate_minimize3.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/dce/dce-dummy/generate_minimize4.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/dce/dce-dummy/generate_minimize5.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/dce/dce-dummy/generate_minimize6.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/dce/dce-dummy/generate_minimize7.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/dce/dce-dummy/generate_minimize8.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/dce/dce-dummy/generate_minimize9.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/ofs/ofs-dummy/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/ofs/ofs-dummy/generate_minimize1.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/ofs/ofs-dummy/generate_minimize2.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/ofs/ofs-dummy/generate_minimize3.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/ofs/ofs-dummy/generate_minimize4.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/ofs/ofs-dummy/generate_minimize5.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/ofs/ofs-dummy/generate_minimize6.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/ofs/ofs-dummy/generate_minimize7.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/ofs/ofs-dummy/generate_minimize8.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/ofs/ofs-dummy/generate_minimize9.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/rsgg/rsgg-dummy/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/rsgg/rsgg-dummy/generate_minimize1.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/rsgg/rsgg-dummy/generate_minimize2.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/rsgg/rsgg-dummy/generate_minimize3.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/rsgg/rsgg-dummy/generate_minimize4.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/rsgg/rsgg-dummy/generate_minimize5.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/rsgg/rsgg-dummy/generate_minimize6.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/rsgg/rsgg-dummy/generate_minimize7.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/rsgg/rsgg-dummy/generate_minimize8.jsonc
+- [ ] lab/config/generate_minimize/tcr-tco-300/rsgg/rsgg-dummy/generate_minimize9.jsonc

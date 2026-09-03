@@ -29,27 +29,31 @@ class Dataset(Savable):
         self.splits = []
         self._torch_repr = None
         self._class_indices = {}
+        self._inst_by_cls = {}
         
         self._num_nodes = None
         self._num_nodes_values = None
         #################################################
     
-        
     def create(self):
-        self.generator = get_instance_kvargs(self.local_config['parameters']['generator']['class'],
-                                                {
-                                                    "context": self.context, 
-                                                    "local_config": self.local_config['parameters']['generator'],
-                                                    "dataset": self
-                                                })
+        self.generator = get_instance_kvargs(
+            self.local_config['parameters']['generator']['class'],
+            {
+                "context": self.context,
+                "local_config": self.local_config['parameters']['generator'],
+                "dataset": self
+            }
+        )
         self._inject_dataset()
-            
-        self.manipulators: List[BaseManipulator] = self._create_manipulators()
-            
-        self.generate_splits(n_splits=self.local_config['parameters']['n_splits'],
-                             shuffle=self.local_config['parameters']['shuffle'])
 
-       
+        # Build manipulators from config (do NOT store the runtime objects on disk)
+        self.manipulators: List[BaseManipulator] = self._create_manipulators()
+        
+        self.generate_splits(
+            n_splits=self.local_config['parameters']['n_splits'],
+            shuffle=self.local_config['parameters']['shuffle']
+        )
+
     def _inject_dataset(self):
         for instance in self.instances:
             instance._dataset = self
@@ -57,14 +61,17 @@ class Dataset(Savable):
     def _create_manipulators(self):
         manipulator_instances = []
         for manipulator in self.local_config['parameters']['manipulators']:
-            self.context.logger.info("Apply: "+manipulator['class'])
-            manipulator_instances.append(get_instance_kvargs(manipulator['class'],
-                                {
-                                    "context": self.context,
-                                    "local_config": manipulator,
-                                    "dataset": self
-                                }))
-            
+            self.context.logger.info("Apply: " + manipulator['class'])
+            manipulator_instances.append(
+                get_instance_kvargs(
+                    manipulator['class'],
+                    {
+                        "context": self.context,
+                        "local_config": manipulator,
+                        "dataset": self
+                    }
+                )
+            )
         return manipulator_instances
     
     def __len__(self):
@@ -76,13 +83,10 @@ class Dataset(Savable):
     def get_instance(self, i: int):
         return self.instances[i]
     
-    def get_instances_by_class(self,cls):
-        if not self._inst_by_cls:
-            self._inst_by_cls= []
-
-        if not self._inst_by_cls[cls]:            
-            idx = self.class_indices[cls]
-            self._inst_by_cls[cls]=[self.instances[i] for i in idx]
+    def get_instances_by_class(self, cls):
+        if cls not in self._inst_by_cls:
+            idx = self.class_indices()[cls]
+            self._inst_by_cls[cls] = [self.instances[i] for i in idx]
         return self._inst_by_cls[cls]
     
     def num_node_features(self):
@@ -124,24 +128,31 @@ class Dataset(Savable):
     
     def get_split_indices(self, fold_id=-1):
         if fold_id == -1:
-            #NOTE: i am bit worried that it might be weak if you have sparse indices
-            return {'train': list(range(0, len(self.instances))), 'test': list(range(0, len(self.instances))) }
+            # NOTE: uses full set for both train and test when -1
+            return {
+                'train': list(range(0, len(self.instances))),
+                'test': list(range(0, len(self.instances)))
+            }
         else:
             return self.splits[fold_id]
     
     def generate_splits(self, n_splits=10, shuffle=True):
+        labels = [g.label for g in self.instances]
+        _, class_counts = np.unique(labels, return_counts=True)
+        
+        n_splits = min(n_splits, min(class_counts))
+        
         kf = StratifiedKFold(n_splits=n_splits, shuffle=shuffle)
-
-        spl = kf.split([g for g in self.instances], [g.label for g in self.instances])
+        spl = kf.split([g for g in self.instances], labels)
         for train_index, test_index in spl:
             self.splits.append({'train': train_index.tolist(), 'test': test_index.tolist()})
             
     def get_torch_loader(self,
-                         fold_id: int=-1,
-                         batch_size: int=4, 
-                         usage: str='train', 
-                         kls: int=-1, 
-                         dataset_kls: str='src.dataset.utils.dataset_torch.TorchGeometricDataset',
+                         fold_id: int = -1,
+                         batch_size: int = 4, 
+                         usage: str = 'train', 
+                         kls: int = -1, 
+                         dataset_kls: str = 'src.dataset.utils.dataset_torch.TorchGeometricDataset',
                          **kwargs):
         """
             Retrieves a DataLoader for Torch instances, facilitating batch processing.
@@ -157,85 +168,76 @@ class Dataset(Savable):
 
             Returns:
                 torch_geometric.loader.DataLoader: A DataLoader configured for the specified Torch instances.
-
-            Usage Example:
-                ```
-                dataloader = get_torch_loader(fold_id=0, batch_size=32, usage='train', kls=1, dataset_kls='{path-to-dataset-class}')
-                ```
-
-            Notes:
-                - The DataLoader is created using instances obtained from the `get_torch_instances` method.
-                - Batching is performed with the specified `batch_size`.
-                - Data shuffling and dropping the last incomplete batch are enabled by default for training.
-                - The function leverages the `DataLoader` class from the `torch_geometric.loader` module.
         """
-        instances = self.get_torch_instances(fold_id=fold_id, usage=usage, kls=kls, dataset_kls=dataset_kls)
-        return DataLoader(instances, batch_size=batch_size, shuffle=True, drop_last=True)
+        instances = self.get_torch_instances(
+            fold_id=fold_id,
+            usage=usage,
+            kls=kls,
+            dataset_kls=dataset_kls,
+            **kwargs
+        )
+        is_train = (usage == 'train')
+        return DataLoader(instances, batch_size=batch_size, shuffle=is_train, drop_last=is_train)
     
     def get_torch_instances(self,
-                            fold_id: int=-1,
-                            usage: str='train',
-                            kls: int=-1,
-                            dataset_kls: str='src.dataset.utils.dataset_torch.TorchGeometricDataset',
+                            fold_id: int = -1,
+                            usage: str = 'train',
+                            kls: int = -1,
+                            dataset_kls: str = 'src.dataset.utils.dataset_torch.TorchGeometricDataset',
                             **kwargs):
         """
             Retrieves a subset of Torch instances for a specific fold, usage, and dataset class.
 
-            Parameters:
-                - fold_id (int, optional): The fold identifier. Defaults to -1, indicating all folds.
-                - usage (str, optional): The usage type, e.g., 'train' or 'test'. Defaults to 'train'.
-                - kls (int, optional): The class identifier. Defaults to -1, indicating all classes.
-                - dataset_kls (str, optional): The class name of the (torch) Dataset or (torch_geometric) Dataset to use.
-                                            Defaults to 'src.dataset.utils.dataset_torch.TorchGeometricDataset'.
-                - **kwargs: Additional keyword arguments to be passed when creating the Dataset instance.
-
-            Returns:
-                torch.utils.data.Subset: A subset of Torch instances based on the specified parameters.
-
-            Usage Example:
-                ```
-                subset = get_torch_instances(fold_id=0, usage='train', kls=1, dataset_kls='{path-to-dataset-class}')
-                ```
-
             Notes:
-                - If `kls` is specified, instances not belonging to the specified class will be excluded.
-                - The function relies on the presence of `get_split_indices` and `class_indices` methods in the parent class.
-                - The Dataset instance is created using the specified class name (`dataset_kls`) and additional arguments (`**kwargs`).
+                - If `kls` is specified, keep ONLY instances belonging to that class.
+                - Returns a torch.utils.data.Subset over the created dataset.
         """
-        # Retrieve the indices for the specified fold and usage
         indices = self.get_split_indices(fold_id)[usage]
-        # If a specific class (kls) is provided, filter out instances not belonging to that class
+
         if kls != -1:
-            indices = list(set(indices).difference(set(self.class_indices()[kls])))
+            indices = list(set(indices).intersection(set(self.class_indices()[kls])))
+
         # Create an instance of the specified dataset class with the given instances and additional arguments
         self._torch_repr = get_class(dataset_kls)(self.instances, **kwargs)
-        # Return a Subset of the dataset instances based on the filtered indices
-        return Subset(self._torch_repr.instances, indices)
+
+        # Return a Subset of the dataset based on the filtered indices
+        # Prefer subsetting the dataset object itself (not its inner list)
+        return Subset(self._torch_repr, indices)
     
     def read(self):
         if self.saved():
             store_path = self.context.get_path(self)
             with open(store_path, 'rb') as f:
                 dump = pickle.load(f)
-                self.instances = dump['instances']
-                self.splits = dump['splits']
-                #self.local_config = dump['config']
-                self.node_features_map = dump['node_features_map']
-                self.edge_features_map = dump['edge_features_map']
-                self.graph_features_map = dump['graph_features_map']
-                self._num_nodes = dump['num_nodes']
-                self._class_indices = dump['class_indices']
-                self.manipulators = dump['manipulators']
 
-            #TODO: Attach the dataset back to all the instances
+            self.instances = []
+            self.splits = dump['splits']
+            self.node_features_map = dump['node_features_map']
+            self.edge_features_map = dump['edge_features_map']
+            self.graph_features_map = dump['graph_features_map']
+            self._num_nodes = dump['num_nodes']
+            self._class_indices = dump['class_indices']
+
+            self.generator = get_instance_kvargs(
+                self.local_config['parameters']['generator']['class'],
+                {
+                    "context": self.context,
+                    "local_config": self.local_config['parameters']['generator'],
+                    "dataset": self
+                }
+            )
+            self.generator.init()
             self._inject_dataset()
+
+            # Rebuild manipulators from config (do NOT expect serialized objects)
+            self.manipulators = self._create_manipulators()
             
-                
     def write(self):
         store_path = self.context.get_path(self)
         
         dump = {
-            "instances" : self.instances,
+            # Do NOT persist heavy runtime state:
+            # "instances": self.instances,
             "splits": self.splits,
             "config": clean_cfg(self.local_config), 
             "node_features_map": self.node_features_map,
@@ -243,12 +245,12 @@ class Dataset(Savable):
             "graph_features_map": self.graph_features_map,
             "num_nodes": self._num_nodes,
             "class_indices": self._class_indices,
-            "manipulators": self.manipulators      
+            # "manipulators": self.manipulators
         }
         
         with open(store_path, 'wb') as f:
-            pickle.dump(dump, f)
-            
+            # Use highest protocol for speed and compactness
+            pickle.dump(dump, f, protocol=pickle.HIGHEST_PROTOCOL)
             
     def check_configuration(self):
         super().check_configuration()
@@ -256,20 +258,16 @@ class Dataset(Savable):
         if 'generator' not in local_config['parameters']:
             raise ValueError(f'''The "generator" parameter needs to be specified in {self}''')
         
-        if 'manipulators' not in local_config['parameters']: # or not len(local_config['parameters']['manipulators']):
+        if 'manipulators' not in local_config['parameters']:
             local_config['parameters']['manipulators'] = []
-        
-        #local_config['parameters']['manipulators'].append(build_default_config_obj("src.dataset.manipulators.centralities.NodeCentrality"))
-        #local_config['parameters']['manipulators'].append(build_default_config_obj("src.dataset.manipulators.weights.EdgeWeights"))
             
         local_config['parameters']['n_splits'] = local_config['parameters'].get('n_splits', 10)
         local_config['parameters']['shuffle'] = local_config['parameters'].get('shuffle', True)
         
-    
     @property
     def name(self):
         if 'alias' not in self.local_config['parameters']['generator']['parameters']:
-            alias = get_class( self.local_config['parameters']['generator']['class'] ).__name__
+            alias = get_class(self.local_config['parameters']['generator']['class']).__name__
         else:
             alias = self.local_config['parameters']['generator']['parameters']['alias']
-        return self.context.get_name(self,alias=alias)
+        return self.context.get_name(self, alias=alias)

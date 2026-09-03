@@ -9,9 +9,21 @@ class Tagger:
     def tag(self, graph: GraphInstance) -> list[(int, int)]:
         pass
     
+    def untag(self, graph: GraphInstance, tags: list[(int, int)]) -> set[int]:
+        pass
+    
     def get_indices(self, labels: list[(int, int)], tuples: list[(int, int)]) -> set[int]:
         result = set()
         for (i, j) in tuples:
             if (i, j) in labels:
                 result.add(labels.index((i, j)))
         return sorted(result)
+    
+    def swap(self, solution : set[int], i: int) -> set[int]:  
+        pass
+    
+    def add(self, solution : set[int], i: int) -> set[int]:
+        pass
+    
+    def remove(self, solution : set[int], i: int) -> set[int]:
+        pass

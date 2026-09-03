@@ -44,6 +44,9 @@ class DownstreamGCN(GCN):
         node_features = super().forward(node_features, edge_index, edge_weight, batch)
         return self.downstream_layers(node_features)
     
+    def get_embeddings(self, node_features, edge_index, edge_weight, batch):
+        return super().forward(node_features, edge_index, edge_weight, batch)
+    
     def __init__downstream_layers(self):
         ############################################
         # initialize the linear layers interleaved with activation functions
@@ -59,3 +62,6 @@ class DownstreamGCN(GCN):
         #downstream_layers.append(nn.Softmax())
         # put the linear layers in sequential
         return nn.Sequential(*downstream_layers).double()
+    
+    def get_node_embeddings(self, node_features, edge_index, edge_weight, batch):
+        return super().get_node_embeddings(node_features, edge_index, edge_weight, batch)
