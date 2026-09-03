@@ -1,28 +1,25 @@
 #!/usr/bin/env python3
-"""Generate config files for the REVISION_EXPERIMENTS.md plan.
+"""Generate config files for the REVISION_EXPERIMENTS.md article matrix.
 
-Creates two batches under ``lab/config/generate_minimize/`` by cloning
-already-existing templates and injecting the needed parameter changes:
+Decoupled protocol (see REVISION_EXPERIMENTS.md):
+  * Each (dataset, generator, minimizer) runs ONCE, no seed in the scope
+    name, but with a FIXED internal seed = 0 (reproducible; this no-seed run
+    *is* "seed 0"). Scope: ``<ds>_<gen>_<min>``.
+  * Multiple seeds ONLY for LBS+DCE (E1b stability): besides the no-seed
+    (=seed 0) run, ``dce-lcls-seed{1,2,3}`` with internal seed 1/2/3.
+    Scope: ``<ds>_dce_lcls_seed<N>``.
 
-* **Exp. 1 (multi-semilla)**: clone every ``<ds>/<gen>/<gen>-<min>/``
-  combo (min in {lcls, obs}) into ``<ds>/<gen>/<gen>-<min>-seed<s>/`` for
-  s in {0, 1, 2, 3, 4}, injecting ``seed: <s>`` into the minimizer params
-  and rewriting the experiment scope to ``<ds>_<gen>_<min>_seed<s>``.
+Seed parameter key per component (matches each class' init):
+  * generator: ofs/rsgg -> ``seed``; dfs -> ``random_seed``; dce -> none.
+  * minimizer: lcls/obs/rhc -> ``seed``; dbs -> ``random_seed``.
 
-* **Exp. 3b (random hill-climbing)**: clone every ``<ds>/<gen>/<gen>-lcls/``
-  template into ``<ds>/<gen>/<gen>-rhc/``, swapping the minimizer class to
-  ``RandomHillClimbing`` (sibling of LocalSearch) with matching budget and
-  ``manip_attr: false`` so attribute manipulation is left to the LBS run.
+``recompute_features: false`` is set on feature-blind datasets (asd,
+tcr-tco-300) whose oracle ignores recomputed node features.
 
 Run from the repo root::
 
-    python scripts/gen_revision_configs.py
-    python scripts/gen_revision_configs.py --dry-run     # print plan, write nothing
-    python scripts/gen_revision_configs.py --exp 1       # only Exp. 1
-    python scripts/gen_revision_configs.py --exp 3b      # only Exp. 3b
-
-Idempotent: re-running overwrites the generated files (the source
-templates are never modified).
+    python scripts/gen_revision_configs.py            # regenerate everything
+    python scripts/gen_revision_configs.py --dry-run
 """
 from __future__ import annotations
 
@@ -36,17 +33,20 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 CFG_ROOT = REPO / "lab" / "config" / "generate_minimize"
 
-DATASETS = ["synthie", "asd", "bbbp", "enzymes", "bzr", "aids", "tcr-tco-300"]
-GENERATORS = ["dce", "ofs", "rsgg"]
-MINIMIZERS = ["lcls", "obs"]
-SEEDS = [0, 1, 2, 3, 4]
-FOLDS = list(range(10))
+DATASETS = ["tcr-tco-300", "asd", "synthie", "bbbp"]
+GENERATORS = ["dce", "ofs", "dfs", "rsgg"]
+MINIMIZERS = ["lcls", "obs", "dbs", "rhc"]
+FEATURE_BLIND = {"asd", "tcr-tco-300"}
+LBS_SEEDS = [1, 2, 3]            # extra seeds, dce-lcls only (no-seed = seed 0)
+
+GEN_SEED_KEY = {"dce": None, "ofs": "seed", "rsgg": "seed", "dfs": "random_seed"}
+MIN_SEED_KEY = {"lcls": "seed", "obs": "seed", "dbs": "random_seed", "rhc": "seed"}
 
 RHC_CLASS = "src.explainer.future.metaheuristic.local_search.random_hill_climbing.RandomHillClimbing"
+SEEDED_DIR_RE = re.compile(r"^(dce|ofs|dfs|rsgg)-(lcls|obs|dbs|rhc)-seed\d+$")
 
 
-def _read_jsonc(path: Path) -> "OrderedDict":
-    """Read a JSONC file (strips ``//`` and ``/* ... */`` comments) preserving key order."""
+def _read_jsonc(path: Path):
     txt = path.read_text()
     txt = re.sub(r"/\*.*?\*/", "", txt, flags=re.DOTALL)
     txt = re.sub(r"//.*?\n", "\n", txt)
@@ -59,118 +59,106 @@ def _write_json(path: Path, payload) -> None:
         json.dump(payload, f, indent=4)
 
 
-def _patch_seed(cfg, scope: str, seed: int):
-    """Set the experiment scope and inject ``seed`` into the minimizer params."""
+def _src_dir(ds, gen, mn):
+    """Template dir for a combo; rhc clones from <gen>-lcls."""
+    d = CFG_ROOT / ds / gen / f"{gen}-{mn}"
+    if d.is_dir():
+        return d
+    if mn == "rhc":
+        return CFG_ROOT / ds / gen / f"{gen}-lcls"
+    return None
+
+
+def _apply(cfg, ds, gen, mn, scope, seed):
+    """Patch a cloned config: scope, generator+minimizer seed, rhc swap,
+    recompute_features for feature-blind datasets."""
     cfg["experiment"]["scope"] = scope
-    for triplet in cfg["doe-triplets"]:
-        minim = triplet["explainer"]["parameters"]["minimizer"]
-        minim["parameters"]["seed"] = int(seed)
+    for t in cfg["doe-triplets"]:
+        p = t["explainer"]["parameters"]
+        gk = GEN_SEED_KEY[gen]
+        if gk:
+            p["generator"]["parameters"][gk] = int(seed)
+        minim = p["minimizer"]
+        if mn == "rhc":
+            lbs = minim.get("parameters", {})
+            max_oc = int(lbs.get("max_oracle_calls", 10000))
+            minim["class"] = RHC_CLASS
+            minim["parameters"] = OrderedDict([
+                ("attributed", True),
+                ("manip_attr", False),
+                ("max_oracle_calls", max_oc),
+                ("patience", 40),
+                ("seed", int(seed)),
+            ])
+        else:
+            minim["parameters"][MIN_SEED_KEY[mn]] = int(seed)
+        if ds in FEATURE_BLIND:
+            minim["parameters"]["recompute_features"] = False
 
 
-def _swap_to_rhc(cfg, scope: str, *, patience: int = 40):
-    """Convert an LBS template into a RandomHillClimbing template.
-
-    Keeps the LBS oracle-call budget and ``attributed`` flag so the RHC
-    head-to-head against LBS is at equal budget. The four LBS-only knobs
-    (neigh_factor, runtime_factor, max_runtime, max_neigh) are dropped
-    because RHC samples one neighbor per step rather than sweeping.
-    """
-    cfg["experiment"]["scope"] = scope
-    for triplet in cfg["doe-triplets"]:
-        minim = triplet["explainer"]["parameters"]["minimizer"]
-        lbs_params = minim.get("parameters", {})
-        attributed = bool(lbs_params.get("attributed", False))
-        # The LBS template doesn't always carry max_oracle_calls (it
-        # defaults to 10000 in code). Mirror that default explicitly here
-        # so the RHC budget is the same on disk as LBS uses at runtime.
-        max_oc = int(lbs_params.get("max_oracle_calls", 10000))
-
-        minim["class"] = RHC_CLASS
-        minim["parameters"] = OrderedDict([
-            ("attributed", attributed),
-            ("manip_attr", False),
-            ("max_oracle_calls", max_oc),
-            ("patience", patience),
-        ])
+def _delete_old_seeded(dry):
+    n = 0
+    for ds in DATASETS:
+        for gen in GENERATORS:
+            gdir = CFG_ROOT / ds / gen
+            if not gdir.is_dir():
+                continue
+            for d in gdir.iterdir():
+                if d.is_dir() and SEEDED_DIR_RE.match(d.name):
+                    # keep dce-lcls-seed{1,2,3}; delete everything else seeded
+                    if not (gen == "dce" and d.name.startswith("dce-lcls-seed")
+                            and d.name.split("seed")[-1] in {"1", "2", "3"}):
+                        if dry:
+                            print(f"  rm {d.relative_to(REPO)}")
+                        else:
+                            import shutil; shutil.rmtree(d)
+                        n += 1
+    return n
 
 
-def plan_exp1():
-    """Yield (template, target, scope, seed) for every Exp. 1 file."""
+def plan():
+    """Yield (src, dst, ds, gen, mn, scope, seed)."""
     for ds in DATASETS:
         for gen in GENERATORS:
             for mn in MINIMIZERS:
-                src_dir = CFG_ROOT / ds / gen / f"{gen}-{mn}"
-                if not src_dir.is_dir():
-                    print(f"  skip (template missing): {src_dir}", file=sys.stderr)
+                src = _src_dir(ds, gen, mn)
+                if src is None or not src.is_dir():
+                    print(f"  skip (no template): {ds}/{gen}/{gen}-{mn}", file=sys.stderr)
                     continue
-                for seed in SEEDS:
-                    dst_dir = CFG_ROOT / ds / gen / f"{gen}-{mn}-seed{seed}"
-                    scope = f"{ds}_{gen}_{mn}_seed{seed}"
-                    for fold in FOLDS:
-                        src = src_dir / f"generate_minimize{fold}.jsonc"
-                        dst = dst_dir / f"generate_minimize{fold}.jsonc"
-                        if not src.is_file():
-                            print(f"  skip (fold missing): {src}", file=sys.stderr)
-                            continue
-                        yield src, dst, scope, seed
-
-
-def plan_exp3b():
-    """Yield (template, target, scope) for every Exp. 3b file."""
-    for ds in DATASETS:
-        for gen in GENERATORS:
-            src_dir = CFG_ROOT / ds / gen / f"{gen}-lcls"
-            if not src_dir.is_dir():
-                print(f"  skip (template missing): {src_dir}", file=sys.stderr)
-                continue
-            dst_dir = CFG_ROOT / ds / gen / f"{gen}-rhc"
-            scope = f"{ds}_{gen}_rhc"
-            for fold in FOLDS:
-                src = src_dir / f"generate_minimize{fold}.jsonc"
-                dst = dst_dir / f"generate_minimize{fold}.jsonc"
-                if not src.is_file():
-                    print(f"  skip (fold missing): {src}", file=sys.stderr)
-                    continue
-                yield src, dst, scope
+                # no-seed canonical run (internal seed 0)
+                dst = CFG_ROOT / ds / gen / f"{gen}-{mn}"
+                yield src, dst, ds, gen, mn, f"{ds}_{gen}_{mn}", 0
+                # extra LBS seeds: dce-lcls only
+                if gen == "dce" and mn == "lcls":
+                    for s in LBS_SEEDS:
+                        dst_s = CFG_ROOT / ds / gen / f"dce-lcls-seed{s}"
+                        yield src, dst_s, ds, gen, mn, f"{ds}_dce_lcls_seed{s}", s
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--exp", choices=["1", "3b", "all"], default="all")
-    ap.add_argument("--dry-run", action="store_true",
-                    help="print the plan, write nothing")
+    ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
-    do_1 = args.exp in ("1", "all")
-    do_3b = args.exp in ("3b", "all")
-    n_written_1 = n_written_3b = 0
+    print("== Deleting superseded seeded E1 config dirs ==")
+    n_del = _delete_old_seeded(args.dry_run)
+    print(f"  {'would delete' if args.dry_run else 'deleted'} {n_del} dirs")
 
-    if do_1:
-        print("== Exp. 1 (multi-semilla) ==")
-        for src, dst, scope, seed in plan_exp1():
-            if args.dry_run:
-                print(f"  {dst.relative_to(REPO)}  <-  {src.name}  (scope={scope}, seed={seed})")
+    print("== Generating configs (no-seed + dce-lcls seeds) ==")
+    n = 0
+    folds = list(range(10))
+    for src, dst, ds, gen, mn, scope, seed in plan():
+        for fold in folds:
+            sf = src / f"generate_minimize{fold}.jsonc"
+            if not sf.is_file():
                 continue
-            cfg = _read_jsonc(src)
-            _patch_seed(cfg, scope, seed)
-            _write_json(dst, cfg)
-            n_written_1 += 1
-        print(f"  -> wrote {n_written_1} files")
-
-    if do_3b:
-        print("== Exp. 3b (random hill-climbing) ==")
-        for src, dst, scope in plan_exp3b():
+            cfg = _read_jsonc(sf)
+            _apply(cfg, ds, gen, mn, scope, seed)
             if args.dry_run:
-                print(f"  {dst.relative_to(REPO)}  <-  {src.name}  (scope={scope})")
                 continue
-            cfg = _read_jsonc(src)
-            _swap_to_rhc(cfg, scope)
-            _write_json(dst, cfg)
-            n_written_3b += 1
-        print(f"  -> wrote {n_written_3b} files")
-
-    print(f"\nDone. exp1={n_written_1}, exp3b={n_written_3b}, "
-          f"total={n_written_1 + n_written_3b}")
+            _write_json(dst / f"generate_minimize{fold}.jsonc", cfg)
+            n += 1
+    print(f"  {'would write' if args.dry_run else 'wrote'} {n} config files")
     return 0
 
 

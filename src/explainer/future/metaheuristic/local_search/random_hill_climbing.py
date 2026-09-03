@@ -24,17 +24,39 @@ from src.utils.seeding import set_seed
 
 
 class RandomHillClimbing(ExplanationMinimizer):
-    """Random-restart hill-climbing baseline.
+    """Vanilla random-restart hill-climbing baseline (Exp. 3b / R1.3).
 
-    Drop-in sibling of :class:`LocalSearch`: same constructor surface, same
-    minimizer interface, same oracle-call budget knob (``max_oracle_calls``).
-    The contrast with LBS is the search strategy: move type is sampled
-    uniformly from {delete, swap, add}, acceptance is greedy, and when
-    ``patience`` consecutive steps pass with no improvement the search
-    restarts from a random reduction of the best solution found so far.
+    By design this is the simplest possible baseline against LBS, so it
+    deliberately avoids every LBS-specific search trick:
 
-    Same budget head-to-head against LBS isolates the value of the priority
-    strategy (R1.3).
+    * **No heuristic neighborhood structure** (no ``del`` / ``swap`` /
+      ``add`` strategy dispatch, no priority ordering between them).
+      A single random bit in the edge-edit set is flipped per step.
+    * **No bounded-step heuristics** (no ``gap = best - actual``
+      constraint, no ``runtime_factor * len(actual)`` shrinking
+      schedule, no neighborhood ceiling). The bit to flip is sampled
+      uniformly from the full edge space.
+    * **No multi-edge batched moves**. One bit per iteration.
+
+    What it keeps from the canonical RRHC algorithm: greedy acceptance
+    (strict improvement only), restarts after ``patience`` evaluated
+    candidates without improvement, and an oracle-call budget for fair
+    comparison against LBS.
+
+    Restarts are drawn from random subsets of the incumbent ``best``
+    (NOT from a uniform random state: with 2^EPlus states a uniform
+    restart would be a strawman that never lands anywhere useful). This
+    down-set restart is the only structural information the baseline
+    uses, and it cuts in the baseline's favor.
+
+    Implementation efficiencies that keep the comparison fair without
+    adding domain heuristics: candidates whose size already fails the
+    acceptance test (``len >= len(best)``) are rejected by free
+    arithmetic BEFORE paying an oracle call, and already-evaluated
+    candidates are deduplicated by a cache (same cache LBS uses). The
+    oracle budget is the binding stop; a generous total-iteration cap
+    only guards against spinning on a fully cached neighborhood at zero
+    oracle cost.
     """
 
     def check_configuration(self):
@@ -56,7 +78,18 @@ class RandomHillClimbing(ExplanationMinimizer):
         self.attributed = params['attributed']
         self.manip_attr = params['manip_attr']
         self.max_oracle_calls = params['max_oracle_calls']
+        # Opt-in (hash-stable): skip per-candidate dataset.manipulate() when
+        # the oracle ignores recomputed node features (e.g. ASD, Tree-Cycles).
+        self.recompute_features = params.get('recompute_features', True)
         self.patience = params['patience']
+        # Hash-stable opt-in. Default lets the oracle budget be the binding
+        # stop (canonical RRHC termination): with patience evaluated
+        # candidates per window, the budget can fund at most
+        # max_oracle_calls // patience windows, so the give-up never fires
+        # before the budget unless explicitly lowered in the config.
+        self.max_restarts_no_improve = params.get(
+            'max_restarts_no_improve',
+            max(1, self.max_oracle_calls // max(1, self.patience)))
 
         # Opt-in deterministic seeding (Note C). Legacy configs that omit
         # ``seed`` keep their hash and stay non-deterministic as before.
@@ -66,6 +99,10 @@ class RandomHillClimbing(ExplanationMinimizer):
         self.searcher = SimpleSearcher()
         self.distance_metric = GraphEditDistanceMetric()
 
+        # ``self.methods`` is only consulted when ``attributed`` and
+        # ``manip_attr`` are both True, i.e. when the user explicitly
+        # opts into the LBS-style attribute manipulation. The vanilla
+        # baseline runs with ``manip_attr=False``.
         self.methods = [
             lambda data, features: identity(data, features),
             lambda data, features: average_smoothing(data, features, iterations=1),
@@ -93,10 +130,10 @@ class RandomHillClimbing(ExplanationMinimizer):
         different_coordinates = np.where(diff_matrix == 1)
         different_coords_list = list(zip(different_coordinates[0], different_coordinates[1]))
         filtered_coords_list = [c for c in different_coords_list if c[0] < c[1]]
-        actual = self.tagger.get_indices(self.labels, filtered_coords_list)
-        best = actual
+        actual = set(self.tagger.get_indices(self.labels, filtered_coords_list))
+        best = set(actual)
 
-        if len(actual) == 0:
+        if len(best) == 0:
             self.logger.info("Initial solution size is 0")
             return min_ctf
 
@@ -108,56 +145,76 @@ class RandomHillClimbing(ExplanationMinimizer):
         return self.get_approximation(actual, best, min_ctf)
 
     def get_approximation(self, actual, best, min_ctf):
-        self.logger.info("Initial solution: " + str(actual))
-        self.logger.info("Initial solution size: " + str(len(actual)))
+        self.logger.info("Initial solution size: " + str(len(best)))
 
         result = min_ctf
         self.k = 0
         steps_since_improve = 0
-        move_types = ("del", "swap", "add")
+        restarts_without_improve = 0
+        # Free-spin guard: bounds loop iterations that cost no oracle calls
+        # (cache hits, size-rejections). Generous on purpose; the oracle
+        # budget is the intended binding stop.
+        iterations = 0
+        max_iterations = 50 * self.max_oracle_calls
 
-        while self.k < self.max_oracle_calls:
+        while self.k < self.max_oracle_calls and iterations < max_iterations:
+            iterations += 1
             if len(best) <= 1:
                 break
 
             if steps_since_improve >= self.patience:
-                target = random.randint(1, len(best) - 1)
-                actual = self.reduce_random(set(best), target)
+                restarts_without_improve += 1
+                if restarts_without_improve > self.max_restarts_no_improve:
+                    self.logger.info(
+                        "============> (giving up after "
+                        f"{self.max_restarts_no_improve} restarts without improvement)"
+                    )
+                    break
+                target = random.randint(1, max(1, len(best) - 1))
+                actual = self._random_subset(best, target)
                 steps_since_improve = 0
                 self.logger.info("============> (restart) size: " + str(len(actual)))
 
-            move = random.choice(move_types)
-            candidate = None
+            # Single random bit flip in the full edge-edit space. No move
+            # type, no step-size heuristic, no bounding by ``best``. Range
+            # is ``[0, EPlus)`` to match :class:`SimpleTagger`'s 0-indexed
+            # labels (LBS's own helpers skip label 0; vanilla doesn't).
+            bit = random.randrange(0, self.EPlus)
+            candidate = set(actual)
+            if bit in candidate:
+                candidate.remove(bit)
+            else:
+                candidate.add(bit)
 
-            if move == "del" and len(actual) > 0:
-                i = random.randint(1, len(actual))
-                candidate = self.remove_random(set(actual), i)
-            elif move == "swap" and 1 <= len(actual) < self.EPlus:
-                i_max = min(len(actual), self.EPlus - len(actual))
-                if i_max >= 1:
-                    i = random.randint(1, i_max)
-                    candidate = self.swap_random(set(actual), i)
-            elif move == "add" and len(actual) < len(best):
-                gap = len(best) - len(actual)
-                i = random.randint(1, gap)
-                candidate = self.add_random(set(actual), i)
-
-            if candidate is None:
-                steps_since_improve += 1
+            if not candidate:
                 continue
-
+            # Free part of the objective first: a candidate at least as large
+            # as the incumbent can never satisfy the acceptance test, so do
+            # not pay an oracle call for it (arithmetic short-circuit, not a
+            # domain heuristic). Not cached (never evaluated) and not counted
+            # toward patience (no information gained).
+            if len(candidate) >= len(best):
+                continue
             if self.cache.contains(candidate):
+                # Already evaluated: zero oracle cost, but it DOES count
+                # toward patience — repeated hits mean the improving
+                # neighborhood of the current anchor is exhausted, which is
+                # exactly when a restart should fire.
+                steps_since_improve += 1
                 continue
             self.cache.add(candidate)
 
             found_, inst = self.evaluate(candidate)
-            if found_ and len(candidate) < len(best):
+            if found_:
                 best = candidate
                 actual = candidate
                 result = inst
                 steps_since_improve = 0
-                self.logger.info("============> (rand-" + move + ") size: " + str(len(actual)))
+                restarts_without_improve = 0
+                self.logger.info("============> (hill) size: " + str(len(actual)))
             else:
+                # Patience counts evaluated (oracle-paid) candidates, so each
+                # window really tests `patience` informative neighbors.
                 steps_since_improve += 1
 
         if self.oracle.predict(result) == self.oracle.predict(self.G):
@@ -166,60 +223,44 @@ class RandomHillClimbing(ExplanationMinimizer):
 
     def evaluate(self, solution):
         new_data = np.copy(self.G.data)
-        self.disturb(new_data, self.G.directed, solution)
+        self._disturb(new_data, self.G.directed, solution)
 
         if self.attributed and self.manip_attr:
             for method in self.methods:
                 self.k += 1
                 node_features = method(new_data, self.G.node_features)
-                new_g = GraphInstance(id=self.G.id,
-                                      label=0,
-                                      data=new_data,
+                new_g = GraphInstance(id=self.G.id, label=0, data=new_data,
                                       directed=self.G.directed,
                                       node_features=node_features)
                 if self.M.classify(new_g):
                     return (True, new_g)
         else:
             self.k += 1
-            new_g = GraphInstance(id=self.G.id,
-                                  label=0,
-                                  data=new_data,
+            new_g = GraphInstance(id=self.G.id, label=0, data=new_data,
                                   directed=self.G.directed,
                                   node_features=self.G.node_features)
-            if not self.attributed:
+            if not self.attributed and self.recompute_features:
                 self.dataset.manipulate(new_g)
             if self.M.classify(new_g):
                 return (True, new_g)
 
         return (False, None)
 
-    def disturb(self, data, directed, solution):
+    def _disturb(self, data, directed, solution):
         for i in solution:
             (n1, n2) = self.labels[i]
             data[n1, n2] = (data[n1, n2] + 1) % 2
             if not directed:
                 data[n2, n1] = (data[n2, n1] + 1) % 2
 
-    def add_random(self, solution, i):
-        available = set(range(1, self.EPlus)) - solution
-        if len(available) < i:
-            raise ValueError("Not enough available numbers to add.")
-        solution.update(random.sample(list(available), i))
-        return solution
+    def _random_subset(self, solution, size):
+        """Pick a random subset of exactly ``size`` from ``solution``.
 
-    def remove_random(self, solution, i):
-        solution.difference_update(random.sample(list(solution), i))
-        return solution
-
-    def swap_random(self, solution, i):
-        self.remove_random(solution, i)
-        self.add_random(solution, i)
-        return solution
-
-    def reduce_random(self, solution, i):
-        if len(solution) < i:
-            raise ValueError("The set does not have enough elements.")
-        return set(random.sample(list(solution), i))
+        Used only for the random restart step (textbook RRHC); the inner
+        loop itself does not call this."""
+        if size > len(solution):
+            return set(solution)
+        return set(random.sample(list(solution), size))
 
     def write(self):
         pass
