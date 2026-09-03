@@ -10,10 +10,10 @@ One combined figure per generator (DCE, OFS, RSGG), 2x2 panels
   * GED capped at GED_CAP on the axis: taller bars run off the top of the
     panel but their exact value is still annotated on the bar
 
-Data come from the calibrated results/ store (seed-0, legacy not counted),
-read through the same aggregation the notebook plots. The generator-only bar
-uses the <ds>_<gen>_dummy cells; where those have not been produced yet
-(currently RSGG), the bar is drawn as a hatched 'TODO' placeholder.
+Data come from lab/output/results/, read through the same aggregation the
+notebook plots (scripts/_results_agg.py). Every bar, the generator-only one
+included, is a real cell: the generator-only bar is the <ds>_<gen>_dummy
+scope. Cells with no results yet are drawn as a hatched 'TODO' placeholder.
 
 Outputs:  document/paper_reviewed/images/<gen>_results.{png,pdf}
 """
@@ -28,11 +28,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _calib_lib import displayed_mean
-from _calib_targets import T as PAPER_T, DS as PAPER_DS
-
-# scope dataset ('tcr-tco-300') -> targets key ('tcr')
-_SCOPE_TO_TKEY = {v: k for k, v in PAPER_DS.items()}
+from _results_agg import displayed_mean
 
 PAPER_IMAGES = Path("/home/rodrigo/projects/GRETEL stuff/Documents/paper-reviewed/images")
 LAB_GRAPHICS = Path(__file__).resolve().parent.parent / "lab" / "graphics"
@@ -70,22 +66,13 @@ def fmt(v, metric):
     return f"{v:.2f}" if v < 100 else f"{v:.1f}"
 
 
-def gen_only_value(gen, ds, metric):
-    """Generator-only ('Generator only' bar) value, taken from the published
-    paper figures (./images), stored in _calib_targets.T[(gen, key)]['gen'].
-    Returns None where not applicable (e.g. dfs, or FED on attribute-free ds)."""
-    key = _SCOPE_TO_TKEY.get(ds)
-    tg = PAPER_T.get((gen, key))
-    if tg is None:
-        return None
-    g = tg["gen"]
-    return {"GraphEditDistance": g["ged"], "OracleCalls": g["oc"],
-            "FeatureEditDistance": g["fed"], "Correctness": tg["corr"]}.get(metric)
-
-
 def cell_value(ds, gen, mk, metric):
-    if mk == "dummy":
-        return gen_only_value(gen, ds, metric)
+    """Value for one bar, read from the result store.
+
+    The 'Generator only' bar is the ``<ds>_<gen>_dummy`` scope (the pass-through
+    minimizer), so it goes through the same aggregation as every other bar.
+    Returns None when the cell has no results yet, which draws the hatched
+    placeholder in :func:`draw_panel`."""
     v, n = displayed_mean(ds, gen, mk, metric)
     if v != v or n == 0:   # NaN or no folds
         return None
@@ -179,8 +166,7 @@ def make_figure(gen, out_dir=PAPER_IMAGES):
 
 
 def generate_all(out_dir=PAPER_IMAGES, gens=None):
-    """Generate the per-generator figures. The generator-only bar is taken
-    from the published paper targets (see gen_only_value)."""
+    """Generate the per-generator figures from the result store."""
     for gen in (gens or GENS):
         make_figure(gen, out_dir=out_dir)
 
