@@ -39,7 +39,7 @@ class FeatureEditDistance(MetricStage):
         # Calculating the average fed considering only the correct instances
         fed_metric = 0.0
         if correct_instances > 0:
-            fed_metric = aggregated_fed/correct_instances
+            fed_metric = float(aggregated_fed/correct_instances)
         
         # Writing the metric value into the explanation and returning the explanation
         self.write_into_explanation(explanation, fed_metric)

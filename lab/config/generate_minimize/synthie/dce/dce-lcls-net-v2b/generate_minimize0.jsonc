@@ -1,0 +1,110 @@
+{
+    "experiment": {
+        "scope": "synthie_dce_lcls-net-v2b",
+        "parameters": {
+            "lock_release_tout": 120,
+            "propagate": [
+                {
+                    "in_sections": [
+                        "doe-triplets/explainer"
+                    ],
+                    "params": {
+                        "fold_id": 0
+                    }
+                },
+                {
+                    "in_sections": [
+                        "doe-triplets/oracle"
+                    ],
+                    "params": {
+                        "fold_id": -1,
+                        "retrain": false
+                    }
+                },
+                {
+                    "in_sections": [
+                        "doe-triplets/dataset"
+                    ],
+                    "params": {
+                        "compose_man": "lab/config/snippets/datasets/padding.json"
+                    }
+                }
+            ],
+            "expand": {
+                "folds": [
+                    "doe-triplets/explainer"
+                ],
+                "triplets": true
+            }
+        }
+    },
+    "doe-triplets": [
+        {
+            "compose_do": "./lab/config/snippets/do-pairs/Synthie_GCN.json",
+            "explainer": {
+                "class": "src.explainer.future.meta.generate_minimize.GenerateMinimize",
+                "parameters": {
+                    "fold_id": 0,
+                    "generator": {
+                        "class": "src.explainer.future.search.dces.DCESExplainer",
+                        "parameters": {
+                            "epochs": 500
+                        }
+                    },
+                    "minimizer": {
+                        "class": "src.explainer.future.metaheuristic.local_search.local_search_selection_net_v2.LocalSearch",
+                        "parameters": {
+                            "neigh_factor": 4,
+                            "runtime_factor": 4,
+                            "max_runtime": 20,
+                            "max_neigh": 20,
+                            "attributed": true,
+                            "max_oracle_calls": 10000,
+                            "seed": 0,
+                            "selector_mode": "learned",
+                            "dense_reward": true,
+                            "adaptive_trials": true,
+                            "lock_whole_minimize": true,
+                            "model_tag": "v2b",
+                            "selector": {
+                                "hidden_dim": 64,
+                                "num_hidden_layers": 2,
+                                "n_heads": 4,
+                                "prior_scale": 1.0,
+                                "lr": 0.001,
+                                "weight_decay": 0.0001,
+                                "l2_init": 0.01,
+                                "exploration_prob": 0.05,
+                                "acquisition": "thompson",
+                                "pooling": "noisy_and",
+                                "logq_correction": true,
+                                "replay_capacity": 2000,
+                                "replay_batch": 32,
+                                "veto_threshold": 0.0,
+                                "veto_min_examples": 500,
+                                "shrink": 0.97,
+                                "perturb_std": 0.003,
+                                "lr_add": 0.002,
+                                "extra_replay_steps_add": 3
+                            },
+                            "block_removal": true,
+                            "block_init": 8,
+                            "swap_record_add": false,
+                            "swap_record_remove": true,
+                            "flush_every_add": 4,
+                            "retry_outer": true,
+                            "block_random_mix": true
+                        }
+                    }
+                }
+            }
+        }
+    ],
+    "evaluator": {
+        "class": "src.evaluation.future.evaluator.Evaluator",
+        "parameters": {
+            "compose_pip": "./lab/config/snippets/minimizing_pipeline.json"
+        }
+    },
+    "compose_strs": "./lab/config/snippets/default_store_paths.json"
+}

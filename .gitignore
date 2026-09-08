@@ -194,3 +194,4 @@ Llama-3.2-1B.zip
 
 # PyTorch model checkpoints
 *.pt
+models/*.lock
