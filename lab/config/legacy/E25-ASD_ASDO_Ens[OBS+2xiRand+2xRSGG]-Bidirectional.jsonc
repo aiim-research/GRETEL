@@ -29,7 +29,7 @@
         }
         ],
     "explainers": [
-                    {"class": "src.explainer.ensemble.explainer_ensemble_base.ExplainerEnsemble",
+                    {"class": "src.explainer.future.ensemble.explainer_ensemble_base.ExplainerEnsemble",
                      "parameters": {
                                     "explainers": [
                                                 {"class": "src.explainer.heuristic.obs.ObliviousBidirectionalSearchExplainer",
@@ -44,7 +44,7 @@
                                                 "parameters":{"epochs": 300}}
                                                 ],
                                     "aggregator": {
-                                        "class": "src.explainer.ensemble.aggregators.bidirectional.ExplanationBidirectionalSearch",
+                                        "class": "src.explainer.future.ensemble.aggregators.bidirectional.ExplanationBidirectionalSearch",
                                         "parameters": {"oc_limit": 1000}
                                     }
                                     }
