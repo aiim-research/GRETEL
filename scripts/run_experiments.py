@@ -12,12 +12,12 @@ files are skipped so the script is restartable.
 
 Usage from the repo root with the GRTL conda env active::
 
-    python tests/run_experiments.py
-    python tests/run_experiments.py --datasets bzr asd
-    python tests/run_experiments.py --combos ofs/ofs-obs
-    python tests/run_experiments.py --folds 0 1 2 --run-number 2
-    python tests/run_experiments.py --force      # re-run even if results exist
-    python tests/run_experiments.py --timeout 3600  # per-fold budget
+    python scripts/run_experiments.py
+    python scripts/run_experiments.py --datasets bzr asd
+    python scripts/run_experiments.py --combos ofs/ofs-obs
+    python scripts/run_experiments.py --folds 0 1 2 --run-number 2
+    python scripts/run_experiments.py --force      # re-run even if results exist
+    python scripts/run_experiments.py --timeout 3600  # per-fold budget
 
 Exit code is 0 if every config that ran finished cleanly.
 """
