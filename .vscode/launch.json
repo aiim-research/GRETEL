@@ -1,81 +1,69 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    // Debug targets for the current experiment tree. Every "args" entry is a
+    // config path relative to the repository root; swap it for any other
+    // config under lab/config/ to debug that combination instead.
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "ENSEMBLE_RESULTS.jsonc",
+            "name": "Experiment: ASD / DCE + LocalSearch (fold 0)",
             "type": "python",
             "request": "launch",
             "program": "main.py",
             "console": "integratedTerminal",
-            "justMyCode": true,
-            "args": ["config/_papers/ijcai24/datasets_Ens[components-A]-in.jsonc", "1"],
+            "justMyCode": false,
+            "args": ["lab/config/generate_minimize/asd/dce/dce-lcls/generate_minimize0.jsonc", "1"]
         },
         {
-            "name": "CLEAR_debug.jsonc",
+            "name": "Experiment: Synthie / DCE + LocalSearch (fold 0)",
             "type": "python",
             "request": "launch",
             "program": "main.py",
             "console": "integratedTerminal",
-            "justMyCode": true,
-            "args": ["experiments/frankenstein/methods_comparison_frankenstein_do0_e0/methods_comparison_frankenstein_do0_e0_f0.json", "1"],
+            "justMyCode": false,
+            "args": ["lab/config/generate_minimize/synthie/dce/dce-lcls/generate_minimize0.jsonc", "1"]
         },
         {
-            "name": "TCR-150-100-0.3+TCC+iRand.jsonc",
+            "name": "Experiment: config of the open file",
             "type": "python",
             "request": "launch",
             "program": "main.py",
             "console": "integratedTerminal",
-            "justMyCode": true,
-            "args": ["config/TCR-150-100-0.3+TCC+iRand.jsonc", "1"],
+            "justMyCode": false,
+            "args": ["${relativeFile}", "1"]
         },
         {
-            "name": "BBBP_KNN-MOL_DCE",
+            "name": "Queue: run the revision batch (1 worker)",
             "type": "python",
             "request": "launch",
-            "program": "main.py",
+            "program": "scripts/run_revision_queue.py",
             "console": "integratedTerminal",
-            "justMyCode": true,
-            "args": ["config/BBBP_KNN-MOL_DCE.json", "1"],
+            "justMyCode": false,
+            "args": ["--workers", "1"]
         },
         {
-            "name": "Python: Current File with profiler",
+            "name": "Smoke test: ASD, non-trainable variants",
             "type": "python",
             "request": "launch",
-            "module": "cProfile",
+            "program": "tests/regression_smoke.py",
             "console": "integratedTerminal",
-            "args": [
-                "-o", "output/tmp.prof", "${file}","config/test/test_TC.json", "1"
-            ]
+            "justMyCode": false,
+            "args": ["--datasets", "asd", "--timeout", "240"]
         },
         {
-            "name": "Python: Current File",
+            "name": "Checks: config references + import smoke",
+            "type": "python",
+            "request": "launch",
+            "program": "tools/check_config_refs.py",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Python: current file",
             "type": "python",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "justMyCode": true,
-            "args": ["config/test/test_TC.json", "1"],
-        },
-        {
-            "name": "RSGG_ASD",
-            "type": "python",
-            "request": "launch",
-            "program": "main.py",
-            "console": "integratedTerminal",
-            "justMyCode": true,
-            "args": ["config/RSGG_ASD.json", "1"],
-        },
-        {
-            "name": "TWITTER_TEST",
-            "type": "python",
-            "request": "launch",
-            "program": "main.py",
-            "console": "integratedTerminal",
-            "justMyCode": true,
-            "args": ["config/new_datasets/TWITTER_DCE.json", "1"],
-        }             
+            "justMyCode": false
+        }
     ]
 }

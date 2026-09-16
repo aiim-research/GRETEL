@@ -1,4 +1,4 @@
-"""Aggregation pipeline for the result store, matching lab/stats_visualizer.ipynb.
+"""Aggregation pipeline for the result store, matching lab/notebooks/stats_visualizer.ipynb.
 
 The value a bar or table cell shows for a (dataset, generator, minimizer, metric)
 combination is built in three steps:

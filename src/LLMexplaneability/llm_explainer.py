@@ -4,7 +4,7 @@ import os
 import time
 import random as rd
 from src.core.llm_base import LLM
-from transformers import AutoTokenizer, AutoModelForCausalLM #, BitsAndBytesConfig
+from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 import torch
 
 from src.utils.logger import GLogger
@@ -14,15 +14,24 @@ class GeminiExplainer(LLM):
 
     def init(self):
         # Credentials come from the environment, never from source. Export
-        # GEMINI_API_KEY (or GOOGLE_API_KEY) before running an LLM pipeline.
-        self.api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-        if not self.api_key:
+        # GEMINI_API_KEYS (comma-separated, rotated on error) or a single
+        # GEMINI_API_KEY / GOOGLE_API_KEY before running an LLM pipeline.
+        raw = (os.environ.get("GEMINI_API_KEYS")
+               or os.environ.get("GEMINI_API_KEY")
+               or os.environ.get("GOOGLE_API_KEY")
+               or "")
+        self.apis = [k.strip() for k in raw.split(",") if k.strip()]
+        if not self.apis:
             raise SystemExit(
                 "GeminiExplainer needs an API key: export GEMINI_API_KEY "
-                "(or GOOGLE_API_KEY) before running the LLM pipeline."
+                "(or GOOGLE_API_KEY), or GEMINI_API_KEYS with a "
+                "comma-separated list, before running the LLM pipeline."
             )
-        self.model = "gemini-2.5-pro"
+        self.index = 0
+        self.api_key = self.apis[self.index]
+        self.model = "gemini-2.5-flash"
         self.client = genai.Client(api_key = self.api_key)
+
 
     def explain_counterfactual(self, system, prompt):
 
@@ -37,6 +46,18 @@ class GeminiExplainer(LLM):
                 return resp.text
             except Exception as e:
                 num_tries += 1
+                # Rotate to the next key: a long run usually fails because one
+                # key hit its quota, not because the request was bad.
+                if len(self.apis) > 1:
+                    self.index = (self.index + 1) % len(self.apis)
+                    self.api_key = self.apis[self.index]
+                    self.client = genai.Client(api_key=self.api_key)
+                    GLogger.getLogger().info(
+                        f"Gemini call failed ({type(e).__name__}); "
+                        f"rotating to API key {self.index + 1}/{len(self.apis)}")
+                else:
+                    GLogger.getLogger().info(
+                        f"Gemini call failed ({type(e).__name__}); retrying")
                 time.sleep(60) # wait for 60 seconds before retrying
                 
         raise Exception("Failed to get response from the model after multiple attempts.")
@@ -45,7 +66,17 @@ class GeminiExplainer(LLM):
 class LocalLlamaExplainer(LLM):
 
     def init(self):
-        self.repo_id = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+        # self.repo_id = "meta-llama/Meta-Llama-3.1-8B-Instruct" "Qwen/Qwen2.5-7B-Instruct" "Qwen/Qwen2.5-72B-Instruct"
+        self.repo_id = "meta-llama/Llama-3.1-8B-Instruct"
+
+
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.bfloat16,   # or torch.float16
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",               # good default
+        )
+
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.repo_id)
 
@@ -77,10 +108,13 @@ class LocalLlamaExplainer(LLM):
 
         torch_dtype = torch.bfloat16 if self.device == "cuda" else torch.float32
 
+        GLogger.getLogger().info("torch dtype = " + str(torch_dtype))
+
         self.model = AutoModelForCausalLM.from_pretrained(
             self.repo_id,
-            dtype=torch_dtype,
+            torch_dtype=torch_dtype,
             trust_remote_code=True,
+            quantization_config=bnb_config,
         ).to(self.device)
 
         if self.device == "mps":
@@ -153,6 +187,10 @@ class LocalLlamaExplainer(LLM):
 
             except Exception as e:
                 num_tries += 1
+                if self.device.startswith("cuda"):
+                    import gc
+                    gc.collect()
+                    torch.cuda.empty_cache()
                 GLogger.getLogger().info(e)
 
         raise Exception("Failed to get response from the model after multiple attempts.")

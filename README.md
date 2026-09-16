@@ -1,53 +1,100 @@
-# GRETEL (v2.0): Graph Counterfactual Explanation Evaluation Framework
+# GRETEL: Graph Counterfactual Explanation Evaluation Framework
+
 [![discord](https://img.shields.io/badge/Discord-blue?style=for-the-badge)](https://discord.gg/TdZWBDg7)
 [![linkedin](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/company/artificial-intelligence-information-mining)
 [![github](https://img.shields.io/github/stars/aiim-research/GRETEL?style=for-the-badge)](#)
 [![python](https://img.shields.io/badge/Python-3.9-blue?style=for-the-badge)](https://docs.python.org/release/3.9.0/)
 
+GRETEL is an open-source framework for developing and evaluating Graph Counterfactual Explanation (GCE) methods. It is the code behind several published papers and is maintained as a platform others can extend.
 
+Work on Graph Counterfactual Explanations diverges in problem definition, application domain, test data and evaluation metrics, and most papers do not compare exhaustively against the alternatives. GRETEL exists to make that comparison possible: datasets, ML models, explanation techniques and evaluation measures are all pluggable components, selected and parameterised from a single configuration file.
 
-## General Information:
-Machine Learning (ML) systems are a building part of the modern tools that impact our daily life in several application domains. Due to their black-box nature, those systems are hardly adopted in application domains (e.g. health, finance) where understanding the decision process is of paramount importance. Explanation methods were developed to explain how the ML model has taken a specific decision for a given case/instance. Graph Counterfactual Explanations (GCE) is one of the explanation techniques adopted in the Graph Learning domain. The existing works on Graph Counterfactual Explanations diverge mostly in the problem definition, application domain, test data, and evaluation metrics, and most existing works do not compare exhaustively against other counterfactual explanation techniques present in the literature. Here, we release GRETEL [1,2], a unified framework to develop and test GCE methods in several settings. GRETEL [1,2] is an open-source framework for Evaluating Graph Counterfactual Explanation Methods. It is implemented using the Object-Oriented paradigm and the Factory Method design pattern. Our main goal is to create a generic platform that allows the researchers to speed up the process of developing and testing new Graph Counterfactual Explanation Methods.
-GRETEL is a highly extensible evaluation framework that promotes Open Science and the reproducibility of the evaluation by providing a set of well-defined mechanisms to integrate and manage easily: both real and synthetic datasets, ML models, state-of-the-art explanation techniques, and evaluation measures. 
+## Quick start
 
+```bash
+git clone https://github.com/aiim-research/GRETEL.git && cd GRETEL
+conda env create -f environment.yml && conda activate GRETEL
 
-## Table of Contents
+# run one experiment: ASD, DCE generator, LocalSearch minimizer, fold 0
+python main.py lab/config/generate_minimize/asd/dce/dce-lcls/generate_minimize0.jsonc 1
+```
 
-* [Team Information](#team-information)
-* [General Information](#general-information)
-* [First steps with GRETEL](#first-steps-with-gretel)
-* [Notable References](#welcomed-citations)
-* [Resources Provided with the Framework](#resources-provided-with-the-framework)
-* [References](#references)
+Results appear under `lab/output/results/<scope>/`. For CUDA, use `./scripts/setup-grtl-gpu.sh` instead of the conda step.
 
-## Team Information:
-* Prof. Giovanni Stilo [project leader/investigator]
-* Mario Alfonso Prado Romero [co-principal investigator]
-* Dr. Bardh Prenkaj [co-principal investigator]
-* Andrea D'Angelo [notable Investigator]
-* Efstratios Zaradoukas [contributor]
-* Alessandro Celi [administrative staff]
+**[docs/reproducing-experiments.md](docs/reproducing-experiments.md)** is the guide: environment, data, how a configuration is assembled, how to run a batch, and how to read the result store. **[docs/README.md](docs/README.md)** maps the rest of the repository.
 
-### Past Contributors:
-* Hiram Borbolla Hernández [notable contributor]
-* Roberto Marti Cedeño [notable contributor]
-* Ernesto Estevanell-Valladares [contributor]
-* Daniel Alejandro Valdés-Pérez [contributor]
+## Repository layout
 
-## General Information:
+```
+src/        the framework: dataset/ oracle/ embedder/ explainer/ evaluation/ core/
+lab/        the experiment workbench: config/ notebooks/ data/cache/ graphics/
+scripts/    command-line entry points (runners, artefact trainers, figures)
+tools/      repository integrity checks
+tests/      regression smoke test
+data/       the datasets that ship with the repository
+docs/       this documentation
+legacy/     earlier phases, kept reproducible
+```
 
-GRETEL [1, 2] is an open source framework for Evaluating Graph Counterfactual Explanation Methods. It is implemented using the Object Oriented paradigm and the Factory Method design pattern. Our main goal is to create a generic platform that allows the researchers to speed up the process of developing and testing new Graph Counterfactual Explanation Methods.
+Each of `lab/`, `scripts/`, `tools/`, `legacy/` and the `legacy/` subpackages inside `src/` carries a README explaining what is live in it and what is kept for the record.
 
-## First steps with GRETEL:
-See the [GRETEL's wiki](https://github.com/aiim-research/GRETEL/wiki)
+## How it works
 
-## Welcomed Citations:
+A component is a class plus a parameter dictionary, named in the config by its dotted path:
 
-Please cite our papers if you use GRETEL in your projects:
+```jsonc
+"explainer": {
+  "class": "src.explainer.future.search.dces.DCESExplainer",
+  "parameters": { "epochs": 500 }
+}
+```
 
-Mario Alfonso Prado-Romero and Giovanni Stilo. 2022. GRETEL: Graph Counterfactual Explanation Evaluation Framework. In Proceedings of the 31st ACM International Conference on Information and Knowledge Management (CIKM '22). Association for Computing Machinery, New York, NY, USA. [https://doi.org/10.1145/3511808.3557608](https://doi.org/10.1145/3511808.3557608)
+A factory instantiates it, and `Context` derives everything else. In particular, every cache entry, saved artefact and result directory is named by an MD5 of the component's resolved configuration, so `ASD-15273954d84e872cf0b021cd4477bfdc` identifies one dataset built one specific way. Two runs that agree on every parameter share a cache; a run that differs anywhere gets its own. Nothing has to be cleaned between experiments.
 
-```latex:
+The consequence to know about before editing: a module's path is part of that identity. See [tools/README.md](tools/README.md).
+
+Adding a component means writing the class and naming it in a config. Nothing needs to be registered.
+
+## What ships with the framework
+
+**Datasets.** Tree-Cycles and Tree-Infinity (synthetic), ASD and ADHD (brain networks, [4]), BBBP and HIV (molecules, [5]), plus any [TU dataset](https://chrsmrrs.github.io/datasets/) by name (PROTEINS, ENZYMES, BZR, AIDS, COLORS-3, Synthie, IMDB-BINARY, Cuneiform), downloaded on first use.
+
+**Oracles.** KNN, SVM, GCN, and custom oracles for ASD [4] and Tree-Cycles (the latter is exact by construction).
+
+**Explainers.**
+
+| Method | What it does |
+|---|---|
+| DCE Search | searches the dataset for a counterfactual instance. Makes no assumption about the data, so it serves as the baseline |
+| OBS / DDBS [4] | oblivious and data-driven bidirectional search, two-stage heuristics |
+| Local Bounded Search | bounded local search over edge and attribute operations, the subject of the current revision |
+| MACCS [5] | molecule-specific, counterfactual compounds with STONED |
+| MEG [6] | reinforcement learning over molecular graphs |
+| CFF [7] | learned perturbation masks from counterfactual and factual reasoning |
+| CLEAR [8] | generative counterfactual explanations on graphs |
+| CounteRGAN [9] | a GAN-based image method ported to graphs |
+| Ensembles | aggregate several explainers by union, intersection, frequency, multi-criteria selection and others |
+
+**Metrics.** Graph Edit Distance, Feature Edit Distance, Correctness, Sparsity, Fidelity, Oracle Calls, Oracle Accuracy, Runtime, Instability.
+
+## Team
+
+* Prof. Giovanni Stilo (project leader and investigator)
+* Mario Alfonso Prado Romero (co-principal investigator)
+* Dr. Bardh Prenkaj (co-principal investigator)
+* Andrea D'Angelo (notable investigator)
+* Efstratios Zaradoukas (contributor)
+* Alessandro Celi (administrative staff)
+
+Past contributors: Hiram Borbolla Hernández, Roberto Marti Cedeño, Ernesto Estevanell-Valladares, Daniel Alejandro Valdés-Pérez.
+
+Further documentation lives in the [GRETEL wiki](https://github.com/aiim-research/GRETEL/wiki).
+
+## Citing GRETEL
+
+`CITATION.cff` carries the machine-readable metadata. Please cite the framework paper if you use GRETEL:
+
+```bibtex
 @inproceedings{prado-romero2022gretel,
   title={GRETEL: Graph Counterfactual Explanation Evaluation Framework},
   author={Prado-Romero, Mario Alfonso and Stilo, Giovanni},
@@ -62,223 +109,48 @@ Mario Alfonso Prado-Romero and Giovanni Stilo. 2022. GRETEL: Graph Counterfactua
 }
 ```
 
-Mario Alfonso Prado-Romero, Bardh Prenkaj, and Giovanni Stilo. 2023. Developing and Evaluating Graph Counterfactual Explanation with GRETEL. In Proceedings of the Sixteenth ACM International Conference on Web Search and Data Mining (WSDM '23). Association for Computing Machinery, New York, NY, USA, 1180–1183.  [https://doi.org/10.1145/3539597.3573026](https://doi.org/10.1145/3539597.3573026)
-
-```latex:
+```bibtex
 @inproceedings{prado-romero2023developing,
-author = {Prado-Romero, Mario Alfonso and Prenkaj, Bardh and Stilo, Giovanni},
-title = {Developing and Evaluating Graph Counterfactual Explanation with GRETEL},
-year = {2023},
-isbn = {9781450394079},
-publisher = {Association for Computing Machinery},
-address = {New York, NY, USA},
-doi = {10.1145/3539597.3573026},
-booktitle = {Proceedings of the Sixteenth ACM International Conference on Web Search and Data Mining},
-pages = {1180–1183},
-location = {Singapore, Singapore},
-series = {WSDM '23}
-} 
+  author = {Prado-Romero, Mario Alfonso and Prenkaj, Bardh and Stilo, Giovanni},
+  title = {Developing and Evaluating Graph Counterfactual Explanation with GRETEL},
+  year = {2023},
+  isbn = {9781450394079},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  doi = {10.1145/3539597.3573026},
+  booktitle = {Proceedings of the Sixteenth ACM International Conference on Web Search and Data Mining},
+  pages = {1180--1183},
+  location = {Singapore, Singapore},
+  series = {WSDM '23}
+}
 ```
 
-Mario Alfonso Prado-Romero, Bardh Prenkaj, Giovanni Stilo, and Fosca Giannotti. 2023. A Survey on Graph Counterfactual Explanations: Definitions, Methods, Evaluation, and Research Challenges. ACM Comput. Surv. Just Accepted (September 2023). [https://doi.org/10.1145/3618105](https://doi.org/10.1145/3618105)
-
-
-```latex:
+```bibtex
 @article{prado-romero2023survey,
-author = {Prado-Romero, Mario Alfonso and Prenkaj, Bardh and Stilo, Giovanni and Giannotti, Fosca},
-title = {A Survey on Graph Counterfactual Explanations: Definitions, Methods, Evaluation, and Research Challenges},
-year = {2023},
-publisher = {Association for Computing Machinery},
-address = {New York, NY, USA},
-issn = {0360-0300},
-url = {https://doi.org/10.1145/3618105},
-doi = {10.1145/3618105},
-journal = {ACM Comput. Surv.},
-month = {sep}
+  author = {Prado-Romero, Mario Alfonso and Prenkaj, Bardh and Stilo, Giovanni and Giannotti, Fosca},
+  title = {A Survey on Graph Counterfactual Explanations: Definitions, Methods, Evaluation, and Research Challenges},
+  year = {2023},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  issn = {0360-0300},
+  doi = {10.1145/3618105},
+  journal = {ACM Comput. Surv.},
+  month = {sep}
 }
 ```
-<!-- 
-## Requirements:
-* pytorch
-* picologging
-* exmol
-* gensim
-* joblib
-* jsonpickle
-* karateclub
-* matplotlib
-* networkx
-* numpy
-* pandas
-* rdkit
-* scikit-learn
-* scipy
-* selfies
-* sqlalchemy
-* black
-* typing-extensions
-* torch_geometric
-* dgl
-* flufl.lock
-* jsonc-parser
--->
-
-
-<!-- 
-## Installation:
-The easiest way to get Gretel up and running with all the dependencies is to pull the development Docker image available in [Docker Hub](https://hub.docker.com/):
-
-```
-docker pull gretel/gretel:latest
-```
-
-The image is based on `tensorflow/tensorflow:latest-gpu` and it's GPU ready. In order to setup the container we recommend you to run:
-
-```
-docker-compose run gretel
-```
-
-For simplicity we provide several **makefile** rules for easy interaction with the Docker interface:
-
- * `make docker` - builds the development image from scratch
- * `make pull` - pull the development image
- * `make push` - push the development image
- * `make demo` - run the demo in the development image.-->
-
-## Resources provided with the Framework:
-
-### Datasets:
-
-* **Tree-Cycles** [3]: Synthetic data set where each instance is a graph. The instance can be either a tree or a tree with several cycle patterns connected to the main graph by one edge
-
-* **Tree-Infinity**: It follows the approach of the Tree-Cycles, but instead of cycles, there is an infinity shape.
-
-* **ASD** [4]: Autism Spectrum Disorder (ASD) taken from the Autism Brain Imagine Data Exchange (ABIDE).
-
-* **ADHD** [4]: Attention Deficit Hyperactivity Disorder (ADHD), is taken from the USC Multimodal Connectivity Database (USCD).
-
-* **BBBP** [5]: Blood-Brain Barrier Permeation is a molecular dataset. Predicting if a molecule can permeate the blood-brain barrier.
-
-* **HIV** [5]: It is a molecular dataset that classifies compounds based on their ability to inhibit HIV.
-
-
-### Oracles:
-
-* **KNN**
-
-* **SVM**
-
-* **GCN**
-
-* **ASD Custom Oracle** [4] (Rules specific for the ASD dataset)
-
-* **Tree-Cycles Custom Oracle** (Guarantees 100% accuracy on Tree-Cycles dataset)
-
-
-### Explainers:
-
-* **DCE Search**: Distribution Compliant Explanation Search,  mainly used as a baseline, does not make any assumption about the underlying dataset and searches for a counterfactual instance in it.
-
-* **Oblivious Bidirectional Search (OBS)** [4]: It is an heuristic explanation method that uses a 2-stage approach.
-
-* **Data-Driven Bidirectional Search (DDBS)** [4]: It follows the same logic as OBS. The main difference is that this method uses the probability (computed on the original dataset) of each edge to appear in a graph of a certain class to drive the counterfactual search process.
-
-* **MACCS** [5]: Model Agnostic Counterfactual Compounds with STONED (MACCS) is specifically designed to work with molecules.
-
-* **MEG** [6]: Molecular Explanation Generator is an RL-based explainer for molecular graphs.
-
-* **CFF** [7] Is a learning-based method that uses Counterfactual and Factual Reasoning in the perturbation mask generation process.
-
-* **CLEAR** [8] is a learning based explanation method that provides Generative Counterfactual Explanations on Graphs.
-
-* **CounteRGAN** [9] is a porting of a GAN-based explanation method for images
-
-<!-- 
-First, we need to create a config json file with the option we want to use in our experiment. In the file config/CIKM/manager_config_example_all.json it is possible to find all options for each componnent of the framework.
-
-```json
-{
-    "store_paths": [
-        {"name": "dataset_store_path", "address": "/NFSHOME/mprado/CODE/GRETEL/data/datasets/"},
-        {"name": "embedder_store_path", "address": "/NFSHOME/mprado/CODE/GRETEL/data/embedders/"},
-        {"name": "oracle_store_path", "address": "/NFSHOME/mprado/CODE/GRETEL/data/oracles/"},
-        {"name": "explainer_store_path", "address": "/NFSHOME/mprado/CODE/GRETEL/data/explainers/"},
-        {"name": "output_store_path", "address": "/NFSHOME/mprado/CODE/GRETEL/output/"}
-    ],
-    "datasets": [
-        {"name": "tree-cycles", "parameters": {"n_inst": 500, "n_per_inst": 300, "n_in_cycles": 200} },
-        {"name": "tree-cycles-balanced", "parameters": {"n_inst_class": 250, "n_per_inst": 300, "n_in_cycles": 200} },
-        {"name": "tree-cycles-dummy", "parameters": {"n_inst_class": 250, "n_per_inst": 300, "n_in_cycles": 200} },
-        {"name": "autism", "parameters": {} },
-        {"name": "adhd", "parameters": {} },
-        {"name": "tree-infinity", "parameters": {"n_inst": 500, "n_per_inst": 300, "n_infinities": 10, "n_broken_infinities": 10}},
-        {"name": "bbbp", "parameters": {"force_fixed_nodes": true}},
-        {"name": "bbbp", "parameters": {"force_fixed_nodes": false}},
-        {"name": "hiv", "parameters": {"force_fixed_nodes": false}}
-    ],
-    "oracles": [
-        {"name": "knn", "parameters": { "embedder": {"name": "graph2vec", "parameters": {} }, "k": 5 } },
-        {"name": "svm", "parameters": { "embedder": {"name": "graph2vec", "parameters": {} } } },
-        {"name": "asd_custom_oracle", "parameters": {} },
-        {"name": "svm", "parameters": { "embedder": {"name": "rdk_fingerprint", "parameters": {} } } },
-        {"name": "gcn-tf", "parameters": {} }
-    ],
-    "explainers": [
-        {"name": "dce_search", "parameters":{"graph_distance": {"name": "graph_edit_distance", "parameters": {}} } },
-        {"name": "dce_search_oracleless", "parameters":{"graph_distance": {"name": "graph_edit_distance", "parameters": {}} } },
-        {"name": "bidirectional_oblivious_search", "parameters":{"graph_distance": {"name": "graph_edit_distance", "parameters": {}} } },
-        {"name": "bidirectional_data-driven_search", "parameters":{"graph_distance": {"name": "graph_edit_distance", "parameters": {}} } },
-        {"name": "maccs", "parameters":{"graph_distance": {"name": "graph_edit_distance", "parameters": {}} } }
-    ],
-    "evaluation_metrics": [ 
-        {"name": "graph_edit_distance", "parameters": {}},
-        {"name": "oracle_calls", "parameters": {}},
-        {"name": "correctness", "parameters": {}},
-        {"name": "sparsity", "parameters": {}},
-        {"name": "fidelity", "parameters": {}},
-        {"name": "oracle_accuracy", "parameters": {}}
-    ]
-}
-```
-
-Then to execute the experiment from the main the code would be something like this:
-
-```python
-from src.evaluation.evaluator_manager import EvaluatorManager
-
-config_file_path = '/NFSHOME/mprado/CODE/Themis/config/linux-server/set-1/config_autism_custom-oracle_dce.json'
-
-print('Creating the evaluation manager.......................................................')
-eval_manager = EvaluatorManager(config_file_path, run_number=0)
-
-print('Creating the evaluators...................................................................')
-eval_manager.create_evaluators()
-
-print('Evaluating the explainers..................................................................')
-eval_manager.evaluate()
-```
-
-Once the result json files are generated it is possible to use the result_stats.py module to generate the tables with the results of the experiments. The tables will be generated as CSV and LaTex. In the examples folder there are some jupyter notebooks, and associated configuration files, that show how to use the framework for evaluating an explainer. Furthermore, they show how to extend GRETEL with new datasets and explainers.
--->
 
 ## References
 
-1. Prado-Romero, M.A. and Stilo, G., 2022, October. Gretel: Graph counterfactual explanation evaluation framework. In Proceedings of the 31st ACM International Conference on Information & Knowledge Management (pp. 4389-4393).
+1. Prado-Romero, M.A. and Stilo, G., 2022. GRETEL: Graph counterfactual explanation evaluation framework. CIKM '22, 4389-4393.
+2. Prado-Romero, M.A., Prenkaj, B. and Stilo, G., 2023. Developing and Evaluating Graph Counterfactual Explanation with GRETEL. WSDM '23, 1180-1183.
+3. Ying, Z., Bourgeois, D., You, J., Zitnik, M. and Leskovec, J., 2019. GNNExplainer: Generating explanations for graph neural networks. NeurIPS 32.
+4. Abrate, C. and Bonchi, F., 2021. Counterfactual Graphs for Explainable Classification of Brain Networks. KDD '21, 2495-2504.
+5. Wellawatte, G.P., Seshadri, A. and White, A.D., 2022. Model agnostic generation of counterfactual explanations for molecules. Chemical Science 13(13), 3697-3705.
+6. Numeroso, D. and Bacciu, D., 2021. MEG: Generating molecular counterfactual explanations for deep graph networks. IJCNN 2021, 1-8.
+7. Tan, J., Geng, S., Fu, Z., Ge, Y., Xu, S., Li, Y. and Zhang, Y., 2022. Learning and evaluating graph neural network explanations based on counterfactual and factual reasoning. WWW '22, 1018-1027.
+8. Ma, J., Guo, R., Mishra, S., Zhang, A. and Li, J., 2022. CLEAR: Generative counterfactual explanations on graphs. NeurIPS 35, 25895-25907.
+9. Nemirovsky, D., Thiebaut, N., Xu, Y. and Gupta, A., 2022. CounteRGAN: Generating counterfactuals for real-time recourse and interpretability using residual GANs. UAI 2022, 1488-1497.
 
-2. Prado-Romero, M.A., Prenkaj, B. and Stilo, G., 2023, February. Developing and Evaluating Graph Counterfactual Explanation with GRETEL. In Proceedings of the Sixteenth ACM International Conference on Web Search and Data Mining (pp. 1180-1183).
+## License
 
-3. Zhitao Ying, Dylan Bourgeois, Jiaxuan You, Marinka Zitnik, and Jure Leskovec. 2019. Gnnexplainer: Generating explanations for graph neural networks. Ad-
-vances in neural information processing systems 32 (2019)
-
-4. Carlo Abrate and Francesco Bonchi. 2021. Counterfactual Graphs for Explainable Classification of Brain Networks. In Proceedings of the 27th ACM SIGKDD Conference on Knowledge Discovery & Data Mining. 2495–2504
-
-5. Geemi P Wellawatte, Aditi Seshadri, and Andrew D White. 2022. Model agnostic generation of counterfactual explanations for molecules. Chemical science 13, 13
-(2022), 3697–370
-
-6. Numeroso, D. and Bacciu, D., 2021, July. Meg: Generating molecular counterfactual explanations for deep graph networks. In 2021 International Joint Conference on Neural Networks (IJCNN) (pp. 1-8). IEEE.
-
-7. Tan, J., Geng, S., Fu, Z., Ge, Y., Xu, S., Li, Y. and Zhang, Y., 2022, April. Learning and evaluating graph neural network explanations based on counterfactual and factual reasoning. In Proceedings of the ACM Web Conference 2022 (pp. 1018-1027).
-
-8. Ma, J., Guo, R., Mishra, S., Zhang, A. and Li, J., 2022. Clear: Generative counterfactual explanations on graphs. Advances in Neural Information Processing Systems, 35, pp.25895-25907.
-
-9. Nemirovsky, D., Thiebaut, N., Xu, Y. and Gupta, A., 2022, August. CounteRGAN: Generating counterfactuals for real-time recourse and interpretability using residual GANs. In Uncertainty in Artificial Intelligence (pp. 1488-1497). PMLR.
+See [LICENSE](LICENSE).

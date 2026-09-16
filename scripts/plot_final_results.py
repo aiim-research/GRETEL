@@ -19,10 +19,13 @@ Missing combos (still in flight) render as a hatched grey bar with a small
 the folds. Re-run the script after each batch finishes to refresh.
 
 Outputs (one PDF + PNG per metric):
-    /home/rodrigo/projects/GRETEL stuff/document/images/final_results_ged.{pdf,png}
-    /home/rodrigo/projects/GRETEL stuff/document/images/final_results_fed.{pdf,png}
-    /home/rodrigo/projects/GRETEL stuff/document/images/final_results_oc.{pdf,png}
-    /home/rodrigo/projects/GRETEL stuff/document/images/final_results_correctness.{pdf,png}
+    <out>/final_results_ged.{pdf,png}
+    <out>/final_results_fed.{pdf,png}
+    <out>/final_results_oc.{pdf,png}
+    <out>/final_results_correctness.{pdf,png}
+
+where <out> defaults to lab/graphics/ and is overridden by --out or
+$GRETEL_FIGURES_DIR.
 
 Usage::
 
@@ -31,7 +34,9 @@ Usage::
 
 from __future__ import annotations
 
+import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -39,7 +44,10 @@ import numpy as np
 
 REPO = Path(__file__).resolve().parent.parent
 RESULTS_ROOT = REPO / "lab" / "output" / "results"
-THESIS_IMAGES = Path("/home/rodrigo/projects/GRETEL stuff/document/images")
+# Figures land in the repository by default so a fresh clone can regenerate
+# them. Point GRETEL_FIGURES_DIR at your manuscript's image directory (or pass
+# --out) to write them straight into it instead.
+DEFAULT_OUT = Path(os.environ.get("GRETEL_FIGURES_DIR", REPO / "lab" / "graphics"))
 
 DATASETS = ["synthie", "bbbp", "enzymes", "bzr", "aids", "proteins", "colors-3", "asd"]
 DATASET_LABELS = {
@@ -91,6 +99,13 @@ def _read_aggregated(scope: str) -> dict[str, float]:
 
 
 def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--out", type=Path, default=DEFAULT_OUT,
+                    help="output directory (default: lab/graphics, "
+                         "or $GRETEL_FIGURES_DIR when set)")
+    out_dir = ap.parse_args().out
+
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -106,7 +121,7 @@ def main() -> int:
         for method_label, variant in METHODS:
             data[ds][method_label] = _read_aggregated(f"{ds}_{variant}")
 
-    THESIS_IMAGES.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     x = np.arange(len(DATASETS))
     width = 0.27
@@ -167,10 +182,10 @@ def main() -> int:
 
         ax.legend(loc="upper right", frameon=True, fontsize=10)
         fig.tight_layout()
-        fig.savefig(THESIS_IMAGES / f"{stem}.pdf")
-        fig.savefig(THESIS_IMAGES / f"{stem}.png", dpi=150)
+        fig.savefig(out_dir / f"{stem}.pdf")
+        fig.savefig(out_dir / f"{stem}.png", dpi=150)
         plt.close(fig)
-        print(f"wrote {THESIS_IMAGES / (stem + '.pdf')}")
+        print(f"wrote {out_dir / (stem + '.pdf')}")
 
     # Coverage report.
     print("\nData coverage per (dataset, method):")

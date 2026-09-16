@@ -1,66 +1,77 @@
+"""GRETEL entry point.
+
+    python main.py <config_file> [run_number]
+
+The config file decides everything, including which evaluation manager runs
+it. Two generations of configuration exist and they are told apart by their
+top-level keys:
+
+  * ``evaluator``      the current generation. The evaluation pipeline and its
+                       stages are declared in that section
+                       (``src.evaluation.future.evaluator.Evaluator``), and the
+                       experiment is a list of ``doe-triplets``.
+  * ``doe-triplets``   without ``evaluator``: the earlier triplet format, whose
+                       metrics come from an ``evaluation_metrics`` list.
+  * ``do-pairs``       the paired dataset/oracle format.
+  * neither            the original flat format.
+
+Picking the manager from the config rather than from the script name is what
+lets one command run a configuration from any generation. ``future_main.py``
+runs the current generation too, with OMP/MKL thread caps applied before torch
+is imported; the cluster launchers call that one.
+"""
+
 import os
-import torch
-#torch.manual_seed(5)#3,5
-import random
-#random.seed(0)
-import numpy as np
-#np.random.seed(0)
+import sys
 
-'''os.environ["OMP_NUM_THREADS"] = "4" # export OMP_NUM_THREADS=1
-os.environ["OPENBLAS_NUM_THREADS"] = "4" # export OPENBLAS_NUM_THREADS=1 
-os.environ["MKL_NUM_THREADS"] = "4" # export MKL_NUM_THREADS=1
-os.environ["VECLIB_MAXIMUM_THREADS"] = "4" # export VECLIB_MAXIMUM_THREADS=1
-os.environ["NUMEXPR_NUM_THREADS"] = "4" # export NUMEXPR_NUM_THREADS=1'''
-
-from src.evaluation.evaluator_manager import EvaluatorManager
-from src.evaluation.evaluator_manager_do import EvaluatorManager as PairedEvaluatorManager
-from src.evaluation.evaluator_manager_triplets import EvaluatorManager as TripletsEvaluatorManager
+import torch  # noqa: F401  (imported for its side effects on BLAS threading)
 
 from src.utils.context import Context
-import sys
 
 try:
     from dotenv import load_dotenv
 
     load_dotenv()
-except Exception:
+except ImportError:
     pass
 
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        # If no arguments are passed, try to find GRETEL_CONFIG_FILE in the environment
-        if "GRETEL_CONFIG_FILE" in os.environ:
-            sys.argv.append(os.environ["GRETEL_CONFIG_FILE"])
-        else:
+
+def _manager_for(conf):
+    """Return the evaluation manager class this configuration asks for."""
+    if "evaluator" in conf:
+        from src.evaluation.future.evaluator_manager_triplets import EvaluatorManager
+        return EvaluatorManager, "pipeline evaluator (current)"
+    if "doe-triplets" in conf:
+        from src.evaluation.evaluator_manager_triplets import EvaluatorManager
+        return EvaluatorManager, "triplets, metric list"
+    if "do-pairs" in conf:
+        from src.evaluation.evaluator_manager_do import EvaluatorManager
+        return EvaluatorManager, "do-pairs"
+    from src.evaluation.evaluator_manager import EvaluatorManager
+    return EvaluatorManager, "flat"
+
+
+def main(argv):
+    if len(argv) < 2:
+        # Fall back to the environment so a container or a job script can set
+        # the config without rewriting the command.
+        if "GRETEL_CONFIG_FILE" not in os.environ:
             print("Usage: python main.py <config_file> [run_number]")
-            sys.exit(1)
-    print(f"Generating context for: {sys.argv[1]}")
-    context = Context.get_context(sys.argv[1])
-    context.run_number = int(sys.argv[2]) if len(sys.argv) == 3 else -1
+            return 1
+        argv = argv + [os.environ["GRETEL_CONFIG_FILE"]]
 
-    '''if torch.backends.mps.is_available():
-        context.logger.info(f"MPS support founded switch to torch.set_default_dtype(torch.float32)")
-        context.logger.info(f"Clean the cache if torch.float64 where used before")
-        torch.set_default_dtype(torch.float32)'''
+    context = Context.get_context(argv[1])
+    context.run_number = int(argv[2]) if len(argv) == 3 else -1
 
+    manager_cls, flavour = _manager_for(context.conf)
     context.logger.info(f"Executing: {context.config_file} Run: {context.run_number}")
-    context.logger.info(
-        "Creating the evaluation manager......................................................."
-    )
+    context.logger.info(f"Creating the evaluation manager [{flavour}]...")
+    eval_manager = manager_cls(context)
 
-    
-    if 'doe-triplets' in context.conf:
-        context.logger.info("Creating the TRIPLET evaluators........................................................")
-        eval_manager = TripletsEvaluatorManager(context)
-    if 'do-pairs' in context.conf:
-        context.logger.info("Creating the PAIRED evaluators...............................................................")
-        eval_manager = PairedEvaluatorManager(context)
-    else:
-        context.logger.info("Creating the evaluators...............................................................")
-        eval_manager = EvaluatorManager(context)
-
-    context.logger.info(
-        "Evaluating the explainers............................................................."
-    )
-
+    context.logger.info("Evaluating the explainers...")
     eval_manager.evaluate()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

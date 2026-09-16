@@ -1,4 +1,4 @@
-"""Deterministic seeding helper (Note C, REVISION_EXPERIMENTS.md).
+"""Deterministic seeding helper (Note C, docs/revision/REVISION_EXPERIMENTS.md).
 
 Seeds Python's ``random``, NumPy's global RNG and (when available)
 PyTorch with a single value so multi-seed runs are reproducible. Callers

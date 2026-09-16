@@ -1,4 +1,4 @@
-from src.data_analysis.data_analyzer import DataAnalyzer
+from src.data_analysis.legacy.data_analyzer import DataAnalyzer
 
 data_store_path = './data/datasets/'
 dtan = DataAnalyzer('./output', './stats')
@@ -25,7 +25,7 @@ dtan.get_datasets_stats(datasets, data_store_path)
 
 ### dataset_stats.py
 
-'''from src.data_analysis.data_analyzer import DataAnalyzer
+'''from src.data_analysis.legacy.data_analyzer import DataAnalyzer
 
 # data_store_path = './data/datasets/'
 # dtan = DataAnalyzer('./output', './stats')
