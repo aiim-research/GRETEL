@@ -118,6 +118,21 @@ def _resolve_compose(snippet_path: Path) -> dict:
 # ---------------------------------------------------------------------------
 
 
+def _manipulator_of(cfg: dict):
+    """The manipulator snippet a generate_minimize config propagates, if any.
+
+    The dataset hash depends on its manipulators, so an artefact trained
+    without them lands in a different directory and the real run retrains
+    anyway. When the caller points us at a config, follow that config.
+    """
+    params = cfg.get("experiment", {}).get("parameters", {})
+    for item in params.get("propagate", []):
+        if "doe-triplets/dataset" in item.get("in_sections", []):
+            man = item.get("params", {}).get("compose_man")
+            if man:
+                return man
+    return None
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     src = ap.add_mutually_exclusive_group(required=True)
@@ -134,15 +149,17 @@ def main() -> int:
                          "oracle calls during the offline phase)")
     ap.add_argument("--force", action="store_true",
                     help="retrain even if a saved DCM with the same hash exists")
-    ap.add_argument("--manipulator",
-                    default="lab/config/snippets/datasets/empty.json",
-                    help="path to a dataset manipulator snippet (default: empty.json)")
+    ap.add_argument("--manipulator", default=None,
+                    help="path to a dataset manipulator snippet. With --config the "
+                         "default is whatever that config propagates; with --do-pair "
+                         "it is empty.json")
     args = ap.parse_args()
 
     if not 0 <= args.proportion <= 1:
         ap.error("--proportion must be in [0, 1]")
 
     # Pull dataset + oracle definitions out of either source.
+    manipulator = args.manipulator
     if args.do_pair:
         do_pair = _resolve_compose(REPO / args.do_pair)
     else:
@@ -152,6 +169,11 @@ def main() -> int:
             do_pair = _resolve_compose(REPO / triplet["compose_do"].lstrip("./"))
         else:
             do_pair = {"dataset": triplet["dataset"], "oracle": triplet["oracle"]}
+        if manipulator is None:
+            manipulator = _manipulator_of(cfg)
+    if manipulator is None:
+        manipulator = "lab/config/snippets/datasets/empty.json"
+    print(f"Dataset manipulator: {manipulator}")
 
     synth = _build_synthetic_config(
         dataset_snippet=do_pair["dataset"],
@@ -164,7 +186,7 @@ def main() -> int:
     # Attach the manipulator (padding etc.) the same way generate_minimize configs do.
     synth["experiment"]["parameters"]["propagate"].append(
         {"in_sections": ["doe-triplets/dataset"],
-         "params": {"compose_man": args.manipulator}}
+         "params": {"compose_man": manipulator}}
     )
 
     # Drop the synthetic config to a tmp .jsonc and feed it to Context.
