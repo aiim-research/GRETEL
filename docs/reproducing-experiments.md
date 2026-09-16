@@ -37,7 +37,12 @@ Check the install:
 ```bash
 python tools/import_smoke.py
 python tools/check_config_refs.py
+python tools/check_configs_compose.py
 ```
+
+The third one composes all ~30k configurations the way the framework does at
+startup, in about 20 seconds. It is the quickest way to know a config will
+load before you spend an hour finding out it will not.
 
 ## 2. Data
 

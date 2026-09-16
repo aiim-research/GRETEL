@@ -61,6 +61,19 @@ python tools/clear_stale_locks.py
 python tools/clear_stale_locks.py --apply
 ```
 
+### `check_configs_compose.py`
+Runs every configuration through the same `propagate(compose(...))` the
+framework runs at startup. Catches a malformed JSONC file, a `compose_*`
+pointing at a snippet that is not there, a broken `propagate` block and a
+missing `experiment` section. It builds no dataset and trains nothing, so it
+covers the whole 30k tree in about 20 seconds: use it to know a config will
+start, and `tests/regression_smoke.py` to know it runs.
+
+```
+python tools/check_configs_compose.py
+python tools/check_configs_compose.py lab/config/generate_minimize
+```
+
 ### `move_module.py`
 Moves modules and rewrites every reference to them (imports, config `class` keys, string literals, and the `src/a/b.py` spelling used in docs), then `git mv`s the files and creates any missing `__init__.py`.
 
