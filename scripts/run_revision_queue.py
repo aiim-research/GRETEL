@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Queue runner for the REVISION batch (sequential or parallel).
 
-Reads ``REVISION_EXECUTION_ORDER.md`` (markdown task list of config paths),
+Reads ``docs/revision/REVISION_EXECUTION_ORDER.md`` (markdown task list of config paths),
 hands each unchecked entry to a worker thread, and flips the checkbox to
 ``[x]`` when the run completes and a result file shows up on disk.
 Idempotent and restart-safe:
@@ -57,7 +57,7 @@ import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-LIST_PATH = REPO / "REVISION_EXECUTION_ORDER.md"
+LIST_PATH = REPO / "docs" / "revision" / "REVISION_EXECUTION_ORDER.md"
 RESULTS_ROOT = REPO / "lab" / "output" / "results"
 LOG_DIR = REPO / "lab" / "output" / "queue_logs"
 RUNNER_CHILD = REPO / "tests" / "run_experiments.py"

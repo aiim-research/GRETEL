@@ -141,7 +141,7 @@ class Evaluator(Configurable):
         self._explanations.append(explanation)
 
         # Persist per-instance input + counterfactual + metrics so downstream
-        # analyses (Exps. 5/6/7 of REVISION_EXPERIMENTS.md) can run offline.
+        # analyses (Exps. 5/6/7 of docs/revision/REVISION_EXPERIMENTS.md) can run offline.
         try:
             self._dump_explanation_json(explanation, self._explainer.fold_id)
         except Exception as e:
