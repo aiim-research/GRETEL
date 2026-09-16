@@ -15,7 +15,7 @@
     },
     "do-pairs":[ {"compose_tcr_gcn" : "legacy/config-v2/snippets/do-pairs/BBBP_GCN.json"}],
     "explainers": [
-        {"class": "src.explainer.ensemble.explainer_ensemble_base.ExplainerEnsemble",
+        {"class": "src.explainer.future.ensemble.explainer_ensemble_base.ExplainerEnsemble",
         "parameters": {
                        "explainers": [
                         {"class": "src.explainer.heuristic.obs.ObliviousBidirectionalSearchExplainer","parameters":{}},
@@ -36,7 +36,7 @@
                         
                     ],
                        "aggregator": {
-                           "class": "src.explainer.ensemble.aggregators.top_select.ExplanationTopSelect",
+                           "class": "src.explainer.future.ensemble.aggregators.top_select.ExplanationTopSelect",
                            "parameters": {}
                        }
                        }

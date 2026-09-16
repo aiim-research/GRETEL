@@ -85,6 +85,10 @@ def resolve(dotted):
 # retired module look like new damage.
 SKIP_PREFIXES = ("lab/output/", "lab/output_legacy/")
 
+# Configs that are kept for the record, not to be run. A broken reference here
+# is documented history; one outside is a defect in the live tree.
+RETIRED_PREFIXES = ("legacy/", "lab/config/legacy/")
+
 
 def main():  # noqa: C901
     cfgs = []
@@ -126,9 +130,20 @@ def main():  # noqa: C901
             "bad_classes": cls_problems, "bad_paths": path_problems,
         }
 
-    n_bad = sum(1 for v in report.values() if v.get("bad_classes") or v.get("bad_paths"))
+    def retired(rel):
+        return rel.startswith(RETIRED_PREFIXES)
+
+    bad = [k for k, v in report.items() if v.get("bad_classes") or v.get("bad_paths")]
+    bad_live = [k for k in bad if not retired(k)]
     print(f"configs scanned : {len(report)}")
-    print(f"configs with problems: {n_bad}")
+    print(f"configs with problems: {len(bad)}"
+          f"  ({len(bad_live)} in the live tree, {len(bad) - len(bad_live)} retired)")
+    if bad_live:
+        print("live-tree configs with problems:")
+        for k in sorted(bad_live)[:20]:
+            print(f"  {k}")
+        if len(bad_live) > 20:
+            print(f"  ... and {len(bad_live) - 20} more")
     print(f"\ndistinct unresolved class refs: {len(bad_cls)}")
     for d, files in sorted(bad_cls.items()):
         print(f"  {d}  ({len(files)} cfgs)  e.g. {files[0]}")
@@ -144,6 +159,9 @@ def main():  # noqa: C901
     if os.path.isfile(baseline_path):
         base = json.load(open(baseline_path))
         grew = []
+        limit = base.get("live_tree_configs_with_problems")
+        if limit is not None and len(bad_live) > limit:
+            grew.append(f"live-tree configs {limit} -> {len(bad_live)}")
         if len(bad_cls) > base["unresolved_class_refs"]:
             grew.append(f"class refs {base['unresolved_class_refs']} -> {len(bad_cls)}")
         if len(bad_path) > base["missing_file_refs"]:
@@ -151,9 +169,10 @@ def main():  # noqa: C901
         if grew:
             print("\nFAIL: broken references grew: " + "; ".join(grew))
             return 1
-        print(f"\nOK: no new broken references "
-              f"(baseline {base['unresolved_class_refs']} class / "
-              f"{base['missing_file_refs']} file).")
+        print(f"\nOK: no new broken references (baseline "
+              f"{base['unresolved_class_refs']} class / "
+              f"{base['missing_file_refs']} file / "
+              f"{base.get('live_tree_configs_with_problems')} live-tree configs).")
     return 0
 
 

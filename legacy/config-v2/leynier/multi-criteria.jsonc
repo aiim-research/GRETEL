@@ -61,18 +61,18 @@
     ],
     "explainers": [
         {
-            "class": "src.explainer.ensemble.explainer_ensemble_base.ExplainerEnsemble",
+            "class": "src.explainer.future.ensemble.explainer_ensemble_base.ExplainerEnsemble",
             "parameters": {
                 "aggregator": {
-                    "class": "src.explainer.ensemble.aggregators.multi_criteria.ExplanationMultiCriteriaAggregator",
+                    "class": "src.explainer.future.ensemble.aggregators.multi_criteria.ExplanationMultiCriteriaAggregator",
                     "parameters": {
                         "criterias": [
                             {
-                                "class": "src.explainer.ensemble.aggregators.multi_criteria.criterias.ged_criteria.GraphEditDistanceCriteria",
+                                "class": "src.explainer.future.ensemble.aggregators.multi_criteria.criterias.ged_criteria.GraphEditDistanceCriteria",
                                 "parameters": {}
                             },
                             {
-                                "class": "src.explainer.ensemble.aggregators.multi_criteria.criterias.sparsity_criteria.SparsityCriteria",
+                                "class": "src.explainer.future.ensemble.aggregators.multi_criteria.criterias.sparsity_criteria.SparsityCriteria",
                                 "parameters": {}
                             }
                         ]
@@ -82,20 +82,20 @@
             }
         },
         {
-            "class": "src.explainer.ensemble.explainer_ensemble_base.ExplainerEnsemble",
+            "class": "src.explainer.future.ensemble.explainer_ensemble_base.ExplainerEnsemble",
             "parameters": {
                 "aggregator": {
-                    "class": "src.explainer.ensemble.aggregators.top_select.ExplanationTopSelect",
+                    "class": "src.explainer.future.ensemble.aggregators.top_select.ExplanationTopSelect",
                     "parameters": {}
                 },
                 "compose_explainers": "legacy/config-v2/leynier/multi-criteria-explainers-snippet.jsonc"
             }
         },
         {
-            "class": "src.explainer.ensemble.explainer_ensemble_base.ExplainerEnsemble",
+            "class": "src.explainer.future.ensemble.explainer_ensemble_base.ExplainerEnsemble",
             "parameters": {
                 "aggregator": {
-                    "class": "src.explainer.ensemble.aggregators.bidirectional.ExplanationBidirectionalSearch",
+                    "class": "src.explainer.future.ensemble.aggregators.bidirectional.ExplanationBidirectionalSearch",
                     "parameters": {
                         "oc_limit": 1000
                     }

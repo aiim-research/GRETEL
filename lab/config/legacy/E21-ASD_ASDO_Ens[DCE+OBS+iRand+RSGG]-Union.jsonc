@@ -28,7 +28,7 @@
         }
         ],
     "explainers": [
-                    {"class": "src.explainer.ensemble.explainer_ensemble_base.ExplainerEnsemble",
+                    {"class": "src.explainer.future.ensemble.explainer_ensemble_base.ExplainerEnsemble",
                      "parameters": {
                                     "explainers": [
                                                 {"class": "src.explainer.search.dces.DCESExplainer",
@@ -41,7 +41,7 @@
                                                 "parameters":{"epochs": 500}}
                                                 ],
                                     "aggregator": {
-                                        "class": "src.explainer.ensemble.aggregators.union.ExplanationUnion",
+                                        "class": "src.explainer.future.ensemble.aggregators.union.ExplanationUnion",
                                         "parameters": {}
                                     }
                                     }

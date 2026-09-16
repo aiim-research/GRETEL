@@ -49,7 +49,7 @@
         }
     }],
     "explainers": [
-        {"class": "src.explainer.ensemble.explainer_ensemble_base.ExplainerEnsemble",
+        {"class": "src.explainer.future.ensemble.explainer_ensemble_base.ExplainerEnsemble",
         "parameters": {
                        "explainers": [
                                    {"class": "src.explainer.search.dces.DCESExplainer",
@@ -68,7 +68,7 @@
                                    "parameters": {"p": 0.015, "t": 2}}
                                    ],
                        "aggregator": {
-                           "class": "src.explainer.ensemble.aggregators.top_select.ExplanationTopSelect",
+                           "class": "src.explainer.future.ensemble.aggregators.top_select.ExplanationTopSelect",
                            "parameters": {}
                        }
                        }

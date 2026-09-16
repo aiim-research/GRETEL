@@ -33,42 +33,42 @@
     },
     "do-pairs":[ {"compose_tcr_gcn" : "legacy/config-v2/snippets/do-pairs/TCR-128-32-0.25_TCO.json"}],
     "explainers": [
-                    {"class": "src.explainer.ensemble.explainer_ensemble_base.ExplainerEnsemble",
+                    {"class": "src.explainer.future.ensemble.explainer_ensemble_base.ExplainerEnsemble",
                      "parameters": {
                                     "aggregator": {
-                                                "class": "src.explainer.ensemble.aggregators.top_select.ExplanationTopSelect",
+                                                "class": "src.explainer.future.ensemble.aggregators.top_select.ExplanationTopSelect",
                                                 "parameters": {}
                                         }
                                     }
                     },
-                    {"class": "src.explainer.ensemble.explainer_ensemble_base.ExplainerEnsemble",
+                    {"class": "src.explainer.future.ensemble.explainer_ensemble_base.ExplainerEnsemble",
                      "parameters": {
                                     "aggregator": {
-                                        "class": "src.explainer.ensemble.aggregators.union.ExplanationUnion",
+                                        "class": "src.explainer.future.ensemble.aggregators.union.ExplanationUnion",
                                         "parameters": {}
                                         }
                                     }
                     },
-                    {"class": "src.explainer.ensemble.explainer_ensemble_base.ExplainerEnsemble",
+                    {"class": "src.explainer.future.ensemble.explainer_ensemble_base.ExplainerEnsemble",
                     "parameters": {
                                     "aggregator": {
-                                        "class": "src.explainer.ensemble.aggregators.intersection.ExplanationIntersection",
+                                        "class": "src.explainer.future.ensemble.aggregators.intersection.ExplanationIntersection",
                                         "parameters": {}
                                     }
                                    }
                    },
-                   {"class": "src.explainer.ensemble.explainer_ensemble_base.ExplainerEnsemble",
+                   {"class": "src.explainer.future.ensemble.explainer_ensemble_base.ExplainerEnsemble",
                     "parameters": {
                                     "aggregator": {
-                                        "class": "src.explainer.ensemble.aggregators.frequency.ExplanationFrequency",
+                                        "class": "src.explainer.future.ensemble.aggregators.frequency.ExplanationFrequency",
                                         "parameters": {"frequency_threshold": 1.0}
                                     }
                                    }
                    },
-                   {"class": "src.explainer.ensemble.explainer_ensemble_base.ExplainerEnsemble",
+                   {"class": "src.explainer.future.ensemble.explainer_ensemble_base.ExplainerEnsemble",
                     "parameters": {
                                     "aggregator": {
-                                        "class": "src.explainer.ensemble.aggregators.rand.ExplanationRandom",
+                                        "class": "src.explainer.future.ensemble.aggregators.rand.ExplanationRandom",
                                         "parameters": {"runs": 10}
                                     }
                                    }
