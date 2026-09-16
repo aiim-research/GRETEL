@@ -21,6 +21,6 @@ src.legacy.evaluation.future.metrics.sparsity
 # run top-level code at import time (old scripts kept as modules)
 src.legacy.data_analysis.legacy.result_stats
 src.legacy.data_analysis.legacy.viz.nx_to_img
-src.utils.datasetinspection
-src.utils.generate_results
-src.utils.visualize
+src.utils.legacy.datasetinspection
+src.utils.legacy.generate_results
+src.utils.legacy.visualize
