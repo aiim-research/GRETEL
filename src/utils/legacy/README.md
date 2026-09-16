@@ -16,4 +16,4 @@ at import time, so they only work as scripts, never as modules.
 
 Nothing under `src/` imports any of this. The current entry point is `main.py`
 driven by a config, and the current batch runners are
-`scripts/run_revision_queue.py` and `tests/run_experiments.py`.
+`scripts/run_revision_queue.py` and `scripts/run_experiments.py`.

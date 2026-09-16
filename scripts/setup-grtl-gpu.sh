@@ -15,8 +15,8 @@ HF_TOKEN="${HF_TOKEN:-${1-}}"
 
 if [[ -z "${HF_TOKEN}" ]]; then
   echo "ERROR: No se ha proporcionado el token de Hugging Face."
-  echo "  Usa: HF_TOKEN=\"hf_xxx\" ./setup-grtl-gpu.sh"
-  echo "   o:  ./setup-grtl-gpu.sh \"hf_xxx\""
+  echo "  Usa: HF_TOKEN=\"hf_xxx\" ./scripts/setup-grtl-gpu.sh"
+  echo "   o:  ./scripts/setup-grtl-gpu.sh \"hf_xxx\""
   exit 1
 fi
 

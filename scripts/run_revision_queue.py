@@ -12,7 +12,7 @@ Idempotent and restart-safe:
   checked immediately. So previous successful runs (from earlier batches,
   manual runs, or interrupted runs that did finish writing) never re-run.
 * Per-config subprocess isolation dodges the ``Context.__global`` trap
-  (same pattern as ``tests/run_experiments.py``).
+  (same pattern as ``scripts/run_experiments.py``).
 * Workers pop tasks from a thread-safe queue, so two workers never claim
   the same config. File writes and progress prints are also locked.
 * If interrupted (Ctrl-C, kill, OS reboot, whatever), running the script
@@ -60,7 +60,7 @@ REPO = Path(__file__).resolve().parent.parent
 LIST_PATH = REPO / "docs" / "revision" / "REVISION_EXECUTION_ORDER.md"
 RESULTS_ROOT = REPO / "lab" / "output" / "results"
 LOG_DIR = REPO / "lab" / "output" / "queue_logs"
-RUNNER_CHILD = REPO / "tests" / "run_experiments.py"
+RUNNER_CHILD = REPO / "scripts" / "run_experiments.py"
 
 TASK_RE = re.compile(r"^- \[(?P<mark>[ x])\] (?P<path>.+)$")
 FOLD_RE = re.compile(r"generate_minimize(\d+)\.jsonc$")
