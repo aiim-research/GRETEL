@@ -16,7 +16,7 @@ class RSGG(RSGGOld, metaclass=ExplainerTransformMeta):
 
 Its module path is therefore hashed into the name of every RSGG cache entry
 and result directory the revision batch produces, and into the GAN defaults
-that `rsgg_v2/generative/gans/graph/model.py` injects into `local_config`. The
+that `src/legacy/explainer/rsgg_v2/generative/gans/graph/model.py` injects into `local_config`. The
 name is a historical accident (it was moved here when a newer RSGG was
 expected) but it cannot be changed without invalidating those artefacts. See
 `tools/README.md`.

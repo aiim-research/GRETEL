@@ -1,0 +1,100 @@
+cff-version: 1.2.0
+message: "If you use GRETEL in your research, please cite the framework paper below."
+title: "GRETEL: Graph Counterfactual Explanation Evaluation Framework"
+abstract: >-
+  An open-source framework for developing and evaluating Graph Counterfactual
+  Explanation methods. Datasets, machine learning models, explanation
+  techniques and evaluation measures are pluggable components selected from a
+  single configuration file, so methods from different papers can be compared
+  under one protocol.
+type: software
+license: MIT
+repository-code: "https://github.com/aiim-research/GRETEL"
+url: "https://github.com/aiim-research/GRETEL/wiki"
+keywords:
+  - graph counterfactual explanations
+  - explainable artificial intelligence
+  - graph neural networks
+  - evaluation framework
+  - reproducibility
+authors:
+  - family-names: "Prado-Romero"
+    given-names: "Mario Alfonso"
+  - family-names: "Stilo"
+    given-names: "Giovanni"
+  - family-names: "Prenkaj"
+    given-names: "Bardh"
+  - family-names: "D'Angelo"
+    given-names: "Andrea"
+preferred-citation:
+  type: conference-paper
+  title: "GRETEL: Graph Counterfactual Explanation Evaluation Framework"
+  authors:
+    - family-names: "Prado-Romero"
+      given-names: "Mario Alfonso"
+    - family-names: "Stilo"
+      given-names: "Giovanni"
+  collection-title: "Proceedings of the 31st ACM International Conference on Information and Knowledge Management"
+  collection-type: proceedings
+  conference:
+    name: "CIKM '22"
+    city: "Atlanta"
+    region: "Georgia"
+    country: "US"
+  publisher:
+    name: "Association for Computing Machinery"
+    city: "New York"
+    region: "New York"
+    country: "US"
+  year: 2022
+  start: 4389
+  end: 4393
+  doi: "10.1145/3511808.3557608"
+  isbn: "9781450392365"
+references:
+  - type: conference-paper
+    title: "Developing and Evaluating Graph Counterfactual Explanation with GRETEL"
+    authors:
+      - family-names: "Prado-Romero"
+        given-names: "Mario Alfonso"
+      - family-names: "Prenkaj"
+        given-names: "Bardh"
+      - family-names: "Stilo"
+        given-names: "Giovanni"
+    collection-title: "Proceedings of the Sixteenth ACM International Conference on Web Search and Data Mining"
+    collection-type: proceedings
+    conference:
+      name: "WSDM '23"
+      city: "Singapore"
+      country: "SG"
+    publisher:
+      name: "Association for Computing Machinery"
+      city: "New York"
+      region: "New York"
+      country: "US"
+    year: 2023
+    start: 1180
+    end: 1183
+    doi: "10.1145/3539597.3573026"
+    isbn: "9781450394079"
+  - type: article
+    title: "A Survey on Graph Counterfactual Explanations: Definitions, Methods, Evaluation, and Research Challenges"
+    authors:
+      - family-names: "Prado-Romero"
+        given-names: "Mario Alfonso"
+      - family-names: "Prenkaj"
+        given-names: "Bardh"
+      - family-names: "Stilo"
+        given-names: "Giovanni"
+      - family-names: "Giannotti"
+        given-names: "Fosca"
+    journal: "ACM Computing Surveys"
+    publisher:
+      name: "Association for Computing Machinery"
+      city: "New York"
+      region: "New York"
+      country: "US"
+    year: 2023
+    month: 9
+    issn: "0360-0300"
+    doi: "10.1145/3618105"
