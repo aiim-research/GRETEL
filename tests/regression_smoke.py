@@ -58,7 +58,7 @@ REPO = Path(__file__).resolve().parent.parent
 DATASETS = [
     "aids", "asd", "bbbp", "bbbp-no-attr", "bzr", "colors-3", "cuneiform",
     "enzymes", "imdb", "proteins", "synthie", "synthie-no-att",
-    "tcr-gcn", "tcr-tco-300",
+    "tcr-500-28", "tcr-gcn", "tcr-tco-300",
 ]
 
 GENERATORS = ["dce", "dcm", "ofs", "rsgg", "dfs"]
@@ -66,6 +66,9 @@ GENERATORS = ["dce", "dcm", "ofs", "rsgg", "dfs"]
 # Non-trainable variants only — trainable/ponderation variants need an
 # internal model trained on first use, which exceeds a smoke-test budget.
 VARIANTS = ["dummy", "lcls", "lcls-net", "lcls-var-1", "lcls-var-2", "obs", "dbs"]
+
+# Combinations the config tree does not define are reported as MISSING rather
+# than as failures: not every dataset carries every variant.
 
 CFG_TMPL = "lab/config/generate_minimize/{ds}/{gen}/{gen}-{variant}/generate_minimize0.jsonc"
 
