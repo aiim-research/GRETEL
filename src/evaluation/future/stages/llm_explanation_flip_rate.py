@@ -45,7 +45,7 @@ class LLMexplanationFlipRate(MetricStage):
                 sys, prompt2 = flipRate.flip_rate_prompt()
 
 
-                response2 = explanation.context.llm.explain_counterfactual(sytem =sys, prompt= prompt2)
+                response2 = explanation.context.llm.explain_counterfactual(system =sys, prompt= prompt2)
                 
                 try:
                     flip_modifications = flipRate.parse_proposals(response2)

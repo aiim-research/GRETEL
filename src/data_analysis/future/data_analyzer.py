@@ -93,7 +93,14 @@ class DataAnalyzer():
                     # metric = get_instance_kvargs(kls=m_class, param={})
                     stage = get_class(kls=s_class)
                     vals = [x['value'] for x in s_value]
-                    agg_values, agg_std = stage.aggregate(vals, correctness_vals)
+                    try:
+                        agg_values, agg_std = stage.aggregate(vals, correctness_vals)
+                    except Exception:
+                        # A stage that cannot aggregate (no correctness class,
+                        # empty measures) marks the cell instead of killing the
+                        # whole report.
+                        agg_values = -1
+                        agg_std = -1
                     aggregated_metrics.append(agg_values)
 
                 mega_dict[hashed_scope][hashed_dataset_name][hashed_oracle_name][hashed_explainer_name].append(aggregated_metrics)
@@ -135,7 +142,7 @@ class DataAnalyzer():
             if 'correctness' in k_low:
                 return k, k.split('.')[-1]
             
-        return None
+        return None, None
             
 
     @classmethod
