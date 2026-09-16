@@ -3,6 +3,7 @@
 ## Start here
 
 * [Reproducing experiments](reproducing-experiments.md) walks from a fresh clone to a reproduced number: environment, data, how a config is assembled, how to run one experiment or the whole batch, and where results land.
+* [Thesis experiments](thesis-experiments.md) maps every experiment in the LBS thesis to the configuration directory that produces it, including the name translation (BLS is `lcls`, OBS-min is `obs`, DCEM is `dcm`).
 * The top-level [README](../README.md) covers what GRETEL is, what ships with it, and how to cite it.
 
 ## Where things live

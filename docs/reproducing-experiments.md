@@ -216,9 +216,11 @@ Cells with no results yet are drawn as hatched placeholders, so the figures are 
 | Work | Configurations |
 |---|---|
 | Minimization of graph counterfactual explanations (under revision) | `lab/config/generate_minimize/`, queued by `docs/revision/REVISION_EXECUTION_ORDER.md`. The protocol and the reviewer-comment mapping are in `docs/revision/REVISION_EXPERIMENTS.md`. |
+| LBS thesis (*Búsqueda Local Acotada para la Minimización de Explicaciones Contrafactuales en Grafos*) | `lab/config/generate_minimize/`, plus the selector trees. [thesis-experiments.md](thesis-experiments.md) maps every table and figure to its configurations |
 | Tagging strategies | `lab/config/tagging/` |
 | Ensembles and explainer selection | `lab/config/ensembles/`, `lab/config/meta_ens/` |
 | GRETEL v2 (CIKM'22, WSDM'23, the Computing Surveys survey, the JMLR comparison) | `legacy/config-v2/`, see `legacy/README.md` |
+| The published baselines, under the current pipeline | `lab/config/baselines/` |
 
 ## 10. Reproducibility notes and known limits
 

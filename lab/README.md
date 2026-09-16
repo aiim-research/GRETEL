@@ -24,7 +24,12 @@ lab/
 | `metaheuristics/`, `meta/`, `llm_exp_generate_minimize/`, `debug/` | smaller studies |
 | `snippets/` | the shared pieces every config composes: `do-pairs/` (dataset + oracle), `datasets/` (manipulator sets), pipelines, store paths |
 | `base/` | minimal single-explainer examples, a good place to start reading |
+| `baselines/` | the published baselines (pRand, MACCS) run through the current pipeline, so their numbers sit beside the matrix. See `lab/config/baselines/README.md` |
 | `legacy/` | retired one-off configs from earlier phases |
+
+`docs/thesis-experiments.md` maps every table and figure of the LBS thesis to
+the directory under `generate_minimize/` that produces it, including the name
+translation (BLS is `lcls`, OBS-min is `obs`, DCEM is `dcm`).
 
 A config is assembled by the composer: `compose_do`, `compose_man`,
 `compose_pip` and `compose_strs` are replaced by the contents of the snippet
