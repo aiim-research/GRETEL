@@ -26,7 +26,7 @@ ROOT = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else
 OUT = sys.argv[2] if len(sys.argv) > 2 else None
 
 CLS_RE = re.compile(r'"(src\.[A-Za-z0-9_.\-]+)"')
-PATH_RE = re.compile(r'"((?:\./)?(?:lab|config|data|src|scripts|models)/[A-Za-z0-9_./\-\[\]+ ]+\.(?:json|jsonc|py|json5))"')
+PATH_RE = re.compile(r'"((?:\./)?(?:lab|config|data|src|scripts|models|legacy|docs|tools)/[A-Za-z0-9_./\-\[\]+ ]+\.(?:json|jsonc|py|json5))"')
 
 _symbols_cache = {}
 

@@ -102,4 +102,4 @@ def get_optimizer(cfg, model):
 
 #based_dir='/NFSHOME/mprado/CODE/gretel-steel-2/GRETEL/data/explainers/'
 #sanitize_dir_pyg(based_dir,"clear")
-#unfold_confs("config/aaai","AAAI/config","ablation")
+#unfold_confs("legacy/config-v2/aaai","AAAI/config","ablation")

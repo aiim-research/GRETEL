@@ -11,7 +11,7 @@
             "program": "main.py",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["config/_papers/ijcai24/datasets_Ens[components-A]-in.jsonc", "1"],
+            "args": ["legacy/config-v2/_papers/ijcai24/datasets_Ens[components-A]-in.jsonc", "1"],
         },
         {
             "name": "CLEAR_debug.jsonc",
@@ -29,7 +29,7 @@
             "program": "main.py",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["config/TCR-150-100-0.3+TCC+iRand.jsonc", "1"],
+            "args": ["legacy/config-v2/TCR-150-100-0.3+TCC+iRand.jsonc", "1"],
         },
         {
             "name": "BBBP_KNN-MOL_DCE",
@@ -38,7 +38,7 @@
             "program": "main.py",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["config/BBBP_KNN-MOL_DCE.json", "1"],
+            "args": ["legacy/config-v2/BBBP_KNN-MOL_DCE.json", "1"],
         },
         {
             "name": "Python: Current File with profiler",
@@ -47,7 +47,7 @@
             "module": "cProfile",
             "console": "integratedTerminal",
             "args": [
-                "-o", "output/tmp.prof", "${file}","config/test/test_TC.json", "1"
+                "-o", "output/tmp.prof", "${file}","legacy/config-v2/test/test_TC.json", "1"
             ]
         },
         {
@@ -57,7 +57,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["config/test/test_TC.json", "1"],
+            "args": ["legacy/config-v2/test/test_TC.json", "1"],
         },
         {
             "name": "RSGG_ASD",
@@ -66,7 +66,7 @@
             "program": "main.py",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["config/RSGG_ASD.json", "1"],
+            "args": ["legacy/config-v2/RSGG_ASD.json", "1"],
         },
         {
             "name": "TWITTER_TEST",
@@ -75,7 +75,7 @@
             "program": "main.py",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["config/new_datasets/TWITTER_DCE.json", "1"],
+            "args": ["legacy/config-v2/new_datasets/TWITTER_DCE.json", "1"],
         }             
     ]
 }

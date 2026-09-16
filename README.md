@@ -194,7 +194,7 @@ For simplicity we provide several **makefile** rules for easy interaction with t
 * **CounteRGAN** [9] is a porting of a GAN-based explanation method for images
 
 <!-- 
-First, we need to create a config json file with the option we want to use in our experiment. In the file config/CIKM/manager_config_example_all.json it is possible to find all options for each componnent of the framework.
+First, we need to create a config json file with the option we want to use in our experiment. In the file legacy/config-v2/CIKM/manager_config_example_all.json it is possible to find all options for each componnent of the framework.
 
 ```json
 {
