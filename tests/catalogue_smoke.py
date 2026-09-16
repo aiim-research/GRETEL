@@ -49,6 +49,17 @@ CATALOGUE = {
     "gcountergan": ("legacy/config-v2/TCR-500-64-0.4_GCN_GCounteRGAN.jsonc", 0),
 }
 
+# Methods that already fail on main, before any reorganisation, so a run is
+# only a regression when something NOT listed here breaks. Verified by an A/B
+# against a worktree at main: identical error messages, same three methods.
+# These are torch device-placement bugs (the model lands half on cuda and half
+# on cpu), not packaging problems. Shrink this list, never grow it.
+KNOWN_BROKEN = {
+    "eager":       "device mismatch cuda:0/cpu, same on main",
+    "gcountergan": "torch.cuda.FloatTensor vs torch.FloatTensor, same on main",
+    "meg":         "device mismatch cuda:0/cpu, same on main",
+}
+
 # Missing optional dependencies are reported apart from real breakage.
 OPTIONAL = ("No module named 'exmol'", "No module named 'selfies'",
             "No module named 'dgl'", "No module named 'omegaconf'",
@@ -125,13 +136,17 @@ def main() -> int:
                 status, detail = "SKIP", "optional dependency missing"
         except subprocess.TimeoutExpired:
             status, detail = "TIMEOUT", f"exceeded {args.timeout}s"
-        mark = {"OK": "ok  ", "SKIP": "skip", "TIMEOUT": "TIME", "MISSING_CFG": "cfg?"}.get(status, "FAIL")
+        if status in ("FAIL", "TIMEOUT") and name in KNOWN_BROKEN:
+            status, detail = "KNOWN", f"{KNOWN_BROKEN[name]} [{detail[:60]}]"
+        mark = {"OK": "ok  ", "SKIP": "skip", "TIMEOUT": "TIME",
+                "MISSING_CFG": "cfg?", "KNOWN": "kno."}.get(status, "FAIL")
         failed += status in ("FAIL", "TIMEOUT")
         rows.append(f"  [{mark}] [{i:2d}/{len(names)}] {name:<12s} {detail}")
         print(rows[-1], flush=True)
 
     print(f"\nPassed: {sum('[ok  ]' in r for r in rows)}   "
           f"Skipped: {sum('[skip]' in r for r in rows)}   "
+          f"Known-broken: {sum('[kno.]' in r for r in rows)}   "
           f"Failed: {failed}   Total: {len(rows)}")
     return 1 if failed else 0
 

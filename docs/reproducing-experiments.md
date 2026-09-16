@@ -127,6 +127,8 @@ python tests/catalogue_smoke.py                                 # the published 
 
 The second one builds dataset, oracle and explainer through the real factories and calls `explain()` once, for each of MEG, MACCS, pRand, DCE, iRand, OBS, DDBS, RSGG, EAGER and CounteRGAN, driven by their own configurations under `legacy/config-v2/`. Nothing in the current batch exercises those methods, so without it they could rot unnoticed.
 
+Seven of the ten pass. EAGER, CounteRGAN and MEG fail on a torch device mismatch, the model landing half on `cuda` and half on `cpu`. That is a real bug and it is not new: an A/B against a worktree at `main` reproduces all three with identical error messages. They are listed in the test's `KNOWN_BROKEN` so a run only fails on something else, and fixing them is worth a separate change.
+
 ## 6. Artefacts that must be trained first
 
 Two generators load a pre-trained artefact instead of computing it per run. Train each once per dataset, before any config that uses it:
