@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from src.explainer.generative.gans.graph.learnable_edges.graph_embedders import GraphEmbedder
+from src.explainer.legacy.generative.gans.graph.learnable_edges.graph_embedders import GraphEmbedder
 from src.utils.cfg_utils import default_cfg
 
 class TranslatingGenerator(nn.Module):

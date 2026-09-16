@@ -7,8 +7,8 @@ from typing import Any, Tuple
 
 from src.core.factory_base import get_instance_kvargs
 from src.evaluation.evaluation_metric_ged import GraphEditDistanceMetric
-from src.explainer.generative.gans.graph.learnable_edges.graph_embedders import GraphEmbedder
-from src.explainer.generative.gans.model import BaseGAN
+from src.explainer.legacy.generative.gans.graph.learnable_edges.graph_embedders import GraphEmbedder
+from src.explainer.legacy.generative.gans.model import BaseGAN
 from src.dataset.instances.graph import GraphInstance
 from src.utils.torch.utils import rebuild_adj_matrix
 from src.dataset.utils.dataset_torch import TorchGeometricDataset
@@ -227,10 +227,10 @@ class EdgeLearnableGAN(BaseGAN):
         return edge_index.long(), sampled_probs[sampled_edges.bool()]
     
     def check_configuration(self):
-        dflt_generator = "src.explainer.generative.gans.graph.learnable_edges.generators.TranslatingGenerator"
-        dflt_discriminator =  "src.explainer.generative.gans.graph.learnable_edges.discriminators.EmbeddingDiscriminator"
-        dflt_edge_module = "src.explainer.generative.gans.graph.learnable_edges.graph_embedders.EdgeExistanceModule"
-        dflt_node_module = "src.explainer.generative.gans.graph.learnable_edges.graph_embedders.NodeDecoderModule"
+        dflt_generator = "src.explainer.legacy.generative.gans.graph.learnable_edges.generators.TranslatingGenerator"
+        dflt_discriminator =  "src.explainer.legacy.generative.gans.graph.learnable_edges.discriminators.EmbeddingDiscriminator"
+        dflt_edge_module = "src.explainer.legacy.generative.gans.graph.learnable_edges.graph_embedders.EdgeExistanceModule"
+        dflt_node_module = "src.explainer.legacy.generative.gans.graph.learnable_edges.graph_embedders.NodeDecoderModule"
 
         if 'discriminator' in self.local_config['parameters']\
             and 'parameters' in self.local_config['parameters']['discriminator']:

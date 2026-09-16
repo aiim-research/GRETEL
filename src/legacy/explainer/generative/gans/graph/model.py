@@ -106,7 +106,7 @@ class GAN(BaseGAN):
     
     def check_configuration(self):
         dflt_generator = "src.legacy.explainer.generative.gans.graph.res_gen.ResGenerator"
-        dflt_discriminator =  "src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator" #"src.explainer.generative.gans.graph.discriminators.SimpleDiscriminator"
+        dflt_discriminator =  "src.legacy.explainer.generative.gans.graph.discriminators.SimpleDiscriminator" #"src.explainer.legacy.generative.gans.graph.discriminators.SimpleDiscriminator"
         
         sqrt_features = int(math.sqrt(self.dataset.num_node_features())) + 1
         if 'discriminator' in self.local_config['parameters']\

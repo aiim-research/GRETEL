@@ -5,7 +5,7 @@ import torch
 from torch.utils.data import TensorDataset
 from torch.utils.data import DataLoader
 
-from src.explainer.generative.gans.model import BaseGAN
+from src.explainer.legacy.generative.gans.model import BaseGAN
 from src.dataset.instances.graph import GraphInstance
 from src.utils.cfg_utils import init_dflts_to_of
 
@@ -83,8 +83,8 @@ class GAN(BaseGAN):
             self.context.logger.info(f'Epoch {epoch}\t Loss_D = {np.mean(D_losses): .4f}\t Loss_G = {np.mean(G_losses): .4f}')
   
     def check_configuration(self):
-        dflt_generator = 'src.explainer.generative.gans.image.generators.ResGenerator'
-        dflt_discriminator = 'src.explainer.generative.gans.image.discriminators.SimpleDiscriminator'
+        dflt_generator = 'src.explainer.legacy.generative.gans.image.generators.ResGenerator'
+        dflt_discriminator = 'src.explainer.legacy.generative.gans.image.discriminators.SimpleDiscriminator'
 
         #Check if the generator exist or build with its defaults:
         init_dflts_to_of(self.local_config, 'generator', dflt_generator, 

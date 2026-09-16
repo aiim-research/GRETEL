@@ -24,6 +24,7 @@ lines and ``#`` comments are ignored.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -33,6 +34,12 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEXT_EXT = {".py", ".ipynb", ".json", ".jsonc", ".md", ".txt", ".sh", ".tex",
             ".yml", ".yaml", ".cfg", ".toml", ".in"}
 SKIP_DIRS = {".git", "__pycache__", ".ipynb_checkpoints", "node_modules"}
+
+# Stored experiment output is a historical record of what was actually run.
+# Rewriting a class path inside it would make the record say something that
+# never happened, so these trees are read-only to this tool.
+SKIP_PREFIXES = ("lab/output/", "lab/output_legacy/", "data/")
+SKIP_NAME_RE = re.compile(r"^results_-?\d+_-?\d+\.json$")
 
 
 def read_plan(path):
@@ -69,8 +76,12 @@ def ensure_pkg(directory):
 def text_files():
     for dp, dn, fn in os.walk(REPO):
         dn[:] = [d for d in dn if d not in SKIP_DIRS]
+        rel_dir = os.path.relpath(dp, REPO).replace(os.sep, "/") + "/"
+        if rel_dir.startswith(SKIP_PREFIXES):
+            dn[:] = []
+            continue
         for f in fn:
-            if os.path.splitext(f)[1] in TEXT_EXT:
+            if os.path.splitext(f)[1] in TEXT_EXT and not SKIP_NAME_RE.match(f):
                 yield os.path.join(dp, f)
 
 
@@ -89,19 +100,54 @@ def build_rules(pairs):
     return rules
 
 
+def _sub_all(rules, text):
+    n = 0
+    for rx, repl in rules:
+        text, k = rx.subn(repl, text)
+        n += k
+    return text, n
+
+
+def rewrite_notebook(rules, path, apply):
+    """Rewrite code cells only. A notebook's stored outputs are run logs."""
+    try:
+        nb = json.load(open(path, encoding="utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError, OSError):
+        return 0
+    total = 0
+    for cell in nb.get("cells", []):
+        source = cell.get("source")
+        if not isinstance(source, list):
+            continue
+        new, n = _sub_all(rules, "".join(source))
+        if n:
+            total += n
+            if apply:
+                cell["source"] = new.splitlines(keepends=True)
+    if total and apply:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(nb, f, indent=1, ensure_ascii=False)
+            f.write("\n")
+    return total
+
+
 def rewrite(rules, apply):
     touched, hits = {}, 0
     for path in text_files():
+        rel = os.path.relpath(path, REPO)
+        if path.endswith(".ipynb"):
+            n = rewrite_notebook(rules, path, apply)
+            if n:
+                touched[rel] = n
+                hits += n
+            continue
         try:
             src = open(path, encoding="utf-8").read()
         except (UnicodeDecodeError, OSError):
             continue
-        out, n = src, 0
-        for rx, repl in rules:
-            out, k = rx.subn(repl, out)
-            n += k
+        out, n = _sub_all(rules, src)
         if n:
-            touched[os.path.relpath(path, REPO)] = n
+            touched[rel] = n
             hits += n
             if apply:
                 open(path, "w", encoding="utf-8").write(out)

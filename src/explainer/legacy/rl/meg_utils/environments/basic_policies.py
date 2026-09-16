@@ -3,7 +3,7 @@ from typing import Any, Callable, List, Optional, Set
 
 from src.dataset.instances.graph import GraphInstance
 from src.evaluation.evaluation_metric_ged import GraphEditDistanceMetric
-from src.explainer.rl.meg_utils.environments.base_env import BaseEnvironment, Result
+from src.explainer.legacy.rl.meg_utils.environments.base_env import BaseEnvironment, Result
 from src.utils.context import Context
 
 

@@ -80,7 +80,7 @@
             }
           },
           {
-            "class": "src.explainer.generative.rsgg.RSGG",
+            "class": "src.explainer.legacy.generative.rsgg.RSGG",
             "parameters": {
               "epochs": 500
             }

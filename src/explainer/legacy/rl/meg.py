@@ -7,10 +7,10 @@ import torch
 from src.core.explainer_base import Explainer
 from src.core.factory_base import get_instance_kvargs
 from src.evaluation.evaluation_metric_base import EvaluationMetric
-from src.explainer.rl.meg_utils.environments.base_env import BaseEnvironment
-from src.explainer.rl.meg_utils.utils.encoders import ActionEncoderAB
-from src.explainer.rl.meg_utils.utils.queue import SortedQueue
-from src.explainer.rl.meg_utils.utils.sorters import SorterSelector
+from src.explainer.legacy.rl.meg_utils.environments.base_env import BaseEnvironment
+from src.explainer.legacy.rl.meg_utils.utils.encoders import ActionEncoderAB
+from src.explainer.legacy.rl.meg_utils.utils.queue import SortedQueue
+from src.explainer.legacy.rl.meg_utils.utils.sorters import SorterSelector
 from src.utils.cfg_utils import init_dflts_to_of
 from src.utils.context import Context
 
@@ -19,9 +19,9 @@ class MEGExplainer(Explainer):
     def check_configuration(self):
         super().check_configuration()
         dst_metric = "src.evaluation.evaluation_metric_ged.GraphEditDistanceMetric"
-        environment = "src.explainer.rl.meg_utils.environments.basic_policies.AddRemoveEdgesEnvironment"
-        action_encoder = "src.explainer.rl.meg_utils.utils.encoders.IDActionEncoder"
-        sorter = "src.explainer.rl.meg_utils.utils.sorters.RewardSorterSelector"
+        environment = "src.explainer.legacy.rl.meg_utils.environments.basic_policies.AddRemoveEdgesEnvironment"
+        action_encoder = "src.explainer.legacy.rl.meg_utils.utils.encoders.IDActionEncoder"
+        sorter = "src.explainer.legacy.rl.meg_utils.utils.sorters.RewardSorterSelector"
         init_dflts_to_of(self.local_config, "distance_metric", dst_metric)
         init_dflts_to_of(self.local_config, "env", environment)
         init_dflts_to_of(self.local_config, "action_encoder", action_encoder)

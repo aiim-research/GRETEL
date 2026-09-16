@@ -11,7 +11,7 @@
         }
     },
     "do-pairs":[{"compose_tcr_gcn" : "config/snippets/do-pairs/TCR-500-64-0.4_GCN.json"} ],
-    "explainers": [{"class": "src.explainer.generative.gcountergan.GCounteRGAN","parameters":{"epochs": 150}}],
+    "explainers": [{"class": "src.explainer.legacy.generative.gcountergan.GCounteRGAN","parameters":{"epochs": 150}}],
     "compose_mes" : "config/snippets/default_metrics.json",
     "compose_strs" : "config/snippets/default_store_paths.json"
 }

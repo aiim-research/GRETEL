@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 from src.utils import get_degree_matrix, normalize_adj, create_symm_matrix_from_vec, create_vec_from_symm_matrix
-from src.explainer.helpers.gcn import GraphConvolution, GCNSynthetic
+from src.explainer.legacy.helpers.gcn import GraphConvolution, GCNSynthetic
 
 class GraphConvolutionPerturb(nn.Module):
 	"""

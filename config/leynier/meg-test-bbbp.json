@@ -55,15 +55,15 @@
     ],
     "explainers": [
         {
-            "class": "src.explainer.rl.meg.MEGExplainer",
+            "class": "src.explainer.legacy.rl.meg.MEGExplainer",
             "parameters": {
                 "num_input": 1024,
                 "env": {
-                    "class": "src.explainer.rl.meg_utils.environments.bbbp_env.BBBPEnvironment",
+                    "class": "src.explainer.legacy.rl.meg_utils.environments.bbbp_env.BBBPEnvironment",
                     "parameters": {}
                 },
                 "action_encoder": {
-                    "class": "src.explainer.rl.meg_utils.utils.encoders.MorganCountFingerprintActionEncoder",
+                    "class": "src.explainer.legacy.rl.meg_utils.utils.encoders.MorganCountFingerprintActionEncoder",
                     "parameters": {}
                 }
             }

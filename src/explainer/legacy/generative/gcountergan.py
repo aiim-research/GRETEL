@@ -1,7 +1,7 @@
 import torch
 
 from src.core.factory_base import get_instance_kvargs
-from src.explainer.per_cls_explainer import PerClassExplainer
+from src.explainer.legacy.per_cls_explainer import PerClassExplainer
 from src.utils.samplers.abstract_sampler import Sampler
 from src.utils.cfg_utils import init_dflts_to_of
 
@@ -76,7 +76,7 @@ class GCounteRGAN(PerClassExplainer):
         This method sets the prototype class and ensures the presence of a sampler
         in the configuration.
         """
-        self.set_proto_kls('src.explainer.generative.gans.image.model.GAN')
+        self.set_proto_kls('src.explainer.legacy.generative.gans.image.model.GAN')
         super().check_configuration()
         # The sampler must be present in any case
         init_dflts_to_of(

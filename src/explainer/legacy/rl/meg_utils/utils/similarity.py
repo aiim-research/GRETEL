@@ -2,7 +2,7 @@ from rdkit import DataStructs
 from rdkit.Chem import AllChem
 from torch.nn import functional as F
 
-from src.explainer.rl.meg_utils.utils.fingerprints import Fingerprint
+from src.explainer.legacy.rl.meg_utils.utils.fingerprints import Fingerprint
 
 
 def tanimoto_similarity(fp1, fp2):
