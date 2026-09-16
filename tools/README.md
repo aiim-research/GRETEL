@@ -14,6 +14,14 @@ Three kinds of reference feed that hash, and all three have to be kept in sync:
 
 The third is the one that bites: those strings are resolved by `get_class()` at runtime and injected into `local_config` as defaults, so they are hashed exactly like the config ones, but no import analysis sees them.
 
+**The payload is insertion-ordered.** `get_name` flattens `local_config` in
+dict order and joins it, so two configurations with identical key/value pairs
+in a different order hash to different names. Declaring a key that the target
+config leaves to `check_configuration` shifts every key after it. This is why
+`scripts/compute_dcm.py` writes only the keys its target config writes: an
+extra `retrain: false` was enough to send the trained artefact to a name no run
+would ever ask for.
+
 What is **not** hashed: `compose_*` snippet paths and `store_paths` addresses. The composer resolves them into the config before anything is hashed, so moving `lab/config/snippets/...` or the cache root is safe.
 
 ## The tools
@@ -39,6 +47,31 @@ Imports every module under `src/` and reports failures, ignoring optional heavy 
 ```
 python tools/import_smoke.py
 python tools/import_smoke.py src/explainer
+```
+
+### `clear_stale_locks.py`
+Removes lock files left by runs that died. A killed run keeps its lock, and
+`lock_release_tout` is in hours (120 in these configs), so one interrupted run
+can block a dataset or oracle for days while looking like a hang. Only locks
+whose owning process is dead and on this machine are removed, so it is safe to
+run alongside live experiments.
+
+```
+python tools/clear_stale_locks.py
+python tools/clear_stale_locks.py --apply
+```
+
+### `check_configs_compose.py`
+Runs every configuration through the same `propagate(compose(...))` the
+framework runs at startup. Catches a malformed JSONC file, a `compose_*`
+pointing at a snippet that is not there, a broken `propagate` block and a
+missing `experiment` section. It builds no dataset and trains nothing, so it
+covers the whole 30k tree in about 20 seconds: use it to know a config will
+start, and `tests/regression_smoke.py` to know it runs.
+
+```
+python tools/check_configs_compose.py
+python tools/check_configs_compose.py lab/config/generate_minimize
 ```
 
 ### `move_module.py`

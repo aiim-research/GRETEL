@@ -80,6 +80,21 @@ def _synthetic_config(do_pair: dict, proportion: float, force: bool, manipulator
     }
 
 
+def _manipulator_of(cfg: dict):
+    """The manipulator snippet a generate_minimize config propagates, if any.
+
+    The dataset hash depends on its manipulators, so an artefact trained
+    without them lands in a different directory and the real run retrains
+    anyway. When the caller points us at a config, follow that config.
+    """
+    params = cfg.get("experiment", {}).get("parameters", {})
+    for item in params.get("propagate", []):
+        if "doe-triplets/dataset" in item.get("in_sections", []):
+            man = item.get("params", {}).get("compose_man")
+            if man:
+                return man
+    return None
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     src = ap.add_mutually_exclusive_group(required=True)
@@ -91,14 +106,16 @@ def main() -> int:
                     help="fraction of dataset instances to score methods over (default 1.0)")
     ap.add_argument("--force", action="store_true",
                     help="retrain even if a cached artifact exists")
-    ap.add_argument("--manipulator",
-                    default="lab/config/snippets/datasets/padding.json",
-                    help="dataset manipulator snippet (default: padding.json)")
+    ap.add_argument("--manipulator", default=None,
+                    help="dataset manipulator snippet. With --config the default is "
+                         "whatever that config propagates; with --do-pair it is "
+                         "padding.json")
     args = ap.parse_args()
 
     if not 0 <= args.proportion <= 1:
         ap.error("--proportion must be in [0, 1]")
 
+    manipulator = args.manipulator
     if args.do_pair:
         do_pair = _resolve_compose(REPO / args.do_pair)
     else:
@@ -108,8 +125,13 @@ def main() -> int:
             do_pair = _resolve_compose(REPO / triplet["compose_do"].lstrip("./"))
         else:
             do_pair = {"dataset": triplet["dataset"], "oracle": triplet["oracle"]}
+        if manipulator is None:
+            manipulator = _manipulator_of(cfg)
 
-    synth = _synthetic_config(do_pair, args.proportion, args.force, args.manipulator)
+    if manipulator is None:
+        manipulator = "lab/config/snippets/datasets/padding.json"
+    print(f"Dataset manipulator: {manipulator}")
+    synth = _synthetic_config(do_pair, args.proportion, args.force, manipulator)
 
     with tempfile.NamedTemporaryFile("w", suffix=".jsonc", delete=False) as f:
         json.dump(synth, f, indent=2)

@@ -37,7 +37,12 @@ Check the install:
 ```bash
 python tools/import_smoke.py
 python tools/check_config_refs.py
+python tools/check_configs_compose.py
 ```
+
+The third one composes all ~30k configurations the way the framework does at
+startup, in about 20 seconds. It is the quickest way to know a config will
+load before you spend an hour finding out it will not.
 
 ## 2. Data
 
@@ -124,6 +129,12 @@ python scripts/run_experiments.py --datasets asd bzr --combos ofs/ofs-obs --fold
 python tests/regression_smoke.py --datasets asd --timeout 240   # the current matrix
 python tests/catalogue_smoke.py                                 # the published baselines
 ```
+
+Give the first run on a dataset a generous `--timeout`. The default 120s is
+plenty once that dataset's oracle is cached, and not nearly enough to train
+it: the BBBP GCN takes around 290s. Worse, a timeout that fires mid-training
+leaves the stale lock described in section 9b, so the next attempt waits
+instead of retrying.
 
 The second one builds dataset, oracle and explainer through the real factories and calls `explain()` once, for each of MEG, MACCS, pRand, DCE, iRand, OBS, DDBS, RSGG, EAGER and CounteRGAN, driven by their own configurations under `legacy/config-v2/`. Nothing in the current batch exercises those methods, so without it they could rot unnoticed.
 
@@ -216,9 +227,26 @@ Cells with no results yet are drawn as hatched placeholders, so the figures are 
 | Work | Configurations |
 |---|---|
 | Minimization of graph counterfactual explanations (under revision) | `lab/config/generate_minimize/`, queued by `docs/revision/REVISION_EXECUTION_ORDER.md`. The protocol and the reviewer-comment mapping are in `docs/revision/REVISION_EXPERIMENTS.md`. |
+| LBS thesis (*Búsqueda Local Acotada para la Minimización de Explicaciones Contrafactuales en Grafos*) | `lab/config/generate_minimize/`, plus the selector trees. [thesis-experiments.md](thesis-experiments.md) maps every table and figure to its configurations |
 | Tagging strategies | `lab/config/tagging/` |
 | Ensembles and explainer selection | `lab/config/ensembles/`, `lab/config/meta_ens/` |
 | GRETEL v2 (CIKM'22, WSDM'23, the Computing Surveys survey, the JMLR comparison) | `legacy/config-v2/`, see `legacy/README.md` |
+| The published baselines, under the current pipeline | `lab/config/baselines/` |
+
+## 9b. When a run seems to hang
+
+Every cached component is written under a lock, so two runs never train the same oracle at once. A run that is killed does not release its lock, and the claim file stays on disk. The next run of that component then waits for it, and `lock_release_tout` is in **hours**, set to 120 in these configs: one interrupted run can block a dataset or oracle for five days.
+
+It looks exactly like a hang. The run prints nothing and eventually times out, and it is easy to blame the config or conclude the repository is broken.
+
+```bash
+python tools/clear_stale_locks.py           # report
+python tools/clear_stale_locks.py --apply   # delete the stale ones
+```
+
+It only removes locks whose owning process is dead **and** on this machine, so it is safe to run while other experiments are in flight.
+
+The same thing explains a subtler failure: running two jobs that need the same oracle in parallel. The first trains it and holds the lock; the second waits. If the second has a per-combination timeout shorter than the training, it times out and leaves another stale claim behind. Train a shared oracle once, serially, before fanning out.
 
 ## 10. Reproducibility notes and known limits
 
