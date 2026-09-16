@@ -125,6 +125,12 @@ python tests/regression_smoke.py --datasets asd --timeout 240   # the current ma
 python tests/catalogue_smoke.py                                 # the published baselines
 ```
 
+Give the first run on a dataset a generous `--timeout`. The default 120s is
+plenty once that dataset's oracle is cached, and not nearly enough to train
+it: the BBBP GCN takes around 290s. Worse, a timeout that fires mid-training
+leaves the stale lock described in section 9b, so the next attempt waits
+instead of retrying.
+
 The second one builds dataset, oracle and explainer through the real factories and calls `explain()` once, for each of MEG, MACCS, pRand, DCE, iRand, OBS, DDBS, RSGG, EAGER and CounteRGAN, driven by their own configurations under `legacy/config-v2/`. Nothing in the current batch exercises those methods, so without it they could rot unnoticed.
 
 Seven of the ten pass. EAGER, CounteRGAN and MEG fail on a torch device mismatch, the model landing half on `cuda` and half on `cpu`. That is a real bug and it is not new: an A/B against a worktree at `main` reproduces all three with identical error messages. They are listed in the test's `KNOWN_BROKEN` so a run only fails on something else, and fixing them is worth a separate change.

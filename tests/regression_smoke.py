@@ -229,6 +229,11 @@ def parse_args() -> argparse.Namespace:
                     help="restrict to these generator names")
     ap.add_argument("--vars", nargs="+", default=None,
                     help="restrict to these variant suffixes")
+    # 120s is enough once the oracle for a dataset is cached, and far too
+    # short the first time: training the BBBP GCN takes about 290s. A timeout
+    # that fires mid-training also leaves a stale lock behind, which then
+    # blocks every later run of that oracle (tools/clear_stale_locks.py).
+    # Raise it for a first run on a new dataset.
     ap.add_argument("--timeout", type=int, default=120,
                     help="per-combo wall-clock budget in seconds (default 120)")
     ap.add_argument("--fail-fast", action="store_true",
