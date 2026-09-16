@@ -1,5 +1,5 @@
 import torch
-from os.path import join,exists
+from os.path import join, exists
 from os import makedirs
 
 from src.dataset.generators.base import Generator
@@ -10,24 +10,26 @@ from torch_geometric.datasets import TUDataset as downloader
 class TUDataset(Generator):
 
     def prepare_data(self):
-        base_path = join(self.context.working_store_path,self.dataset_name)
+        base_path = join(self.context.working_store_path, self.dataset_name)
         self.context.logger.info("Dataset Data Path:\t" + base_path)
 
         if not exists(base_path):
-            self.context.logger.info("Downloading " + self.dataset_name + "...")
+            self.context.logger.info("Creating dataset dir...")
             makedirs(base_path, exist_ok=True)
-            dataset = downloader(base_path, name=self.dataset_name, use_node_attr=True, use_edge_attr=True)
-            if not exists(join(base_path, f'{self.dataset_name}.pkl')):
-                torch.save(dataset, join(base_path, f'{self.dataset_name}.pkl'))
-                self.context.logger.info(f"Saved dataset {self.dataset_name} in {join(base_path, f'{self.dataset_name}.pkl')}.")
-        return base_path        
-       
-    
+
+        # ↓ this downloads, process and caches directly in base_path
+        self._pyg_dataset = downloader(
+            base_path,
+            name=self.dataset_name,
+            use_node_attr=True,
+            use_edge_attr=True
+        )
+        self.context.logger.info(f"Loaded {self.dataset_name} with {len(self._pyg_dataset)} graphs.")
+        return base_path
+
     def init(self):
         self.dataset_name = self.local_config['parameters']['alias']
-        base_path = self.prepare_data()
-        # read the dataset and process it
-        self.read_file = join(base_path, f'{self.dataset_name}.pkl')
+        self.prepare_data()
         self.generate_dataset()
 
     def generate_dataset(self):
@@ -35,27 +37,38 @@ class TUDataset(Generator):
             self.populate()
 
     def populate(self):
-       data = torch.load(self.read_file)
+        data = self._pyg_dataset
 
-       features_map = {f'attribute_{i}': i for i in range(data[0].x.size(1))}
-       self.dataset.node_features_map = features_map
+        num_node_feats = int(data[0].x.size(1)) if hasattr(data[0], "x") and data[0].x is not None else 0
+        features_map = {f'attribute_{i}': i for i in range(num_node_feats)}
+        self.dataset.node_features_map = features_map
 
-       # TODO edge_map, graph_map
+        for gid, g in enumerate(data):
+            x = g.x if getattr(g, "x", None) is not None else torch.empty((g.num_nodes, 0))
+            ei = g.edge_index  # [2, E]
 
-       for id, instance in enumerate(data):
-            adj_matrix = torch.zeros((instance.x.size(0), instance.x.size(0)), dtype=torch.float)
-            adj_matrix[instance.edge_index[0], instance.edge_index[1]] = 1.0 
+            adj_matrix = torch.zeros((g.num_nodes, g.num_nodes), dtype=torch.float, device=ei.device)
+            adj_matrix[ei[0], ei[1]] = 1.0
 
             edge_features = None
-            try:
-                edge_features = instance.edge_weights.numpy()
-            except AttributeError:
-                self.context.logger.info(f'Instance id = {id} does not have edge features.')
+            if getattr(g, "edge_attr", None) is not None:
+                edge_features = g.edge_attr
+            elif getattr(g, "edge_weight", None) is not None:
+                edge_features = g.edge_weight
 
-            self.dataset.instances.append(GraphInstance(id=id, 
-                                                        label=instance.y.item(), 
-                                                        data=adj_matrix.numpy(),
-                                                        graph_features=None,
-                                                        node_features=instance.x.numpy(),
-                                                        edge_features=edge_features
-                                                        ))
+            adj_np = adj_matrix.cpu().numpy()
+            x_np = x.cpu().numpy() if x.numel() > 0 else None
+            edge_np = edge_features.cpu().numpy() if edge_features is not None else None
+
+            label = int(g.y.item()) if getattr(g, "y", None) is not None else None
+
+            self.dataset.instances.append(
+                GraphInstance(
+                    id=gid,
+                    label=label,
+                    data=adj_np,
+                    graph_features=None,
+                    node_features=x_np,
+                    edge_features=edge_np
+                )
+            )

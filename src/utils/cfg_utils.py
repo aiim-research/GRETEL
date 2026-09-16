@@ -25,6 +25,9 @@ def inject_results_store_path(cfg, results_store_path):
 def inject_run_number(cfg, run_number):
     cfg['run_number'] = run_number
 
+def inject_llm(cfg, llm):
+    cfg['llm'] = llm
+
 def retake_dataset(cfg):
     return cfg['dataset']
 
@@ -42,6 +45,9 @@ def retake_results_store_path(cfg):
 
 def retake_run_number(cfg):
     return cfg['run_number']
+
+def retake_llm(cfg):
+    return cfg['llm']
 
 
 def add_init_defaults_params(snippet, **kwargs):

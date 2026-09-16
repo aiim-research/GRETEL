@@ -133,5 +133,8 @@ class MolecularInstance(GraphInstance):
     def __deepcopy__(self, memo):
         graph = GraphInstance.__deepcopy__(self, memo)
         graph = MolecularInstance.from_graph_instance(graph)
-        graph.molecule = Chem.RWMol(self.molecule)
+        
+        # TODO: Check this
+        # graph.molecule = Chem.RWMol(self.molecule)
+        
         return graph

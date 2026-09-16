@@ -50,14 +50,11 @@ format: ensure-dev
 	(git status | grep "nothing to commit") && sudo black autogoal/ tests/ || echo "(!) REFUSING TO REFORMAT WITH UNCOMMITED CHANGES" && exit
 	git status
 
-# env          Setup the development environment.
-.PHONY: env
-env: ensure-dev
-	curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python3
-	ln -s ${HOME}/.poetry/bin/poetry /usr/bin/poetry
-	poetry config virtualenvs.create false
+ENV_NAME=GRETEL
 
-# install      Install all the development dependencies.
-.PHONY: install
-install: ensure-dev
-	poetry install
+env:
+	conda activate $(ENV_NAME) && pip-compile requirements.in && pip install -r requirements.txt
+
+kernel:
+	conda activate $(ENV_NAME) && python -m ipykernel install --user --name $(ENV_NAME) --display-name "Python 3.12 ($(ENV_NAME))"
+

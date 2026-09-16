@@ -1,0 +1,7 @@
+pip install transformers google-genai accelerate
+
+curl -LsSf https://hf.co/cli/install.sh | bash
+
+https://huggingface.co/settings/tokens
+
+huggingface-cli login
