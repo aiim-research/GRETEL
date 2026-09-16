@@ -222,6 +222,21 @@ Cells with no results yet are drawn as hatched placeholders, so the figures are 
 | GRETEL v2 (CIKM'22, WSDM'23, the Computing Surveys survey, the JMLR comparison) | `legacy/config-v2/`, see `legacy/README.md` |
 | The published baselines, under the current pipeline | `lab/config/baselines/` |
 
+## 9b. When a run seems to hang
+
+Every cached component is written under a lock, so two runs never train the same oracle at once. A run that is killed does not release its lock, and the claim file stays on disk. The next run of that component then waits for it, and `lock_release_tout` is in **hours**, set to 120 in these configs: one interrupted run can block a dataset or oracle for five days.
+
+It looks exactly like a hang. The run prints nothing and eventually times out, and it is easy to blame the config or conclude the repository is broken.
+
+```bash
+python tools/clear_stale_locks.py           # report
+python tools/clear_stale_locks.py --apply   # delete the stale ones
+```
+
+It only removes locks whose owning process is dead **and** on this machine, so it is safe to run while other experiments are in flight.
+
+The same thing explains a subtler failure: running two jobs that need the same oracle in parallel. The first trains it and holds the lock; the second waits. If the second has a per-combination timeout shorter than the training, it times out and leaves another stale claim behind. Train a shared oracle once, serially, before fanning out.
+
 ## 10. Reproducibility notes and known limits
 
 **Seeding.** `src/utils/seeding.py` seeds `random`, numpy and torch from one value. The parameter name differs by component: `seed` for OFS, RSGG, LBS, OBS and RHC, `random_seed` for DFS and DBS. DCE takes none, being a deterministic search over the dataset.

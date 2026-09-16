@@ -41,6 +41,18 @@ python tools/import_smoke.py
 python tools/import_smoke.py src/explainer
 ```
 
+### `clear_stale_locks.py`
+Removes lock files left by runs that died. A killed run keeps its lock, and
+`lock_release_tout` is in hours (120 in these configs), so one interrupted run
+can block a dataset or oracle for days while looking like a hang. Only locks
+whose owning process is dead and on this machine are removed, so it is safe to
+run alongside live experiments.
+
+```
+python tools/clear_stale_locks.py
+python tools/clear_stale_locks.py --apply
+```
+
 ### `move_module.py`
 Moves modules and rewrites every reference to them (imports, config `class` keys, string literals, and the `src/a/b.py` spelling used in docs), then `git mv`s the files and creates any missing `__init__.py`.
 
