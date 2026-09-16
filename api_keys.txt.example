@@ -1,0 +1,11 @@
+# Plantilla: copiala a api_keys.txt y rellena tus claves.
+#   cp api_keys.txt.example api_keys.txt
+# api_keys.txt esta en .gitignore y nunca debe commitearse.
+#
+# Formato: una linea por clave, "PROVEEDOR=clave". '#' inicia comentario.
+# Puedes poner varias lineas del mismo proveedor: GeminiExplainer las rota
+# en orden cuando una clave falla o agota cuota.
+
+GEMINI=API_KEY_GOES_HERE
+# GEMINI=segunda_clave_opcional
+# HF=hf_TOKEN_GOES_HERE

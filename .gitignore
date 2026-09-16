@@ -165,3 +165,9 @@ da_test.py
 
 Llama-3.2-1B
 Llama-3.2-1B.zip
+
+# API keys / secretos (nunca commitear)
+api_keys.txt
+!api_keys.txt.example
+*.key
+.env.local

@@ -10,12 +10,60 @@ import torch
 from src.utils.logger import GLogger
 
 
+# Las claves nunca van en el codigo: viven en api_keys.txt (en la raiz del
+# repo, ignorado por git). Se puede apuntar a otro fichero con la variable de
+# entorno GRETEL_API_KEYS_FILE, o dar una sola clave con <PROVEEDOR>_API_KEY.
+DEFAULT_API_KEYS_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "api_keys.txt",
+)
+
+
+def load_api_keys(provider, path=None):
+    """Devuelve la lista de claves declaradas para `provider`, en orden de fichero.
+
+    Formato del fichero: una linea "PROVEEDOR=clave", '#' inicia comentario.
+    Si no hay ninguna clave lanza un error, para que una ejecucion mal
+    configurada falle aqui y no contra la API con una clave vacia.
+    """
+    provider = provider.upper()
+    path = path or os.environ.get("GRETEL_API_KEYS_FILE", DEFAULT_API_KEYS_FILE)
+
+    keys = []
+    if os.path.isfile(path):
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.split("#", 1)[0].strip()
+                if not line:
+                    continue
+                if "=" in line:
+                    name, _, value = line.partition("=")
+                    if name.strip().upper() != provider:
+                        continue
+                    line = value.strip()
+                if line and line not in keys:
+                    keys.append(line)
+
+    env_key = os.environ.get(provider + "_API_KEY")
+    if env_key and env_key not in keys:
+        keys.append(env_key)
+
+    if not keys:
+        raise RuntimeError(
+            "No hay ninguna clave de " + provider + ". Anade una linea '"
+            + provider + "=<clave>' en " + path
+            + " (el fichero esta en .gitignore) o exporta "
+            + provider + "_API_KEY."
+        )
+    return keys
+
+
 class GeminiExplainer(LLM):
 
     def __init__(self):
-        self.apis = ""
+        self.apis = load_api_keys("GEMINI")
         self.index = 0
-        self.api_key= ""
+        self.api_key = self.apis[self.index]
         self.model = "gemini-2.5-flash"
         self.client = genai.Client(api_key = self.api_key)
 
