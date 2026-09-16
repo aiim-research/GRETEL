@@ -33,7 +33,7 @@ Only `rsgg_v2/generative/gans/image/` inside it is dead.
   compose. Their imports still said `src.evaluation.future.metrics` from
   before the move; fixed so the retired configs resolve again.
 * `data_analysis/` - notebook-era result aggregation, superseded by
-  `scripts/_results_agg.py` and `lab/stats_visualizer.ipynb`.
+  `scripts/_results_agg.py` and `lab/notebooks/stats_visualizer.ipynb`.
 
 ## Why not reorganise further
 
