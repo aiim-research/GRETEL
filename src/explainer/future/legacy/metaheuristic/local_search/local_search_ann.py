@@ -6,7 +6,7 @@ from src.core.explainer_base import Explainer
 from src.dataset.instances.base import DataInstance
 from src.dataset.instances.graph import GraphInstance
 from src.explainer.future.meta.minimizer.base import ExplanationMinimizer
-from src.explainer.future.metaheuristic.Tagging.ann import ANNIndexWeighted
+from src.explainer.future.legacy.metaheuristic.Tagging.ann import ANNIndexWeighted
 from src.explainer.future.metaheuristic.Tagging.simple_tagger import SimpleTagger
 from src.explainer.future.metaheuristic.Tagging.vectors_builder import VectorsBuilder
 from typing import Generator
