@@ -13,5 +13,5 @@
     "compose_mes" : "legacy/config-v2/snippets/default_metrics.json",
     "compose_strs" : "legacy/config-v2/snippets/default_store_paths.json",
     "do-pairs":[ {"compose_bbbp_gcn" : "legacy/config-v2/snippets/do-pairs/BBBP_GCN.json"} ],
-    "explainers": [{"class": "src.explainer.legacy.search.maccs.MACCSExplainer"}]
+    "explainers": [{"class": "src.explainer.search.maccs.MACCSExplainer"}]
 }

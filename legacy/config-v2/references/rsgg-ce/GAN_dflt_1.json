@@ -1,5 +1,5 @@
 {
-  "class": "src.explainer.legacy.generative.gans.graph.model.GAN",
+  "class": "src.explainer.generative.gans.graph.model.GAN",
   "parameters": {
     "model_label": 1,
     "fold_id": 0,
@@ -13,7 +13,7 @@
       }
     },
     "generator": {
-      "class": "src.explainer.legacy.generative.gans.graph.res_gen.ResGenerator",
+      "class": "src.explainer.generative.gans.graph.res_gen.ResGenerator",
       "parameters": {
         "node_features": 7
       }

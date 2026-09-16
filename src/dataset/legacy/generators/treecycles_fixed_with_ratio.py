@@ -2,7 +2,7 @@ import networkx as nx
 import numpy as np
 
 from src.dataset.instances.graph import GraphInstance
-from src.dataset.legacy.generators.treecycles_fixed import TreeCyclesFixed
+from src.dataset.generators.treecycles_fixed import TreeCyclesFixed
 
 
 class TreeCyclesFixedWithRatio(TreeCyclesFixed):

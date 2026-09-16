@@ -10,14 +10,21 @@ CIKM'22 and WSDM'23 papers and the ACM Computing Surveys survey, plus the JMLR
 comparison, the EAGER and RSGG-CE reference configs and the ensemble studies.
 It was the repository's top-level `config/` directory.
 
-These configs name the explainer classes that now live under
-`src/explainer/legacy/` and the metrics under `src/legacy/evaluation/`; both
-sets of references were updated when those modules moved, so the configs still
-resolve. Run one the same way as any other:
+**The configurations are retired. The methods they run are not.** MEG, MACCS,
+pRand, DDBS, CounteRGAN, EAGER, RSGG and COMBINEX are the comparison baselines
+the framework exists to offer, and they live in the normal places under
+`src/explainer/`, beside CF2, CLEAR, DCE and OBS. Only the retired evaluation
+metrics moved, to `src/legacy/evaluation/`, and these configs were repointed at
+them.
+
+So these configs still run:
 
 ```
-python main.py legacy/config-v2/<config>.jsonc
+python main.py legacy/config-v2/<config>.jsonc 1
 ```
+
+`python tests/catalogue_smoke.py` exercises one method per baseline through
+these very configs, to catch the day one of them stops working.
 
 Caveat: a handful still reference classes that were deleted rather than moved
 (`src.explainer.ensemble.*`, `src.evaluation.stages.*`,

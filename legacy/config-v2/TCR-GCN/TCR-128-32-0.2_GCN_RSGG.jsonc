@@ -12,7 +12,7 @@
     },
     "do-pairs":[ {"compose_tcr_gcn" : "legacy/config-v2/snippets/do-pairs/TCR-128-32-0.2_GCN.json"}],
     
-    "explainers": [{"class": "src.explainer.legacy.generative.rsgg.RSGG","parameters":{}}],
+    "explainers": [{"class": "src.explainer.generative.rsgg.RSGG","parameters":{}}],
 
     "compose_mes" : "legacy/config-v2/snippets/default_metrics.json",
     "compose_strs" : "legacy/config-v2/snippets/default_store_paths.json"

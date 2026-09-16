@@ -118,11 +118,14 @@ That startup sync cuts both ways, and it is worth knowing before you run it: the
 python scripts/run_experiments.py --datasets asd bzr --combos ofs/ofs-obs --folds 0 1 2
 ```
 
-**A quick check that nothing is broken.** `tests/regression_smoke.py` runs one graph instance per combination and stops:
+**A quick check that nothing is broken.** Two smoke tests, each running a single graph instance per combination and stopping:
 
 ```bash
-python tests/regression_smoke.py --datasets asd --timeout 240
+python tests/regression_smoke.py --datasets asd --timeout 240   # the current matrix
+python tests/catalogue_smoke.py                                 # the published baselines
 ```
+
+The second one builds dataset, oracle and explainer through the real factories and calls `explain()` once, for each of MEG, MACCS, pRand, DCE, iRand, OBS, DDBS, RSGG, EAGER and CounteRGAN, driven by their own configurations under `legacy/config-v2/`. Nothing in the current batch exercises those methods, so without it they could rot unnoticed.
 
 ## 6. Artefacts that must be trained first
 

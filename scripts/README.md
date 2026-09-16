@@ -30,6 +30,13 @@ Run them once per dataset before the configs that need them.
 | `plot_final_results.py` | the per-metric grouped bars for the thesis results section |
 | `_results_agg.py` | not an entry point: the aggregation both figure scripts and `lab/notebooks/stats_visualizer.ipynb` share |
 
+## Checks
+
+The smoke tests live in `tests/`: `regression_smoke.py` for the current matrix,
+`catalogue_smoke.py` for the published baselines (MEG, MACCS, pRand, DDBS,
+CounteRGAN, EAGER, RSGG), which no current experiment exercises. The repository
+integrity checks live in `tools/`.
+
 ## Environment
 
 `setup-grtl-gpu.sh` builds the `GRTL` conda environment with CUDA wheels.

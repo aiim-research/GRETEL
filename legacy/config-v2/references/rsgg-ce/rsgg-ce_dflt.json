@@ -1,5 +1,5 @@
 {
-  "class": "src.explainer.legacy.generative.rsgg.RSGG",
+  "class": "src.explainer.generative.rsgg.RSGG",
   "parameters": {
     "fold_id": 0,
     "retrain": true,
@@ -12,7 +12,7 @@
     },
     "models": [
       {
-        "class": "src.explainer.legacy.generative.gans.graph.model.GAN",
+        "class": "src.explainer.generative.gans.graph.model.GAN",
         "parameters": {
           "model_label": 0,
           "fold_id": 0,
@@ -20,7 +20,7 @@
         }
       },
       {
-        "class": "src.explainer.legacy.generative.gans.graph.model.GAN",
+        "class": "src.explainer.generative.gans.graph.model.GAN",
         "parameters": {
           "model_label": 1,
           "fold_id": 0,
