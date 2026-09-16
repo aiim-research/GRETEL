@@ -118,11 +118,16 @@ That startup sync cuts both ways, and it is worth knowing before you run it: the
 python scripts/run_experiments.py --datasets asd bzr --combos ofs/ofs-obs --folds 0 1 2
 ```
 
-**A quick check that nothing is broken.** `tests/regression_smoke.py` runs one graph instance per combination and stops:
+**A quick check that nothing is broken.** Two smoke tests, each running a single graph instance per combination and stopping:
 
 ```bash
-python tests/regression_smoke.py --datasets asd --timeout 240
+python tests/regression_smoke.py --datasets asd --timeout 240   # the current matrix
+python tests/catalogue_smoke.py                                 # the published baselines
 ```
+
+The second one builds dataset, oracle and explainer through the real factories and calls `explain()` once, for each of MEG, MACCS, pRand, DCE, iRand, OBS, DDBS, RSGG, EAGER and CounteRGAN, driven by their own configurations under `legacy/config-v2/`. Nothing in the current batch exercises those methods, so without it they could rot unnoticed.
+
+Seven of the ten pass. EAGER, CounteRGAN and MEG fail on a torch device mismatch, the model landing half on `cuda` and half on `cpu`. That is a real bug and it is not new: an A/B against a worktree at `main` reproduces all three with identical error messages. They are listed in the test's `KNOWN_BROKEN` so a run only fails on something else, and fixing them is worth a separate change.
 
 ## 6. Artefacts that must be trained first
 

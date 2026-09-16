@@ -30,7 +30,7 @@ src/        the framework: dataset/ oracle/ embedder/ explainer/ evaluation/ cor
 lab/        the experiment workbench: config/ notebooks/ data/cache/ graphics/
 scripts/    command-line entry points (runners, artefact trainers, figures)
 tools/      repository integrity checks
-tests/      regression smoke test
+tests/      smoke tests: the current matrix, and the published baselines
 data/       the datasets that ship with the repository
 docs/       this documentation
 legacy/     earlier phases, kept reproducible
@@ -74,6 +74,8 @@ Adding a component means writing the class and naming it in a config. Nothing ne
 | CLEAR [8] | generative counterfactual explanations on graphs |
 | CounteRGAN [9] | a GAN-based image method ported to graphs |
 | Ensembles | aggregate several explainers by union, intersection, frequency, multi-criteria selection and others |
+
+The older baselines are shipped, not archived: their configurations live under `legacy/config-v2/` because that is the generation they were published with, and `python tests/catalogue_smoke.py` runs one instance through each of them so they cannot rot unnoticed.
 
 **Metrics.** Graph Edit Distance, Feature Edit Distance, Correctness, Sparsity, Fidelity, Oracle Calls, Oracle Accuracy, Runtime, Instability.
 

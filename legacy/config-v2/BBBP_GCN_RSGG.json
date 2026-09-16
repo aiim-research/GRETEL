@@ -15,15 +15,15 @@
     "do-pairs":[ {"compose_bbbp_gcn" : "legacy/config-v2/snippets/do-pairs/BBBP_GCN.json"} ],
     "explainers": [
         {
-            "class": "src.explainer.legacy.generative.rsgg.RSGG",
+            "class": "src.explainer.generative.rsgg.RSGG",
             "parameters": {
                 "epochs": 150,
                 "models": [
                     {
-                        "class": "src.explainer.legacy.generative.gans.graph.model.GAN",
+                        "class": "src.explainer.generative.gans.graph.model.GAN",
                         "parameters": {
                             "discriminator": {
-                                "class": "src.explainer.legacy.generative.gans.graph.discriminators.TopKPoolingDiscriminator",
+                                "class": "src.explainer.generative.gans.graph.discriminators.TopKPoolingDiscriminator",
                                 "parameters": {}
                             }
                         }

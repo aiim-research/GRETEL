@@ -10,7 +10,7 @@ Three kinds of reference feed that hash, and all three have to be kept in sync:
 |---|---|
 | Python imports | `from src.explainer.future.search.dces import DCESExplainer` |
 | Config `class` keys | `"class": "src.explainer.future.search.dcm.DCM"` |
-| Python string literals | `set_proto_kls('src.explainer.legacy.generative.gans.graph.model.GAN')` |
+| Python string literals | `set_proto_kls('src.explainer.generative.gans.graph.model.GAN')` |
 
 The third is the one that bites: those strings are resolved by `get_class()` at runtime and injected into `local_config` as defaults, so they are hashed exactly like the config ones, but no import analysis sees them.
 

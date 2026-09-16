@@ -149,6 +149,7 @@ If your method needs to train or to persist anything, subclass `Trainable` inste
 python tools/import_smoke.py            # nothing became unimportable
 python tools/check_config_refs.py       # no configuration lost a reference
 python tests/regression_smoke.py --datasets asd --timeout 240
+python tests/catalogue_smoke.py         # if you touched a published baseline
 ```
 
 Both tools carry a baseline of pre-existing damage and fail only on new breakage. If you moved a module rather than adding one, use `tools/move_module.py`: it rewrites all three spellings of a reference, including the dotted strings in Python that plain import analysis never sees.

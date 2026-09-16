@@ -48,7 +48,7 @@
         ],
     "explainers": [
         {
-            "class": "src.explainer.legacy.learned.combinex.COMBINEX",
+            "class": "src.explainer.learned.combinex.COMBINEX",
             "parameters": {
                 "optimizer": {
                     "name": "adam",

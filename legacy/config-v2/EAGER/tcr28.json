@@ -14,18 +14,18 @@
 
     "do-pairs":[ {"compose_tc28": "legacy/config-v2/JMLR/snippets/do-pairs/TCR-500-28-7_gcn.json"} ],
     "explainers": [
-    {"class": "src.explainer.legacy.generative.eager.EAGER",
+    {"class": "src.explainer.generative.eager.EAGER",
 
         "parameters": {
 
             "models": [
                 {
-                    "class": "src.explainer.legacy.generative.gans.graph.learnable_edges.model.EdgeLearnableGAN",
+                    "class": "src.explainer.generative.gans.graph.learnable_edges.model.EdgeLearnableGAN",
                     "parameters": {
                         "epochs": 10,
                         "alpha": 0.5,
                         "generator": {
-                            "class": "src.explainer.legacy.generative.gans.graph.learnable_edges.generators.TranslatingGenerator",
+                            "class": "src.explainer.generative.gans.graph.learnable_edges.generators.TranslatingGenerator",
                             "parameters": {
                                 "in_embed_dim": 6,
                                 "out_embed_dim": 2,

@@ -1,37 +1,30 @@
 # `src/explainer/legacy`
 
-The explainer generation that predates `src/explainer/future/`. Every module
-here is reachable only from the retired configs under `legacy/config-v2/` (the
-CIKM/WSDM/survey-era experiments) or from nothing at all. The current revision
-batch does not touch any of it.
+What is left here is retired: nothing imports it, no configuration names it,
+and no published method depends on it.
 
-| Subtree | What it is |
+| Module | Why it is here |
 |---|---|
-| `generative/rsgg.py`, `generative/gans/` | the first RSGG and its GAN stack. The RSGG the live pipeline runs is `src/legacy/explainer/rsgg_v2/`, wrapped by `src/explainer/future/generative/rsgg.py` |
-| `generative/eager.py` | EAGER, on the learnable-edges GAN |
-| `generative/gcountergan.py` | the CounteRGAN port for graphs |
-| `per_cls_explainer.py` | per-class base the three generative explainers above share |
-| `heuristic/ddbs.py` | data-driven bidirectional search, before the generator/minimizer split |
-| `search/maccs.py`, `search/p_rand.py`, `search/moexp.py` | molecule-oriented and random baselines |
-| `learned/`, `helpers/` | COMBINEX and the CF-GNNExplainer perturbation helpers |
-| `rl/` | MEG and its molecule environment |
-| `explainer_stub.py` | a no-op explainer, formerly `src/stubs/` |
+| `explainer_stub.py` | a no-op explainer used while wiring the factory, formerly `src/stubs/` |
+| `helpers/gcn.py`, `helpers/gcn_perturb.py` | the CF-GNNExplainer perturbation layers. Nothing imports them: the CF2 implementation in `src/explainer/generative/cf2.py` carries its own |
+| `helpers/caching.py` | an explainer cache that imports `clean_cfg` from a module it never lived in |
 
-## What stayed behind in `src/explainer/`
+## What is NOT here, and why
 
-These are **not** legacy despite living outside `future/`: the `future/`
-modules are thin subclasses of them, so they run in every current experiment
-and their module paths are hashed into today's cache and result names.
+The published methods that only the retired configurations under
+`legacy/config-v2/` reach are **not** legacy. MEG, MACCS, pRand, DDBS,
+CounteRGAN, EAGER, COMBINEX, the first RSGG and its GAN stack are the
+comparison baselines the framework exists to offer, and the README advertises
+them. They live where they always did:
 
-    explainer_factory.py
-    generative/cf2.py          <- future/generative/cf2.py
-    generative/clear.py        <- future/generative/clear.py
-    heuristic/obs.py           <- future/heuristic/obs.py
-    heuristic/obs_dist.py      <- named by future/search/{ofs,dfs}.py
-    search/dces.py             <- future/search/dces.py
-    search/i_rand.py           <- future/search/i_rand.py
-    rl/meg_utils/utils/molecular_instance.py  <- src/dataset/generators/mol_gen.py
+    src/explainer/generative/   cf2, clear, rsgg, eager, gcountergan, gans/
+    src/explainer/search/       dces, i_rand, maccs, p_rand, moexp
+    src/explainer/heuristic/    obs, obs_dist, ddbs
+    src/explainer/rl/           meg, meg_utils/
+    src/explainer/learned/      combinex, graph_perturber, perturber/
+    src/explainer/per_cls_explainer.py
 
-`molecular_instance.py` is the last survivor of the MEG utilities: it defines
-`MolecularInstance`, which the BBBP/HIV dataset generators build. It kept its
-path so instances already written to disk stay loadable.
+That directory is the implementation layer of the framework. Several of its
+modules are subclassed by `src/explainer/future/`, which adds the
+`Explanation` wrapper, and the rest are reachable by naming them in a config.
+Being old is not the same as being retired.

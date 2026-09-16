@@ -61,17 +61,17 @@
         "lr": 0.01,
         "weight_decay": 0.00005
     } },
-    {"class": "src.explainer.legacy.generative.rsgg.RSGG",
+    {"class": "src.explainer.generative.rsgg.RSGG",
 
     "parameters": {
 
         "epochs": 500,
         "models": [
             {
-                "class": "src.explainer.legacy.generative.gans.graph.model.GAN",
+                "class": "src.explainer.generative.gans.graph.model.GAN",
                 "parameters": {
                     "discriminator": {
-                        "class": "src.explainer.legacy.generative.gans.graph.discriminators.TopKPoolingDiscriminator",
+                        "class": "src.explainer.generative.gans.graph.discriminators.TopKPoolingDiscriminator",
                         "parameters": {}
                     }
                 }

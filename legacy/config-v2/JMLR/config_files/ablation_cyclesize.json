@@ -16,7 +16,7 @@
     },
 
     "do-pairs":[ 
-        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.legacy.generators.treecycles_fixed.TreeCyclesFixed",
+        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.generators.treecycles_fixed.TreeCyclesFixed",
         "parameters": {"num_instances": 500,"num_nodes_per_instance": 128, "num_cycles":4,"cycle_size": 3}}}},
         "oracle": {
             "class": "src.oracle.nn.torch.OracleTorch",
@@ -42,7 +42,7 @@
               } 
             }   
         } },
-        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.legacy.generators.treecycles_fixed.TreeCyclesFixed",
+        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.generators.treecycles_fixed.TreeCyclesFixed",
         "parameters": {"num_instances": 500,"num_nodes_per_instance": 128, "num_cycles":4,"cycle_size": 5}}}},
         "oracle": {
             "class": "src.oracle.nn.torch.OracleTorch",
@@ -68,7 +68,7 @@
               } 
             }   
         } },
-        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.legacy.generators.treecycles_fixed.TreeCyclesFixed",
+        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.generators.treecycles_fixed.TreeCyclesFixed",
         "parameters": {"num_instances": 500,"num_nodes_per_instance": 128, "num_cycles":4,"cycle_size": 8}}}},
         "oracle": {
             "class": "src.oracle.nn.torch.OracleTorch",
@@ -94,7 +94,7 @@
               } 
             }   
         } },
-        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.legacy.generators.treecycles_fixed.TreeCyclesFixed",
+        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.generators.treecycles_fixed.TreeCyclesFixed",
         "parameters": {"num_instances": 500,"num_nodes_per_instance": 128, "num_cycles":4,"cycle_size": 10}}}},
         "oracle": {
             "class": "src.oracle.nn.torch.OracleTorch",
@@ -120,7 +120,7 @@
               } 
             }   
         }},
-        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.legacy.generators.treecycles_fixed.TreeCyclesFixed",
+        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.generators.treecycles_fixed.TreeCyclesFixed",
         "parameters": {"num_instances": 500,"num_nodes_per_instance": 128, "num_cycles":4,"cycle_size": 12}}}},
         "oracle": {
             "class": "src.oracle.nn.torch.OracleTorch",
@@ -146,7 +146,7 @@
               } 
             }   
         }},
-        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.legacy.generators.treecycles_fixed.TreeCyclesFixed",
+        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.generators.treecycles_fixed.TreeCyclesFixed",
         "parameters": {"num_instances": 500,"num_nodes_per_instance": 128, "num_cycles":4,"cycle_size": 15}}}},
         "oracle": {
             "class": "src.oracle.nn.torch.OracleTorch",
@@ -172,7 +172,7 @@
               } 
             }   
         }},
-        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.legacy.generators.treecycles_fixed.TreeCyclesFixed",
+        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.generators.treecycles_fixed.TreeCyclesFixed",
         "parameters": {"num_instances": 500,"num_nodes_per_instance": 128, "num_cycles":4,"cycle_size": 18}}}},
         "oracle": {
             "class": "src.oracle.nn.torch.OracleTorch",
@@ -198,7 +198,7 @@
               } 
             }   
         }},
-        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.legacy.generators.treecycles_fixed.TreeCyclesFixed",
+        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.generators.treecycles_fixed.TreeCyclesFixed",
         "parameters": {"num_instances": 500,"num_nodes_per_instance": 128, "num_cycles":4,"cycle_size": 20}}}},
         "oracle": {
             "class": "src.oracle.nn.torch.OracleTorch",
@@ -224,7 +224,7 @@
               } 
             }   
         }},
-        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.legacy.generators.treecycles_fixed.TreeCyclesFixed",
+        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.generators.treecycles_fixed.TreeCyclesFixed",
         "parameters": {"num_instances": 500,"num_nodes_per_instance": 128, "num_cycles":4,"cycle_size": 23}}}},
         "oracle": {
             "class": "src.oracle.nn.torch.OracleTorch",
@@ -250,7 +250,7 @@
               } 
             }   
         }},
-        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.legacy.generators.treecycles_fixed.TreeCyclesFixed",
+        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.generators.treecycles_fixed.TreeCyclesFixed",
         "parameters": {"num_instances": 500,"num_nodes_per_instance": 128, "num_cycles":4,"cycle_size": 25}}}},
         "oracle": {
             "class": "src.oracle.nn.torch.OracleTorch",
@@ -276,7 +276,7 @@
               } 
             }   
         }},
-        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.legacy.generators.treecycles_fixed.TreeCyclesFixed",
+        {"dataset" :{"class": "src.dataset.dataset_base.Dataset","parameters": {"generator": {"class": "src.dataset.generators.treecycles_fixed.TreeCyclesFixed",
         "parameters": {"num_instances": 500,"num_nodes_per_instance": 128, "num_cycles":4,"cycle_size": 28}}}},
         "oracle": {
             "class": "src.oracle.nn.torch.OracleTorch",
@@ -303,7 +303,7 @@
             }   
         }}
     ],
-    "explainers": [  {"class": "src.explainer.legacy.generative.rsgg.RSGG",
+    "explainers": [  {"class": "src.explainer.generative.rsgg.RSGG",
     "parameters": {
         "epochs": 500
     }} ,
