@@ -14,6 +14,14 @@ Three kinds of reference feed that hash, and all three have to be kept in sync:
 
 The third is the one that bites: those strings are resolved by `get_class()` at runtime and injected into `local_config` as defaults, so they are hashed exactly like the config ones, but no import analysis sees them.
 
+**The payload is insertion-ordered.** `get_name` flattens `local_config` in
+dict order and joins it, so two configurations with identical key/value pairs
+in a different order hash to different names. Declaring a key that the target
+config leaves to `check_configuration` shifts every key after it. This is why
+`scripts/compute_dcm.py` writes only the keys its target config writes: an
+extra `retrain: false` was enough to send the trained artefact to a name no run
+would ever ask for.
+
 What is **not** hashed: `compose_*` snippet paths and `store_paths` addresses. The composer resolves them into the config before anything is hashed, so moving `lab/config/snippets/...` or the cache root is safe.
 
 ## The tools

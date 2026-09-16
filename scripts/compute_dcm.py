@@ -61,12 +61,47 @@ def _read_jsonc(path: Path) -> dict:
     return json.loads(txt)
 
 
+def _generator_params_of(cfg: dict, kls: str) -> dict:
+    """The parameters the config gives its `kls` generator, if it uses one.
+
+    The artefact name is an MD5 of the component's whole local_config, so a
+    parameter the config sets and we omit (``epochs``, say) is enough to make
+    us train into a different name than the run will look for. Start from the
+    config's own block instead of rebuilding it.
+    """
+    for triplet in cfg.get("doe-triplets", []):
+        gen = triplet.get("explainer", {}).get("parameters", {}).get("generator", {})
+        if gen.get("class") == kls:
+            return dict(gen.get("parameters", {}))
+    return {}
+
+
+def _explainer_params(base: dict, proportion, classify_with, force: bool) -> dict:
+    """The DCM parameter block, matching the target config key for key.
+
+    ``proportion`` and ``classify_with`` are only written when the caller asked
+    for them explicitly (they are ``None`` otherwise), and ``retrain`` only
+    under --force, because each key we add that the config omits changes the
+    hashed insertion order and therefore the artefact name.
+    """
+    params = dict(base or {})
+    params.setdefault("fold_id", -1)
+    if proportion is not None:
+        params["proportion"] = float(proportion)
+    if classify_with is not None:
+        params["classify_with"] = classify_with
+    if force:
+        params["retrain"] = True
+    return params
+
+
 def _build_synthetic_config(
     dataset_snippet: dict,
     oracle_snippet: dict,
     proportion: float,
     classify_with: str,
     force: bool,
+    extra_params: dict = None,
 ) -> dict:
     """Wrap a do-pair into a minimal generate_minimize-style config so the
     framework's Context loader is happy. The explainer block is a DCM with
@@ -88,12 +123,13 @@ def _build_synthetic_config(
                 "oracle": oracle_snippet,
                 "explainer": {
                     "class": "src.explainer.future.search.dcm.DCM",
-                    "parameters": {
-                        "fold_id": -1,
-                        "proportion": float(proportion),
-                        "classify_with": classify_with,
-                        "retrain": bool(force),
-                    },
+                    # Declare exactly what the target config declares, and no
+                    # more. Context.get_name hashes an INSERTION-ORDERED
+                    # payload, so adding a key here that the run leaves to
+                    # check_configuration shifts every key after it and we
+                    # train into a name the run will never look for.
+                    "parameters": _explainer_params(extra_params, proportion,
+                                                    classify_with, force),
                 },
             }
         ],
@@ -140,10 +176,10 @@ def main() -> int:
                      help="path to a do-pair snippet (e.g. lab/config/snippets/do-pairs/BZR_GCN.json)")
     src.add_argument("--config",
                      help="path to any generate_minimize config; its first triplet is used")
-    ap.add_argument("--proportion", type=float, default=1.0,
+    ap.add_argument("--proportion", type=float, default=None,
                     help="fraction of each class used as medoid candidates: "
                          "0 = nothing, 1 = full (default 1.0)")
-    ap.add_argument("--classify-with", choices=["label", "oracle"], default="label",
+    ap.add_argument("--classify-with", choices=["label", "oracle"], default=None,
                     help="how to assign each graph to a class during training "
                          "('label' is fast; 'oracle' follows the thesis but adds N "
                          "oracle calls during the offline phase)")
@@ -155,11 +191,17 @@ def main() -> int:
                          "it is empty.json")
     args = ap.parse_args()
 
-    if not 0 <= args.proportion <= 1:
+    if args.proportion is not None and not 0 <= args.proportion <= 1:
         ap.error("--proportion must be in [0, 1]")
+    if args.do_pair:
+        # No config to match, so fall back to the documented defaults.
+        if args.proportion is None:
+            args.proportion = 1.0
+        if args.classify_with is None:
+            args.classify_with = "label"
 
     # Pull dataset + oracle definitions out of either source.
-    manipulator = args.manipulator
+    manipulator, extra = args.manipulator, {}
     if args.do_pair:
         do_pair = _resolve_compose(REPO / args.do_pair)
     else:
@@ -171,6 +213,7 @@ def main() -> int:
             do_pair = {"dataset": triplet["dataset"], "oracle": triplet["oracle"]}
         if manipulator is None:
             manipulator = _manipulator_of(cfg)
+        extra = _generator_params_of(cfg, "src.explainer.future.search.dcm.DCM")
     if manipulator is None:
         manipulator = "lab/config/snippets/datasets/empty.json"
     print(f"Dataset manipulator: {manipulator}")
@@ -181,6 +224,7 @@ def main() -> int:
         proportion=args.proportion,
         classify_with=args.classify_with,
         force=args.force,
+        extra_params=extra,
     )
 
     # Attach the manipulator (padding etc.) the same way generate_minimize configs do.
