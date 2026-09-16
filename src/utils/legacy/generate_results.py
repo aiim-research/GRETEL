@@ -22,7 +22,7 @@ src_dir = os.path.dirname(parent_dir)
 
 sys.path.append(src_dir)
 
-from src.data_analysis.data_analyzer import DataAnalyzer as dan
+from src.data_analysis.legacy.data_analyzer import DataAnalyzer as dan
 
 parser = argparse.ArgumentParser(description='Analyze results and generate statistics')
 parser.add_argument('--output_file', type=str, help='output file')
