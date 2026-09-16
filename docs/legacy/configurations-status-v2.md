@@ -1,3 +1,13 @@
+> **Historical.** This is the status note from the GRETEL v2 era, when the
+> configurations listed below lived in the repository's top-level `config/`
+> directory (now `legacy/config-v2/`). Several of the files it mentions were
+> never committed or have since been removed, so treat it as a record of what
+> was known to work then, not as a guide to the current tree.
+>
+> For the current experiments see `docs/revision/REVISION_EXPERIMENTS.md` and
+> `lab/README.md`. To check which configurations still resolve, run
+> `python tools/check_config_refs.py`.
+
 # Configurations
 ## Tested and working configurations:
 

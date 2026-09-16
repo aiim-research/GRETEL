@@ -55,6 +55,6 @@
             }
         } 
  ],
-    "compose_mes" : "legacy/config-v2/snippets/default_metric.json",
+    "compose_mes" : "legacy/config-v2/snippets/default_metrics.json",
     "compose_strs" : "legacy/config-v2/snippets/default_store_paths.json"
 }
