@@ -21,6 +21,14 @@ python main.py lab/config/baselines/asd_prand.jsonc 1
 pip install exmol selfies
 ```
 
+Budget time for it. MACCS runs a STONED search over SELFIES per instance, so a
+full BBBP fold (2039 graphs) takes hours, not minutes: measured here at roughly
+5 to 15 seconds per instance, 137 instances in 40 minutes. The per-instance
+counterfactual dumps appear under the scope directory as the run proceeds, but
+`results_<fold>_<run>.json` is only written when the fold finishes. To see the
+method work without waiting, use `python tests/catalogue_smoke.py --only maccs`,
+which stops after one instance.
+
 ## Baselines not here, and why
 
 **iRand, DCE, OFS, RSGG, OBS, DBS** are already first-class citizens of the current matrix under `lab/config/generate_minimize/`, so they need nothing extra.
