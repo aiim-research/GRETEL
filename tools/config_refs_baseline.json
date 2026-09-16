@@ -1,5 +1,5 @@
 {
-  "_comment": "Broken-reference counts recorded before the 2026-09 reorganisation. tools/check_config_refs.py fails if either number grows.",
-  "unresolved_class_refs": 34,
+  "_comment": "Broken-reference counts. tools/check_config_refs.py fails if either number grows. Before the 2026-09 reorganisation these were 34 and 6; the class count dropped when lab/config/snippets/default_metrics.json was pointed back at the metric modules that had been moved under src/legacy/ without their references being updated.",
+  "unresolved_class_refs": 26,
   "missing_file_refs": 6
 }
