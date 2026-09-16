@@ -4,7 +4,7 @@ import torch
 from typing import Any, Tuple
 import random
 
-from src.explainer.generative.gans.model import BaseGAN
+from src.explainer.legacy.generative.gans.model import BaseGAN
 from src.dataset.instances.graph import GraphInstance
 from src.utils.torch.utils import rebuild_adj_matrix
 from src.dataset.utils.dataset_torch import TorchGeometricDataset
@@ -117,9 +117,9 @@ class GAN(BaseGAN):
         return instances
     
     def check_configuration(self):
-        dflt_generator = "src.explainer.generative.gans.graph.res_gen.ResGenerator"
-        dflt_discriminator =  "src.explainer.generative.gans.graph.discriminators.SimpleDiscriminator" #"src.explainer.generative.gans.graph.discriminators.SimpleDiscriminator"
-        # dflt_discriminator =  "src.explainer.generative.gans.graph.discriminators.TopKPoolingDiscriminator" #TODO rollback to the upper commented code
+        dflt_generator = "src.explainer.legacy.generative.gans.graph.res_gen.ResGenerator"
+        dflt_discriminator =  "src.explainer.legacy.generative.gans.graph.discriminators.SimpleDiscriminator" #"src.explainer.legacy.generative.gans.graph.discriminators.SimpleDiscriminator"
+        # dflt_discriminator =  "src.explainer.legacy.generative.gans.graph.discriminators.TopKPoolingDiscriminator" #TODO rollback to the upper commented code
         
         sqrt_features = int(math.sqrt(self.dataset.num_node_features())) + 1
         if 'discriminator' in self.local_config['parameters']\

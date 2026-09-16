@@ -1,11 +1,11 @@
 import torch
 from torch.nn import functional as F
 
-from src.explainer.rl.meg_utils.environments.molecule_env import (
+from src.explainer.legacy.rl.meg_utils.environments.molecule_env import (
     MoleculeEnvironment,
 )
-from src.explainer.rl.meg_utils.utils.molecules import mol_to_tox21_pyg
-from src.explainer.rl.meg_utils.utils.similarity import get_similarity
+from src.explainer.legacy.rl.meg_utils.utils.molecules import mol_to_tox21_pyg
+from src.explainer.legacy.rl.meg_utils.utils.similarity import get_similarity
 from src.utils.context import Context
 
 

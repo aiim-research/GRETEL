@@ -38,7 +38,7 @@
         "lambda_sim": 1.0,
         "lr": 0.01,
         "weight_decay": 0.00005
-    } }, {"class": "src.explainer.generative.gcountergan.GCounteRGAN", "parameters":{
+    } }, {"class": "src.explainer.legacy.generative.gcountergan.GCounteRGAN", "parameters":{
         "n_nodes": 28,
         "batch_size_ratio": 0.1,
         "device": "gpu",
@@ -48,7 +48,7 @@
         "n_labels": 2,
         "ce_binarization_threshold": 0.5
     }  } ,
-    {"class": "src.explainer.generative.rsgg.RSGG",
+    {"class": "src.explainer.legacy.generative.rsgg.RSGG",
             "parameters": {
                 "epochs": 500
             }

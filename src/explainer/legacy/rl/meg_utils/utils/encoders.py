@@ -5,7 +5,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 
 from src.dataset.instances.base import DataInstance
-from src.explainer.rl.meg_utils.utils.fingerprints import Fingerprint
+from src.explainer.legacy.rl.meg_utils.utils.fingerprints import Fingerprint
 from src.explainer.rl.meg_utils.utils.molecular_instance import MolecularInstance
 from src.utils.context import Context
 

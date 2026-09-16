@@ -21,19 +21,19 @@
             }
         },
         {
-            "class": "src.explainer.generative.rsgg.RSGG",
+            "class": "src.explainer.legacy.generative.rsgg.RSGG",
             "parameters": {
                 "epochs": 500
             }
         },
         {
-            "class": "src.explainer.generative.rsgg.RSGG",
+            "class": "src.explainer.legacy.generative.rsgg.RSGG",
             "parameters": {
                 "epochs": 400
             }
         },
         {
-            "class": "src.explainer.generative.rsgg.RSGG",
+            "class": "src.explainer.legacy.generative.rsgg.RSGG",
             "parameters": {
                 "epochs": 300
             }

@@ -4,7 +4,7 @@
 # visible but non-blocking. Shrink this list, never grow it.
 
 # stale import: clean_cfg lives in src.utils.context, not src.utils.cfg_utils
-src.explainer.helpers.caching
+src.explainer.legacy.helpers.caching
 
 # these import src.evaluation.future.metrics, a package removed long ago
 src.legacy.evaluation.future.evaluator_manager_do

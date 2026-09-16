@@ -13,7 +13,7 @@ import numpy as np
 from rdkit import Chem
 from rdkit.Chem import Draw
 
-from src.explainer.rl.meg_utils.environments.base_env import BaseEnvironment, Result
+from src.explainer.legacy.rl.meg_utils.environments.base_env import BaseEnvironment, Result
 from src.explainer.rl.meg_utils.utils.molecular_instance import (
     MolecularInstance,
 )

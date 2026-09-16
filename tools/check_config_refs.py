@@ -79,10 +79,21 @@ def resolve(dotted):
         return "MISSING_SYMBOL", f"{cand}::{'.'.join(rest)}"
     return "MISSING_MODULE", dotted
 
+# Stored experiment output is not configuration: a results file records the
+# class paths of a run that already happened, so a "broken" reference in one is
+# history, not a defect. Scanning them would make every legitimate move of a
+# retired module look like new damage.
+SKIP_PREFIXES = ("lab/output/", "lab/output_legacy/")
+
+
 def main():  # noqa: C901
     cfgs = []
     for dirpath, dirnames, filenames in os.walk(ROOT):
         dirnames[:] = [d for d in dirnames if d not in (".git", "__pycache__", "node_modules")]
+        rel_dir = os.path.relpath(dirpath, ROOT).replace(os.sep, "/") + "/"
+        if rel_dir.startswith(SKIP_PREFIXES):
+            dirnames[:] = []
+            continue
         for fn in filenames:
             if fn.endswith((".json", ".jsonc")):
                 cfgs.append(os.path.join(dirpath, fn))

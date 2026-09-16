@@ -1,5 +1,5 @@
-from src.explainer.rl.meg_utils.environments.molecule_env import MoleculeEnvironment
-from src.explainer.rl.meg_utils.utils.similarity import get_similarity
+from src.explainer.legacy.rl.meg_utils.environments.molecule_env import MoleculeEnvironment
+from src.explainer.legacy.rl.meg_utils.utils.similarity import get_similarity
 from src.utils.context import Context
 
 
