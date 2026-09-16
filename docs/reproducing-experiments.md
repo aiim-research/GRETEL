@@ -135,6 +135,37 @@ python scripts/compute_lst_methods.py --do-pair lab/config/snippets/do-pairs/BZR
 
 They write `DCM-*` and `LSTMethodsArtifact-*` into `lab/data/cache/explainers/<dataset-hash>/`. Both are small and several are versioned in the repository, so for the datasets used in the paper you can skip this step: the run will load the committed file. You will see `Loading: DCM-...` rather than `Creating: DCM-...` in the log.
 
+## 6b. The LLM explanation pipeline
+
+`lab/config/llm_exp_generate_minimize/` runs the same generate/minimize pipeline with three extra stages that ask a language model to explain the counterfactual in domain terms, then measure the explanation: `llm_explanation` (the explanation itself, in both directions), `llm_explanation_flip_rate` (does acting on the explanation flip the label) and `llm_explanation_contrastive_explanation`.
+
+A config opts in by composing `lab/config/snippets/minimizing_llm_pipeline.json` and declaring the model in its triplet:
+
+```jsonc
+"llm": { "class": "src.LLMexplaneability.llm_explainer.GeminiExplainer", "parameters": {} }
+```
+
+Both parts are needed. A config that composes the LLM pipeline without declaring `llm` gets `None` and fails in the first stage. Today only the `tcr-ablation-cycles/dce/dce-lcls-40` tree declares one.
+
+**Credentials never live in the repository.** `GeminiExplainer` reads them from the environment and exits with a clear message if it finds nothing:
+
+```bash
+export GEMINI_API_KEY="..."                 # one key
+export GEMINI_API_KEYS="key1,key2,key3"     # several, rotated
+```
+
+With several keys, a failed call rotates to the next one before backing off. That is what makes a long run survive a per-key quota: with the contrastive and flip-rate stages enabled the pipeline issues roughly four model calls per counterfactual, times instances, times folds. `GOOGLE_API_KEY` is accepted as an alias for the single-key form. `.gitignore` also blocks `api_keys.txt`, `*.key` and `.env.local`, as a second line of defence.
+
+`LocalLlamaExplainer` runs `meta-llama/Llama-3.1-8B-Instruct` locally with 4-bit NF4 quantization, which is what makes it fit on a single consumer GPU. It needs `transformers` and `bitsandbytes`, neither of which is in `requirements-lock.txt`: install them only if you intend to use the local model.
+
+The default model for Gemini is `gemini-2.5-flash`. The prompts sent are `SYSTEM_PROMPT` in `src/LLMexplaneability/prompt_generator.py`, with `ALTERNATIVE_SYSTEM_PROMPT` next to it as an experimental variant that steers the model toward global structural properties rather than local degree statistics. Pass it explicitly to compare:
+
+```python
+system, prompt = prompt_generator.generate_prompt(system_prompt=ALTERNATIVE_SYSTEM_PROMPT)
+```
+
+These stages are not reproducible in the strict sense: model responses vary between calls and providers change model behaviour over time. Treat the flip rate and contrastive numbers as measured on the model version named in the config at the time of the run.
+
 ## 7. The experiment matrix
 
 `lab/config/generate_minimize/<dataset>/<generator>/<generator>-<minimizer>/generate_minimize<fold>.jsonc`

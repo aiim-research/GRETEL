@@ -190,6 +190,13 @@ da_test.py
 Llama-3.2-1B
 Llama-3.2-1B.zip
 
+# Secrets. Credentials are read from the environment (see
+# docs/reproducing-experiments.md); these patterns are a second line of
+# defence so a local key file can never be committed by accident.
+api_keys.txt
+*.key
+.env.local
+
 # PyTorch model checkpoints
 *.pt
 
