@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "no-attr-7-5",
+        "scope": "synthie-no-att_dce-7.5_dce-lcls",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[

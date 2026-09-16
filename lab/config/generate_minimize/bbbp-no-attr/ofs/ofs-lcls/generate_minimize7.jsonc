@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "bbbp-no-attr",
+        "scope": "bbbp-no-attr_ofs_lcls",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[

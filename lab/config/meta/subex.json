@@ -25,7 +25,7 @@
                         }
                     },
                     "minimizer": {
-                        "class": "src.explainer.future.meta.minimizer.random.Random",
+                        "class": "src.explainer.future.meta.minimizer.obs.OBS",
                         "parameters": {
                             
                         }

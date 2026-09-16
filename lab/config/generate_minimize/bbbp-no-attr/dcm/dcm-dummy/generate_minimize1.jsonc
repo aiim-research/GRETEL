@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "bbbp-no-attr",
+        "scope": "bbbp-no-attr_dcm_dummy",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[

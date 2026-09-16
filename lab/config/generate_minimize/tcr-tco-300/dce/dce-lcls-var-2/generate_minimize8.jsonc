@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "lcls-var-2",
+        "scope": "tcr-tco-300_dce_lcls-var-2",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[

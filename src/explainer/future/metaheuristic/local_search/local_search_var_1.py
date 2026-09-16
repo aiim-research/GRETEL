@@ -13,7 +13,7 @@ from typing import Generator
 from src.explainer.future.metaheuristic.initial_solution_search.simple_searcher import SimpleSearcher
 from src.explainer.future.metaheuristic.local_search.binary_model import BinaryModel
 from src.explainer.future.metaheuristic.local_search.cache import FixedSizeCache
-from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, feature_aggregation, heat_kernel_diffusion, laplacian_regularization, random_walk_diffusion, weighted_smoothing
+from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, average_smoothing_zero, feature_aggregation, heat_kernel_diffusion, identity, laplacian_regularization, random_walk_diffusion, weighted_smoothing
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.cfg_utils import init_dflts_to_of
 from src.utils.comparison import get_edge_differences
@@ -54,6 +54,9 @@ class LocalSearch(ExplanationMinimizer):
         self.max_neigh = self.local_config['parameters']['max_neigh']
         self.attributed = self.local_config['parameters']['attributed']
         self.max_oracle_calls = self.local_config['parameters']['max_oracle_calls']
+        # Opt-in (hash-stable): skip per-candidate dataset.manipulate() when
+        # the oracle ignores recomputed node features (e.g. ASD, Tree-Cycles).
+        self.recompute_features = self.local_config['parameters'].get('recompute_features', True)
         
         self.tagger = SimpleTagger()
         
@@ -62,6 +65,7 @@ class LocalSearch(ExplanationMinimizer):
         self.distance_metric = GraphEditDistanceMetric()  
         
         self.methods = [
+            lambda data, features: identity(data, features),
             lambda data, features: average_smoothing(data, features, iterations=1),
             lambda data, features: weighted_smoothing(data, features, iterations=1),
             lambda data, features: laplacian_regularization(data, features, lambda_reg=0.01, iterations=1),
@@ -245,7 +249,8 @@ class LocalSearch(ExplanationMinimizer):
                                         data=new_data,
                                         directed=self.G.directed,
                                         node_features= self.G.node_features)
-            self.dataset.manipulate(new_g)
+            if self.recompute_features:
+                self.dataset.manipulate(new_g)
             if(self.M.classify(new_g)): return (True, new_g)
 
         return (False, None)

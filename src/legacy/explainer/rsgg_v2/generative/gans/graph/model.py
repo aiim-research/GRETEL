@@ -139,13 +139,20 @@ class GAN(BaseGAN):
                          'generator',
                          dflt_generator,
                          node_features=self.dataset.num_node_features())
+        # The discriminator's flatten->Linear head is sized num_nodes * dim, so
+        # num_nodes MUST be the padded graph size every instance actually has
+        # after AdjacencyMatrixPadder (which pads to max(num_nodes_values)).
+        # dataset.num_nodes returns the MIN node count, which mismatches the
+        # padded tensors and makes the discriminator's fc fail with a shape
+        # error (mat1 x mat2) the first time the GAN is trained from scratch.
+        padded_num_nodes = int(np.max(self.dataset.num_nodes_values))
         #Check if the generator exist or build with its defaults:
         init_dflts_to_of(self.local_config,
                          'discriminator',
                          dflt_discriminator,
-                         num_nodes=self.dataset.num_nodes,
+                         num_nodes=padded_num_nodes,
                          node_features=self.dataset.num_node_features(),
-                         dim=embed_dim_discr)  
+                         dim=embed_dim_discr)
         
         super().check_configuration()
 

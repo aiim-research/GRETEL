@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "meta",
+        "scope": "bbbp_ofs_dummy",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[

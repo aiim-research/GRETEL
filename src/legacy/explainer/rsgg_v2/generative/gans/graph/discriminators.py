@@ -124,7 +124,6 @@ class SimpleDiscriminator(nn.Module):
 
         x = F.relu(x)
         x = F.dropout(x, p=.4, training=self.training)
-        print(x.shape)
         x = torch.flatten(x)
         x = self.fc(x)
         x = torch.sigmoid(x).squeeze()

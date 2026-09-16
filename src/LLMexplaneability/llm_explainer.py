@@ -59,13 +59,27 @@ def load_api_keys(provider, path=None):
 
 
 class GeminiExplainer(LLM):
-
-    def __init__(self):
-        self.apis = load_api_keys("GEMINI")
+  
+    def init(self):
+        # Credentials come from the environment, never from source. Export
+        # GEMINI_API_KEYS (comma-separated, rotated on error) or a single
+        # GEMINI_API_KEY / GOOGLE_API_KEY before running an LLM pipeline.
+        raw = (os.environ.get("GEMINI_API_KEYS")
+               or os.environ.get("GEMINI_API_KEY")
+               or os.environ.get("GOOGLE_API_KEY")
+               or "")
+        self.apis = [k.strip() for k in raw.split(",") if k.strip()]
+        if not self.apis:
+            raise SystemExit(
+                "GeminiExplainer needs an API key: export GEMINI_API_KEY "
+                "(or GOOGLE_API_KEY), or GEMINI_API_KEYS with a "
+                "comma-separated list, before running the LLM pipeline."
+            )
         self.index = 0
         self.api_key = self.apis[self.index]
         self.model = "gemini-2.5-flash"
         self.client = genai.Client(api_key = self.api_key)
+
 
     def explain_counterfactual(self, system, prompt):
 

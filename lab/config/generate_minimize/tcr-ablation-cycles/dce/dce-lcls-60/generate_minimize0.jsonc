@@ -1,6 +1,6 @@
 {  
     "experiment" : {
-        "scope": "ablation-cycles-0-60",
+        "scope": "tcr-ablation-cycles_dce_lcls-60",
         "parameters" : {
             "lock_release_tout":120,
             "propagate":[

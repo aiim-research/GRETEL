@@ -1,20 +1,20 @@
 import copy
 import math
 import random
-import sys
 import numpy as np
 from src.core.explainer_base import Explainer
 from src.dataset.instances.base import DataInstance
 from src.dataset.instances.graph import GraphInstance
 from src.explainer.future.meta.minimizer.base import ExplanationMinimizer
 from src.explainer.future.metaheuristic.Tagging.ann import ANNIndexWeighted
+from src.explainer.future.metaheuristic.Tagging.simple_tagger import SimpleTagger
 from src.explainer.future.metaheuristic.Tagging.vectors_builder import VectorsBuilder
 from typing import Generator
 
 from src.explainer.future.metaheuristic.initial_solution_search.simple_searcher import SimpleSearcher
 from src.explainer.future.metaheuristic.local_search.binary_model import BinaryModel
 from src.explainer.future.metaheuristic.local_search.cache import FixedSizeCache
-from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, feature_aggregation, heat_kernel_diffusion, laplacian_regularization, random_walk_diffusion, weighted_smoothing
+from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, average_smoothing_zero, feature_aggregation, heat_kernel_diffusion, identity, laplacian_regularization, random_walk_diffusion, weighted_smoothing
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.cfg_utils import init_dflts_to_of
 from src.utils.comparison import get_edge_differences
@@ -55,14 +55,19 @@ class LocalSearch(ExplanationMinimizer):
         self.max_neigh = self.local_config['parameters']['max_neigh']
         self.attributed = self.local_config['parameters']['attributed']
         self.max_oracle_calls = self.local_config['parameters']['max_oracle_calls']
+        # Opt-in (hash-stable): skip per-candidate dataset.manipulate() when
+        # the oracle ignores recomputed node features (e.g. ASD, Tree-Cycles).
+        self.recompute_features = self.local_config['parameters'].get('recompute_features', True)
+        
 
-
+        self.tagger = SimpleTagger()
 
         self.searcher = SimpleSearcher()
         
         self.distance_metric = GraphEditDistanceMetric()  
         
         self.methods = [
+            lambda data, features: identity(data, features),
             lambda data, features: average_smoothing(data, features, iterations=1),
             lambda data, features: weighted_smoothing(data, features, iterations=1),
             lambda data, features: laplacian_regularization(data, features, lambda_reg=0.01, iterations=1),
@@ -75,6 +80,8 @@ class LocalSearch(ExplanationMinimizer):
 
     def minimize(self, explaination: LocalGraphCounterfactualExplanation) -> DataInstance:
         print("-------------")
+        
+            
         instance = explaination.input_instance
         self.G = instance
         self.N = instance.num_nodes
@@ -115,8 +122,35 @@ class LocalSearch(ExplanationMinimizer):
 
         result = min_ctf
         
-        builder = VectorsBuilder(["degree"], self.G.data)
-        self.indexer = ANNIndexWeighted(builder.X)
+        metrics = [
+            "degree",
+            "closeness",
+            "eigenvector",
+            "betweenness",
+            "katz",
+            "pagerank",
+            "component_id",
+            "eccentricity",
+            "coreness", 
+            "local_efficiency",   
+            "same_component_flag", 
+            "core_periphery",       
+            "local_clustering",     
+            "triangle_count",       
+            "common_neighbors",
+            "jaccard",
+            "adamic_adar",
+            "resource_allocation",
+        ]
+
+        builder = VectorsBuilder(metrics, self.G.data)
+        
+        try:
+            weights = self.local_config['weights']
+        except KeyError:
+            weights = None
+
+        self.indexer = ANNIndexWeighted(builder.X, weights=weights)
 
         n = min(self.max_runtime, self.runtime_factor * len(actual))
         self.k = 0
@@ -152,7 +186,7 @@ class LocalSearch(ExplanationMinimizer):
             
             half = int(len(actual) / 2)
             reduce = min(half, random.randint(1, half * 4))
-            actual, _, _ = self.reduce_random(best, reduce)
+            actual = self.reduce_random(best, reduce)
             self.logger.info("actual ---> " + str(len(actual)))
             
             while(len(best) - len(actual) > 1):
@@ -177,7 +211,7 @@ class LocalSearch(ExplanationMinimizer):
                     self.logger.info("============> (=) Found solution with size: " + str(len(actual)))
                     break
 
-                actual, _, _ = self.reduce_random(best, reduce)
+                actual = self.reduce_random(best, len(actual))
                 self.logger.info("actual ===> " + str(len(actual)))
                 
                 for s, _, added in self.edge_add(actual, best):
@@ -204,13 +238,15 @@ class LocalSearch(ExplanationMinimizer):
                 expand = len(actual) + min(to_expand, random.randint(1, to_expand * 4))
                 # self.logger.info("expand: " + str(expand) + ", best: " + str(len(best)))
                 if(expand > len(best)): break
-                actual, _, _ = self.reduce_random(best, reduce)
+                actual = self.reduce_random(best, expand)
                 self.logger.info("actual +++> " + str(len(actual)))
           
         if(self.oracle.predict(result) == self.oracle.predict(self.G)):
             self.logger.info("ERROR, returning non ctf ")
             self.logger.info("instance -> " + str(self.oracle.predict(self.G)))
             self.logger.info("result -> " + str(self.oracle.predict(result)))
+            
+        self.local_config["weights"] = self.indexer.w
         return result
     
     def evaluate(self, solution : set[int]) -> tuple[bool, GraphInstance]:
@@ -238,7 +274,8 @@ class LocalSearch(ExplanationMinimizer):
                                         data=new_data,
                                         directed=self.G.directed,
                                         node_features= self.G.node_features)
-            self.dataset.manipulate(new_g)
+            if self.recompute_features:
+                self.dataset.manipulate(new_g)
             if(self.M.classify(new_g)): return (True, new_g)
 
         return (False, None)
@@ -253,13 +290,14 @@ class LocalSearch(ExplanationMinimizer):
 
 
     
-    def reduce_random(self, solution : set[int], i: int) -> tuple[set[int], set[int], set[int]]:
+    def reduce_random(self, solution : set[int], i: int) -> set[int]:
         if len(solution) < i:
             raise ValueError("The set does not have enough elements.")
         
-        new_s, removed = self.indexer.prune_farthest_in_S(solution, i)
+        # Convert set to list for random.sample, then back to set
+        selected_elements = set(random.sample(list(solution), i))
         
-        return [new_s, removed, []]
+        return selected_elements
 
 
     # returns (new solution, removed edges, added edges)

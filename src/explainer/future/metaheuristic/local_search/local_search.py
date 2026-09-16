@@ -13,11 +13,12 @@ from typing import Generator
 from src.explainer.future.metaheuristic.initial_solution_search.simple_searcher import SimpleSearcher
 from src.explainer.future.metaheuristic.local_search.binary_model import BinaryModel
 from src.explainer.future.metaheuristic.local_search.cache import FixedSizeCache
-from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, feature_aggregation, heat_kernel_diffusion, laplacian_regularization, random_walk_diffusion, weighted_smoothing
+from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, average_smoothing_zero, feature_aggregation, heat_kernel_diffusion, identity, laplacian_regularization, random_walk_diffusion, weighted_smoothing
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.cfg_utils import init_dflts_to_of
 from src.utils.comparison import get_edge_differences
 from src.utils.metrics.ged import GraphEditDistanceMetric
+from src.utils.seeding import set_seed
 from collections import OrderedDict
 
 class LocalSearch(ExplanationMinimizer):
@@ -54,7 +55,14 @@ class LocalSearch(ExplanationMinimizer):
         self.max_neigh = self.local_config['parameters']['max_neigh']
         self.attributed = self.local_config['parameters']['attributed']
         self.max_oracle_calls = self.local_config['parameters']['max_oracle_calls']
-        
+        # Opt-in (hash-stable): skip per-candidate dataset.manipulate() when
+        # the oracle ignores recomputed node features (e.g. ASD, Tree-Cycles).
+        self.recompute_features = self.local_config['parameters'].get('recompute_features', True)
+
+        # Opt-in deterministic seeding (Note C). Legacy configs that omit
+        # ``seed`` keep their hash and stay non-deterministic as before.
+        set_seed(self.local_config['parameters'].get('seed'))
+
         self.tagger = SimpleTagger()
         
         self.searcher = SimpleSearcher()
@@ -62,11 +70,12 @@ class LocalSearch(ExplanationMinimizer):
         self.distance_metric = GraphEditDistanceMetric()  
         
         self.methods = [
+            lambda data, features: identity(data, features),
             lambda data, features: average_smoothing(data, features, iterations=1),
             lambda data, features: weighted_smoothing(data, features, iterations=1),
             lambda data, features: laplacian_regularization(data, features, lambda_reg=0.01, iterations=1),
             lambda data, features: feature_aggregation(data, features, alpha=0.5, iterations=1),
-            lambda data, features: heat_kernel_diffusion(data, features, t=0.5),
+            # lambda data, features: heat_kernel_diffusion(data, features, t=0.5),
             lambda data, features: random_walk_diffusion(data, features, steps=1)
         ]
         
@@ -236,7 +245,8 @@ class LocalSearch(ExplanationMinimizer):
                                         data=new_data,
                                         directed=self.G.directed,
                                         node_features= self.G.node_features)
-            self.dataset.manipulate(new_g)
+            if self.recompute_features:
+                self.dataset.manipulate(new_g)
             if(self.M.classify(new_g)): return (True, new_g)
 
         return (False, None)
@@ -250,64 +260,55 @@ class LocalSearch(ExplanationMinimizer):
                 data[n2, n1] = (data[n2, n1] + 1) % 2
 
 
-    def swap_random(self, solution : set[int], i: int):  
+    def swap_random(self, solution: set[int], i: int):
         self.remove_random(solution, i)
         self.add_random(solution, i)
-        
         return solution
-    
-    def add_random(self, solution : set[int], i: int):
+
+    def add_random(self, solution: set[int], i: int):
         available_numbers = set(range(1, self.EPlus)) - solution
-        
         if len(available_numbers) < i:
             raise ValueError("Not enough available numbers to add.")
-        
-        numbers_to_add = random.sample(available_numbers, i)
-        
-        solution.update(numbers_to_add)
-        
+        numbers_to_add = random.sample(list(available_numbers), i)
+        solution.update(set(numbers_to_add))
         return solution
-    
-    def remove_random(self, solution : set[int], i: int):
-        numbers_to_remove = random.sample(solution, i)
-        
-        solution.difference_update(numbers_to_remove)
-        
+
+    def remove_random(self, solution: set[int], i: int):
+        numbers_to_remove = random.sample(list(solution), i)
+        solution.difference_update(set(numbers_to_remove))
         return solution
-    
+
     def reduce_random(self, solution : set[int], i: int):
         if len(solution) < i:
             raise ValueError("The set does not have enough elements.")
         
-        selected_elements = set(random.sample(solution, i))
+        selected_elements = set(random.sample(list(solution), i))
         
         return selected_elements
 
 
-    def edge_swap(self, solution : set[int]) -> Generator[set[int], None, None]:
+    def edge_swap(self, solution: set[int]) -> Generator[set[int], None, None]:
         cealing = min(len(solution), (self.EPlus - len(solution))) + 1
         step = int(cealing / self.max_neigh) + 1
         for i in range(1, cealing, step):
             for _ in range(self.neigh_factor ** 2):
-                yield self.swap_random(set(solution.copy()), i)
-                
-    
-    def edge_add(self, solution : set[int], best) -> Generator[set[int], None, None]:
+                yield self.swap_random(set(solution), i)
+
+
+    def edge_add(self, solution: set[int], best) -> Generator[set[int], None, None]:
         cealing = (len(best) - len(solution)) + 1
         step = int(cealing / self.max_neigh) + 1
         for i in range(1, cealing, step):
             for _ in range(self.neigh_factor ** 2):
-                yield self.add_random(set(solution.copy()), i)
-                
-                
-    
-    def edge_remove(self, solution : set[int]) -> Generator[set[int], None, None]:
+                yield self.add_random(set(solution), i)
+
+
+    def edge_remove(self, solution: set[int]) -> Generator[set[int], None, None]:
         cealing = len(solution)
-        step = int((cealing / self.max_neigh) + 1) 
-        # cealing = random.randint(cealing - step, cealing)
+        step = int((cealing / self.max_neigh) + 1)
         for i in range(0, cealing, step):
             for _ in range(self.neigh_factor ** 3):
-                yield self.remove_random(set(solution.copy()), i)
+                yield self.remove_random(set(solution), i)
                 
     def write(self):
         pass
