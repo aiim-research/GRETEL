@@ -79,7 +79,7 @@ lab/config/generate_minimize/{bbbp,synthie,tcr-500-28,asd}/dce/dce-{lcls,lcls-va
 ## DCEM (Section 5.4, Tables `tab:all-datasets-dce` and `tab:all-datasets-dcem`)
 
 ```
-lab/config/generate_minimize/{synthie,bbbp,enzymes,bzr,aids,proteins,colors-3}/{dce,dcm}/{dce,dcm}-{dummy,lcls,obs}
+lab/config/generate_minimize/{synthie,bbbp,enzymes,bzr,aids,colors-3,proteins,asd}/{dce,dcm}/{dce,dcm}-{dummy,lcls,obs}
 ```
 
 **Run `scripts/compute_dcm.py` once per dataset before any `dcm` configuration.** DCEM loads a pre-trained medoid artefact rather than computing it per run, and that is the whole point of the method: generator-side oracle complexity becomes constant in the dataset size. The artefacts for the paper's datasets are versioned, so those runs will log `Loading: DCM-...`.
@@ -98,7 +98,7 @@ These need the shared LST artefact as well: `python scripts/compute_lst_methods.
 
 ## Final results (Section 5.6)
 
-The proposed integrated explainer against two coupled baselines, over eight datasets:
+The proposed integrated explainer against two coupled baselines. Six datasets here, not the eight of the DCEM tables: Synthie, BBBP, ENZYMES, BZR, AIDS and ASD. Tree-Cycles, PROTEINS and COLORS-3 have no final-results table.
 
 | Thesis row | Configuration |
 |---|---|
