@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.evaluation.future.metrics.base import EvaluationMetric
+from src.legacy.evaluation.future.metrics.base import EvaluationMetric
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.metrics.ged import graph_edit_distance_metric
 

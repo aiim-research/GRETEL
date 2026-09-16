@@ -3,7 +3,7 @@
 import pickle
 from src.core.explainer_base import Explainer
 from src.core.trainable_base import Trainable
-from src.utils.cfg_utils import clean_cfg
+from src.utils.context import clean_cfg
 
 class ExplainerCache(Explainer, Trainable):
     def explain(self, instance):
