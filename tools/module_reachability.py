@@ -36,9 +36,7 @@ ACTIVE_CFG_DIRS = ["lab/config/generate_minimize", "lab/config/tagging",
                    "lab/config/ensembles", "lab/config/llm_exp_generate_minimize",
                    "lab/config/debug", "lab/config/base", "lab/config/snippets"]
 ACTIVE_PY = ["main.py", "future_main.py", "scripts", "tests"]
-ACTIVE_NB = ["lab/stats_visualizer.ipynb", "lab/stats_visualizer_global.ipynb",
-             "lab/testing_pipeline.ipynb", "lab/1-evaluation_pipeline.ipynb",
-             "lab/1-evaluation_pipeline_llm_explanation.ipynb", "lab/subex_pipeline.ipynb"]
+ACTIVE_NB = ["lab/notebooks"]   # lab/notebooks/legacy/ is deliberately excluded
 
 def all_src_modules():
     mods = set()
@@ -134,13 +132,32 @@ def py_refs(paths):
     return seeds
 
 def nb_refs(paths):
-    refs = set()
+    """src.* references in notebook *code cells*.
+
+    Stored outputs are run logs: they name classes a past run instantiated,
+    which says nothing about whether today's code still reaches them.
+    """
+    files = []
     for p in paths:
         fp = os.path.join(ROOT, p)
-        if not os.path.isfile(fp): continue
-        t = open(fp, encoding="utf-8", errors="replace").read()
-        refs |= {r.replace("\\.", ".") for r in re.findall(r'src[\\.][A-Za-z0-9_.]+', t)}
+        if os.path.isfile(fp):
+            files.append(fp)
+        elif os.path.isdir(fp):
+            files += [os.path.join(fp, f) for f in sorted(os.listdir(fp))
+                      if f.endswith(".ipynb")]
+    refs = set()
+    for fp in files:
+        try:
+            nb = json.load(open(fp, encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        for cell in nb.get("cells", []):
+            if cell.get("cell_type") != "code":
+                continue
+            src = "".join(cell.get("source", []))
+            refs |= set(re.findall(r"src\.[A-Za-z0-9_.]+", src))
     return refs
+
 
 active_seeds = cfg_refs(ACTIVE_CFG_DIRS) | py_refs(ACTIVE_PY) | nb_refs(ACTIVE_NB)
 ACTIVE = walk(active_seeds)

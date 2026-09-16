@@ -168,14 +168,13 @@ lab/pickles*
 output/
 stats/
 AAAI/
-config/_papers
+legacy/config-v2/_papers/
 .DS_Store
 experiments/
-config/Gretel1_AAAI/
+legacy/config-v2/Gretel1_AAAI/
 evaluated/*
 data/bardh_cache/*
 old_experiments/
-visualizations/*
 
 
 # Testing files
