@@ -177,8 +177,6 @@ data/bardh_cache/*
 old_experiments/
 visualizations/*
 
-# videos
-.mp4
 
 # Testing files
 main_test.py
@@ -186,11 +184,22 @@ da_test.py
 
 # Log files
 *.out
+*.log
 
-*.txt
+# *.txt  (blanket rule removed: it hid tools/ and docs/ text files)
 
 Llama-3.2-1B
 Llama-3.2-1B.zip
 
 # PyTorch model checkpoints
 *.pt
+
+# ---------------------------------------------------------------------------
+# Heavy artefacts that must never come back into the repository.
+# They are still in the history; `git log --all -- <path>` finds them.
+# ---------------------------------------------------------------------------
+Miniforge3-*.sh
+*.mp4
+*.lock
+!poetry.lock
+*.lck

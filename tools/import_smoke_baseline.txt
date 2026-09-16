@@ -1,0 +1,26 @@
+# Modules already broken before the 2026-09 reorganisation.
+# tools/import_smoke.py only fails on a module that is NOT listed here, so a
+# rename that drops a reference is caught while this pre-existing rot stays
+# visible but non-blocking. Shrink this list, never grow it.
+
+# stale import: clean_cfg lives in src.utils.context, not src.utils.cfg_utils
+src.explainer.helpers.caching
+
+# these import src.evaluation.future.metrics, a package removed long ago
+src.legacy.evaluation.future.evaluator_manager_do
+src.legacy.evaluation.future.metrics.correctness
+src.legacy.evaluation.future.metrics.eplainer_training_runtime
+src.legacy.evaluation.future.metrics.fidelity
+src.legacy.evaluation.future.metrics.ged
+src.legacy.evaluation.future.metrics.instability
+src.legacy.evaluation.future.metrics.oracle_accuracy
+src.legacy.evaluation.future.metrics.oracle_calls
+src.legacy.evaluation.future.metrics.runtime
+src.legacy.evaluation.future.metrics.sparsity
+
+# run top-level code at import time (old scripts kept as modules)
+src.legacy.data_analysis.legacy.result_stats
+src.legacy.data_analysis.legacy.viz.nx_to_img
+src.utils.datasetinspection
+src.utils.generate_results
+src.utils.visualize
