@@ -1,7 +1,0 @@
-{
-    "dataset" : {"compose_gcn" : "config/JMLR/snippets/datasets/TCR-500-28-7.json"},
-    "oracle": { 
-      "class": "src.oracle.custom.oracle_tree_cycles.TreeCyclesOracle",
-      "parameters": {}
-  }
-}
