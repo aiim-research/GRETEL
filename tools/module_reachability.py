@@ -55,28 +55,37 @@ def mod_file(m):
     p = os.path.join(ROOT, m.replace(".", os.sep) + ".py")
     return p if os.path.isfile(p) else None
 
-STR_RE = re.compile(r"""['"](src\.[A-Za-z0-9_.]+)['"]""")
+DOTTED = re.compile(r"^src\.[A-Za-z0-9_.]+$")
+
 
 def imports_of(path):
-    """Import edges AND dotted src.* strings used with get_class()/set_proto_kls().
+    """Import edges AND dotted src.* strings passed to get_class() at runtime.
 
     The string literals matter as much as the imports: they end up in
-    ``local_config`` defaults, which are hashed into every cache/result name.
+    ``local_config`` defaults, which are hashed into every cache and result
+    name. They are read off the AST rather than the raw text, so a path that
+    only survives in a commented-out line does not keep a dead module alive.
     """
     out = set()
-    src = open(path, encoding="utf-8", errors="replace").read()
-    out |= set(STR_RE.findall(src))
-    try: tree = ast.parse(src)
-    except SyntaxError: return out
+    try:
+        tree = ast.parse(open(path, encoding="utf-8", errors="replace").read())
+    except SyntaxError:
+        return out
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for a in node.names:
-                if a.name.startswith("src."): out.add(a.name)
+                if a.name.startswith("src."):
+                    out.add(a.name)
         elif isinstance(node, ast.ImportFrom):
             if node.module and node.module.startswith("src") and node.level == 0:
                 out.add(node.module)
-                for a in node.names: out.add(node.module + "." + a.name)
+                for a in node.names:
+                    out.add(node.module + "." + a.name)
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            if DOTTED.match(node.value):
+                out.add(node.value)
     return out
+
 
 def normalize(d):
     parts = d.split(".")
