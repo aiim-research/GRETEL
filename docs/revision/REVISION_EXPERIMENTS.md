@@ -115,7 +115,7 @@
 - **Asimetría de presupuesto LBS vs RHC**: LBS chequea `max_oracle_calls` solo al inicio del loop externo y puede sobrepasarlo en cientos/miles de llamadas; RHC corta exacto. Igualar el enforcement (cortar dentro del loop de candidatos en LBS) o reportar el OC medido por corrida en la tabla, para que el "mismo presupuesto" sea verificable (R2.10 / R1.3).
 
 ### Experimentos (segundo batch)
-- **E3 (ablación de orden)**: correr `var_3` (add antes que swap, inner) y `var_4` (1b antes que 1a, outer) sobre **Synthie + DCE**. Los configs ya existen (`synthie/dce/dce-lcls-var-3` y `-var-4`, single-run) pero NO están en `REVISION_EXECUTION_ORDER.md`; hay que añadirlos y correrlos.
+- **E3 (ablación de orden)**: correr `var_3` (add antes que swap, inner) y `var_4` (1b antes que 1a, outer) sobre **Synthie + DCE**. Los configs ya existen (`synthie/dce/dce-lcls-var-3` y `-var-4`, single-run) pero NO están en `docs/revision/REVISION_EXECUTION_ORDER.md`; hay que añadirlos y correrlos.
 - **Ablación de inclusión (PI6)**: `var_1` / `var_2` (dejan fuera una estrategia) si se decide incluirla en el artículo (hoy es material de tesis).
 - **E2 (plausibilidad / R1.6, R2.5)**: implementar el post-proceso sobre los cf dumps por instancia (distancia GED del contrafactual al grafo real más cercano de la clase objetivo, LBS vs baselines). No requiere re-correr; falta el cálculo + tabla/figura. Solo usa `results/` (los cf dumps), no `results-legacy`.
 - **E5(b) (solo si sobra tiempo)**: % de instancias que topan el presupuesto de oracle calls + mediana de OC por instancia. Requiere re-correr el ablation de presupuesto.
@@ -125,4 +125,4 @@
 
 ### Tablas / notebooks (al terminar la corrida actual)
 - Refrescar Table A (matriz no-seed), Table B (estabilidad LBS+DCE) y el notebook global; regenerar las figuras del paper.
-- La corrida actual (este batch) cubre: matriz no-seed `4 ds x 4 gen x 4 min` + `dce-lcls` semillas 1-3 (E1b). Pendientes ya encolados (ver `REVISION_EXECUTION_ORDER.md`): los lcls/obs que faltan, `tcr-tco-300_rsgg_dbs`, completar `asd_rsgg_lcls` (4/10), `tcr-tco-300_rsgg_rhc` (9/10), `bbbp_ofs_obs` (re-corre completa), y las semillas LBS de synthie/bbbp/tcr.
+- La corrida actual (este batch) cubre: matriz no-seed `4 ds x 4 gen x 4 min` + `dce-lcls` semillas 1-3 (E1b). Pendientes ya encolados (ver `docs/revision/REVISION_EXECUTION_ORDER.md`): los lcls/obs que faltan, `tcr-tco-300_rsgg_dbs`, completar `asd_rsgg_lcls` (4/10), `tcr-tco-300_rsgg_rhc` (9/10), `bbbp_ofs_obs` (re-corre completa), y las semillas LBS de synthie/bbbp/tcr.

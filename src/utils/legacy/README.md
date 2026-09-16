@@ -1,7 +1,7 @@
 # `src/utils/legacy`
 
 The command-line pipeline GRETEL used before the config-driven runners in
-`scripts/` and `tests/` existed. Kept because `execution_pipeline.txt`
+`scripts/` and `tests/` existed. Kept because `docs/legacy/execution_pipeline.txt`
 documents it and old result folders were produced with it:
 
 ```
