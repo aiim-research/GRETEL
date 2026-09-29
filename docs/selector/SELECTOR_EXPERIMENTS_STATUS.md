@@ -22,7 +22,7 @@ El selector de la tesis (`src/explainer/future/metaheuristic/Tagging/OnlineSelec
 - `src/evaluation/future/evaluator.py`: parámetro opcional `instance_ids` del evaluador para correr sobre un subconjunto fijo de instancias (protocolo PROTEINS-10).
 - `src/evaluation/future/stages/fed.py`: `float()` en la FED (antes escribía un escalar numpy float32 que jsonpickle serializaba como diccionario).
 - Configs: `lab/config/generate_minimize/{synthie,bbbp}/dce/dce-lcls-net-v2{,b,c,d,e,f,g}{,-random}/` (10 folds, semilla 0) y `lab/config/generate_minimize/proteins10/dce/*` (fold 0, 10 instancias fijas, `max_oracle_calls` 1500). `proteins15/` es el intento previo con 15 instancias y presupuesto completo (descartado por lento). Ids fijos en `lab/config/snippets/proteins_10_instances.json` y `proteins_15_instances.json`.
-- `SELECTOR_V2_EXECUTION_ORDER.md`: cola para `scripts/run_revision_queue.py --list SELECTOR_V2_EXECUTION_ORDER.md --workers 1` (en serie, porque los folds comparten checkpoint).
+- `docs/selector/SELECTOR_V2_EXECUTION_ORDER.md`: cola para `scripts/run_revision_queue.py --list docs/selector/SELECTOR_V2_EXECUTION_ORDER.md --workers 1` (en serie, porque los folds comparten checkpoint).
 - Checkpoints v1 de la tesis apartados como `models/edge_selector_<ds>-<hash>.pt.thesis-bak` para que v1 arranque en frío en las comparaciones.
 
 ## 3. Resultados
@@ -91,9 +91,9 @@ Todas son flags de `local_search_selection_net_v2.LocalSearch` sobre el mismo c�
 ## 6. Siguientes pasos
 
 1. Clonar la rama, recrear el entorno (`environment.yml`, entorno conda `GRTL`), regenerar las cachés de datasets y oráculos (no viajan en git: `lab/data/cache/datasets`, `lab/data/cache/oracles`; los oráculos GCN se reentrenan con la config del snippet do-pair). Sin la misma caché del oráculo los números no serán idénticos a los de aquí.
-2. Lanzar v2g y v2g-random en PROTEINS-10 y Synthie folds 0-1 (configs listas): `python tests/run_experiments.py --one lab/config/generate_minimize/proteins10/dce/dce-lcls-net-v2g/generate_minimize0.jsonc --run-number 1` y los equivalentes; analizar con `scripts/analyze_selector_runs.py feedback ... --monitor lab/output/selector_logs/selector_v2g_<ds>.csv`.
+2. Lanzar v2g y v2g-random en PROTEINS-10 y Synthie folds 0-1 (configs listas): `python scripts/run_experiments.py --one lab/config/generate_minimize/proteins10/dce/dce-lcls-net-v2g/generate_minimize0.jsonc --run-number 1` y los equivalentes; analizar con `scripts/analyze_selector_runs.py feedback ... --monitor lab/output/selector_logs/selector_v2g_<ds>.csv`.
 3. Corregir la asimetría de presupuesto de LBS base (tope dentro de la iteración) como opción `strict_budget` para no alterar los hashes de las configs del paper.
-4. Si v2g funciona en ambos: escalar con `SELECTOR_V2_EXECUTION_ORDER.md` (añadir tier v2g) contra base sin calibrar y v2g-random, 10 folds de Synthie y BBBP, y PROTEINS con más instancias.
+4. Si v2g funciona en ambos: escalar con `docs/selector/SELECTOR_V2_EXECUTION_ORDER.md` (añadir tier v2g) contra base sin calibrar y v2g-random, 10 folds de Synthie y BBBP, y PROTEINS con más instancias.
 5. Ideas de modelado pendientes que sí podrían mover la aguja en PROTEINS: usar el ranking para decidir el orden de los métodos de atributos por candidato, pretraining offline del ranker con los logs ya guardados (parejas contexto/arista/etiqueta del buffer), y transferencia del checkpoint entre folds (ya ocurre dentro de un dataset).
 
 ## 7. Dónde está cada cosa

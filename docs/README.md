@@ -28,6 +28,11 @@ The repository is mid-revision for *On the Minimization of Graph Counterfactual 
 * [`revision/queue-runner.md`](revision/queue-runner.md) is the queue runner's cheat sheet.
 * [`paper/`](paper) holds LaTeX fragments generated for the manuscript.
 
+## The selector line
+
+* [`selector/SELECTOR_EXPERIMENTS_STATUS.md`](selector/SELECTOR_EXPERIMENTS_STATUS.md) is the continuity note for the learned edge selector v2 (`OnlineSelectorV2`, `local_search_selection_net_v2`): what was built, what was measured, and what comes next.
+* [`selector/SELECTOR_V2_EXECUTION_ORDER.md`](selector/SELECTOR_V2_EXECUTION_ORDER.md) is its run queue, for `scripts/run_revision_queue.py --list`.
+
 ## Historical
 
 * [`legacy/execution_pipeline.txt`](legacy/execution_pipeline.txt), the command-line workflow that predates the config-driven runners.

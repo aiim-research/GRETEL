@@ -8,11 +8,11 @@ Protocol: DCE generator with its fixed internal seed, minimizer seed 0, fold_id 
 
 Start / resume from the repo root:
 ```
-python scripts/run_revision_queue.py --list SELECTOR_V2_EXECUTION_ORDER.md --workers 1
+python scripts/run_revision_queue.py --list docs/selector/SELECTOR_V2_EXECUTION_ORDER.md --workers 1
 # GPU:
-python scripts/run_revision_queue.py --list SELECTOR_V2_EXECUTION_ORDER.md --workers 1 --gpu
+python scripts/run_revision_queue.py --list docs/selector/SELECTOR_V2_EXECUTION_ORDER.md --workers 1 --gpu
 # Sync checkboxes with disk and exit:
-python scripts/run_revision_queue.py --list SELECTOR_V2_EXECUTION_ORDER.md --sync-only
+python scripts/run_revision_queue.py --list docs/selector/SELECTOR_V2_EXECUTION_ORDER.md --sync-only
 ```
 
 Order: Synthie first (smaller), learned v2 before its random ablation, BBBP after. The v1 selector runs last because it reuses the already trained thesis checkpoints in `models/edge_selector_<dataset>.pt` (warm start), so it is not a cold-start comparison.
