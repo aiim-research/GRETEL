@@ -1,0 +1,6 @@
+{
+  "_comment": "Ceilings for tools/check_config_refs.py; it fails if any is exceeded. Shrink them whenever a repair lands, never grow them. Before the 2026-09 reorganisation: 34 unresolved class references, 6 missing config paths and 12 live-tree configs with problems. Everything still counted here sits in a retired tree (legacy/, lab/config/legacy/) and is documented history.",
+  "unresolved_class_refs": 16,
+  "missing_file_refs": 0,
+  "live_tree_configs_with_problems": 0
+}

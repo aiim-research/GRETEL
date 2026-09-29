@@ -69,14 +69,14 @@ def propagate(config):
             "propagate":[
                 {"in_sections" : ["explainers"],"params" : {"fold_id": 0}},
                 {"in_sections" : ["do-pairs/oracle"],"params" : {"fold_id": -1,"retrain":false}},
-                {"in_sections": ["do-pairs/dataset"],"params": { "compose_mes" : "config/snippets/centr_and_weights.json" }}
+                {"in_sections": ["do-pairs/dataset"],"params": { "compose_mes" : "legacy/config-v2/snippets/centr_and_weights.json" }}
             ]
         }
     }'''
 
 
 def main():
-    snippet_path = 'config/test/do-pairs/BBBP_GCN_DCE.json'
+    snippet_path = 'legacy/config-v2/test/do-pairs/BBBP_GCN_DCE.json'
     with open(snippet_path, 'r') as config_reader:
         in_conf = jsonpickle.decode(config_reader.read())        
 

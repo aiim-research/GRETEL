@@ -179,7 +179,7 @@ class Context(object):
         return usr
     
 #context = Context.get_context()
-#context = Context.get_context("config/test/temp.json")
+#context = Context.get_context("legacy/config-v2/test/temp.json")
 #print(context)
 #print(context._scope)
 #print(context.dataset_store_path)

@@ -1,4 +1,4 @@
-from src.evaluation.future.metrics.base import EvaluationMetric
+from src.legacy.evaluation.future.metrics.base import EvaluationMetric
 from src.future.explanation.base import Explanation
 
 

@@ -1,0 +1,15 @@
+# Modules already broken before the 2026-09 reorganisation.
+# tools/import_smoke.py only fails on a module that is NOT listed here, so a
+# rename that drops a reference is caught while this pre-existing rot stays
+# visible but non-blocking. Shrink this list, never grow it.
+
+# imports a MetricFactory whose own module is fine, but the manager itself
+# depends on an evaluator API that no longer exists
+src.legacy.evaluation.future.evaluator_manager_do
+
+# run top-level code at import time (old scripts kept as modules)
+src.legacy.data_analysis.legacy.result_stats
+src.legacy.data_analysis.legacy.viz.nx_to_img
+src.utils.legacy.datasetinspection
+src.utils.legacy.generate_results
+src.utils.legacy.visualize

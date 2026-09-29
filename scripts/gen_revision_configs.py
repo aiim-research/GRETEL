@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Generate config files for the REVISION_EXPERIMENTS.md article matrix.
+"""Generate config files for the docs/revision/REVISION_EXPERIMENTS.md article matrix.
 
-Decoupled protocol (see REVISION_EXPERIMENTS.md):
+Decoupled protocol (see docs/revision/REVISION_EXPERIMENTS.md):
   * Each (dataset, generator, minimizer) runs ONCE, no seed in the scope
     name, but with a FIXED internal seed = 0 (reproducible; this no-seed run
     *is* "seed 0"). Scope: ``<ds>_<gen>_<min>``.

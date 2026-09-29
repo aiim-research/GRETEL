@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Regenerate the per-generator result figures for paper_reviewed.
+"""Regenerate the per-generator result figures for the revision paper.
 
-One combined figure per generator (DCE, OFS, RSGG), 2x2 panels
+One combined figure per generator (DCE, OFS, DFS, RSGG), 2x2 panels
 (GED, FED, OC, Correctness), grouped bars over datasets, with:
   * five methods per group: generator-only, LBS, OBS, DDBS, RHC  [R1.3]
   * a single shared legend for the whole figure                  [R2.8]
@@ -15,9 +15,13 @@ notebook plots (scripts/_results_agg.py). Every bar, the generator-only one
 included, is a real cell: the generator-only bar is the <ds>_<gen>_dummy
 scope. Cells with no results yet are drawn as a hatched 'TODO' placeholder.
 
-Outputs:  document/paper_reviewed/images/<gen>_results.{png,pdf}
+Outputs:  <out>/<gen>_results.{png,pdf}, where <out> defaults to lab/graphics/
+          and is overridden by --out or $GRETEL_FIGURES_DIR.
 """
 from __future__ import annotations
+
+import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -30,8 +34,13 @@ from matplotlib.patches import Patch
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _results_agg import displayed_mean
 
-PAPER_IMAGES = Path("/home/rodrigo/projects/GRETEL stuff/Documents/paper-reviewed/images")
-LAB_GRAPHICS = Path(__file__).resolve().parent.parent / "lab" / "graphics"
+REPO = Path(__file__).resolve().parent.parent
+LAB_GRAPHICS = REPO / "lab" / "graphics"
+
+# Figures land in the repository by default so a fresh clone can regenerate
+# them. Point GRETEL_FIGURES_DIR at your paper's image directory (or pass
+# --out) to write them straight into the manuscript instead.
+DEFAULT_OUT = Path(os.environ.get("GRETEL_FIGURES_DIR", LAB_GRAPHICS))
 
 GENS = ["dce", "ofs", "dfs", "rsgg"]
 GEN_TITLE = {"dce": "DCE", "ofs": "OFS", "dfs": "DFS", "rsgg": "RSGG"}
@@ -127,7 +136,7 @@ def draw_panel(ax, gen, metric, title, ylabel, attr_only, cap):
                 fontsize=8, style="italic", color="#444444")
 
 
-def make_figure(gen, out_dir=PAPER_IMAGES):
+def make_figure(gen, out_dir=DEFAULT_OUT):
     out_dir = Path(out_dir)
     fig, axes = plt.subplots(2, 2, figsize=(12, 8.5))
     flat = axes.ravel()
@@ -165,16 +174,23 @@ def make_figure(gen, out_dir=PAPER_IMAGES):
     print(f"wrote {out_dir / (gen + '_results.png')}")
 
 
-def generate_all(out_dir=PAPER_IMAGES, gens=None):
+def generate_all(out_dir=DEFAULT_OUT, gens=None):
     """Generate the per-generator figures from the result store."""
     for gen in (gens or GENS):
         make_figure(gen, out_dir=out_dir)
 
 
 def main():
-    only = [a for a in sys.argv[1:] if a in GENS] or GENS
-    for gen in only:
-        make_figure(gen)
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("generators", nargs="*", choices=GENS, default=GENS, metavar="GEN",
+                    help=f"which generators to plot (default: all of {', '.join(GENS)})")
+    ap.add_argument("--out", type=Path, default=DEFAULT_OUT,
+                    help="output directory (default: lab/graphics, "
+                         "or $GRETEL_FIGURES_DIR when set)")
+    args = ap.parse_args()
+    for gen in (args.generators or GENS):
+        make_figure(gen, out_dir=args.out)
     return 0
 
 

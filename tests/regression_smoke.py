@@ -58,7 +58,7 @@ REPO = Path(__file__).resolve().parent.parent
 DATASETS = [
     "aids", "asd", "bbbp", "bbbp-no-attr", "bzr", "colors-3", "cuneiform",
     "enzymes", "imdb", "proteins", "synthie", "synthie-no-att",
-    "tcr-gcn", "tcr-tco-300",
+    "tcr-500-28", "tcr-gcn", "tcr-tco-300",
 ]
 
 GENERATORS = ["dce", "dcm", "ofs", "rsgg", "dfs"]
@@ -66,6 +66,9 @@ GENERATORS = ["dce", "dcm", "ofs", "rsgg", "dfs"]
 # Non-trainable variants only — trainable/ponderation variants need an
 # internal model trained on first use, which exceeds a smoke-test budget.
 VARIANTS = ["dummy", "lcls", "lcls-net", "lcls-var-1", "lcls-var-2", "obs", "dbs"]
+
+# Combinations the config tree does not define are reported as MISSING rather
+# than as failures: not every dataset carries every variant.
 
 CFG_TMPL = "lab/config/generate_minimize/{ds}/{gen}/{gen}-{variant}/generate_minimize0.jsonc"
 
@@ -226,6 +229,11 @@ def parse_args() -> argparse.Namespace:
                     help="restrict to these generator names")
     ap.add_argument("--vars", nargs="+", default=None,
                     help="restrict to these variant suffixes")
+    # 120s is enough once the oracle for a dataset is cached, and far too
+    # short the first time: training the BBBP GCN takes about 290s. A timeout
+    # that fires mid-training also leaves a stale lock behind, which then
+    # blocks every later run of that oracle (tools/clear_stale_locks.py).
+    # Raise it for a first run on a new dataset.
     ap.add_argument("--timeout", type=int, default=120,
                     help="per-combo wall-clock budget in seconds (default 120)")
     ap.add_argument("--fail-fast", action="store_true",

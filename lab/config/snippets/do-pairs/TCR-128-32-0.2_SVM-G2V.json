@@ -1,5 +1,5 @@
 {
-    "dataset" : {"compose_gcn" : "config/snippets/datasets/TCR-128-32-0.2.json"},
+    "dataset" : {"compose_gcn" : "legacy/config-v2/snippets/datasets/TCR-128-32-0.2.json"},
     "oracle": {
         "class": "src.oracle.tabulars.svm.SVMOracle",           
         "parameters": {

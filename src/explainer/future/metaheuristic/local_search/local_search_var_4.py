@@ -1,6 +1,6 @@
 """LBS ordering ablation - variant 4: order  add -> 1b -> 1a -> swap.
 
-E3 of REVISION_EXPERIMENTS.md (R2.11) permutes the strategy priority while
+E3 of docs/revision/REVISION_EXPERIMENTS.md (R2.11) permutes the strategy priority while
 keeping every operator. Per outer iteration the operators are tried in the
 order: edge_add, overshoot removal (1b, remove a large block at once),
 single-edge removal (1a), then edge_swap. Relative to var_3 (add -> swap ->

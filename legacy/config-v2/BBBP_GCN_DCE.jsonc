@@ -1,0 +1,17 @@
+{  
+    "experiment" : {
+        "scope": "examples_configs",
+        "parameters" : {
+            "lock_release_tout":120,
+            "propagate":[
+                {"in_sections" : ["explainers"],"params" : {"fold_id": 0}},
+                {"in_sections" : ["do-pairs/oracle"],"params" : {"fold_id": -1,"retrain":true}},
+                {"in_sections": ["do-pairs/dataset"],"params": { "compose_man" : "legacy/config-v2/snippets/datasets/centr_and_weights.json" }}
+            ]
+        }
+    },
+    "compose_mes" : "legacy/config-v2/snippets/default_metrics.json",
+    "compose_strs" : "legacy/config-v2/snippets/default_store_paths.json",
+    "do-pairs":[ {"compose_bbbp_gcn" : "legacy/config-v2/snippets/do-pairs/BBBP_GCN.json"} ],
+    "explainers": [{"class": "src.explainer.search.dces.DCESExplainer"}]
+}

@@ -6,5 +6,5 @@
             "propagate":[]
         }
     },
-    "compose_strs" : "config/snippets/default_store_paths.json"
+    "compose_strs" : "legacy/config-v2/snippets/default_store_paths.json"
 }
