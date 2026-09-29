@@ -63,6 +63,12 @@ class LocalSearch(ExplanationMinimizer):
         # ``seed`` keep their hash and stay non-deterministic as before.
         set_seed(self.local_config['parameters'].get('seed'))
 
+        # Opt-in (hash-stable): stop the moment the minimizer has spent
+        # ``max_oracle_calls``. Without it the cap is only checked between outer
+        # iterations, and one iteration on a large graph can overshoot it by an
+        # order of magnitude. Needed for equal-budget comparisons.
+        self.strict_budget = self.local_config['parameters'].get('strict_budget', False)
+
         self.tagger = SimpleTagger()
         
         self.searcher = SimpleSearcher()
@@ -135,7 +141,7 @@ class LocalSearch(ExplanationMinimizer):
             # self.logger.info("k: " + str(self.k))
             n-=1
             if(len(best) == 1) : break
-            if(self.k > self.max_oracle_calls) :
+            if(self.k > self.max_oracle_calls or self._out_of_budget()) :
                  self.logger.info("Oracle calls limit reached")
                  break
             found = False
@@ -143,6 +149,8 @@ class LocalSearch(ExplanationMinimizer):
             # self.logger.info("actual ---> " + str(len(actual)))
             
             for s in self.edge_remove(actual):
+                if self._out_of_budget():
+                    break
                 if(self.cache.contains(s)):
                     continue
                 self.cache.add(s)
@@ -167,6 +175,8 @@ class LocalSearch(ExplanationMinimizer):
             while(len(best) - len(actual) > 1):
                 n-=1
                 for s in self.edge_swap(actual):
+                    if self._out_of_budget():
+                        break
                     if(self.cache.contains(s)):
                         # print("in cache")
                         continue
@@ -189,6 +199,8 @@ class LocalSearch(ExplanationMinimizer):
                 # self.logger.info("actual ===> " + str(len(actual)))
                 
                 for s in self.edge_add(actual, best):
+                    if self._out_of_budget():
+                        break
                     if(self.cache.contains(s)):
                         # print("in cache")
                         continue
@@ -220,6 +232,9 @@ class LocalSearch(ExplanationMinimizer):
             self.logger.info("result -> " + str(self.oracle.predict(result)))
         return result
     
+    def _out_of_budget(self) -> bool:
+        return self.strict_budget and self.k >= self.max_oracle_calls
+
     def evaluate(self, solution : set[int]) -> tuple[bool, GraphInstance]:
         new_data = np.copy(self.G.data)
         self.disturb(new_data, self.G.directed, solution)
@@ -227,6 +242,8 @@ class LocalSearch(ExplanationMinimizer):
         # If the dataset has attributes in the nodes, then lets explore those with the methods
         if(self.attributed):
             for method in self.methods:
+                if self._out_of_budget():
+                    break
                 self.k += 1
                 node_features = method(new_data, self.G.node_features)
                 new_g = GraphInstance(id=self.G.id,
@@ -238,7 +255,7 @@ class LocalSearch(ExplanationMinimizer):
         
         # If the dataset does not has attributes, then it has ficticial attributes for GCN to work,
         # in that case, we just call the manipulator method
-        else:
+        elif not self._out_of_budget():
             self.k += 1
             new_g = GraphInstance(id=self.G.id,
                                         label=0,

@@ -1,0 +1,288 @@
+{
+ "dataset": "PROTEINS",
+ "fold": 0,
+ "max_oracle_calls": 2000,
+ "rule": "40 instances drawn uniformly without replacement from the fold-0 test split (112 graphs) with random.Random(2026); the split is the one cached on the 2026-09-29 machine (StratifiedKFold without a fixed seed, so it differs from earlier machines)",
+ "instances": [
+  {
+   "id": 10,
+   "nodes": 620,
+   "edges": 32,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 31,
+   "nodes": 620,
+   "edges": 25,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 105,
+   "nodes": 620,
+   "edges": 21,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 113,
+   "nodes": 620,
+   "edges": 42,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 133,
+   "nodes": 620,
+   "edges": 75,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 143,
+   "nodes": 620,
+   "edges": 256,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 148,
+   "nodes": 620,
+   "edges": 40,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 159,
+   "nodes": 620,
+   "edges": 78,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 165,
+   "nodes": 620,
+   "edges": 59,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 239,
+   "nodes": 620,
+   "edges": 164,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 274,
+   "nodes": 620,
+   "edges": 68,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 291,
+   "nodes": 620,
+   "edges": 93,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 301,
+   "nodes": 620,
+   "edges": 32,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 345,
+   "nodes": 620,
+   "edges": 24,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 395,
+   "nodes": 620,
+   "edges": 36,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 419,
+   "nodes": 620,
+   "edges": 71,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 424,
+   "nodes": 620,
+   "edges": 100,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 430,
+   "nodes": 620,
+   "edges": 66,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 439,
+   "nodes": 620,
+   "edges": 26,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 454,
+   "nodes": 620,
+   "edges": 58,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 477,
+   "nodes": 620,
+   "edges": 42,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 527,
+   "nodes": 620,
+   "edges": 42,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 533,
+   "nodes": 620,
+   "edges": 45,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 603,
+   "nodes": 620,
+   "edges": 36,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 641,
+   "nodes": 620,
+   "edges": 34,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 649,
+   "nodes": 620,
+   "edges": 32,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 736,
+   "nodes": 620,
+   "edges": 25,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 754,
+   "nodes": 620,
+   "edges": 36,
+   "label": 1,
+   "pred": 0
+  },
+  {
+   "id": 765,
+   "nodes": 620,
+   "edges": 21,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 785,
+   "nodes": 620,
+   "edges": 73,
+   "label": 1,
+   "pred": 0
+  },
+  {
+   "id": 789,
+   "nodes": 620,
+   "edges": 17,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 812,
+   "nodes": 620,
+   "edges": 46,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 833,
+   "nodes": 620,
+   "edges": 35,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 864,
+   "nodes": 620,
+   "edges": 60,
+   "label": 1,
+   "pred": 0
+  },
+  {
+   "id": 965,
+   "nodes": 620,
+   "edges": 28,
+   "label": 1,
+   "pred": 0
+  },
+  {
+   "id": 994,
+   "nodes": 620,
+   "edges": 29,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1005,
+   "nodes": 620,
+   "edges": 113,
+   "label": 1,
+   "pred": 0
+  },
+  {
+   "id": 1012,
+   "nodes": 620,
+   "edges": 9,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1072,
+   "nodes": 620,
+   "edges": 204,
+   "label": 1,
+   "pred": 0
+  },
+  {
+   "id": 1092,
+   "nodes": 620,
+   "edges": 38,
+   "label": 1,
+   "pred": 0
+  }
+ ]
+}

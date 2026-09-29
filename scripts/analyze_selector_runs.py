@@ -11,6 +11,9 @@ Examples (repo root)::
         lab/output/queue_logs/synthie_dce_lcls-net-v2_fold1.log --block 10
 
     python scripts/analyze_selector_runs.py monitor lab/output/selector_logs/selector_v2_Synthie-<hash>.csv
+
+    python scripts/analyze_selector_runs.py stats base=proteins40_dce_lcls v1=proteins40_dce_lcls-net \
+        v2e=proteins40_dce_lcls-net-v2e v2e-r=proteins40_dce_lcls-net-v2e-random --ref base v1 v2e-r
 """
 from __future__ import annotations
 
@@ -282,6 +285,97 @@ def cmd_feedback(args) -> int:
     return 0
 
 
+# ----------------------------------------------------------------------------- stats
+
+def _holm(pvals: list[float]) -> list[float]:
+    order = np.argsort(pvals)
+    adj = np.empty(len(pvals))
+    running = 0.0
+    for rank, i in enumerate(order):
+        running = max(running, (len(pvals) - rank) * pvals[i])
+        adj[i] = min(1.0, running)
+    return adj.tolist()
+
+
+def _paired(x: np.ndarray, y: np.ndarray, rng: np.random.Generator) -> dict:
+    """Paired comparison of y (candidate) against x (reference); lower is better for both metrics."""
+    from scipy.stats import wilcoxon
+    d = y - x
+    nz = d[np.abs(d) > 1e-9]
+    out = {"n": len(d), "better": int((d < -1e-9).sum()), "tie": int((np.abs(d) <= 1e-9).sum()),
+           "worse": int((d > 1e-9).sum()), "mean_x": float(x.mean()), "mean_y": float(y.mean()),
+           "mean_d": float(d.mean()), "median_d": float(np.median(d))}
+    boot = rng.choice(d, size=(5000, len(d)), replace=True).mean(axis=1)
+    out["ci_lo"], out["ci_hi"] = (float(v) for v in np.percentile(boot, [2.5, 97.5]))
+    if len(nz) == 0:
+        out["p"], out["r"] = 1.0, 0.0
+        return out
+    out["p"] = float(wilcoxon(nz, alternative="two-sided").pvalue)
+    # matched-pairs rank-biserial correlation, sign flipped so that r > 0 means the candidate is lower
+    ranks = np.argsort(np.argsort(np.abs(nz))) + 1.0
+    # average ranks over ties in |d|
+    absd = np.abs(nz)
+    for v in np.unique(absd):
+        m = absd == v
+        ranks[m] = ranks[m].mean()
+    wpos, wneg = ranks[nz > 0].sum(), ranks[nz < 0].sum()
+    out["r"] = float((wneg - wpos) / (wpos + wneg))
+    return out
+
+
+def cmd_stats(args) -> int:
+    from scipy.stats import friedmanchisquare
+    scopes = dict(s.split("=", 1) for s in args.scopes)
+    data = {}
+    for name, scope in scopes.items():
+        r = load_fold(scope, args.fold, args.run)
+        if r is None:
+            print(f"  (missing) {scope} fold {args.fold}", file=sys.stderr)
+            continue
+        data[name] = r
+    names = [n for n in scopes if n in data]
+    common = sorted(set.intersection(*(set(data[n]) for n in names)), key=lambda k: int(k) if k.isdigit() else k)
+    print(f"\n{len(common)} instances common to {len(names)} methods (fold {args.fold}, run {args.run})")
+    mets = {"GED": "GraphEditDistance", "OC": "OracleCalls"}
+    print(f"\n{'method':12s}" + "".join(f"{m+' mean':>12s}{m+' med':>10s}" for m in mets))
+    for n in names:
+        row = f"{n:12s}"
+        for met in mets.values():
+            v = np.array([data[n][k][met] for k in common])
+            row += f"{np.nanmean(v):12.2f}{np.nanmedian(v):10.1f}"
+        print(row)
+    if len(names) >= 3:
+        print("\nFriedman over all methods:")
+        for m, met in mets.items():
+            cols = [np.array([data[n][k][met] for k in common]) for n in names]
+            st = friedmanchisquare(*cols)
+            print(f"  {m:4s} chi2 = {st.statistic:8.2f}  p = {st.pvalue:.2e}")
+    refs = args.ref or names[:1]
+    rng = np.random.default_rng(0)
+    tests = []
+    for ref in refs:
+        for n in names:
+            if n == ref or n in refs[:refs.index(ref)]:
+                continue
+            for m, met in mets.items():
+                x = np.array([data[ref][k][met] for k in common]); y = np.array([data[n][k][met] for k in common])
+                tests.append((n, ref, m, _paired(x, y, rng)))
+    adj = _holm([t[3]["p"] for t in tests])
+    print(f"\nPaired two-sided Wilcoxon signed-rank, candidate vs reference (Holm over {len(tests)} tests).")
+    print("d = candidate - reference (negative = candidate better); r = rank-biserial, > 0 favours candidate.")
+    print(f"{'candidate':12s}{'reference':12s}{'met':>5s}{'W/T/L':>12s}{'mean d':>10s}{'95% CI':>24s}{'med d':>8s}{'r':>7s}{'p':>10s}{'p_holm':>10s}")
+    for (n, ref, m, o), pa in zip(tests, adj):
+        wtl = f"{o['better']}/{o['tie']}/{o['worse']}"
+        ci = f"[{o['ci_lo']:.1f}, {o['ci_hi']:.1f}]"
+        flag = " *" if pa < args.alpha else ""
+        print(f"{n:12s}{ref:12s}{m:>5s}{wtl:>12s}{o['mean_d']:10.2f}{ci:>24s}{o['median_d']:8.1f}{o['r']:7.2f}{o['p']:10.2e}{pa:10.2e}{flag}")
+    if args.per_id:
+        print("\nid    " + "".join(f"{n:>14s}" for n in names) + "   (GED/OC)")
+        for k in common:
+            print(f"{k:>5s} " + "".join(f"{data[n][k]['GraphEditDistance']:>8.0f}/{data[n][k]['OracleCalls']:<5.0f}" for n in names))
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -294,6 +388,12 @@ def main() -> int:
     m.add_argument("--per-instance", action="store_true"); m.set_defaults(fn=cmd_monitor)
     fb = sub.add_parser("feedback"); fb.add_argument("scopes", nargs="+"); fb.add_argument("--fold", type=int, default=0)
     fb.add_argument("--monitor", nargs="*", help="monitor CSVs of the v2-family scopes"); fb.set_defaults(fn=cmd_feedback)
+    st = sub.add_parser("stats", help="paired per-instance significance tests between scopes")
+    st.add_argument("scopes", nargs="+", help="name=scope")
+    st.add_argument("--ref", nargs="*", help="reference names (default: the first scope)")
+    st.add_argument("--fold", type=int, default=0); st.add_argument("--run", type=int, default=1)
+    st.add_argument("--alpha", type=float, default=0.05); st.add_argument("--per-id", action="store_true")
+    st.set_defaults(fn=cmd_stats)
     args = ap.parse_args()
     return args.fn(args)
 
