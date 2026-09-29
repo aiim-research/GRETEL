@@ -59,7 +59,9 @@
                             "max_runtime": 20,
                             "max_neigh": 20,
                             "attributed": true,
-                            "max_oracle_calls": 2000
+                            "max_oracle_calls": 2000,
+                            "seed": 0,
+                            "monitor": true
                         }
                     }
                 }

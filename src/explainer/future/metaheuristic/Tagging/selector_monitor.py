@@ -108,7 +108,7 @@ class SelectorMonitor:
     FIELDS = [
         "dataset", "fold", "instance_idx", "instance_id", "selector_mode", "instances_seen",
         "initial_size", "final_size", "oracle_calls", "wall_s",
-        "steps_add", "steps_rem", "buf_add", "buf_rem",
+        "steps_add", "steps_rem", "buf_add", "buf_rem", "examples_add", "examples_rem", "add_drift", "rem_drift",
         "rem_n", "rem_pos_rate", "rem_logloss", "rem_logloss_base", "rem_skill", "rem_auc", "rem_brier",
         "rem_successes", "rem_tries_mean", "rem_tries_median", "rem_rank_adv",
         "add_n", "add_pos_rate", "add_logloss", "add_logloss_base", "add_skill", "add_auc", "add_brier",
@@ -195,6 +195,11 @@ class SelectorMonitor:
             "steps_rem": selector.train_steps["remove"] if selector else 0,
             "buf_add": len(selector.buffers["add"]) if selector else 0,
             "buf_rem": len(selector.buffers["remove"]) if selector else 0,
+            "examples_add": selector.examples_seen["add"] if selector else 0,
+            "examples_rem": selector.examples_seen["remove"] if selector else 0,
+            # how far training has moved the weights from the cold initialisation
+            "add_drift": selector.param_drift("add") if hasattr(selector, "param_drift") else float("nan"),
+            "rem_drift": selector.param_drift("remove") if hasattr(selector, "param_drift") else float("nan"),
         }
         for mode, short in (("remove", "rem"), ("add", "add")):
             s = self.preq[mode].summary()

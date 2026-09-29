@@ -4,11 +4,13 @@ import os
 import random
 from filelock import FileLock
 import numpy as np
+import torch
 from src.core.explainer_base import Explainer
 from src.dataset.instances.base import DataInstance
 from src.dataset.instances.graph import GraphInstance
 from src.explainer.future.meta.minimizer.base import ExplanationMinimizer
 from src.explainer.future.metaheuristic.Tagging.OnlineSelector import OnlineNNEdgeSelector
+from src.explainer.future.metaheuristic.Tagging.selector_monitor import SelectorMonitor
 from src.explainer.future.metaheuristic.Tagging.vectors_builder import VectorsBuilder
 from typing import Generator
 
@@ -19,6 +21,7 @@ from src.explainer.future.metaheuristic.manipulation.methods import average_smoo
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.comparison import get_edge_differences
 from src.utils.metrics.ged import GraphEditDistanceMetric
+from src.utils.seeding import set_seed
 
 class LocalSearch(ExplanationMinimizer):
     def check_configuration(self):
@@ -57,6 +60,21 @@ class LocalSearch(ExplanationMinimizer):
         # Opt-in (hash-stable): skip per-candidate dataset.manipulate() when
         # the oracle ignores recomputed node features (e.g. ASD, Tree-Cycles).
         self.recompute_features = self.local_config['parameters'].get('recompute_features', True)
+
+        # Opt-in, hash-stable knobs for the selector study (configs that omit them are unchanged):
+        # ``seed`` seeds the run and the cold initialisation of the selector; ``monitor`` writes one
+        # CSV row per instance (training volume, weight drift, calls and successes per phase) in the
+        # format of the v2 monitor; ``freeze_selector`` proposes with the untrained, seeded network and
+        # never updates or saves it, so learned against frozen isolates what online training adds.
+        p = self.local_config['parameters']
+        self.seed = p.get('seed')
+        set_seed(self.seed)
+        self.freeze_selector = bool(p.get('freeze_selector', False))
+        self.monitor_on = bool(p.get('monitor', False))
+        self.monitor_dir = p.get('monitor_dir', 'lab/output/selector_logs')
+        self.monitor = None
+        self.train_steps = {"add": 0, "remove": 0}
+        self.train_examples = {"add": 0, "remove": 0}
 
         self.searcher = SimpleSearcher()
         
@@ -124,14 +142,20 @@ class LocalSearch(ExplanationMinimizer):
         # k = total_features.shape[1] + original_embeddings_tensors.shape[1]
         k = total_features.shape[1] 
         
-        self.selector = self.load_or_initialize_selector(
-                dataset_id=self.dataset.name,
-                k=k,
-                hidden_dim=64,
-                num_hidden_layers=2,
-                lr=1e-3,
-                exploration_prob=0.1,
-            )
+        if self.freeze_selector:
+            self.selector = self._fresh_selector(k, 64, 2, 1e-3, 0.1, None)
+            self._theta0 = self._param_snapshot(self.selector)
+        else:
+            self.selector = self.load_or_initialize_selector(
+                    dataset_id=self.dataset.name,
+                    k=k,
+                    hidden_dim=64,
+                    num_hidden_layers=2,
+                    lr=1e-3,
+                    exploration_prob=0.1,
+                )
+            init_path = self.model_paths(self.dataset.name)[0] + ".init"
+            self._theta0 = torch.load(init_path) if (self.monitor_on and os.path.exists(init_path)) else None
                 
         total_features_tensor = self.selector.build_tensors(total_features)
         
@@ -162,9 +186,33 @@ class LocalSearch(ExplanationMinimizer):
             return min_ctf
         
         self.cache = FixedSizeCache(capacity=500000)
+        self.phase = "remove"
+        self.phase_calls = {"remove": 0, "swap": 0, "add": 0}
+        self.phase_success = {"remove": 0, "swap": 0, "add": 0}
+        self.phase_tries = {"remove": [], "swap": [], "add": []}
         result = self.get_approximation(actual, best, min_ctf)
-        
+        if self.monitor_on:
+            self._monitor_row(instance, len(actual))
         return result
+
+    def _monitor_row(self, instance, initial_size: int) -> None:
+        if self.monitor is None:
+            tag = "v1-frozen" if self.freeze_selector else "v1"
+            self.monitor = SelectorMonitor(self.logger, self.monitor_dir, self.dataset.name, tag,
+                                           self.local_config['parameters'].get('fold_id', -1),
+                                           "frozen" if self.freeze_selector else "learned")
+        self.monitor.reset_instance(getattr(instance, 'id', None), initial_size)
+        mean = lambda xs: (sum(xs) / len(xs)) if xs else float("nan")
+        self.monitor.end_instance(self._final_size, self.k, None, extra={
+            "steps_add": self.train_steps["add"], "steps_rem": self.train_steps["remove"],
+            "examples_add": self.train_examples["add"], "examples_rem": self.train_examples["remove"],
+            "add_drift": self._drift("add"), "rem_drift": self._drift("remove"),
+            "rem_successes": self.phase_success["remove"], "rem_tries_mean": mean(self.phase_tries["remove"]),
+            "add_successes": self.phase_success["add"], "add_tries_mean": mean(self.phase_tries["add"]),
+            "calls_remove": self.phase_calls["remove"], "calls_swap": self.phase_calls["swap"],
+            "calls_add": self.phase_calls["add"], "succ_remove": self.phase_success["remove"],
+            "succ_swap": self.phase_success["swap"], "succ_add": self.phase_success["add"],
+        })
         
         
     def get_approximation(self, actual, best, min_ctf):
@@ -199,6 +247,7 @@ class LocalSearch(ExplanationMinimizer):
             descarted = 0
             neg_removed_moves = []   # list of removed_uv (each is list[uv])
             neg_keep_first = 8       # always keep first failures (they’re “most confident” under greedy)
+            self.phase = "remove"
             for s, removed, _, sol_ctx in self.edge_remove(actual):
                 if(self.k > self.max_oracle_calls or self.k_local > self.max_oracle_calls / 5) :
                  self.logger.info("Oracle calls limit reached, global: " + str(self.k) + ", local: " + str(self.k_local))
@@ -228,7 +277,7 @@ class LocalSearch(ExplanationMinimizer):
                 if is_success:
                     # train: rank this removed_uv above the failures in THIS context
                     if neg_removed_moves:
-                        self.selector.update_removal_ranked(sol_uv, removed_uv, neg_removed_moves)
+                        self._train("update_removal_ranked", sol_uv, removed_uv, neg_removed_moves)
                         neg_removed_moves = []
                 else:
                     # keep early failures (hard negatives), and sample some later ones
@@ -249,6 +298,7 @@ class LocalSearch(ExplanationMinimizer):
                 
             if(found):
                 self._update_efficiency_from_tries(tag="(-)")
+                self._note_phase_success("remove")
                 self.logger.info("============> (-) Found solution with size: " + str(len(actual)))
                 continue
             
@@ -267,6 +317,7 @@ class LocalSearch(ExplanationMinimizer):
                 self.logger.info("oracle calls (before (=)): " + str(self.k))
                 self.tries = 0
                 descarted = 0
+                self.phase = "swap"
                 for s, removed, added, sol_ctx, temp_ctx in self.edge_swap(actual):
                     if(self.k > self.max_oracle_calls or self.k_local > self.max_oracle_calls / 5) :
                         self.logger.info("Oracle calls limit reached, global: " + str(self.k) + ", local: " + str(self.k_local))
@@ -307,11 +358,11 @@ class LocalSearch(ExplanationMinimizer):
                                 add_move_examples.append((temp_uv, added_uv, False))
 
                     if len(remove_move_examples) >= flush_every:
-                        self.selector.update_removal_moves(remove_move_examples)
+                        self._train("update_removal_moves", remove_move_examples)
                         remove_move_examples = []
 
                     if len(add_move_examples) >= flush_every:
-                        self.selector.update_addition_moves(add_move_examples)
+                        self._train("update_addition_moves", add_move_examples)
                         add_move_examples = []
                     # ------------------------    
                     
@@ -328,6 +379,7 @@ class LocalSearch(ExplanationMinimizer):
                     
                 if(found):
                     self._update_efficiency_from_tries(tag="(=)")
+                    self._note_phase_success("swap")
                     self.logger.info("============> (=) Found solution with size: " + str(len(actual)))
                     break
                 
@@ -338,6 +390,7 @@ class LocalSearch(ExplanationMinimizer):
                 self.tries = 0
                 descarted = 0
                 neg_added_moves = []
+                self.phase = "add"
                 for s, _, added, sol_ctx in self.edge_add(actual, best):
                     if(self.k > self.max_oracle_calls or self.k_local > self.max_oracle_calls / 5) :
                         self.logger.info("Oracle calls limit reached, global: " + str(self.k) + ", local: " + str(self.k_local))
@@ -360,7 +413,7 @@ class LocalSearch(ExplanationMinimizer):
 
                     if is_success:
                         if neg_added_moves:
-                            self.selector.update_addition_ranked(sol_uv, added_uv, neg_added_moves)
+                            self._train("update_addition_ranked", sol_uv, added_uv, neg_added_moves)
                             neg_added_moves = []
                     else:
                         if self.tries <= neg_keep_first or random.random() < p_neg_keep:
@@ -380,6 +433,7 @@ class LocalSearch(ExplanationMinimizer):
                     
                 if(found):
                     self._update_efficiency_from_tries(tag="(+)")
+                    self._note_phase_success("add")
                     self.logger.info("============> (+) Found solution with size: " + str(len(actual)))
                     break
                 
@@ -413,16 +467,18 @@ class LocalSearch(ExplanationMinimizer):
         added_uv = self.id_to_uv(added_edges)
 
         if removed_uv:
-            self.selector.update_removal_moves([(init_uv, removed_uv, True)])
+            self._train("update_removal_moves", [(init_uv, removed_uv, True)])
         if added_uv:
-            self.selector.update_addition_moves([(best_uv, added_uv, True)])
+            self._train("update_addition_moves", [(best_uv, added_uv, True)])
         
         if remove_move_examples:
-            self.selector.update_removal_moves(remove_move_examples)
+            self._train("update_removal_moves", remove_move_examples)
         if add_move_examples:
-            self.selector.update_addition_moves(add_move_examples)
+            self._train("update_addition_moves", add_move_examples)
             
-        self.save_selector(self.selector, self.dataset.name)
+        self._final_size = len(best)
+        if not self.freeze_selector:
+            self.save_selector(self.selector, self.dataset.name)
         return result
     
     def evaluate(self, solution : set[int]) -> tuple[bool, GraphInstance]:
@@ -433,6 +489,7 @@ class LocalSearch(ExplanationMinimizer):
         if(self.attributed):
             for method in self.methods:
                 self.k += 1
+                self.phase_calls[self.phase] += 1
                 self.k_local += 1
                 node_features = method(new_data, self.G.node_features)
                 new_g = GraphInstance(id=self.G.id,
@@ -446,6 +503,7 @@ class LocalSearch(ExplanationMinimizer):
         # in that case, we just call the manipulator method
         else:
             self.k += 1
+            self.phase_calls[self.phase] += 1
             new_g = GraphInstance(id=self.G.id,
                                         label=0,
                                         data=new_data,
@@ -638,17 +696,50 @@ class LocalSearch(ExplanationMinimizer):
 
             else:
                 # Create a new model with the given architecture
-                selector = OnlineNNEdgeSelector(
-                    k=k,
-                    hidden_dim=hidden_dim,
-                    num_hidden_layers=num_hidden_layers,
-                    lr=lr,
-                    exploration_prob=exploration_prob,
-                    device=device,
-                )
+                selector = self._fresh_selector(k, hidden_dim, num_hidden_layers, lr, exploration_prob, device)
                 selector.save(path)  # create initial checkpoint
+                if self.monitor_on:
+                    torch.save(self._param_snapshot(selector), path + ".init")
 
         return selector
+
+    def _fresh_selector(self, k, hidden_dim, num_hidden_layers, lr, exploration_prob, device):
+        # With ``seed`` set, the weights are drawn from a forked RNG so that a cold learned run and
+        # every frozen instance start from the same network.
+        if self.seed is None:
+            return OnlineNNEdgeSelector(k=k, hidden_dim=hidden_dim, num_hidden_layers=num_hidden_layers,
+                                        lr=lr, exploration_prob=exploration_prob, device=device)
+        with torch.random.fork_rng(devices=[]):
+            torch.manual_seed(self.seed)
+            return OnlineNNEdgeSelector(k=k, hidden_dim=hidden_dim, num_hidden_layers=num_hidden_layers,
+                                        lr=lr, exploration_prob=exploration_prob, device=device)
+
+    @staticmethod
+    def _param_snapshot(selector) -> dict:
+        return {m: [q.detach().cpu().clone() for q in net.parameters()]
+                for m, net in (("add", selector.model_add), ("remove", selector.model_remove))}
+
+    def _drift(self, mode: str) -> float:
+        """||theta - theta_0|| / ||theta_0|| against the cold initialisation of this checkpoint."""
+        if self._theta0 is None:
+            return float("nan")
+        net = self.selector.model_add if mode == "add" else self.selector.model_remove
+        num = den = 0.0
+        with torch.no_grad():
+            for q, q0 in zip(net.parameters(), self._theta0[mode]):
+                num += float((q.detach().cpu() - q0).pow(2).sum())
+                den += float(q0.pow(2).sum())
+        return math.sqrt(num) / max(math.sqrt(den), 1e-12)
+
+    def _train(self, name: str, *args) -> None:
+        """Every selector update goes through here: counted, and skipped when the selector is frozen."""
+        if self.freeze_selector:
+            return
+        mode = "add" if "addition" in name else "remove"
+        self.train_steps[mode] += 1
+        examples = args[0] if name.endswith("_moves") else [args[1]] + list(args[2])
+        self.train_examples[mode] += len(examples)
+        getattr(self.selector, name)(*args)
     
 
     def save_selector(self, selector: OnlineNNEdgeSelector, dataset_id: str):
@@ -660,6 +751,10 @@ class LocalSearch(ExplanationMinimizer):
             selector.save(path) 
             
            
+    def _note_phase_success(self, phase: str) -> None:
+        self.phase_success[phase] += 1
+        self.phase_tries[phase].append(self.tries)
+
     def _update_efficiency_from_tries(self, tag: str):
         self.total_tries += self.tries
         self.total_tries_steps += 1

@@ -929,6 +929,16 @@ class OnlineNNEdgeSelectorV2:
 
     # ------------------------------------------------------------------ misc
 
+    @torch.no_grad()
+    def param_drift(self, mode: str) -> float:
+        """Relative L2 distance of the trainable parameters from their values at construction,
+        ||theta - theta_0|| / ||theta_0||. Zero for a selector that never trained."""
+        num = den = 0.0
+        for q, q0 in zip(self.models[mode].trainable_parameters(), self.init_params[mode]):
+            num += float((q - q0.to(q.device)).pow(2).sum())
+            den += float(q0.pow(2).sum())
+        return math.sqrt(num) / max(math.sqrt(den), 1e-12)
+
     def stats_line(self) -> str:
         parts = [f"steps(add={self.train_steps['add']},rem={self.train_steps['remove']})",
                  f"buf(add={len(self.buffers['add'])},rem={len(self.buffers['remove'])})"]

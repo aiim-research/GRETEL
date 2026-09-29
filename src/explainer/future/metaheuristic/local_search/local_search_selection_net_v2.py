@@ -14,7 +14,10 @@ the selector is fed and queried (see ``Tagging/OnlineSelectorV2.py``):
 * the whole ``minimize`` call runs under the per-dataset checkpoint lock, so parallel workers do
   not overwrite each other's updates,
 * ``selector_mode: "random"`` runs the identical skeleton with uniform proposals and no learning
-  (the controlled ablation), and ``seed`` makes the run reproducible.
+  (the controlled ablation), and ``seed`` makes the run reproducible,
+* ``selector_mode: "frozen"`` proposes with the untrained network (the same seeded initialisation a
+  cold ``learned`` run starts from, rebuilt for every instance) and never updates or saves it, so
+  ``learned`` against ``frozen`` isolates what online training adds to the search.
 """
 
 from __future__ import annotations
@@ -24,6 +27,7 @@ import os
 import random
 
 import numpy as np
+import torch
 from filelock import FileLock
 
 from src.dataset.instances.base import DataInstance
@@ -112,7 +116,7 @@ class LocalSearch(ExplanationMinimizer):
         set_seed(self.seed)
 
         # v2 knobs
-        self.selector_mode = p.get('selector_mode', 'learned')          # learned | random
+        self.selector_mode = p.get('selector_mode', 'learned')          # learned | frozen | random
         self.dense_reward = bool(p.get('dense_reward', True))
         self.flush_every = int(p.get('flush_every', 10))
         self.p_neg_keep = float(p.get('p_neg_keep', 0.3))               # multi-edge failures kept for BCE
@@ -184,7 +188,8 @@ class LocalSearch(ExplanationMinimizer):
         ]
 
         self.size_ema = {"remove": 1.0, "add": 1.0}
-        self.learning = (self.selector_mode == 'learned')
+        self.learning = (self.selector_mode == 'learned')                 # updates and saves the selector
+        self.use_model = self.selector_mode in ('learned', 'frozen')     # proposals come from the network
 
     # ------------------------------------------------------------------ entry
 
@@ -261,10 +266,12 @@ class LocalSearch(ExplanationMinimizer):
     def load_or_initialize_selector(self, path: str, k: int) -> OnlineNNEdgeSelectorV2:
         kw = dict(self.selector_kwargs)
         kw.setdefault("seed", self.seed)
-        if not self.learning:
+        if not self.use_model:
             kw["acquisition"] = "random"
             kw["exploration_prob"] = 0.0
             return OnlineNNEdgeSelectorV2(k=k, **kw)
+        if self.selector_mode == 'frozen':
+            return self._fresh_selector(k, kw)
         if os.path.exists(path):
             try:
                 sel = OnlineNNEdgeSelectorV2.load(path, overrides=kw)
@@ -273,9 +280,16 @@ class LocalSearch(ExplanationMinimizer):
                 self.logger.warning("[selector] checkpoint k=%d != %d, starting a new one", sel.k, k)
             except Exception as e:
                 self.logger.warning("[selector] could not load %s (%s), starting a new one", path, e)
-        sel = OnlineNNEdgeSelectorV2(k=k, **kw)
+        sel = self._fresh_selector(k, kw)
         sel.save(path)
         return sel
+
+    def _fresh_selector(self, k: int, kw: dict) -> OnlineNNEdgeSelectorV2:
+        # Seeded weight initialisation that leaves the global torch RNG untouched, so a cold learned
+        # run and every frozen instance start from exactly the same network.
+        with torch.random.fork_rng(devices=[]):
+            torch.manual_seed(self.seed if self.seed is not None else 0)
+            return OnlineNNEdgeSelectorV2(k=k, **kw)
 
     # ------------------------------------------------------------- main loop
 
@@ -309,7 +323,7 @@ class LocalSearch(ExplanationMinimizer):
             self.accepted_sizes.append(int(size))
         if mode == "remove" and self.block_removal:
             self.block_size = max(1, 2 * int(size))
-        if self.learning:
+        if self.use_model:
             self.selector.new_head()
 
     def _maybe_flush(self) -> None:

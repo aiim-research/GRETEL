@@ -14,6 +14,8 @@ Examples (repo root)::
 
     python scripts/analyze_selector_runs.py stats base=proteins40_dce_lcls v1=proteins40_dce_lcls-net \
         v2e=proteins40_dce_lcls-net-v2e v2e-r=proteins40_dce_lcls-net-v2e-random --ref base v1 v2e-r
+
+    python scripts/analyze_selector_runs.py training --variant v2g --prefix proteins40   # or v1
 """
 from __future__ import annotations
 
@@ -376,6 +378,116 @@ def cmd_stats(args) -> int:
     return 0
 
 
+# -------------------------------------------------------------------------- training
+
+MONITOR_DIR = REPO / "lab" / "output" / "selector_logs"
+
+
+def _read_monitor(tag: str, dataset: str) -> list[dict]:
+    files = sorted(MONITOR_DIR.glob(f"selector_{tag}_{dataset}-*.csv"))
+    if not files:
+        return []
+    return list(csv.DictReader(open(files[0])))
+
+
+def _f(row: dict, key: str) -> float:
+    try:
+        return float(row.get(key, "nan"))
+    except (TypeError, ValueError):
+        return float("nan")
+
+
+def _arms(variant: str, prefix: str) -> dict[str, tuple[str, str]]:
+    """arm -> (results scope, monitor tag)."""
+    if variant == "v1":
+        return {"learned": (f"{prefix}_dce_lcls-net", "v1"), "frozen": (f"{prefix}_dce_lcls-net-frozen", "v1-frozen")}
+    arms = {"learned": (f"{prefix}_dce_lcls-net-{variant}", variant),
+            "frozen": (f"{prefix}_dce_lcls-net-{variant}-frozen", f"{variant}-frozen")}
+    if variant != "v2":
+        arms["random"] = (f"{prefix}_dce_lcls-net-{variant}-random", f"{variant}-random")
+    return arms
+
+
+def cmd_training(args) -> int:
+    from scipy.stats import spearmanr
+    arms = _arms(args.variant, args.prefix)
+    res = {a: load_fold(sc, args.fold, args.run) for a, (sc, _) in arms.items()}
+    mon = {a: {r["instance_id"]: r for r in _read_monitor(tag, args.dataset)} for a, (_, tag) in arms.items()}
+    for a, (sc, tag) in arms.items():
+        print(f"  {a:8s} results {'ok' if res[a] else 'MISSING'} ({sc})   monitor rows {len(mon[a])} (tag {tag})")
+
+    # ---- Q1: how much does the learned model train?
+    rows = _read_monitor(arms["learned"][1], args.dataset)
+    if rows:
+        print(f"\nQ1. Training volume of the learned arm over {len(rows)} instances (cumulative)")
+        print(f"{'inst':>5s}{'steps rem':>11s}{'steps add':>11s}{'ex rem':>9s}{'ex add':>9s}{'drift rem':>11s}{'drift add':>11s}"
+              f"{'skill rem':>11s}{'auc rem':>9s}{'calls':>7s}")
+        marks = sorted({1, 2, 5, 10, 20, 30, len(rows)} & set(range(1, len(rows) + 1)))
+        for i in marks:
+            r = rows[i - 1]
+            print(f"{i:5d}{_f(r,'steps_rem'):11.0f}{_f(r,'steps_add'):11.0f}{_f(r,'examples_rem'):9.0f}{_f(r,'examples_add'):9.0f}"
+                  f"{_f(r,'rem_drift'):11.3f}{_f(r,'add_drift'):11.3f}{_f(r,'rem_skill'):11.3f}{_f(r,'rem_auc'):9.3f}"
+                  f"{_f(r,'oracle_calls'):7.0f}")
+        half = len(rows) // 2
+        for lab, part in (("first half", rows[:half]), ("second half", rows[half:])):
+            sk = [_f(r, "rem_skill") for r in part]; ll = [_f(r, "rem_logloss") for r in part]
+            print(f"  prequential removal skill, {lab}: mean {np.nanmean(sk):+.3f} (log-loss {np.nanmean(ll):.3f})")
+        fz = list(mon.get("frozen", {}).values())
+        if fz:
+            print(f"  same metric for the frozen arm: skill {np.nanmean([_f(r,'rem_skill') for r in fz]):+.3f} "
+                  f"(what the untrained network already knows)")
+
+    # ---- Q2: does the training improve the search?
+    def per_inst(arm: str) -> dict[str, dict[str, float]]:
+        out = {}
+        for iid, m in (res[arm] or {}).items():
+            row = {"GED": m.get("GraphEditDistance", float("nan")), "OC": m.get("OracleCalls", float("nan"))}
+            r = mon[arm].get(iid)
+            if r:
+                sr = _f(r, "succ_remove")
+                row["calls/rem-succ"] = _f(r, "calls_remove") / sr if sr > 0 else float("nan")
+                row["rem succ"] = sr
+                row["order"] = _f(r, "instance_idx")
+            out[iid] = row
+        return out
+
+    data = {a: per_inst(a) for a in arms if res[a]}
+    pairs = [("learned", "frozen", "effect of training"), ("frozen", "random", "effect of an untrained ranking"),
+             ("learned", "random", "total effect of the model")]
+    rng = np.random.default_rng(0)
+    print("\nQ2. Per-instance paired comparison (d = first - second, negative = first better; "
+          "'rem succ' is higher = better, so its sign reads the other way)")
+    print(f"{'pair':22s}{'metric':>15s}{'n':>4s}{'W/T/L':>10s}{'mean d':>10s}{'95% CI':>22s}{'r':>7s}{'p':>10s}")
+    for a, b, what in pairs:
+        if a not in data or b not in data:
+            continue
+        common = sorted(set(data[a]) & set(data[b]), key=lambda k: int(k) if k.isdigit() else k)
+        for met in ("GED", "OC", "calls/rem-succ", "rem succ"):
+            x = np.array([data[b][k].get(met, np.nan) for k in common]); y = np.array([data[a][k].get(met, np.nan) for k in common])
+            ok = ~(np.isnan(x) | np.isnan(y))
+            if ok.sum() < 3:
+                continue
+            o = _paired(x[ok], y[ok], rng)
+            print(f"{a+'-'+b:22s}{met:>15s}{o['n']:4d}{o['better']:>4d}/{o['tie']}/{o['worse']:<3d}{o['mean_d']:10.2f}"
+                  f"{'[%.1f, %.1f]' % (o['ci_lo'], o['ci_hi']):>22s}{o['r']:7.2f}{o['p']:10.2e}")
+        print(f"{'':22s}  ({what})")
+    # does the training effect grow with experience? learned - frozen against processing order
+    if "learned" in data and "frozen" in data:
+        common = [k for k in data["learned"] if k in data["frozen"] and "order" in data["learned"][k]]
+        if len(common) >= 6:
+            order = np.array([data["learned"][k]["order"] for k in common])
+            print("\nTrend of the training effect with experience (Spearman of learned - frozen against processing order;"
+                  " rho < 0 = the learned arm pulls ahead as it trains)")
+            for met in ("GED", "OC", "calls/rem-succ"):
+                d = np.array([data["learned"][k].get(met, np.nan) - data["frozen"][k].get(met, np.nan) for k in common])
+                ok = ~np.isnan(d)
+                if ok.sum() >= 6:
+                    rho, p = spearmanr(order[ok], d[ok])
+                    first = d[ok][order[ok] < np.median(order[ok])]; last = d[ok][order[ok] >= np.median(order[ok])]
+                    print(f"  {met:15s} rho = {rho:+.2f} (p = {p:.2f})   mean d first half {np.mean(first):+.2f}, second half {np.mean(last):+.2f}")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -394,6 +506,10 @@ def main() -> int:
     st.add_argument("--fold", type=int, default=0); st.add_argument("--run", type=int, default=1)
     st.add_argument("--alpha", type=float, default=0.05); st.add_argument("--per-id", action="store_true")
     st.set_defaults(fn=cmd_stats)
+    tr = sub.add_parser("training", help="how much a selector trains, and what the training buys (learned/frozen/random)")
+    tr.add_argument("--variant", required=True, help="v1, v2, v2b ... v2g"); tr.add_argument("--prefix", default="proteins40")
+    tr.add_argument("--dataset", default="PROTEINS"); tr.add_argument("--fold", type=int, default=0)
+    tr.add_argument("--run", type=int, default=1); tr.set_defaults(fn=cmd_training)
     args = ap.parse_args()
     return args.fn(args)
 
