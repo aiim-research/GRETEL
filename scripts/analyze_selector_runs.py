@@ -431,6 +431,9 @@ def cmd_training(args) -> int:
         half = len(rows) // 2
         for lab, part in (("first half", rows[:half]), ("second half", rows[half:])):
             sk = [_f(r, "rem_skill") for r in part]; ll = [_f(r, "rem_logloss") for r in part]
+            if np.all(np.isnan(sk)):
+                print(f"  prequential removal skill, {lab}: not recorded for this selector")
+                continue
             print(f"  prequential removal skill, {lab}: mean {np.nanmean(sk):+.3f} (log-loss {np.nanmean(ll):.3f})")
         fz = list(mon.get("frozen", {}).values())
         if fz:

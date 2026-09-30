@@ -17,7 +17,13 @@ the selector is fed and queried (see ``Tagging/OnlineSelectorV2.py``):
   (the controlled ablation), and ``seed`` makes the run reproducible,
 * ``selector_mode: "frozen"`` proposes with the untrained network (the same seeded initialisation a
   cold ``learned`` run starts from, rebuilt for every instance) and never updates or saves it, so
-  ``learned`` against ``frozen`` isolates what online training adds to the search.
+  ``learned`` against ``frozen`` isolates what online training adds to the search,
+* v3 knobs: ``method_policy: "thompson"`` spends at most ``method_max`` node-feature methods per
+  candidate, chosen by Thompson sampling over their per-candidate success rates (a failed candidate
+  costs ``method_max`` calls instead of all of them); ``skip_swap`` drops the (=) phase;
+  ``init_checkpoint`` starts the selector from an offline-pretrained checkpoint; and
+  ``collect_examples`` dumps every scored (context, move, label) example to a file so a selector can
+  be pretrained offline on instances disjoint from the evaluation ones.
 """
 
 from __future__ import annotations
@@ -158,6 +164,14 @@ class LocalSearch(ExplanationMinimizer):
         self.bandit_min_value = float(p.get('bandit_min_value', 0.0))   # a block rung needs size*p_hat above this
         self.bandit_block_trials = int(p.get('bandit_block_trials', 0))  # 0 = schedule default
         self.rung_stats = {}                                         # size -> [successes, trials]
+        # v3
+        self.method_policy = p.get('method_policy', 'all')           # all | thompson
+        self.method_max = int(p.get('method_max', 2))
+        self.method_beta = None                                      # per method [successes, failures]
+        self.skip_swap = bool(p.get('skip_swap', False))
+        self.init_checkpoint = p.get('init_checkpoint')
+        self.collect_path = p.get('collect_examples')
+        self.collected = []
         # v2d: phase shares follow observed productivity (successes per call), with a floor
         self.adaptive_phase_budget = bool(p.get('adaptive_phase_budget', False))
         self.phase_share_floor = float(p.get('phase_share_floor', 0.1))
@@ -246,6 +260,7 @@ class LocalSearch(ExplanationMinimizer):
                                              "rung_stats": json.dumps({int(k): v for k, v in sorted(self.rung_stats.items())}),
                                              "phase_shares": json.dumps({k: round(v, 3) for k, v in (self.phase_budget or {}).items()}),
                                              "method_success": json.dumps(self.method_success)})
+            self._flush_collected()
             if self.learning:
                 self.selector.flush()
                 self.selector.save(path)
@@ -271,7 +286,14 @@ class LocalSearch(ExplanationMinimizer):
             kw["exploration_prob"] = 0.0
             return OnlineNNEdgeSelectorV2(k=k, **kw)
         if self.selector_mode == 'frozen':
+            if self.init_checkpoint:
+                return OnlineNNEdgeSelectorV2.load(self.init_checkpoint, overrides=kw, apply_shrink_perturb=False)
             return self._fresh_selector(k, kw)
+        if not os.path.exists(path) and self.init_checkpoint:
+            # first instance of a pretrained run: start from the offline checkpoint, unperturbed
+            sel = OnlineNNEdgeSelectorV2.load(self.init_checkpoint, overrides=kw, apply_shrink_perturb=False)
+            sel.save(path)
+            return sel
         if os.path.exists(path):
             try:
                 sel = OnlineNNEdgeSelectorV2.load(path, overrides=kw)
@@ -379,6 +401,7 @@ class LocalSearch(ExplanationMinimizer):
                 self.cache.add(s)
                 found_, inst, y = self.evaluate(s)
                 st = self.rung_stats.setdefault(len(removed), [0, 0]); st[1] += 1; st[0] += int(found_)
+                self._collect("remove", sol_ctx, removed, y)
                 self.monitor.observe("remove", pred, y)
                 if found_:
                     self.monitor.success("remove", rank, M)
@@ -426,7 +449,8 @@ class LocalSearch(ExplanationMinimizer):
 
                 self.phase = "swap"
                 self.monitor.sweep_reset("remove"); self.monitor.sweep_reset("add")
-                for s, removed, added, sol_ctx, temp_ctx, pred_r, pred_a in self.edge_swap(actual):
+                swaps = iter(()) if self.skip_swap else self.edge_swap(actual)
+                for s, removed, added, sol_ctx, temp_ctx, pred_r, pred_a in swaps:
                     if self._phase_exceeded("swap"):
                         break
                     if self.cache.contains(s):
@@ -473,6 +497,7 @@ class LocalSearch(ExplanationMinimizer):
                         continue
                     self.cache.add(s)
                     found_, inst, y = self.evaluate(s)
+                    self._collect("add", sol_ctx, added, y)
                     self.monitor.observe("add", pred, y)
                     if found_:
                         self.monitor.success("add", rank, M)
@@ -534,6 +559,25 @@ class LocalSearch(ExplanationMinimizer):
                 self.selector.record("add", self.id_to_uv(best - added_edges), self.id_to_uv(added_edges), 1.0)
         return result
 
+    def _collect(self, mode: str, sol_ctx, move, y: float) -> None:
+        if not self.collect_path:
+            return
+        ex = self.selector._make_example(mode, self.id_to_uv(sol_ctx), self.id_to_uv(move), y)
+        if ex is not None:
+            self.collected.append({"mode": mode, "instance": int(self.G.id), "size": len(move),
+                                   "feats": ex.feats, "y": ex.y})
+
+    def _flush_collected(self) -> None:
+        """Append this instance's examples to ``collect_examples`` (one torch file per run)."""
+        if not self.collect_path or not self.collected:
+            return
+        os.makedirs(os.path.dirname(self.collect_path) or ".", exist_ok=True)
+        old = torch.load(self.collect_path, weights_only=False) if os.path.exists(self.collect_path) else []
+        torch.save(old + self.collected, self.collect_path)
+        self.logger.info("[collect] %d examples from instance %s (total %d)", len(self.collected), self.G.id,
+                         len(old) + len(self.collected))
+        self.collected = []
+
     def _keep_neg(self, neg_moves: list, neg_logqs: list, move_uv, lq) -> None:
         """Keep the first negatives, then reservoir-sample the rest (cap max_listwise_negs)."""
         if len(neg_moves) < self.max_listwise_negs:
@@ -557,7 +601,12 @@ class LocalSearch(ExplanationMinimizer):
             if self.method_success is None:
                 self.method_success = [0] * len(self.methods)
             order = range(len(self.methods))
-            if self.adaptive_method_order:
+            if self.method_policy == 'thompson':
+                if self.method_beta is None:
+                    self.method_beta = [[0, 0] for _ in self.methods]
+                draws = [random.betavariate(1 + a, 1 + b) for a, b in self.method_beta]
+                order = sorted(order, key=lambda i: -draws[i])[:self.method_max]
+            elif self.adaptive_method_order:
                 order = sorted(order, key=lambda i: -self.method_success[i])
             for mi in order:
                 method = self.methods[mi]
@@ -570,6 +619,8 @@ class LocalSearch(ExplanationMinimizer):
                                       directed=self.G.directed, node_features=node_features)
                 flipped, p_cf = self.M.classify(new_g)
                 y_best = max(y_best, p_cf)
+                if self.method_beta is not None:
+                    self.method_beta[mi][0 if flipped else 1] += 1
                 if flipped:
                     self.method_success[mi] += 1
                     return True, new_g, 1.0
