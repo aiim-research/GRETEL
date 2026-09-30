@@ -455,6 +455,9 @@ class LocalSearch(ExplanationMinimizer):
                         continue
                     self.cache.add(s)
                     found_, inst, y = self.evaluate(s)
+                    # swap halves are logged apart: their credit is shared with the other half
+                    self._collect("swap_remove", sol_ctx, removed, y)
+                    self._collect("swap_add", temp_ctx, added, y)
                     self.monitor.observe("remove", pred_r, y); self.monitor.observe("add", pred_a, y)
                     if found_:
                         self.monitor.success("remove"); self.monitor.success("add")
@@ -560,7 +563,7 @@ class LocalSearch(ExplanationMinimizer):
     def _collect(self, mode: str, sol_ctx, move, y: float) -> None:
         if not self.collect_path:
             return
-        ex = self.selector._make_example(mode, self.id_to_uv(sol_ctx), self.id_to_uv(move), y)
+        ex = self.selector._make_example(mode.split("_")[-1], self.id_to_uv(sol_ctx), self.id_to_uv(move), y)
         if ex is not None:
             self.collected.append({"mode": mode, "instance": int(self.G.id), "size": len(move),
                                    "feats": ex.feats, "y": ex.y})
