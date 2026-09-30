@@ -18,10 +18,8 @@ the selector is fed and queried (see ``Tagging/OnlineSelectorV2.py``):
 * ``selector_mode: "frozen"`` proposes with the untrained network (the same seeded initialisation a
   cold ``learned`` run starts from, rebuilt for every instance) and never updates or saves it, so
   ``learned`` against ``frozen`` isolates what online training adds to the search,
-* v3 knobs: ``method_policy: "thompson"`` spends at most ``method_max`` node-feature methods per
-  candidate, chosen by Thompson sampling over their per-candidate success rates (a failed candidate
-  costs ``method_max`` calls instead of all of them); ``skip_swap`` drops the (=) phase;
-  ``init_checkpoint`` starts the selector from an offline-pretrained checkpoint; and
+* ``method_policy`` and ``skip_swap`` change the LBS skeleton (not used by the selector study, which
+  keeps the skeleton fixed); ``init_checkpoint`` starts the selector from an offline-pretrained checkpoint; and
   ``collect_examples`` dumps every scored (context, move, label) example to a file so a selector can
   be pretrained offline on instances disjoint from the evaluation ones.
 """

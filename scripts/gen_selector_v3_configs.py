@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Generate the selector v3 configs for PROTEINS from the proteins40 v2e config.
 
-v3 = v2e + Thompson-sampled node-feature methods (at most ``method_max`` per candidate) + no swap
-phase + optional offline pretraining. Arms on the 40 evaluation instances:
+v3 = v2e with the same LBS skeleton (swap included, every node-feature method evaluated) and changes on
+the selector side only; so far, offline pretraining. Arms on the 40 evaluation instances:
 
-    v3-random      uniform proposals (no model)
-    v3-frozen      untrained seeded network, never updated
-    v3-scratch     online learning from the untrained network
     v3-pre-frozen  offline-pretrained network, never updated
     v3             offline-pretrained network plus online learning
+
+The references are the v2e arms on the same instances (v2e-random, v2e-frozen, and v2e itself, which is
+online learning from the untrained network): with the skeleton unchanged they are the other three cells.
 
 plus ``v3-collect``: uniform proposals on the fold-0 test instances outside the evaluation set, dumping
 every scored example for the offline pretraining (``scripts/pretrain_selector_v3.py``).
@@ -28,11 +28,8 @@ COLLECT_IDS = REPO / "lab/config/snippets/proteins_72_collect_instances.json"
 PRETRAINED = "models/pretrained/edge_selector_v3-pre_PROTEINS.pt"
 COLLECT_FILE = "lab/output/selector_pretrain/proteins_v3_collect.pt"
 
-V3 = {"method_policy": "thompson", "method_max": 2, "skip_swap": True}
+V3 = {}   # selector-side changes only: the LBS skeleton stays exactly as in v2e
 ARMS = {
-    "v3-random": {"selector_mode": "random"},
-    "v3-frozen": {"selector_mode": "frozen"},
-    "v3-scratch": {"selector_mode": "learned"},
     "v3-pre-frozen": {"selector_mode": "frozen", "init_checkpoint": PRETRAINED},
     "v3": {"selector_mode": "learned", "init_checkpoint": PRETRAINED},
 }

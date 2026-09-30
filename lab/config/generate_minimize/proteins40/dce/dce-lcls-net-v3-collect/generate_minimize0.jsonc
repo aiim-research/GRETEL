@@ -111,9 +111,6 @@
                             "unlock_min_trials": 6,
                             "unlock_rate": 0.5,
                             "fill_remove_share": true,
-                            "method_policy": "thompson",
-                            "method_max": 2,
-                            "skip_swap": true,
                             "collect_examples": "lab/output/selector_pretrain/proteins_v3_collect.pt"
                         }
                     }
