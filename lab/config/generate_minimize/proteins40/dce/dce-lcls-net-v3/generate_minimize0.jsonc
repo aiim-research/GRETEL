@@ -85,7 +85,10 @@
                                 "shrink": 0.97,
                                 "perturb_std": 0.003,
                                 "lr_add": 0.002,
-                                "extra_replay_steps_add": 3
+                                "extra_replay_steps_add": 3,
+                                "score_standardise": true,
+                                "temp_remove": 0.25,
+                                "target": "flip"
                             },
                             "block_removal": true,
                             "block_init": 1,
@@ -110,8 +113,7 @@
                             "adaptive_method_order": true,
                             "unlock_min_trials": 6,
                             "unlock_rate": 0.5,
-                            "fill_remove_share": true,
-                            "init_checkpoint": "models/pretrained/edge_selector_v3-pre_PROTEINS.pt"
+                            "fill_remove_share": true
                         }
                     }
                 }

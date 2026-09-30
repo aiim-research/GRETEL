@@ -2,16 +2,25 @@
 """Generate the selector v3 configs for PROTEINS from the proteins40 v2e config.
 
 v3 = v2e with the same LBS skeleton (swap included, every node-feature method evaluated) and changes on
-the selector side only; so far, offline pretraining. Arms on the 40 evaluation instances:
+the selector side only, chosen with ``scripts/selector_offline_bench.py`` on the v3-collect examples:
 
+* P0, proposal policy: scores standardised inside each candidate set before the Plackett-Luce sample,
+  removal temperature 0.25 (the raw logits spread far less than the Gumbel noise, so the v2e policy
+  tried an almost random order: lift of the top 20 % 1.12 against 1.61 with P0, same network);
+* target flip: BCE on the hard flip instead of the oracle's soft label (within-instance AUC on unseen
+  instances 0.687 against 0.669, three seeds).
+
+Arms on the 40 evaluation instances:
+
+    v3             online learning from the untrained network
+    v3-frozen      untrained seeded network, never updated (same policy)
+    v3-pre         offline-pretrained network plus online learning
     v3-pre-frozen  offline-pretrained network, never updated
-    v3             offline-pretrained network plus online learning
 
-The references are the v2e arms on the same instances (v2e-random, v2e-frozen, and v2e itself, which is
-online learning from the untrained network): with the skeleton unchanged they are the other three cells.
+The uniform-proposal reference is v2e-random (P0 does not change a random policy).
 
 plus ``v3-collect``: uniform proposals on the fold-0 test instances outside the evaluation set, dumping
-every scored example for the offline pretraining (``scripts/pretrain_selector_v3.py``).
+every scored example for the offline benchmark and pretraining (``scripts/pretrain_selector_v3.py``).
 
     python scripts/gen_selector_v3_configs.py
 """
@@ -28,10 +37,13 @@ COLLECT_IDS = REPO / "lab/config/snippets/proteins_72_collect_instances.json"
 PRETRAINED = "models/pretrained/edge_selector_v3-pre_PROTEINS.pt"
 COLLECT_FILE = "lab/output/selector_pretrain/proteins_v3_collect.pt"
 
-V3 = {}   # selector-side changes only: the LBS skeleton stays exactly as in v2e
+V3 = {}   # the LBS skeleton stays exactly as in v2e
+V3_SELECTOR = {"score_standardise": True, "temp_remove": 0.25, "target": "flip"}
 ARMS = {
+    "v3": {"selector_mode": "learned"},
+    "v3-frozen": {"selector_mode": "frozen"},
+    "v3-pre": {"selector_mode": "learned", "init_checkpoint": PRETRAINED},
     "v3-pre-frozen": {"selector_mode": "frozen", "init_checkpoint": PRETRAINED},
-    "v3": {"selector_mode": "learned", "init_checkpoint": PRETRAINED},
 }
 
 
@@ -42,6 +54,8 @@ def make(arm: str, extra: dict, ids: list[int], scope: str) -> dict:
     par = conf["doe-triplets"][0]["explainer"]["parameters"]["minimizer"]["parameters"]
     par.update(V3)
     par.update(extra)
+    if arm != "v3-collect":
+        par["selector"] = {**par.get("selector", {}), **V3_SELECTOR}
     par["model_tag"] = arm
     return conf
 

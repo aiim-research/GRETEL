@@ -85,7 +85,10 @@
                                 "shrink": 0.97,
                                 "perturb_std": 0.003,
                                 "lr_add": 0.002,
-                                "extra_replay_steps_add": 3
+                                "extra_replay_steps_add": 3,
+                                "score_standardise": true,
+                                "temp_remove": 0.25,
+                                "target": "flip"
                             },
                             "block_removal": true,
                             "block_init": 1,

@@ -58,6 +58,8 @@ VARIANTS = OrderedDict([
     ("P1+P2+P5 prior decay", {**P1, **P2, **P5}),
     ("P1..P5", {**P1, **P2, **P3, **P4, **P5}),
     ("P7 GBM refit", "gbm"),
+    ("P3 on base", P3),
+    ("flip on base", {"target": "flip"}),
 ])
 
 

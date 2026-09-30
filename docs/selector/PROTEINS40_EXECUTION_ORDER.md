@@ -15,7 +15,7 @@ Three arms per selector, so that each variant answers two questions:
 
 Order: the references first (plain LBS, thesis selector v1 and its frozen twin), then v2g and v2e as learned / frozen / random. The other v2 variants (v2, v2b, v2c, v2d, v2f) were dropped on 2026-09-30 after v1 and v2g showed no measurable effect of the model (they share the v2 selector and only change the skeleton); their configs stay in `lab/config/generate_minimize/proteins40/dce/`.
 
-Selector v3 (added 2026-09-30, configs from `scripts/gen_selector_v3_configs.py`): the v2e skeleton unchanged (the study only touches the selector, never LBS), with selector-side changes. `v3-collect` runs uniform proposals on the 72 fold-0 test instances outside the evaluation set and dumps every scored example, for the offline diagnosis of the ranker (held-out AUC) and for pretraining with `scripts/pretrain_selector_v3.py`. The v3 arms are added to this queue once the architecture changes are agreed.
+Selector v3 (added 2026-09-30, configs from `scripts/gen_selector_v3_configs.py`): the v2e skeleton unchanged (the study only touches the selector, never LBS). `v3-collect` ran uniform proposals on the 72 fold-0 test instances outside the evaluation set and dumped every scored example. On those examples `scripts/selector_offline_bench.py` picked the selector changes: P0 (scores standardised inside each candidate set, removal temperature 0.25) and training on the hard flip (`target: flip`). `scripts/pretrain_selector_v3.py` wrote `models/pretrained/edge_selector_v3-pre_PROTEINS.pt` (held-out removal AUC 0.756, skill +0.16). Arms: v3 (online from scratch), v3-frozen, v3-pre (pretrained plus online), v3-pre-frozen; the random reference is v2e-random.
 
 - [x] lab/config/generate_minimize/proteins40/dce/dce-lcls/generate_minimize0.jsonc
 - [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net/generate_minimize0.jsonc
@@ -23,7 +23,11 @@ Selector v3 (added 2026-09-30, configs from `scripts/gen_selector_v3_configs.py`
 - [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v2g/generate_minimize0.jsonc
 - [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v2g-frozen/generate_minimize0.jsonc
 - [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v2g-random/generate_minimize0.jsonc
-- [ ] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v2e/generate_minimize0.jsonc
-- [ ] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v3-collect/generate_minimize0.jsonc
-- [ ] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v2e-frozen/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v2e/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v3-collect/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v2e-frozen/generate_minimize0.jsonc
 - [ ] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v2e-random/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v3/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v3-frozen/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v3-pre/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v3-pre-frozen/generate_minimize0.jsonc

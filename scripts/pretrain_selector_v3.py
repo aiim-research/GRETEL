@@ -57,6 +57,8 @@ def evaluate(sel: OnlineNNEdgeSelectorV2, mode: str, exs: list[MoveExample], bas
         probs.append(float(torch.sigmoid(logit)))
     p = np.clip(np.array(probs), 1e-6, 1 - 1e-6)
     y = np.array([ex.y for ex in exs])
+    if sel.target != "soft":                         # score against the label the model is trained on
+        y = (y >= 1.0).astype(float)
     ll = float(-(y * np.log(p) + (1 - y) * np.log(1 - p)).mean())
     b = min(max(base_p, 1e-6), 1 - 1e-6)
     ll_base = float(-(y * math.log(b) + (1 - y) * math.log(1 - b)).mean())
@@ -102,7 +104,7 @@ def main() -> int:
             print(f"[{mode}] too few examples (train {len(tr)}, val {len(va)}), left untrained")
             report["modes"][mode] = {"train": len(tr), "val": len(va), "skipped": True}
             continue
-        base_p = float(np.mean([e.y for e in tr]))
+        base_p = float(np.mean([(e.y if sel.target == "soft" else float(e.y >= 1.0)) for e in tr]))
         hist = [{"epoch": 0, **evaluate(sel, mode, va, base_p)}]
         print(f"[{mode}] train {len(tr)}  val {len(va)}  base rate {base_p:.3f}")
         print(f"  epoch  0  val logloss {hist[0]['logloss']:.4f} (base {hist[0]['logloss_base']:.4f})  "
