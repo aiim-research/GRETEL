@@ -90,7 +90,8 @@ class ScoreNetV2(nn.Module):
     """
 
     def __init__(self, input_dim: int, hidden_dim: int, num_hidden_layers: int,
-                 n_heads: int, prior_scale: float) -> None:
+                 n_heads: int, prior_scale: float, input_norm: str = "none", aux_head: bool = False,
+                 trunk: nn.Module | None = None) -> None:
         super().__init__()
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
@@ -98,8 +99,19 @@ class ScoreNetV2(nn.Module):
         self.n_heads = n_heads
         self.prior_scale = float(prior_scale)
 
-        self.trunk = self._make_trunk(input_dim, hidden_dim, num_hidden_layers)
+        # ``trunk`` may be another net's trunk (shared representation across modes)
+        self.trunk = trunk if trunk is not None else self._make_trunk(input_dim, hidden_dim, num_hidden_layers)
         self.heads = nn.Linear(hidden_dim, n_heads)
+        # input normalisation: "running" z-scores each feature with Welford statistics of the examples
+        # seen so far; "log_running" first applies sign(x) * log1p(|x|) to tame heavy tails (degree,
+        # triangle counts, raw attributes). Buffers only exist when enabled, so old checkpoints load.
+        self.input_norm = input_norm
+        if input_norm != "none":
+            self.register_buffer("norm_count", torch.zeros(()))
+            self.register_buffer("norm_mean", torch.zeros(input_dim))
+            self.register_buffer("norm_m2", torch.zeros(input_dim))
+        # auxiliary margin head (dense soft label) next to the flip heads
+        self.aux = nn.Linear(hidden_dim, 1) if aux_head else None
         # learned size bias for the additive (sum_bias) pooling, one per head
         self.size_bias = nn.Parameter(torch.full((n_heads,), -0.5))
 
@@ -123,14 +135,47 @@ class ScoreNetV2(nn.Module):
             dim = hidden_dim
         return nn.Sequential(*layers)
 
+    def _pre(self, x: torch.Tensor) -> torch.Tensor:
+        if self.input_norm == "log_running":
+            x = torch.sign(x) * torch.log1p(x.abs())
+        return x
+
+    def normalise(self, x: torch.Tensor) -> torch.Tensor:
+        x = self._pre(x)
+        if self.input_norm != "none" and float(self.norm_count) > 1:
+            var = self.norm_m2 / (self.norm_count - 1)
+            x = (x - self.norm_mean) / torch.sqrt(var + 1e-6)
+        return x
+
+    @torch.no_grad()
+    def update_norm(self, x: torch.Tensor) -> None:
+        """Welford update of the per-feature statistics with the rows of ``x``."""
+        if self.input_norm == "none":
+            return
+        x = self._pre(x.to(self.norm_mean.device))
+        n_b = float(x.shape[0])
+        if n_b == 0:
+            return
+        mean_b = x.mean(0)
+        m2_b = ((x - mean_b) ** 2).sum(0)
+        n_a = float(self.norm_count)
+        n = n_a + n_b
+        d = mean_b - self.norm_mean                      # Chan et al. parallel merge
+        self.norm_mean += d * (n_b / n)
+        self.norm_m2 += m2_b + d * d * (n_a * n_b / n)
+        self.norm_count += n_b
+
     def hidden(self, x: torch.Tensor) -> torch.Tensor:
-        return self.trunk(x)
+        return self.trunk(self.normalise(x))
+
+    def aux_logit(self, x: torch.Tensor) -> torch.Tensor:
+        return self.aux(self.hidden(x)).squeeze(-1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        out = self.heads(self.trunk(x))
+        out = self.heads(self.hidden(x))
         if self.prior_trunk is not None:
             with torch.no_grad():
-                prior = self.prior_heads(self.prior_trunk(x))
+                prior = self.prior_heads(self.prior_trunk(self.normalise(x)))
             out = out + self.prior_scale * prior
         return out
 
@@ -253,6 +298,13 @@ class OnlineNNEdgeSelectorV2:
         lr_add: float | None = None,
         extra_replay_steps_add: int = 0,
         extra_replay_steps_remove: int = 0,
+        input_norm: str = "none",
+        target: str = "soft",
+        aux_weight: float = 0.5,
+        pos_weight: float = 1.0,
+        shared_trunk: bool = False,
+        prior_decay: float = 0.0,
+        score_standardise: bool = False,
         seed: int | None = None,
         device: torch.device | None = None,
     ) -> None:
@@ -284,6 +336,21 @@ class OnlineNNEdgeSelectorV2:
         self.perturb_std = float(perturb_std)
         self.lr_add = float(lr_add) if lr_add is not None else None
         self.extra_replay_steps = {"add": int(extra_replay_steps_add), "remove": int(extra_replay_steps_remove)}
+        # architecture study (all off by default):
+        #   input_norm   none | running | log_running   (see ScoreNetV2)
+        #   target       soft: BCE on the oracle's soft label; flip: BCE on the hard flip;
+        #                flip_margin: flip heads plus an auxiliary head on the soft label (aux_weight)
+        #   pos_weight   weight of flips in the flip BCE (they are rare, above all for additions)
+        #   shared_trunk one trunk for both modes, separate heads
+        #   prior_decay  n0 > 0 scales the random prior by n0 / (n0 + examples seen), so it fades as
+        #                data arrives instead of competing with the learned part forever
+        self.input_norm = str(input_norm)
+        self.target = str(target)
+        self.aux_weight = float(aux_weight)
+        self.pos_weight = float(pos_weight)
+        self.shared_trunk = bool(shared_trunk)
+        self.prior_decay = float(prior_decay)
+        self.score_standardise = bool(score_standardise)   # P0: see get_trial_order
 
         self.rng = random.Random(seed)
         self.np_rng = np.random.default_rng(seed)
@@ -291,12 +358,13 @@ class OnlineNNEdgeSelectorV2:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.device = device
 
-        self.models: dict[str, ScoreNetV2] = {
-            "add": ScoreNetV2(self.input_dim, self.hidden_dim, self.num_hidden_layers,
-                              self.n_heads, self.prior_scale).to(self.device),
-            "remove": ScoreNetV2(self.input_dim, self.hidden_dim, self.num_hidden_layers,
-                                 self.n_heads, self.prior_scale).to(self.device),
-        }
+        aux = self.target == "flip_margin"
+        rem_net = ScoreNetV2(self.input_dim, self.hidden_dim, self.num_hidden_layers, self.n_heads,
+                             self.prior_scale, self.input_norm, aux).to(self.device)
+        add_net = ScoreNetV2(self.input_dim, self.hidden_dim, self.num_hidden_layers, self.n_heads,
+                             self.prior_scale, self.input_norm, aux,
+                             trunk=rem_net.trunk if self.shared_trunk else None).to(self.device)
+        self.models: dict[str, ScoreNetV2] = {"add": add_net, "remove": rem_net}
         self.opts = {m: torch.optim.AdamW(net.trainable_parameters(),
                                           lr=(self.lr_add if (m == "add" and self.lr_add) else self.lr),
                                           weight_decay=self.weight_decay)
@@ -595,6 +663,10 @@ class OnlineNNEdgeSelectorV2:
             logits = self._score(mode, pairs, snap)
         acq = self._acquire(mode, logits)
         T = max(1e-6, self.temp_add if mode == "add" else self.temp_remove)
+        if self.score_standardise and M > 1 and self.acquisition != "random":
+            # the raw logits of a young model spread far less than the Gumbel noise, which would turn
+            # the Plackett-Luce sample into a near-uniform order; standardise so T sets the greediness
+            acq = (acq - acq.mean()) / (acq.std() + 1e-6)
         z = acq / T
         z = z - z.max()
         logq = z - np.log(np.exp(z).sum() + 1e-12)
@@ -693,9 +765,20 @@ class OnlineNNEdgeSelectorV2:
         ex = self._make_example(mode, solution_pairs, move_pairs, y, weight)
         if ex is None:
             return
+        self.push_example(mode, ex)
+
+    def push_example(self, mode: str, ex: MoveExample) -> None:
+        """Queue an already featurised example (also used by the offline benchmark)."""
         self.pending[mode].append(ex)
         self.buffers[mode].add(ex)
         self.examples_seen[mode] += 1
+        self.models[mode].update_norm(ex.feats)
+        self._update_prior(mode)
+
+    def _update_prior(self, mode: str) -> None:
+        if self.prior_decay > 0:
+            n0 = self.prior_decay
+            self.models[mode].prior_scale = self.prior_scale * n0 / (n0 + self.examples_seen[mode])
 
     # ----------------------------------------------------------------- training
 
@@ -710,12 +793,19 @@ class OnlineNNEdgeSelectorV2:
         net = self.models[mode]
         losses = []
         for ex in examples:
-            logits = net(ex.feats.to(self.device))          # (m, H)
+            x = ex.feats.to(self.device)
+            logits = net(x)                                  # (m, H)
             move_logit = self._pool(logits, net)             # (H,)
-            target = torch.full_like(move_logit, ex.y)
+            y = ex.y if self.target == "soft" else float(ex.y >= 1.0)
+            target = torch.full_like(move_logit, y)
             l = F.binary_cross_entropy_with_logits(move_logit, target, reduction="none")
-            w = ex.boot.to(self.device) * ex.weight
-            losses.append((l * w).sum() / max(1.0, float(w.sum().item())))
+            w = ex.boot.to(self.device) * ex.weight * (self.pos_weight if (self.target != "soft" and y >= 1.0) else 1.0)
+            loss = (l * w).sum() / max(1.0, float(w.sum().item()))
+            if net.aux is not None:
+                aux = net.aux_logit(x).mean()
+                loss = loss + self.aux_weight * F.binary_cross_entropy_with_logits(
+                    aux, torch.tensor(float(ex.y), device=self.device))
+            losses.append(loss)
         if not losses:
             return None
         return torch.stack(losses).mean()
@@ -855,8 +945,12 @@ class OnlineNNEdgeSelectorV2:
         """theta <- shrink * theta + N(0, perturb_std^2) on trainable parameters (Ash and Adams 2020)."""
         if self.shrink >= 1.0 and self.perturb_std <= 0.0:
             return
+        seen = set()                                   # a shared trunk is shrunk once, not twice
         for net in self.models.values():
             for p in net.trainable_parameters():
+                if id(p) in seen:
+                    continue
+                seen.add(id(p))
                 p.mul_(self.shrink)
                 if self.perturb_std > 0:
                     p.add_(torch.randn_like(p) * self.perturb_std)
@@ -878,6 +972,9 @@ class OnlineNNEdgeSelectorV2:
             "redo_every": self.redo_every, "shrink": self.shrink, "perturb_std": self.perturb_std,
             "lr_add": self.lr_add, "extra_replay_steps_add": self.extra_replay_steps["add"],
             "extra_replay_steps_remove": self.extra_replay_steps["remove"],
+            "input_norm": self.input_norm, "target": self.target, "aux_weight": self.aux_weight,
+            "pos_weight": self.pos_weight, "shared_trunk": self.shared_trunk, "prior_decay": self.prior_decay,
+            "score_standardise": self.score_standardise,
         }
 
     def save(self, path: str) -> None:
@@ -923,6 +1020,8 @@ class OnlineNNEdgeSelectorV2:
         obj.train_steps = dict(ckpt.get("train_steps", obj.train_steps))
         obj.examples_seen = dict(ckpt.get("examples_seen", obj.examples_seen))
         obj.instances_seen = int(ckpt.get("instances_seen", 0))
+        for m in obj.models:
+            obj._update_prior(m)
         if apply_shrink_perturb:
             obj.shrink_and_perturb()
         return obj
