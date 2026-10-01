@@ -21,7 +21,10 @@ sweep order.
 
 Arms on the 40 evaluation instances:
 
-    v3b            v3 with the tabu memory (online learning from the untrained network)
+    v3b            the fixed policy plus tabu (online learning from the untrained network)
+    v3b-frozen     the same untrained network, never updated
+    v3b-pre        the offline-pretrained network plus online learning
+    v3b-pre-frozen the offline-pretrained network, never updated
     v3             online learning from the untrained network
     v3-frozen      untrained seeded network, never updated (same policy)
     v3-pre         offline-pretrained network plus online learning
@@ -46,6 +49,9 @@ EVAL_IDS = REPO / "lab/config/snippets/proteins_40_instances.json"
 COLLECT_IDS = REPO / "lab/config/snippets/proteins_72_collect_instances.json"
 PRETRAINED = "models/pretrained/edge_selector_v3-pre_PROTEINS.pt"
 COLLECT_FILE = "lab/output/selector_pretrain/proteins_v3_collect.pt"
+GENERATOR_CACHE = "lab/data/cache/generator_outputs"
+# arms added after the generator cache existed (the earlier ones keep their configs, hence their hashes)
+CACHED_ARMS = {"v3b-frozen", "v3b-pre", "v3b-pre-frozen"}
 
 V3 = {}   # the LBS skeleton stays exactly as in v2e
 V3_SELECTOR = {"score_standardise": True, "temp_remove": 0.25, "target": "flip"}
@@ -54,6 +60,12 @@ ARMS = {
     # keep the v2e sampling) plus the tabu memory
     "v3b": {"selector_mode": "learned", "selector": {"tabu": True, "temp_remove": 1.0, "sweep_temp": 0.25,
                                                          "sample_temp": 4.0}},
+    "v3b-frozen": {"selector_mode": "frozen", "selector": {"tabu": True, "temp_remove": 1.0, "sweep_temp": 0.25,
+                                                           "sample_temp": 4.0}},
+    "v3b-pre": {"selector_mode": "learned", "init_checkpoint": PRETRAINED,
+                "selector": {"tabu": True, "temp_remove": 1.0, "sweep_temp": 0.25, "sample_temp": 4.0}},
+    "v3b-pre-frozen": {"selector_mode": "frozen", "init_checkpoint": PRETRAINED,
+                       "selector": {"tabu": True, "temp_remove": 1.0, "sweep_temp": 0.25, "sample_temp": 4.0}},
     "v3": {"selector_mode": "learned"},
     "v3-frozen": {"selector_mode": "frozen"},
     "v3-pre": {"selector_mode": "learned", "init_checkpoint": PRETRAINED},
@@ -73,6 +85,8 @@ def make(arm: str, extra: dict, ids: list[int], scope: str) -> dict:
     if arm != "v3-collect":
         par["selector"] = {**par.get("selector", {}), **V3_SELECTOR, **sel_extra}
     par["model_tag"] = arm
+    if arm in CACHED_ARMS:
+        conf["doe-triplets"][0]["explainer"]["parameters"]["generator_cache"] = GENERATOR_CACHE
     return conf
 
 
