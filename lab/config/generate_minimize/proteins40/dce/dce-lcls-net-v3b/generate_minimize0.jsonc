@@ -87,9 +87,11 @@
                                 "lr_add": 0.002,
                                 "extra_replay_steps_add": 3,
                                 "score_standardise": true,
-                                "temp_remove": 0.25,
+                                "temp_remove": 1.0,
                                 "target": "flip",
-                                "tabu": true
+                                "tabu": true,
+                                "sweep_temp": 0.25,
+                                "sample_temp": 4.0
                             },
                             "block_removal": true,
                             "block_init": 1,

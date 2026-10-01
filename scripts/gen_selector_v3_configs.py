@@ -10,10 +10,14 @@ the selector side only, chosen with ``scripts/selector_offline_bench.py`` on the
 * target flip: BCE on the hard flip instead of the oracle's soft label (within-instance AUC on unseen
   instances 0.687 against 0.669, three seeds).
 
-v3b = v3 + ``tabu``: single-edge moves already tried under the same search state go to the tail of the
-next trial order. With the near-greedy P0 policy, v3 kept proposing the same top candidates on every
-retry; the search skipped them as cached, so on instances where the model ranked the good moves low
-the retries ran out with nothing new tried (PROTEINS ids 148, 454, 159 stayed at their initial GED).
+v3b fixes how v3 applied P0. In v3 the standardised scores and temperature 0.25 also drove the sampled
+proposals of the swap phase and of the reduce step, so those repeated the same moves, which the search
+skipped as cached: swap and add got about 21 oracle calls per outer iteration, and on PROTEINS ids 148,
+454 and 159 the search quit at its initial GED with most of the budget unused. v3b confines P0 to the
+ranked removal and addition sweeps (``sweep_temp`` 0.25), samples the swap and reduce proposals from
+standardised scores at ``sample_temp`` 4 (the v2e level of randomness: the flip-trained model spreads its
+logits several times more than v2e's, and its swaps lost the diversity id 148 needs) and adds ``tabu``: single-edge moves already tried under the same search state go to the tail of the next
+sweep order.
 
 Arms on the 40 evaluation instances:
 
@@ -46,7 +50,10 @@ COLLECT_FILE = "lab/output/selector_pretrain/proteins_v3_collect.pt"
 V3 = {}   # the LBS skeleton stays exactly as in v2e
 V3_SELECTOR = {"score_standardise": True, "temp_remove": 0.25, "target": "flip"}
 ARMS = {
-    "v3b": {"selector_mode": "learned", "selector": {"tabu": True}},
+    # v3b: P0 confined to the ranked sweeps (sweep_temp instead of temp_remove, so swap and reduce
+    # keep the v2e sampling) plus the tabu memory
+    "v3b": {"selector_mode": "learned", "selector": {"tabu": True, "temp_remove": 1.0, "sweep_temp": 0.25,
+                                                         "sample_temp": 4.0}},
     "v3": {"selector_mode": "learned"},
     "v3-frozen": {"selector_mode": "frozen"},
     "v3-pre": {"selector_mode": "learned", "init_checkpoint": PRETRAINED},

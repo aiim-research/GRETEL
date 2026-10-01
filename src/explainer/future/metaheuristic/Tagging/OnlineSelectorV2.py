@@ -306,6 +306,8 @@ class OnlineNNEdgeSelectorV2:
         prior_decay: float = 0.0,
         score_standardise: bool = False,
         tabu: bool = False,
+        sweep_temp: float | None = None,
+        sample_temp: float | None = None,
         seed: int | None = None,
         device: torch.device | None = None,
     ) -> None:
@@ -357,6 +359,14 @@ class OnlineNNEdgeSelectorV2:
         # top candidates, which the search skips as cached, so the retries ran out without trying
         # anything new whenever the model ranked the instance's good moves low.
         self.tabu = bool(tabu)
+        # temperature of the standardised sweep order (None: temp_add / temp_remove); the sampled
+        # proposals always use temp_add / temp_remove
+        self.sweep_temp = float(sweep_temp) if sweep_temp is not None else None
+        # sample_temp: the sampled proposals (swap, reduce) also standardise their scores, at this
+        # temperature, so their randomness no longer depends on how far the logits spread (a model
+        # trained on the hard flip spreads them several times more than one trained on the soft
+        # label, and its swaps lost the diversity some instances need). 4 is about the v2e level.
+        self.sample_temp = float(sample_temp) if sample_temp is not None else None
         self._tried: dict[tuple, set] = {}
 
         self.rng = random.Random(seed)
@@ -638,16 +648,20 @@ class OnlineNNEdgeSelectorV2:
         std = logits.std(1) if logits.shape[1] > 1 else np.zeros_like(mean)
         return 1.0 / (1.0 + np.exp(-(mean + self.ucb_kappa * std)))
 
-    def get_trial_order(self, mode: str, solution_pairs, *, seed: int | None = None):
+    def get_trial_order(self, mode: str, solution_pairs, *, seed: int | None = None, sweep: bool = False):
         """Ranked (Plackett-Luce sampled) list of candidate pairs for ``mode`` under the snapshot.
 
         Returns (ordered_pairs, ordered_acq_scores, ordered_logq) where logq is the log-probability
         of each candidate being the first pick under the sampling distribution (used for logQ
-        corrections in the listwise loss). Cached per (mode, snapshot, seed).
+        corrections in the listwise loss). Cached per (mode, snapshot, seed, sweep).
+
+        ``sweep`` marks the ranked sweeps of the removal and addition phases, the only callers where
+        ``score_standardise`` and ``tabu`` apply. The sampled proposals (swap, reduce) keep the raw
+        policy: made near-greedy they repeat the same moves, which the search skips as cached.
         """
         solution_set = self.canonical(solution_pairs)
         snap = self._snapshot(solution_set)
-        ckey = (mode, snap.key, seed)
+        ckey = (mode, snap.key, seed, sweep)
         hit = self._order_cache.get(ckey)
         if hit is not None:
             return hit
@@ -671,10 +685,15 @@ class OnlineNNEdgeSelectorV2:
             logits = self._score(mode, pairs, snap)
         acq = self._acquire(mode, logits)
         T = max(1e-6, self.temp_add if mode == "add" else self.temp_remove)
-        if self.score_standardise and M > 1 and self.acquisition != "random":
+        if sweep and self.score_standardise and M > 1 and self.acquisition != "random":
             # the raw logits of a young model spread far less than the Gumbel noise, which would turn
             # the Plackett-Luce sample into a near-uniform order; standardise so T sets the greediness
             acq = (acq - acq.mean()) / (acq.std() + 1e-6)
+            if self.sweep_temp is not None:
+                T = max(1e-6, self.sweep_temp)
+        elif not sweep and self.sample_temp is not None and M > 1 and self.acquisition != "random":
+            acq = (acq - acq.mean()) / (acq.std() + 1e-6)
+            T = max(1e-6, self.sample_temp)
         z = acq / T
         z = z - z.max()
         logq = z - np.log(np.exp(z).sum() + 1e-12)
@@ -686,7 +705,7 @@ class OnlineNNEdgeSelectorV2:
             gumbel = -np.log(-np.log(rng.random(M) + 1e-12) + 1e-12)
             keys = z + gumbel                         # Gumbel-top-k = Plackett-Luce sample
 
-        if self.tabu:
+        if sweep and self.tabu:
             tried = self._tried.get((mode, snap.key))
             if tried:
                 mask = np.fromiter(((int(a), int(b)) in tried for a, b in pairs), dtype=bool, count=M)
@@ -1001,7 +1020,7 @@ class OnlineNNEdgeSelectorV2:
             "extra_replay_steps_remove": self.extra_replay_steps["remove"],
             "input_norm": self.input_norm, "target": self.target, "aux_weight": self.aux_weight,
             "pos_weight": self.pos_weight, "shared_trunk": self.shared_trunk, "prior_decay": self.prior_decay,
-            "score_standardise": self.score_standardise, "tabu": self.tabu,
+            "score_standardise": self.score_standardise, "tabu": self.tabu, "sweep_temp": self.sweep_temp, "sample_temp": self.sample_temp,
         }
 
     def save(self, path: str) -> None:

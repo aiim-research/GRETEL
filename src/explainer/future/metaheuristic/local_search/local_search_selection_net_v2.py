@@ -752,7 +752,7 @@ class LocalSearch(ExplanationMinimizer):
         ceiling = len(uv_solution)
         if ceiling == 0:
             return
-        order, acq, logq = self.selector.get_trial_order("remove", uv_solution, seed=random.randrange(1 << 31))
+        order, acq, logq = self.selector.get_trial_order("remove", uv_solution, seed=random.randrange(1 << 31), sweep=True)
         m = len(order)
         if m == 0:
             return
@@ -786,7 +786,7 @@ class LocalSearch(ExplanationMinimizer):
         uv_solution = self.id_to_uv(solution)
         ceiling = (len(best) - len(solution)) + 1
         step = int(ceiling / self.max_neigh) + 1
-        order, acq, logq = self.selector.get_trial_order("add", uv_solution, seed=random.randrange(1 << 31))
+        order, acq, logq = self.selector.get_trial_order("add", uv_solution, seed=random.randrange(1 << 31), sweep=True)
         m = len(order)
         if m == 0:
             return
