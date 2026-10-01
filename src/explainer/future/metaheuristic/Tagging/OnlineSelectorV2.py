@@ -305,6 +305,7 @@ class OnlineNNEdgeSelectorV2:
         shared_trunk: bool = False,
         prior_decay: float = 0.0,
         score_standardise: bool = False,
+        tabu: bool = False,
         seed: int | None = None,
         device: torch.device | None = None,
     ) -> None:
@@ -351,6 +352,12 @@ class OnlineNNEdgeSelectorV2:
         self.shared_trunk = bool(shared_trunk)
         self.prior_decay = float(prior_decay)
         self.score_standardise = bool(score_standardise)   # P0: see get_trial_order
+        # tabu: single-edge moves already tried under the same snapshot go to the tail of the next
+        # trial order. With a near-greedy policy (P0) every retry would otherwise propose the same
+        # top candidates, which the search skips as cached, so the retries ran out without trying
+        # anything new whenever the model ranked the instance's good moves low.
+        self.tabu = bool(tabu)
+        self._tried: dict[tuple, set] = {}
 
         self.rng = random.Random(seed)
         self.np_rng = np.random.default_rng(seed)
@@ -417,6 +424,7 @@ class OnlineNNEdgeSelectorV2:
         self.denom_p3 = max(1.0, (self.N - 2.0) * (self.N - 3.0))
         self._snapshot_cache.clear()
         self._order_cache.clear()
+        self._tried.clear()                 # snapshot keys are only unique within one graph
         self.instances_seen += 1
         # new instance: draw a fresh Thompson head for each mode
         for m in self.models:
@@ -678,6 +686,13 @@ class OnlineNNEdgeSelectorV2:
             gumbel = -np.log(-np.log(rng.random(M) + 1e-12) + 1e-12)
             keys = z + gumbel                         # Gumbel-top-k = Plackett-Luce sample
 
+        if self.tabu:
+            tried = self._tried.get((mode, snap.key))
+            if tried:
+                mask = np.fromiter(((int(a), int(b)) in tried for a, b in pairs), dtype=bool, count=M)
+                if 0 < mask.sum() < M:
+                    keys = np.where(mask, keys - 1e6, keys)
+
         # optional veto: push confidently bad candidates to the tail (never drop them)
         if self.veto_threshold > 0 and len(self.buffers[mode]) >= self.veto_min_examples:
             ucb = self._ucb_prob(logits)
@@ -745,6 +760,18 @@ class OnlineNNEdgeSelectorV2:
         raise ValueError(self.pooling)
 
     # ---------------------------------------------------------------- recording
+
+    def note_tried(self, mode: str, solution_pairs, move_pairs) -> None:
+        """Remember a single-edge move tried under this snapshot (used by ``tabu``)."""
+        if not self.tabu:
+            return
+        move = self.canonical(move_pairs)
+        if len(move) != 1:
+            return
+        key = (mode, self._snapshot(self.canonical(solution_pairs)).key)
+        if len(self._tried) > 4096:
+            self._tried.clear()
+        self._tried.setdefault(key, set()).update(move)
 
     def _make_example(self, mode: str, solution_pairs, move_pairs, y: float,
                       weight: float = 1.0) -> MoveExample | None:
@@ -974,7 +1001,7 @@ class OnlineNNEdgeSelectorV2:
             "extra_replay_steps_remove": self.extra_replay_steps["remove"],
             "input_norm": self.input_norm, "target": self.target, "aux_weight": self.aux_weight,
             "pos_weight": self.pos_weight, "shared_trunk": self.shared_trunk, "prior_decay": self.prior_decay,
-            "score_standardise": self.score_standardise,
+            "score_standardise": self.score_standardise, "tabu": self.tabu,
         }
 
     def save(self, path: str) -> None:

@@ -10,8 +10,14 @@ the selector side only, chosen with ``scripts/selector_offline_bench.py`` on the
 * target flip: BCE on the hard flip instead of the oracle's soft label (within-instance AUC on unseen
   instances 0.687 against 0.669, three seeds).
 
+v3b = v3 + ``tabu``: single-edge moves already tried under the same search state go to the tail of the
+next trial order. With the near-greedy P0 policy, v3 kept proposing the same top candidates on every
+retry; the search skipped them as cached, so on instances where the model ranked the good moves low
+the retries ran out with nothing new tried (PROTEINS ids 148, 454, 159 stayed at their initial GED).
+
 Arms on the 40 evaluation instances:
 
+    v3b            v3 with the tabu memory (online learning from the untrained network)
     v3             online learning from the untrained network
     v3-frozen      untrained seeded network, never updated (same policy)
     v3-pre         offline-pretrained network plus online learning
@@ -40,6 +46,7 @@ COLLECT_FILE = "lab/output/selector_pretrain/proteins_v3_collect.pt"
 V3 = {}   # the LBS skeleton stays exactly as in v2e
 V3_SELECTOR = {"score_standardise": True, "temp_remove": 0.25, "target": "flip"}
 ARMS = {
+    "v3b": {"selector_mode": "learned", "selector": {"tabu": True}},
     "v3": {"selector_mode": "learned"},
     "v3-frozen": {"selector_mode": "frozen"},
     "v3-pre": {"selector_mode": "learned", "init_checkpoint": PRETRAINED},
@@ -53,9 +60,11 @@ def make(arm: str, extra: dict, ids: list[int], scope: str) -> dict:
     conf["evaluator"]["parameters"]["instance_ids"] = ids
     par = conf["doe-triplets"][0]["explainer"]["parameters"]["minimizer"]["parameters"]
     par.update(V3)
+    extra = dict(extra)
+    sel_extra = extra.pop("selector", {})
     par.update(extra)
     if arm != "v3-collect":
-        par["selector"] = {**par.get("selector", {}), **V3_SELECTOR}
+        par["selector"] = {**par.get("selector", {}), **V3_SELECTOR, **sel_extra}
     par["model_tag"] = arm
     return conf
 

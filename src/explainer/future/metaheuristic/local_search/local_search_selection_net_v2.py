@@ -779,6 +779,7 @@ class LocalSearch(ExplanationMinimizer):
                 pred = float(np.mean(acq[idx])) if len(idx) else 0.0
                 rank = int((acq > pred).sum())
                 removed_set = self.uv_to_id(removed)
+                self.selector.note_tried("remove", uv_solution, removed)
                 yield [solution.difference(removed_set), removed_set, [], solution, lq, pred, rank, m]
 
     def edge_add(self, solution: set[int], best):
@@ -799,6 +800,7 @@ class LocalSearch(ExplanationMinimizer):
                 pred = float(np.mean(acq[idx])) if len(idx) else 0.0
                 rank = int((acq > pred).sum())
                 added_set = self.uv_to_id(added)
+                self.selector.note_tried("add", uv_solution, added)
                 yield [solution.union(added_set), [], added_set, solution, lq, pred, rank, m]
 
     def edge_swap(self, solution: set[int]):
