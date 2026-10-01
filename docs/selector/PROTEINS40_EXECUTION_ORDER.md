@@ -27,5 +27,5 @@ Selector v3 (added 2026-09-30, configs from `scripts/gen_selector_v3_configs.py`
 - [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v3-collect/generate_minimize0.jsonc
 - [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v2e-frozen/generate_minimize0.jsonc
 - [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v2e-random/generate_minimize0.jsonc
-- [ ] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v3/generate_minimize0.jsonc
-- [ ] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v3b/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v3/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v3b/generate_minimize0.jsonc
