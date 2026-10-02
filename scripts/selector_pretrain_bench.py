@@ -11,6 +11,9 @@ Metrics on the held-out instances (removal moves, flips as positives):
   lift20    share of an instance's flips in the model's top 20 %, over 0.2 (greedy order)
   lift_z25  the same for the order the v3b sweep policy tries (standardised scores, T 0.25, Gumbel)
 
+``--evidence`` appends to every example its within-instance evidence block (collections made with v4
+code store it as ``evid``) and runs each model with and without it, plus an evidence-only model.
+
 ``--curve`` repeats the NN and GBM with fewer training instances per fold, to see whether the held-out
 quality is still rising with data (if it is, collecting more instances is worth it).
 
@@ -53,7 +56,8 @@ def metrics(by_inst, rng) -> dict:
 
 
 def train_nn(train_rows, kw, seed, epochs=30, batch=64, val_frac=0.15):
-    k = (train_rows[0]["feats"].shape[1] - 4 - OnlineNNEdgeSelectorV2.STRUCT_DIM) // 4
+    extra = OnlineNNEdgeSelectorV2.EVID_DIM if kw.get("evidence_features") else 0
+    k = (train_rows[0]["feats"].shape[1] - 4 - OnlineNNEdgeSelectorV2.STRUCT_DIM - extra) // 4
     with torch.random.fork_rng(devices=[]):
         torch.manual_seed(seed)
         sel = OnlineNNEdgeSelectorV2(k=k, **kw)
@@ -115,11 +119,17 @@ def main() -> int:
     ap.add_argument("--examples", required=True); ap.add_argument("--config", required=True)
     ap.add_argument("--folds", type=int, default=4); ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--curve", action="store_true"); ap.add_argument("--models", nargs="*", default=None)
+    ap.add_argument("--evidence", action="store_true")
     ap.add_argument("--out", default=None); ap.add_argument("--threads", type=int, default=2)
     args = ap.parse_args()
     torch.set_num_threads(args.threads)
 
     rows = [r for r in torch.load(args.examples, weights_only=False) if r["mode"] in ("remove", "swap_remove")]
+    if args.evidence:
+        for r in rows:
+            r["base"] = r["feats"]
+            r["feats"] = torch.cat([r["feats"], r["evid"].to(r["feats"].dtype)], dim=1)
+            r["evonly"] = r["evid"]
     par = json.load(open(args.config))["doe-triplets"][0]["explainer"]["parameters"]["minimizer"]["parameters"]
     base = {**par.get("selector", {}), "device": torch.device("cpu")}
     models = {
@@ -129,6 +139,28 @@ def main() -> int:
         "gbm": train_gbm,
         "logreg": train_logreg,
     }
+    if args.evidence:
+        # the plain models see only the base features; the "+ev" ones the base plus the evidence block
+        def base_view(fn):
+            def wrapped(tr, s):
+                sc = fn([{**r, "feats": r["base"]} for r in tr], s)
+                return lambda r: sc({**r, "feats": r["base"]})
+            return wrapped
+        def ev_only(fn):
+            def wrapped(tr, s):
+                sc = fn([{**r, "feats": r["evonly"]} for r in tr], s)
+                return lambda r: sc({**r, "feats": r["evonly"]})
+            return wrapped
+        ev = {**base, "evidence_features": True}
+        models = {
+            "nn (v3b)": base_view(lambda tr, s: train_nn(tr, base, s)),
+            "nn +ev": lambda tr, s: train_nn(tr, ev, s),
+            "nn wide +ev": lambda tr, s: train_nn(tr, {**ev, "hidden_dim": 128, "num_hidden_layers": 3}, s),
+            "logreg": base_view(train_logreg),
+            "logreg +ev": train_logreg,
+            "gbm +ev": train_gbm,
+            "logreg ev only": ev_only(train_logreg),
+        }
     names = args.models or list(models)
     insts = sorted({r["instance"] for r in rows})
     random.Random(args.seed).shuffle(insts)

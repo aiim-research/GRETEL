@@ -80,8 +80,14 @@ def main() -> int:
     par = conf["doe-triplets"][0]["explainer"]["parameters"]["minimizer"]["parameters"]
     kw = dict(par.get("selector", {}))
     kw.setdefault("seed", par.get("seed"))
+    if kw.get("evidence_features"):
+        # v4: the network also reads the within-instance evidence block stored with each example
+        rows = [r for r in rows if "evid" in r]
+        for r in rows:
+            r["feats"] = torch.cat([r["feats"], r["evid"].to(r["feats"].dtype)], dim=1)
     input_dim = rows[0]["feats"].shape[1]
-    k = (input_dim - 4 - OnlineNNEdgeSelectorV2.STRUCT_DIM) // 4
+    extra = OnlineNNEdgeSelectorV2.EVID_DIM if kw.get("evidence_features") else 0
+    k = (input_dim - 4 - OnlineNNEdgeSelectorV2.STRUCT_DIM - extra) // 4
     with torch.random.fork_rng(devices=[]):          # same initialisation as a cold learned run
         torch.manual_seed(par.get("seed") if par.get("seed") is not None else 0)
         sel = OnlineNNEdgeSelectorV2(k=k, **kw)
