@@ -121,3 +121,23 @@ Resultados principales (Wilcoxon pareado por instancia, Holm):
 Infraestructura nueva: `GenerateMinimize.generator_cache` (salida del generador compartida entre minimizadores, con sus llamadas repuestas al contador), `local_search.strict_budget`, modos `frozen` y `collect_examples` del LBS guiado, opciones de arquitectura del selector (todas opt-in), generadores de configs (`gen_selector_sample_configs.py`, `gen_selector_v3_configs.py`, `gen_selector_dataset_configs.py`, `gen_selector_seed_configs.py`) y `list_fold_instances.py`.
 
 Siguiente: v4 en PROTEINS sobre el selector preentrenado y congelado (P0 + flip + tabú), con candidatos: más datos de preentrenamiento, ranker GBM preentrenado (P7), exploración adaptativa para recuperar GED en ids como 419 y 1072, tabú para bloques. Confirmar v3b-pre-frozen y v3b-frozen con semillas 1 y 2.
+
+### 8.1 Rondas 2 y 3: tres semillas por brazo (2026-10-02)
+
+`PROTEINS40_ROUND2_EXECUTION_ORDER.md` y `PROTEINS40_ROUND3_EXECUTION_ORDER.md`. v2e, v2e-random, v3b, v3b-frozen y v3b-pre-frozen con semillas 0, 1 y 2 sobre las mismas 40 instancias. `analyze_selector_runs.py seeds` promedia las semillas por instancia y hace Wilcoxon pareado sobre las 40 medias (Holm sobre 18 tests):
+
+| Método | GED media (mediana) | Llamadas, media |
+|---|---|---|
+| v2e-random | 20.97 (10.7) | 2073 |
+| v2e | 21.48 (11.7) | 1962 |
+| v3b-frozen | 22.98 (13.7) | 2061 |
+| v3b | 22.13 (12.3) | 1866 |
+| v3b-pre-frozen | 23.31 (12.5) | 1784 |
+
+- Efecto del entrenamiento: v3b frente a v3b-frozen -195 llamadas (Holm 0.012; -199, -190, -196 por semilla). Preentrenamiento: v3b-pre-frozen frente a v3b-frozen -277 (Holm 0.001).
+- v3b-pre-frozen frente a v2e -179 llamadas (Holm 0.002) y frente a v2e-random -290 (Holm 0.009), signo negativo en las tres semillas, GED sin diferencia significativa (media +1.8 frente a v2e, en contra en las tres semillas).
+- v3b-frozen tiene peor GED que v2e (Holm 0.009) y que v2e-random (Holm 0.023): la política casi greedy solo sirve sobre un ranking entrenado.
+
+Banco de preentrenamiento (`scripts/selector_pretrain_bench.py`, 4 folds por instancia sobre v3-collect): red de v3b AUC 0.689, red 128x3 0.703, una cabeza 0.695, GBM 0.682, regresión logística 0.698 (lift con la política de v3b 1.56 a 1.68). Curva de la red: 9, 18, 36, 54 instancias de entrenamiento dan 0.572, 0.655, 0.671, 0.689. Con estas características hay un techo de unos 0.70 sea cual sea el modelo; más datos ayudan poco. La ventaja del GBM vista antes venía de mezclar instancias en la validación.
+
+Siguiente (v4): añadir información nueva al ranker en vez de cambiar el modelo, sobre todo evidencia acumulada dentro de la instancia (por arista: veces evaluada, subida media de la probabilidad contrafactual cuando estaba en el movimiento, pertenencia a movimientos con éxito), más exploración adaptativa de los barridos para recuperar GED.
