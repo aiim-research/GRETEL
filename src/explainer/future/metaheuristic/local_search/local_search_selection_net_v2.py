@@ -400,6 +400,7 @@ class LocalSearch(ExplanationMinimizer):
                 found_, inst, y = self.evaluate(s)
                 st = self.rung_stats.setdefault(len(removed), [0, 0]); st[1] += 1; st[0] += int(found_)
                 self._collect("remove", sol_ctx, removed, y)
+                self.selector.observe_move(self.id_to_uv(removed), y, found_)
                 self.monitor.observe("remove", pred, y)
                 if found_:
                     self.monitor.success("remove", rank, M)
@@ -458,6 +459,7 @@ class LocalSearch(ExplanationMinimizer):
                     # swap halves are logged apart: their credit is shared with the other half
                     self._collect("swap_remove", sol_ctx, removed, y)
                     self._collect("swap_add", temp_ctx, added, y)
+                    self.selector.observe_move(self.id_to_uv(removed) + self.id_to_uv(added), y, found_)
                     self.monitor.observe("remove", pred_r, y); self.monitor.observe("add", pred_a, y)
                     if found_:
                         self.monitor.success("remove"); self.monitor.success("add")
@@ -499,6 +501,7 @@ class LocalSearch(ExplanationMinimizer):
                     self.cache.add(s)
                     found_, inst, y = self.evaluate(s)
                     self._collect("add", sol_ctx, added, y)
+                    self.selector.observe_move(self.id_to_uv(added), y, found_)
                     self.monitor.observe("add", pred, y)
                     if found_:
                         self.monitor.success("add", rank, M)
@@ -565,8 +568,12 @@ class LocalSearch(ExplanationMinimizer):
             return
         ex = self.selector._make_example(mode.split("_")[-1], self.id_to_uv(sol_ctx), self.id_to_uv(move), y)
         if ex is not None:
+            # evidence block from the moves evaluated before this one (the observation comes after)
+            pairs = self.selector.last_example_pairs
             self.collected.append({"mode": mode, "instance": int(self.G.id), "size": len(move),
-                                   "feats": ex.feats, "y": ex.y})
+                                   "feats": ex.feats, "y": ex.y,
+                                   "evid": torch.as_tensor(self.selector.evidence_block(pairs)),
+                                   "step": self.k})
 
     def _flush_collected(self) -> None:
         """Append this instance's examples to ``collect_examples`` (one torch file per run)."""

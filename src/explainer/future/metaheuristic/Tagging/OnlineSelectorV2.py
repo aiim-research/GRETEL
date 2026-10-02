@@ -265,6 +265,7 @@ class OnlineNNEdgeSelectorV2:
     """Online neural edge selector, version 2. See module docstring."""
 
     STRUCT_DIM = 52
+    EVID_DIM = 6
     CKPT_VERSION = 2
 
     def __init__(
@@ -308,11 +309,15 @@ class OnlineNNEdgeSelectorV2:
         tabu: bool = False,
         sweep_temp: float | None = None,
         sample_temp: float | None = None,
+        evidence_features: bool = False,
+        adaptive_sweep_temp: bool = False,
         seed: int | None = None,
         device: torch.device | None = None,
     ) -> None:
         self.k = int(k)
-        self.input_dim = 4 * self.k + 4 + self.STRUCT_DIM
+        # v4: evidence_features appends EVID_DIM within-instance features per pair (see evidence_block)
+        self.evidence_features = bool(evidence_features)
+        self.input_dim = 4 * self.k + 4 + self.STRUCT_DIM + (self.EVID_DIM if self.evidence_features else 0)
         self.hidden_dim = int(hidden_dim)
         self.num_hidden_layers = int(num_hidden_layers)
         self.n_heads = int(n_heads)
@@ -367,6 +372,13 @@ class OnlineNNEdgeSelectorV2:
         # trained on the hard flip spreads them several times more than one trained on the soft
         # label, and its swaps lost the diversity some instances need). 4 is about the v2e level.
         self.sample_temp = float(sample_temp) if sample_temp is not None else None
+        # v4: in a sweep, the temperature rises from sweep_temp towards 1 as the share of this state's
+        # candidates already tried (and failed) grows: exploit the ranking first, explore once it misses
+        self.adaptive_sweep_temp = bool(adaptive_sweep_temp)
+        # within-instance evidence per toggled pair: [moves evaluated, sum of y, flips, max y]
+        self._evid: dict[tuple[int, int], list] = {}
+        self._evid_tot = [0, 0.0]
+        self._evid_version = 0
         self._tried: dict[tuple, set] = {}
 
         self.rng = random.Random(seed)
@@ -435,6 +447,7 @@ class OnlineNNEdgeSelectorV2:
         self._snapshot_cache.clear()
         self._order_cache.clear()
         self._tried.clear()                 # snapshot keys are only unique within one graph
+        self._evid.clear(); self._evid_tot = [0, 0.0]; self._evid_version += 1
         self.instances_seen += 1
         # new instance: draw a fresh Thompson head for each mode
         for m in self.models:
@@ -584,8 +597,36 @@ class OnlineNNEdgeSelectorV2:
 
         struct_t = torch.as_tensor(struct, device=self.device)
         feats = torch.cat([vu, vv, diff, prod, dot, nu, nv, dist, struct_t], dim=1)
+        if self.evidence_features:
+            feats = torch.cat([feats, torch.as_tensor(self.evidence_block(pairs), device=self.device)], dim=1)
         assert feats.shape[1] == self.input_dim, (feats.shape, self.input_dim)
         return feats
+
+    def evidence_block(self, pairs) -> np.ndarray:
+        """(M, EVID_DIM) within-instance evidence for each pair, from the moves evaluated so far on this
+        graph: seen, log1p(count), mean y, mean y minus the instance mean, flip rate, max y. Free: it only
+        reuses oracle answers the search already paid for."""
+        pairs = np.asarray(pairs, dtype=np.int64).reshape(-1, 2)
+        out = np.zeros((pairs.shape[0], self.EVID_DIM), dtype=np.float32)
+        base = self._evid_tot[1] / self._evid_tot[0] if self._evid_tot[0] else 0.0
+        for i, (a, b) in enumerate(pairs):
+            e = self._evid.get((int(min(a, b)), int(max(a, b))))
+            if e:
+                c, sy, fl, mx = e
+                out[i] = (1.0, np.log1p(c), sy / c, sy / c - base, fl / c, mx)
+        return out
+
+    def observe_move(self, move_pairs, y: float, flipped: bool) -> None:
+        """Record the oracle's answer for an evaluated move (all its toggled pairs share it)."""
+        move = self.canonical(move_pairs)
+        if not move:
+            return
+        y = float(y)
+        for pr in move:
+            e = self._evid.setdefault(pr, [0, 0.0, 0, 0.0])
+            e[0] += 1; e[1] += y; e[2] += int(bool(flipped)); e[3] = max(e[3], y)
+        self._evid_tot[0] += 1; self._evid_tot[1] += y
+        self._evid_version += 1
 
     # ------------------------------------------------------------- candidates
 
@@ -661,7 +702,7 @@ class OnlineNNEdgeSelectorV2:
         """
         solution_set = self.canonical(solution_pairs)
         snap = self._snapshot(solution_set)
-        ckey = (mode, snap.key, seed, sweep)
+        ckey = (mode, snap.key, seed, sweep, self._evid_version if self.evidence_features else 0)
         hit = self._order_cache.get(ckey)
         if hit is not None:
             return hit
@@ -691,6 +732,10 @@ class OnlineNNEdgeSelectorV2:
             acq = (acq - acq.mean()) / (acq.std() + 1e-6)
             if self.sweep_temp is not None:
                 T = max(1e-6, self.sweep_temp)
+                if self.adaptive_sweep_temp:
+                    tried = self._tried.get((mode, snap.key))
+                    frac = min(1.0, len(tried) / float(M)) if tried else 0.0
+                    T = T + (1.0 - T) * frac
         elif not sweep and self.sample_temp is not None and M > 1 and self.acquisition != "random":
             acq = (acq - acq.mean()) / (acq.std() + 1e-6)
             T = max(1e-6, self.sample_temp)
@@ -799,6 +844,7 @@ class OnlineNNEdgeSelectorV2:
             return None
         if len(move) > self.max_edges_per_move:
             move = self.rng.sample(move, self.max_edges_per_move)
+        self.last_example_pairs = move          # the rows of the example, in order (offline collection)
         snap = self._snapshot(self.canonical(solution_pairs))
         pairs = np.asarray(move, dtype=np.int64).reshape(-1, 2)
         with torch.no_grad():
@@ -1021,6 +1067,7 @@ class OnlineNNEdgeSelectorV2:
             "input_norm": self.input_norm, "target": self.target, "aux_weight": self.aux_weight,
             "pos_weight": self.pos_weight, "shared_trunk": self.shared_trunk, "prior_decay": self.prior_decay,
             "score_standardise": self.score_standardise, "tabu": self.tabu, "sweep_temp": self.sweep_temp, "sample_temp": self.sample_temp,
+            "evidence_features": self.evidence_features, "adaptive_sweep_temp": self.adaptive_sweep_temp,
         }
 
     def save(self, path: str) -> None:
