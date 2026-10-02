@@ -10,11 +10,11 @@ Methods: plain LBS, the thesis selector v1, v2e (the best v2 variant on PROTEINS
 nohup ~/miniconda3/envs/GRTL/bin/python scripts/run_revision_queue.py --list docs/selector/MULTI40_EXECUTION_ORDER.md --workers 1 --gpu --timeout 21600 > lab/output/queue_multi40.log 2>&1 &
 ```
 
-- [ ] lab/config/generate_minimize/aids40/dce/dce-lcls/generate_minimize0.jsonc
-- [ ] lab/config/generate_minimize/aids40/dce/dce-lcls-net/generate_minimize0.jsonc
-- [ ] lab/config/generate_minimize/aids40/dce/dce-lcls-net-v2e/generate_minimize0.jsonc
-- [ ] lab/config/generate_minimize/aids40/dce/dce-lcls-net-v3b/generate_minimize0.jsonc
-- [ ] lab/config/generate_minimize/colors340/dce/dce-lcls/generate_minimize0.jsonc
-- [ ] lab/config/generate_minimize/colors340/dce/dce-lcls-net/generate_minimize0.jsonc
-- [ ] lab/config/generate_minimize/colors340/dce/dce-lcls-net-v2e/generate_minimize0.jsonc
-- [ ] lab/config/generate_minimize/colors340/dce/dce-lcls-net-v3b/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/aids40/dce/dce-lcls/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/aids40/dce/dce-lcls-net/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/aids40/dce/dce-lcls-net-v2e/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/aids40/dce/dce-lcls-net-v3b/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/colors340/dce/dce-lcls/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/colors340/dce/dce-lcls-net/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/colors340/dce/dce-lcls-net-v2e/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/colors340/dce/dce-lcls-net-v3b/generate_minimize0.jsonc

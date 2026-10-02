@@ -9,12 +9,12 @@ Auto-managed by `scripts/run_revision_queue.py`. Same 40 instances and protocol 
 nohup ~/miniconda3/envs/GRTL/bin/python scripts/run_revision_queue.py --list docs/selector/PROTEINS40_ROUND2_EXECUTION_ORDER.md --workers 1 --gpu --timeout 21600 > lab/output/queue_proteins40_r2.log 2>&1 &
 ```
 
-- [ ] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v3b-frozen/generate_minimize0.jsonc
-- [ ] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v3b-pre/generate_minimize0.jsonc
-- [ ] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v3b-pre-frozen/generate_minimize0.jsonc
-- [ ] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v3b-s1/generate_minimize0.jsonc
-- [ ] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v2e-s1/generate_minimize0.jsonc
-- [ ] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v2e-random-s1/generate_minimize0.jsonc
-- [ ] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v3b-s2/generate_minimize0.jsonc
-- [ ] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v2e-s2/generate_minimize0.jsonc
-- [ ] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v2e-random-s2/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v3b-frozen/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v3b-pre/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v3b-pre-frozen/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v3b-s1/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v2e-s1/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v2e-random-s1/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v3b-s2/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v2e-s2/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v2e-random-s2/generate_minimize0.jsonc
