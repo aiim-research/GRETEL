@@ -311,6 +311,7 @@ class OnlineNNEdgeSelectorV2:
         sample_temp: float | None = None,
         evidence_features: bool = False,
         adaptive_sweep_temp: bool = False,
+        sweep_temp_growth: float = 0.0,
         seed: int | None = None,
         device: torch.device | None = None,
     ) -> None:
@@ -375,6 +376,12 @@ class OnlineNNEdgeSelectorV2:
         # v4: in a sweep, the temperature rises from sweep_temp towards 1 as the share of this state's
         # candidates already tried (and failed) grows: exploit the ranking first, explore once it misses
         self.adaptive_sweep_temp = bool(adaptive_sweep_temp)
+        # sweep_temp_growth g > 0: the temperature of the n-th sweep on the same search state is
+        # min(1, sweep_temp * g ** (n - 1)). A success changes the state, so n counts the sweeps that
+        # failed there in a row. (The share-of-tried rule above barely moves in PROTEINS: a retry only
+        # gets to try about two candidates before its phase share runs out.)
+        self.sweep_temp_growth = float(sweep_temp_growth)
+        self._sweeps_on_state: dict[tuple, int] = {}
         # within-instance evidence per toggled pair: [moves evaluated, sum of y, flips, max y]
         self._evid: dict[tuple[int, int], list] = {}
         self._evid_tot = [0, 0.0]
@@ -447,6 +454,7 @@ class OnlineNNEdgeSelectorV2:
         self._snapshot_cache.clear()
         self._order_cache.clear()
         self._tried.clear()                 # snapshot keys are only unique within one graph
+        self._sweeps_on_state.clear()
         self._evid.clear(); self._evid_tot = [0, 0.0]; self._evid_version += 1
         self.instances_seen += 1
         # new instance: draw a fresh Thompson head for each mode
@@ -736,6 +744,12 @@ class OnlineNNEdgeSelectorV2:
                     tried = self._tried.get((mode, snap.key))
                     frac = min(1.0, len(tried) / float(M)) if tried else 0.0
                     T = T + (1.0 - T) * frac
+                if self.sweep_temp_growth > 0:
+                    n = self._sweeps_on_state.get((mode, snap.key), 0)
+                    self._sweeps_on_state[(mode, snap.key)] = n + 1
+                    if len(self._sweeps_on_state) > 4096:
+                        self._sweeps_on_state.clear()
+                    T = min(1.0, T * self.sweep_temp_growth ** n)
         elif not sweep and self.sample_temp is not None and M > 1 and self.acquisition != "random":
             acq = (acq - acq.mean()) / (acq.std() + 1e-6)
             T = max(1e-6, self.sample_temp)
@@ -1068,6 +1082,7 @@ class OnlineNNEdgeSelectorV2:
             "pos_weight": self.pos_weight, "shared_trunk": self.shared_trunk, "prior_decay": self.prior_decay,
             "score_standardise": self.score_standardise, "tabu": self.tabu, "sweep_temp": self.sweep_temp, "sample_temp": self.sample_temp,
             "evidence_features": self.evidence_features, "adaptive_sweep_temp": self.adaptive_sweep_temp,
+            "sweep_temp_growth": self.sweep_temp_growth,
         }
 
     def save(self, path: str) -> None:

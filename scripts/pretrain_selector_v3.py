@@ -68,14 +68,15 @@ def evaluate(sel: OnlineNNEdgeSelectorV2, mode: str, exs: list[MoveExample], bas
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--examples", required=True); ap.add_argument("--config", required=True)
+    ap.add_argument("--examples", required=True, nargs="+", help="one or more collected example files")
+    ap.add_argument("--config", required=True)
     ap.add_argument("--out", required=True); ap.add_argument("--report", default=None)
     ap.add_argument("--val-frac", type=float, default=0.25); ap.add_argument("--epochs", type=int, default=40)
     ap.add_argument("--batch", type=int, default=64); ap.add_argument("--patience", type=int, default=5)
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
 
-    rows = torch.load(args.examples, weights_only=False)
+    rows = [r for f in args.examples for r in torch.load(f, weights_only=False)]
     conf = json.load(open(args.config))
     par = conf["doe-triplets"][0]["explainer"]["parameters"]["minimizer"]["parameters"]
     kw = dict(par.get("selector", {}))
@@ -150,7 +151,7 @@ def main() -> int:
     sel.init_params = {m: [p.detach().clone() for p in net.trainable_parameters()] for m, net in sel.models.items()}
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     sel.save(args.out)
-    rep = Path(args.report or Path(args.examples).with_suffix(".report.json"))
+    rep = Path(args.report or Path(args.examples[0]).with_suffix(".report.json"))
     rep.write_text(json.dumps(report, indent=1))
     print(f"checkpoint {args.out}\nreport {rep}")
     return 0
