@@ -491,6 +491,60 @@ def cmd_training(args) -> int:
     return 0
 
 
+# --------------------------------------------------------------------------- seeds
+
+def cmd_seeds(args) -> int:
+    """Pool several minimizer seeds. Seed 0 is the base scope, seed s > 0 the scope with ``-s<s>``.
+
+    Primary test: per instance, average each method's metric over the seeds, then a paired two-sided
+    Wilcoxon on the 40 instance means (the seeds of one instance are not independent, so the instance
+    is the unit). Also the per-seed tests, to see whether the sign holds in every seed.
+    """
+    scopes = dict(s.split("=", 1) for s in args.scopes)
+    data = {}
+    for name, base in scopes.items():
+        per_seed = {}
+        for sd in args.seeds:
+            r = load_fold(base if sd == 0 else f"{base}-s{sd}", args.fold, args.run)
+            if r is None:
+                print(f"  (missing) {name} seed {sd}", file=sys.stderr)
+                continue
+            per_seed[sd] = r
+        data[name] = per_seed
+    names = [n for n in scopes if data[n]]
+    seeds = [sd for sd in args.seeds if all(sd in data[n] for n in names)]
+    common = sorted(set.intersection(*(set(data[n][sd]) for n in names for sd in seeds)),
+                    key=lambda k: int(k) if k.isdigit() else k)
+    print(f"\n{len(common)} instances x seeds {seeds} for {len(names)} methods")
+    mets = {"GED": "GraphEditDistance", "OC": "OracleCalls"}
+    mean = {n: {m: np.array([np.mean([data[n][sd][k][met] for sd in seeds]) for k in common])
+                for m, met in mets.items()} for n in names}
+    print(f"\n{'method':12s}" + "".join(f"{m+' mean':>11s}{m+' med':>9s}" for m in mets) + "   (seed-averaged per instance)")
+    for n in names:
+        print(f"{n:12s}" + "".join(f"{mean[n][m].mean():11.2f}{np.median(mean[n][m]):9.1f}" for m in mets))
+    refs = args.ref or names[:1]
+    rng = np.random.default_rng(0)
+    tests = []
+    for ref in refs:
+        for n in names:
+            if n == ref or n in refs[:refs.index(ref)]:
+                continue
+            for m in mets:
+                tests.append((n, ref, m, _paired(mean[ref][m], mean[n][m], rng)))
+    adj = _holm([t[3]["p"] for t in tests])
+    print(f"\nPaired two-sided Wilcoxon on seed-averaged instance values (Holm over {len(tests)} tests); d = candidate - reference")
+    print(f"{'candidate':12s}{'reference':12s}{'met':>5s}{'W/T/L':>12s}{'mean d':>10s}{'95% CI':>24s}{'r':>7s}{'p':>10s}{'p_holm':>10s}   per-seed mean d")
+    for (n, ref, m, o), pa in zip(tests, adj):
+        per = []
+        for sd in seeds:
+            x = np.array([data[ref][sd][k][mets[m]] for k in common]); y = np.array([data[n][sd][k][mets[m]] for k in common])
+            per.append(f"{(y - x).mean():+.1f}")
+        flag = " *" if pa < args.alpha else ""
+        print(f"{n:12s}{ref:12s}{m:>5s}{o['better']:>5d}/{o['tie']}/{o['worse']:<4d}{o['mean_d']:10.2f}"
+              f"{'[%.1f, %.1f]' % (o['ci_lo'], o['ci_hi']):>24s}{o['r']:7.2f}{o['p']:10.2e}{pa:10.2e}{flag}   " + " ".join(per))
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -509,6 +563,11 @@ def main() -> int:
     st.add_argument("--fold", type=int, default=0); st.add_argument("--run", type=int, default=1)
     st.add_argument("--alpha", type=float, default=0.05); st.add_argument("--per-id", action="store_true")
     st.set_defaults(fn=cmd_stats)
+    sd = sub.add_parser("seeds", help="pool minimizer seeds (seed s > 0 = scope with -s<s>) and test on instance means")
+    sd.add_argument("scopes", nargs="+", help="name=base scope"); sd.add_argument("--ref", nargs="*")
+    sd.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2]); sd.add_argument("--fold", type=int, default=0)
+    sd.add_argument("--run", type=int, default=1); sd.add_argument("--alpha", type=float, default=0.05)
+    sd.set_defaults(fn=cmd_seeds)
     tr = sub.add_parser("training", help="how much a selector trains, and what the training buys (learned/frozen/random)")
     tr.add_argument("--variant", required=True, help="v1, v2, v2b ... v2g"); tr.add_argument("--prefix", default="proteins40")
     tr.add_argument("--dataset", default="PROTEINS"); tr.add_argument("--fold", type=int, default=0)
