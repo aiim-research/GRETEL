@@ -428,7 +428,7 @@ class LocalSearch(ExplanationMinimizer):
                     n = min(self.max_runtime, self.runtime_factor * len(actual))
                     break
             if found:
-                self.logger.info("============> (-) Found solution with size: " + str(len(actual)))
+                self.logger.info("============> (-) Found solution with size: " + str(len(actual)) + ", calls: " + str(self.k))
                 continue
             if self.block_removal and self.block_shrink_on_fail:
                 self.block_size = max(1, self.block_size // 2)
@@ -486,7 +486,7 @@ class LocalSearch(ExplanationMinimizer):
                         n = min(self.max_runtime, self.runtime_factor * len(actual))
                         break
                 if found:
-                    self.logger.info("============> (=) Found solution with size: " + str(len(actual)))
+                    self.logger.info("============> (=) Found solution with size: " + str(len(actual)) + ", calls: " + str(self.k))
                     break
 
                 actual = self.reduce_random(best, len(actual))
@@ -528,7 +528,7 @@ class LocalSearch(ExplanationMinimizer):
                         n = min(self.max_runtime, self.runtime_factor * len(actual))
                         break
                 if found:
-                    self.logger.info("============> (+) Found solution with size: " + str(len(actual)))
+                    self.logger.info("============> (+) Found solution with size: " + str(len(actual)) + ", calls: " + str(self.k))
                     break
 
                 to_expand = int((len(best) - len(actual)) / 2) + 1
