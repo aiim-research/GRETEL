@@ -118,6 +118,7 @@ class SelectorMonitor:
         "rem_head_std", "add_head_std", "rem_dormant", "add_dormant",
         "calls_remove", "calls_swap", "calls_add", "succ_remove", "succ_swap", "succ_add",
         "accepted_block_mean", "accepted_block_max", "retries", "rung_stats", "phase_shares", "method_success",
+        "overshoot",
     ]
 
     def __init__(self, logger, csv_dir: str | None, dataset: str, tag: str, fold, selector_mode: str,

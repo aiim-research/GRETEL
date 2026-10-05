@@ -109,7 +109,7 @@ Parámetros de LBS vanilla:
 | id | inicial | vanilla final (llamadas de su última mejora / total) | selector final (llamadas de su última mejora / total) |
 |---|---|---|---|
 | 148 | 48 | 8 (1929 / 10 000) | 48 (ninguna mejora / 2436) |
-| 159 | 75 | 8 (2472 / 10 000) | 75 (ninguna mejora / 2625) |
+| 159 | 75 | 1 (2493 / 10 000) | 75 (ninguna mejora / 2625) |
 | 165 | 58 | 9 (319 / 10 000) | 15 (51 / 2256) |
 
 ## 3. Diagnóstico que se desprende de los logs

@@ -110,7 +110,13 @@
                             "adaptive_method_order": true,
                             "unlock_min_trials": 6,
                             "unlock_rate": 0.5,
-                            "fill_remove_share": true
+                            "fill_remove_share": true,
+                            "overshoot": true,
+                            "overshoot_sizes": "geometric",
+                            "overshoot_ratio": 0.7,
+                            "overshoot_trials": 12,
+                            "overshoot_fallback": true,
+                            "overshoot_budget_frac": 0.5
                         }
                     },
                     "generator_cache": "lab/data/cache/generator_outputs"

@@ -169,6 +169,26 @@ class LocalSearch(ExplanationMinimizer):
         self.skip_swap = bool(p.get('skip_swap', False))
         self.init_checkpoint = p.get('init_checkpoint')
         self.collect_path = p.get('collect_examples')
+        # overshoot: when a removal sweep finds nothing, try removing many edges at once, as plain LBS
+        # does on every sweep (uniformly random blocks of increasing size, ``overshoot_trials`` per size).
+        # Done once per search state, so retries never repeat it and the selector's stopping criterion
+        # stays: once it stops, nothing small or large could be removed. It may spend beyond the removal
+        # share of the iteration, up to ``overshoot_budget_frac`` of the total budget per state.
+        self.overshoot = bool(p.get('overshoot', False))
+        self.overshoot_trials = int(p.get('overshoot_trials', self.neigh_factor ** 3))
+        self.overshoot_budget_frac = float(p.get('overshoot_budget_frac', 0.5))
+        # "linear": plain-LBS sizes 2, 2+step, ... (ascending); "geometric": |S|/2, |S|/4, ..., 2
+        # (descending, the largest reductions first, about log2|S| sizes, so a converged state costs
+        # a few hundred calls instead of thousands)
+        self.overshoot_sizes = p.get('overshoot_sizes', 'linear')
+        self.overshoot_ratio = float(p.get('overshoot_ratio', 0.5))   # geometric: next size = size * ratio
+        # "random": uniform blocks (plain LBS); "ranked": each block is the head of a fresh sample of the
+        # selector's ranking at the sampling temperature, i.e. varied blocks biased to promising edges
+        self.overshoot_compose = p.get('overshoot_compose', 'random')
+        # overshoot_fallback: while the instance has had no improvement at all, the ranking is evidently
+        # not working here, so the overshoot uses the plain-LBS depth (linear sizes, neigh_factor^3
+        # trials each); after the first improvement it uses the configured (cheaper) schedule
+        self.overshoot_fallback = bool(p.get('overshoot_fallback', False))
         self.collected = []
         # v2d: phase shares follow observed productivity (successes per call), with a floor
         self.adaptive_phase_budget = bool(p.get('adaptive_phase_budget', False))
@@ -257,7 +277,9 @@ class LocalSearch(ExplanationMinimizer):
                                              "retries": self.retries,
                                              "rung_stats": json.dumps({int(k): v for k, v in sorted(self.rung_stats.items())}),
                                              "phase_shares": json.dumps({k: round(v, 3) for k, v in (self.phase_budget or {}).items()}),
-                                             "method_success": json.dumps(self.method_success)})
+                                             "method_success": json.dumps(self.method_success),
+                                             "overshoot": json.dumps({"calls": getattr(self, "overshoot_calls", 0),
+                                                                      "successes": getattr(self, "overshoot_succ", [])})})
             self._flush_collected()
             if self.learning:
                 self.selector.flush()
@@ -368,6 +390,10 @@ class LocalSearch(ExplanationMinimizer):
         self.retries = 0
         self.phase_calls_iter = {"remove": 0, "swap": 0, "add": 0}
         self.phase_succ_iter = {"remove": 0, "swap": 0, "add": 0}
+        self._overshoot_done = set()
+        self._initial_size = len(initial_solution)
+        self.overshoot_calls = 0
+        self.overshoot_succ = []
 
         while n > 0:
             n -= 1
@@ -430,6 +456,17 @@ class LocalSearch(ExplanationMinimizer):
             if found:
                 self.logger.info("============> (-) Found solution with size: " + str(len(actual)) + ", calls: " + str(self.k))
                 continue
+            if self.overshoot and frozenset(best) not in self._overshoot_done:
+                self._overshoot_done.add(frozenset(best))
+                found_o, s_o, inst_o, removed_o = self._overshoot_sweep(best)
+                if found_o:
+                    best = s_o
+                    actual = s_o
+                    result = inst_o
+                    self._note_success("remove", len(removed_o))
+                    n = min(self.max_runtime, self.runtime_factor * len(actual))
+                    self.logger.info("============> (-o) Found solution with size: " + str(len(actual)) + ", calls: " + str(self.k))
+                    continue
             if self.block_removal and self.block_shrink_on_fail:
                 self.block_size = max(1, self.block_size // 2)
 
@@ -585,6 +622,57 @@ class LocalSearch(ExplanationMinimizer):
         self.logger.info("[collect] %d examples from instance %s (total %d)", len(self.collected), self.G.id,
                          len(old) + len(self.collected))
         self.collected = []
+
+    def _overshoot_sweep(self, best: set[int]):
+        """Uniformly random removal blocks of increasing size (plain-LBS levels), first improvement.
+
+        Returns (found, solution, instance, removed). Bounded by the global budget and by
+        ``overshoot_budget_frac`` of it for this state; not by the removal share of the iteration."""
+        sol = sorted(best)
+        ceiling = len(sol)
+        if ceiling < 3:
+            return False, None, None, None
+        step = int(ceiling / self.max_neigh) + 1
+        trials = self.overshoot_trials
+        no_progress = self.overshoot_fallback and len(best) >= self._initial_size
+        if no_progress:
+            trials = self.neigh_factor ** 3
+        if self.overshoot_sizes == "geometric" and not no_progress:
+            sizes, b = [], ceiling * self.overshoot_ratio
+            while int(b) >= 2:
+                if not sizes or int(b) != sizes[-1]:
+                    sizes.append(int(b))
+                b *= self.overshoot_ratio
+        else:
+            sizes = list(range(2, ceiling, step))
+        limit = min(self.max_oracle_calls, self.k + self.overshoot_budget_frac * self.max_oracle_calls)
+        self.phase = "remove"
+        sol_uv = self.id_to_uv(best)
+        for size in sizes:
+            for _ in range(trials):
+                if self.k >= limit:
+                    return False, None, None, None
+                if self.overshoot_compose == "ranked" and self.use_model:
+                    order, _, _ = self.selector.get_trial_order("remove", sol_uv, seed=random.randrange(1 << 31))
+                    removed = self.uv_to_id(order[:size])
+                else:
+                    removed = set(random.sample(sol, size))
+                s = best.difference(removed)
+                if self.cache.contains(s):
+                    continue
+                self.cache.add(s)
+                k0 = self.k
+                found_, inst, y = self.evaluate(s)
+                self.overshoot_calls += self.k - k0
+                self._collect("remove", best, removed, y)
+                self.selector.observe_move(self.id_to_uv(removed), y, found_)
+                if found_:
+                    self.overshoot_succ.append(size)
+                    if self.learning:
+                        self.selector.record("remove", sol_uv, self.id_to_uv(removed), y,
+                                             weight=self.block_example_weight)
+                    return True, s, inst, removed
+        return False, None, None, None
 
     def _keep_neg(self, neg_moves: list, neg_logqs: list, move_uv, lq) -> None:
         """Keep the first negatives, then reservoir-sample the rest (cap max_listwise_negs)."""

@@ -117,7 +117,13 @@
                             "unlock_min_trials": 6,
                             "unlock_rate": 0.5,
                             "fill_remove_share": true,
-                            "init_checkpoint": "models/pretrained/edge_selector_v3-pre_PROTEINS.pt"
+                            "init_checkpoint": "models/pretrained/edge_selector_v3-pre_PROTEINS.pt",
+                            "overshoot": true,
+                            "overshoot_sizes": "geometric",
+                            "overshoot_ratio": 0.7,
+                            "overshoot_trials": 12,
+                            "overshoot_fallback": true,
+                            "overshoot_budget_frac": 0.5
                         }
                     },
                     "generator_cache": "lab/data/cache/generator_outputs"

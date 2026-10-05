@@ -12,6 +12,12 @@ through the generator cache, every fold's full test split:
     dce-lcls-sel-untrained   the same network and policy with untrained weights, never updated
     dce-lcls-sel-random      the same skeleton with uniform proposals (no model)
 
+The three selector arms also overshoot (``OVERSHOOT``): when a removal sweep finds nothing, they try
+removing many edges at once with random blocks, once per search state (no extra retries), with a cheap
+geometric schedule, and with the plain-LBS depth while the instance has had no improvement at all (the
+ranking is evidently not working there). On PROTEINS ids 148 and 159, where the selector used to stay at
+its initial size, it then matches plain LBS (8 and 1) with 43 to 58 % fewer calls.
+
 selector against untrained isolates what training buys; untrained against random isolates the policy on
 an arbitrary ranking; selector against plain LBS is the headline comparison with the thesis.
 
@@ -32,6 +38,8 @@ ARMS = {
     "dce-lcls-sel-random": ("dce-lcls-net-v2e-random", "selector-random"),
 }
 BUDGET = 10000
+OVERSHOOT = {"overshoot": True, "overshoot_sizes": "geometric", "overshoot_ratio": 0.7, "overshoot_trials": 12,
+             "overshoot_fallback": True, "overshoot_budget_frac": 0.5}
 CACHE = "lab/data/cache/generator_outputs"
 
 
@@ -53,6 +61,7 @@ def main() -> int:
             par["seed"] = 0
             if tag:
                 par["model_tag"] = tag
+                par.update(OVERSHOOT)
             out = DST / arm / f"generate_minimize{fold}.jsonc"
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(json.dumps(conf, indent=4) + "\n")
