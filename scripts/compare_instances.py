@@ -5,6 +5,8 @@ Reads ``cf_per_instance/fold_<f>/cf_<id>.json`` under each scope (available whil
 going), keeps the instances both runs finished, and prints GED/OC for each, grouped: B ends with a lower
 GED, same GED, B ends with a higher GED. OracleCalls is the total of the instance as the pipeline counts
 it, which includes the generator's calls (identical for both runs, since the generator output is shared).
+With ``--logs`` it also shows, per method, the minimizer calls spent up to its last improvement (from the
+``Found solution with size: N, calls: k`` lines): when the method stopped making progress.
 
     python scripts/compare_instances.py proteins-sel_dce_lcls proteins-sel_dce_lcls-sel --fold 0 \\
         --names vanilla selector
@@ -14,7 +16,11 @@ from __future__ import annotations
 import argparse
 import glob
 import json
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from selector_trajectories import parse, final  # noqa: E402
 
 RESULTS = Path(__file__).resolve().parent.parent / "lab" / "output" / "results"
 
@@ -32,8 +38,13 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("a"); ap.add_argument("b"); ap.add_argument("--fold", type=int, default=0)
     ap.add_argument("--names", nargs=2, default=["A", "B"])
+    ap.add_argument("--logs", nargs=2, default=None, help="queue logs of A and B, for the calls up to the last improvement")
     args = ap.parse_args()
     A, B = load(args.a, args.fold), load(args.b, args.fold)
+    last = [{}, {}]
+    if args.logs:
+        for j, lp in enumerate(args.logs):
+            last[j] = {i: final(t)[1] for i, t in parse(lp).items() if t.get("init") is not None}
     ids = sorted(set(A) & set(B), key=int)
     na, nb = args.names
     groups = {"lower": [], "same": [], "higher": []}
@@ -48,10 +59,17 @@ def main() -> int:
         if not groups[g]:
             continue
         print(f"\n{titles[g]} ({len(groups[g])}):")
-        print(f"| id | {na} GED/OC | {nb} GED/OC |")
-        print("|---|---|---|")
-        for i in groups[g]:
-            print(f"| {i} | {A[i]['ged']:.0f} / {A[i]['oc']:,} | {B[i]['ged']:.0f} / {B[i]['oc']:,} |")
+        if args.logs:
+            print(f"| id | {na} GED/OC | {na} last improvement at | {nb} GED/OC | {nb} last improvement at |")
+            print("|---|---|---|---|---|")
+            for i in groups[g]:
+                print(f"| {i} | {A[i]['ged']:.0f} / {A[i]['oc']:,} | {last[0].get(i, '?'):,} | "
+                      f"{B[i]['ged']:.0f} / {B[i]['oc']:,} | {last[1].get(i, '?'):,} |")
+        else:
+            print(f"| id | {na} GED/OC | {nb} GED/OC |")
+            print("|---|---|---|")
+            for i in groups[g]:
+                print(f"| {i} | {A[i]['ged']:.0f} / {A[i]['oc']:,} | {B[i]['ged']:.0f} / {B[i]['oc']:,} |")
     return 0
 
 
