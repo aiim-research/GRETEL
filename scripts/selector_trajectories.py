@@ -18,15 +18,19 @@ import re
 INST = re.compile(r"Evaluating instance with id (\d+)")
 INIT = re.compile(r"Initial solution size: (\d+)")
 FOUND = re.compile(r"Found solution with size: (\d+), calls: (\d+)")
-DONE = re.compile(r"Oracle calls(?: limit reached)?[:,]? ?(\d+)?|outer iteration|original: (\d+), final: (\d+)")
+DONE = re.compile(r"evaluated instance with id (\d+)")
 
 
 def parse(path: str) -> dict[str, dict]:
     out, cur = {}, None
     for line in open(path, errors="replace"):
+        m = DONE.search(line)
+        if m and m.group(1) in out:
+            out[m.group(1)]["done"] = True
+            continue
         m = INST.search(line)
         if m:
-            cur = {"init": None, "traj": []}
+            cur = {"init": None, "traj": [], "done": False}
             out[m.group(1)] = cur
             continue
         if cur is None:
@@ -59,12 +63,29 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("a"); ap.add_argument("b"); ap.add_argument("--names", nargs=2, default=["A", "B"])
     ap.add_argument("--complete", type=int, default=None, help="only the first N instances of each log")
+    ap.add_argument("--summary", action="store_true", help="category counts and the stalled-A instances only")
     args = ap.parse_args()
     A, B = parse(args.a), parse(args.b)
-    ids = [i for i in A if i in B]
-    # the last instance of a running log is incomplete
+    ids = [i for i in A if i in B and A[i].get("done") and B[i].get("done")]
     ids = ids[: (args.complete or len(ids))]
     na, nb = args.names
+    if args.summary:
+        better = [i for i in ids if final(B[i])[0] < final(A[i])[0]]
+        worse = [i for i in ids if final(B[i])[0] > final(A[i])[0]]
+        # A "did not get down in time": B ends clearly lower (at least 3 edges and 20 %), or B reaches A's
+        # final size with under a tenth of the calls A needed for it
+        stalled = []
+        for i in ids:
+            fa, ka = final(A[i]); fb, kb = final(B[i]); r = calls_to_reach(B[i], fa)
+            if (fa - fb >= 3 and fb <= 0.8 * fa) or (r is not None and ka >= 500 and r <= 0.1 * ka):
+                stalled.append((i, A[i]["init"], fa, ka, fb, kb, r))
+        print(f"{len(ids)} instances finished by both: {nb} better {len(better)}, equal {len(ids) - len(better) - len(worse)}, "
+              f"worse {len(worse)}" + (f" ({', '.join(worse)})" if worse else ""))
+        print(f"\n{na} did not get down in time, {nb} did ({len(stalled)}):")
+        print(f"{'id':>6s}{'init':>6s} | {na+' final @calls':>22s} | {nb+' final @calls':>22s} | {nb+' reaches '+na+' final at':>28s}")
+        for i, ini, fa, ka, fb, kb, r in stalled:
+            print(f"{i:>6s}{ini:>6d} | {fa:>12d} @ {ka:<7d} | {fb:>12d} @ {kb:<7d} | {str(r):>28s}")
+        return 0
     print(f"{'id':>6s}{'init':>6s} | {na+' final':>13s}{'@calls':>8s} | {nb+' final':>14s}{'@calls':>8s} | "
           f"{nb+' to reach '+na:>22s}")
     rows = []
