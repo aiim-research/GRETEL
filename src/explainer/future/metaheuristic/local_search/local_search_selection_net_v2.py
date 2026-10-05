@@ -162,6 +162,11 @@ class LocalSearch(ExplanationMinimizer):
         self.bandit_min_value = float(p.get('bandit_min_value', 0.0))   # a block rung needs size*p_hat above this
         self.bandit_block_trials = int(p.get('bandit_block_trials', 0))  # 0 = schedule default
         self.rung_stats = {}                                         # size -> [successes, trials]
+        # rung_stats_scope "run" (default): block statistics accumulate over all instances of the run, so
+        # on a dataset where single removals mostly fail (PROTEINS, 37 %) blocks stay locked even on the
+        # easy instances; "instance": reset at the start of every instance, so blocks unlock wherever
+        # single removals keep working there and the search removes several edges per step
+        self.rung_stats_scope = p.get('rung_stats_scope', 'run')
         # v3
         self.method_policy = p.get('method_policy', 'all')           # all | thompson
         self.method_max = int(p.get('method_max', 2))
@@ -392,6 +397,8 @@ class LocalSearch(ExplanationMinimizer):
         self.phase_succ_iter = {"remove": 0, "swap": 0, "add": 0}
         self._overshoot_done = set()
         self._initial_size = len(initial_solution)
+        if self.rung_stats_scope == "instance":
+            self.rung_stats = {}
         self.overshoot_calls = 0
         self.overshoot_succ = []
 
@@ -644,7 +651,8 @@ class LocalSearch(ExplanationMinimizer):
                     sizes.append(int(b))
                 b *= self.overshoot_ratio
         else:
-            sizes = list(range(2, ceiling, step))
+            # plain-LBS levels: its first non-trivial removal level is ``step`` (size 1 is the sweep's job)
+            sizes = list(range(max(2, step), ceiling, step))
         limit = min(self.max_oracle_calls, self.k + self.overshoot_budget_frac * self.max_oracle_calls)
         self.phase = "remove"
         sol_uv = self.id_to_uv(best)

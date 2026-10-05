@@ -92,7 +92,7 @@
                             "swap_record_add": false,
                             "swap_record_remove": true,
                             "flush_every_add": 4,
-                            "retry_outer": true,
+                            "retry_outer": false,
                             "block_random_mix": true,
                             "monitor_log_every": 100,
                             "block_shrink_on_fail": true,

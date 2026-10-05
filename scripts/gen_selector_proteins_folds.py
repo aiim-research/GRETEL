@@ -16,7 +16,9 @@ The three selector arms also overshoot (``OVERSHOOT``): when a removal sweep fin
 removing many edges at once with random blocks, once per search state (no extra retries), with a cheap
 geometric schedule, and with the plain-LBS depth while the instance has had no improvement at all (the
 ranking is evidently not working there). On PROTEINS ids 148 and 159, where the selector used to stay at
-its initial size, it then matches plain LBS (8 and 1) with 43 to 58 % fewer calls.
+its initial size, it then matches plain LBS (8 and 1) with 43 to 58 % fewer calls. They also stop after
+the first outer iteration that improves nothing (``retry_outer`` false): on fold 0 no improvement ever
+came after a failed iteration, and on 9 test instances this halves the calls at the same or better GED.
 
 selector against untrained isolates what training buys; untrained against random isolates the policy on
 an arbitrary ranking; selector against plain LBS is the headline comparison with the thesis.
@@ -39,7 +41,11 @@ ARMS = {
 }
 BUDGET = 10000
 OVERSHOOT = {"overshoot": True, "overshoot_sizes": "geometric", "overshoot_ratio": 0.7, "overshoot_trials": 12,
-             "overshoot_fallback": True, "overshoot_budget_frac": 0.5}
+             "overshoot_fallback": True, "overshoot_budget_frac": 0.5,
+             # no retries: an outer iteration that improves nothing (removal sweep, overshoot, swap and
+             # add included) ends the search. On fold 0, none of 1462 improvements came after a failed
+             # iteration, while 82 % of the selector's calls were spent in those retries.
+             "retry_outer": False}
 CACHE = "lab/data/cache/generator_outputs"
 
 
