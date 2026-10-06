@@ -194,6 +194,17 @@ class LocalSearch(ExplanationMinimizer):
         # not working here, so the overshoot uses the plain-LBS depth (linear sizes, neigh_factor^3
         # trials each); after the first improvement it uses the configured (cheaper) schedule
         self.overshoot_fallback = bool(p.get('overshoot_fallback', False))
+        # stuck_swap_add: once removal is exhausted in a state (sweep and overshoot found nothing), the
+        # rest of that outer iteration belongs to swap and add, half of the local budget each, instead of
+        # the productivity-based shares, which leave them about 5 % each since they rarely succeed
+        self.stuck_swap_add = bool(p.get('stuck_swap_add', False))
+        # near_miss: every failed single-edge removal still returns the counterfactual-class probability;
+        # the edges whose removal came closest to a flip are sampled first (softmax of the standardised
+        # probability at near_miss_temp, mixed with near_miss_eps uniform) for the removal part of swaps
+        # and for the overshoot blocks, instead of uniformly
+        self.near_miss = bool(p.get('near_miss', False))
+        self.near_miss_temp = float(p.get('near_miss_temp', 0.5))
+        self.near_miss_eps = float(p.get('near_miss_eps', 0.3))
         self.collected = []
         # v2d: phase shares follow observed productivity (successes per call), with a floor
         self.adaptive_phase_budget = bool(p.get('adaptive_phase_budget', False))
@@ -397,6 +408,9 @@ class LocalSearch(ExplanationMinimizer):
         self.phase_succ_iter = {"remove": 0, "swap": 0, "add": 0}
         self._overshoot_done = set()
         self._initial_size = len(initial_solution)
+        self._near = {}                     # edge id -> counterfactual probability of its single removal
+        self._stuck_mode = False
+        self._phase_budget_base = dict(self.phase_budget) if self.phase_budget else None
         if self.rung_stats_scope == "instance":
             self.rung_stats = {}
         self.overshoot_calls = 0
@@ -408,6 +422,9 @@ class LocalSearch(ExplanationMinimizer):
             self._update_productivity()
             self.phase_calls_iter = {"remove": 0, "swap": 0, "add": 0}
             self.phase_succ_iter = {"remove": 0, "swap": 0, "add": 0}
+            if self._stuck_mode:
+                self._stuck_mode = False
+                self.phase_budget = dict(self._stuck_saved) if self._stuck_saved is not None else None
             if self.adaptive_phase_budget and self.phase_budget:
                 tot = sum(self.phase_prod.values()) or 1.0
                 f = self.phase_share_floor
@@ -432,6 +449,8 @@ class LocalSearch(ExplanationMinimizer):
                 self.cache.add(s)
                 found_, inst, y = self.evaluate(s)
                 st = self.rung_stats.setdefault(len(removed), [0, 0]); st[1] += 1; st[0] += int(found_)
+                if len(removed) == 1 and not found_:
+                    self._near[next(iter(removed))] = float(y)
                 self._collect("remove", sol_ctx, removed, y)
                 self.selector.observe_move(self.id_to_uv(removed), y, found_)
                 self.monitor.observe("remove", pred, y)
@@ -465,7 +484,11 @@ class LocalSearch(ExplanationMinimizer):
                 continue
             if self.overshoot and frozenset(best) not in self._overshoot_done:
                 self._overshoot_done.add(frozenset(best))
+                # the overshoot has its own budget: it must not use up the iteration's local budget,
+                # or the swap and add phases that follow would never run
+                k_local0, rem_iter0 = self.k_local, self.phase_calls_iter.get("remove", 0)
                 found_o, s_o, inst_o, removed_o = self._overshoot_sweep(best)
+                self.k_local, self.phase_calls_iter["remove"] = k_local0, rem_iter0
                 if found_o:
                     best = s_o
                     actual = s_o
@@ -476,6 +499,11 @@ class LocalSearch(ExplanationMinimizer):
                     continue
             if self.block_removal and self.block_shrink_on_fail:
                 self.block_size = max(1, self.block_size // 2)
+            if self.stuck_swap_add and self.phase_budget is not None:
+                self._stuck_saved = dict(self.phase_budget)
+                self._stuck_mode = True
+                self.phase_budget = {"remove": 1.0, "swap": 0.5, "add": 0.5}
+                self.k_local = 0
 
             # ---------------- reduce, then (=) swap and (+) add ----------------
             half = int(len(actual) / 2)
@@ -630,6 +658,20 @@ class LocalSearch(ExplanationMinimizer):
                          len(old) + len(self.collected))
         self.collected = []
 
+    def _near_sample(self, sol: list[int], size: int) -> set[int] | None:
+        """Sample ``size`` edges of ``sol`` without replacement, favouring near-miss removals; None when
+        there is no near-miss information for this solution yet."""
+        ys = np.array([self._near.get(e, np.nan) for e in sol], dtype=float)
+        if np.all(np.isnan(ys)) or size >= len(sol):
+            return None
+        fill = np.nanmedian(ys)
+        ys = np.where(np.isnan(ys), fill, ys)
+        z = (ys - ys.mean()) / (ys.std() + 1e-9)
+        w = np.exp((z - z.max()) / max(1e-6, self.near_miss_temp))
+        p = (1 - self.near_miss_eps) * w / w.sum() + self.near_miss_eps / len(sol)
+        rng = np.random.default_rng(random.randrange(1 << 31))
+        return set(int(sol[i]) for i in rng.choice(len(sol), size=size, replace=False, p=p / p.sum()))
+
     def _overshoot_sweep(self, best: set[int]):
         """Uniformly random removal blocks of increasing size (plain-LBS levels), first improvement.
 
@@ -660,7 +702,10 @@ class LocalSearch(ExplanationMinimizer):
             for _ in range(trials):
                 if self.k >= limit:
                     return False, None, None, None
-                if self.overshoot_compose == "ranked" and self.use_model:
+                removed = self._near_sample(sol, size) if self.near_miss else None
+                if removed is not None:
+                    pass
+                elif self.overshoot_compose == "ranked" and self.use_model:
                     order, _, _ = self.selector.get_trial_order("remove", sol_uv, seed=random.randrange(1 << 31))
                     removed = self.uv_to_id(order[:size])
                 else:
@@ -911,7 +956,11 @@ class LocalSearch(ExplanationMinimizer):
         step = int(ceiling / self.max_neigh) + 1
         for i in range(1, ceiling, step):
             for _ in range(self.neigh_factor * 3):
-                removed, pred_r = self.selector.propose_scored("remove", self.id_to_uv(solution), i)
+                near = self._near_sample(sorted(solution), i) if self.near_miss else None
+                if near is not None:
+                    removed, pred_r = self.id_to_uv(near), 0.0
+                else:
+                    removed, pred_r = self.selector.propose_scored("remove", self.id_to_uv(solution), i)
                 removed_set = self.uv_to_id(removed)
                 temp_solution = solution.difference(removed_set)
                 added, pred_a = self.selector.propose_scored("add", self.id_to_uv(temp_solution), i)
