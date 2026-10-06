@@ -45,7 +45,12 @@ OVERSHOOT = {"overshoot": True, "overshoot_sizes": "geometric", "overshoot_ratio
              # no retries: an outer iteration that improves nothing (removal sweep, overshoot, swap and
              # add included) ends the search. On fold 0, none of 1462 improvements came after a failed
              # iteration, while 82 % of the selector's calls were spent in those retries.
-             "retry_outer": False}
+             "retry_outer": False,
+             # once removal is exhausted in a state, swap and add get half the iteration's budget each,
+             # and swaps and overshoot blocks favour near-miss removals (edges whose single removal came
+             # closest to a flip). Preliminary test on 10 fold-0 instances: GED sum 156 against 175 without
+             # them and 298 for plain LBS, at 71 % fewer calls than plain LBS
+             "stuck_swap_add": True, "near_miss": True}
 CACHE = "lab/data/cache/generator_outputs"
 
 
