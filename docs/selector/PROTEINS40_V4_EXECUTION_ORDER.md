@@ -12,5 +12,5 @@ nohup ~/miniconda3/envs/GRTL/bin/python scripts/run_revision_queue.py --list doc
 
 Round 2 (2026-10-02): v4 and v4-ev came out identical on seed 0 (the share-of-tried temperature never moved) and both lost GED against v3b-pre-frozen (3/22/15, Holm 0.036) at the same calls. The remaining v4 / v4-ev / v4-adapt seeds were dropped. Now: v4-adapt2 (temperature doubling per failed sweep on a state), an on-policy collection with the v3b-pre-frozen policy, and v4-ev2 (evidence pretrained on uniform plus on-policy examples, checkpoint written after the collection).
 
-- [ ] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v4-adapt2/generate_minimize0.jsonc
+- [x] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v4-adapt2/generate_minimize0.jsonc
 - [ ] lab/config/generate_minimize/proteins40/dce/dce-lcls-net-v4-onpolicy-collect/generate_minimize0.jsonc
