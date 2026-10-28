@@ -103,6 +103,29 @@ where `<dataset>`, `<oracle>` and `<explainer>` are content hashes, for example 
 
 Caches follow the same scheme under `lab/data/cache/`: build a dataset once and every later config that declares it identically reuses it.
 
+### What is in git and what each clone rebuilds
+
+From the BLS selector onwards (October 2026) the repository carries everything a clone needs to get the same numbers without retraining anything, and the results themselves. Older results (plain BLS and the other methods, run with caches that were never shared) were moved out of the repository and are to be rerun with the committed caches.
+
+Tracked, because rebuilding them would give different numbers:
+
+- `lab/data/cache/datasets/`: every dataset cache, which holds the fold splits. They are drawn at random the first time a dataset is built, so a clone that built its own would split differently.
+- `lab/data/cache/oracles/`: every trained oracle, saved with its tensors on the CPU so it loads on machines without CUDA. An oracle trained on a GPU is pickled with CUDA tensors: run `python tools/resave_cache_cpu.py` before committing a new one (it checks in a CUDA-less process that the weights are bit-identical).
+- `lab/data/cache/explainers/*/{DCM,LSTMethodsArtifact,LSTHyperparameters}-*`: the small trained explainer artifacts.
+- `lab/output/results/`: results, including the per-instance counterfactual dumps (`cf_per_instance/`). These are plain JSON with dense matrices: tens of KB on disk each, under 1 KB compressed in the git pack.
+- `lab/output/queue_logs/<dataset>/<generator>-<minimizer>/fold<f>.log.gz` and `lab/output/selector_logs/*.csv`: the run logs of finished runs, gzipped (the analysis reads improvements and oracle calls from them; `python scripts/collect_logs.py --local` gzips the finished ones, and brings in those of Slurm jobs), and the selector monitors.
+- `lab/selector_experiments/`: the selector development study, archived by phase (its README).
+- `models/pretrained/`: the offline-pretrained selector.
+
+Ignored and rebuilt on demand, because they are deterministic or not needed for the results:
+
+- `lab/data/cache/generator_outputs/`: the generator's counterfactuals, shared between minimizers (about 200 MB for PROTEINS). DCE is deterministic given the dataset and the oracle, so the first run of each fold recomputes them.
+- `data/working/`: the raw datasets, downloaded on first use (the raw PROTEINS files are committed, for compute nodes without network).
+- `models/*.pt` outside `pretrained/`: checkpoints that online selectors write as they learn.
+- raw `*.log` files, `lab/output/selector_pretrain/` (the 10 to 15 MB collections behind the pretrained selector, regenerable from the collect configs) and everything else under `lab/output/`.
+
+Commit only results that come from the configs and caches in the repository, and commit a run's results once it is complete: `run_revision_queue.py` and `scripts/pending_configs.py` treat a config as done when its `results_<fold>_<run>.json` exists, on every clone.
+
 ## 5. Running a batch
 
 **The revision batch.** `docs/revision/REVISION_EXECUTION_ORDER.md` is a checklist of 971 configs. The runner works through the unchecked ones, one subprocess each, and ticks a box when its results file appears:
@@ -113,9 +136,9 @@ python scripts/run_revision_queue.py --workers 4 --gpu    # 2 workers per GPU
 nohup python scripts/run_revision_queue.py --workers 4 --gpu > /tmp/queue.log 2>&1 &
 ```
 
-It is restart-safe. On startup it checks the filesystem and skips anything already on disk, so interrupting it and running it again resumes where it stopped. Logs go to `lab/output/queue_logs/<scope>_fold<n>.log`.
+It is restart-safe. On startup it checks the filesystem and skips anything already on disk, so interrupting it and running it again resumes where it stopped. Logs go to `lab/output/queue_logs/<dataset>/<generator>-<minimizer>/fold<n>.log`, one folder per dataset, generator and minimizer (taken from the scope, `<dataset>_<generator>_<minimizer>`).
 
-That startup sync cuts both ways, and it is worth knowing before you run it: the checklist is rewritten to match what is on disk, in **both** directions. `lab/output/` is not versioned, so on a fresh clone, or on a second machine, or after the results are archived elsewhere, the sync finds nothing and unchecks all 971 entries in the tracked `REVISION_EXECUTION_ORDER.md`. That loses the record of what has already been run. Run the queue only where the results live, and if you only want to inspect the state, check `git diff` afterwards and revert the file if it was rewritten.
+That startup sync cuts both ways, and it is worth knowing before you run it: the checklist is rewritten to match what is on disk, in **both** directions. The revision results were never versioned (only results from the BLS selector onwards are, section 4), so on a fresh clone, or on a second machine, or after the results are archived elsewhere, the sync finds nothing and unchecks all 971 entries in the tracked `REVISION_EXECUTION_ORDER.md`. That loses the record of what has already been run. Run the queue only where the results live, and if you only want to inspect the state, check `git diff` afterwards and revert the file if it was rewritten.
 
 **An arbitrary matrix.** `scripts/run_experiments.py` runs a fixed set of combinations over all folds:
 

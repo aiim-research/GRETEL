@@ -20,19 +20,20 @@ class GLogger(object):
         self.info = logging.getLogger()
         self.info.setLevel(logging.INFO)
 
-        os.makedirs(GLogger._path, exist_ok=True)
-
-        file_handler = logging.FileHandler(GLogger._path+"/"+str(os.getenv('JOB_ID',str(os.getpid())))+"-"+socket.gethostname()+".info", encoding='utf-8')
-        stdout_handler = logging.StreamHandler(sys.stdout)
         fmt = logging.Formatter(
             "%(asctime)s | %(levelname)s | %(process)d - %(message)s"
         )
-
-        file_handler.setFormatter(fmt)
+        stdout_handler = logging.StreamHandler(sys.stdout)
         stdout_handler.setFormatter(fmt)
-        
         self.info.addHandler(stdout_handler)
-        self.info.addHandler(file_handler)
+
+        # GRETEL_LOG_FILE=off when whoever launched the run already captures its stdout into a log
+        # (scripts/run_revision_queue.py, launchers/slurm_job.sh): the .info file would be a copy.
+        if os.getenv('GRETEL_LOG_FILE', 'on') != 'off':
+            os.makedirs(GLogger._path, exist_ok=True)
+            file_handler = logging.FileHandler(GLogger._path+"/"+str(os.getenv('JOB_ID',str(os.getpid())))+"-"+socket.gethostname()+".info", encoding='utf-8')
+            file_handler.setFormatter(fmt)
+            self.info.addHandler(file_handler)
         
     @classmethod
     def getLogger(self):

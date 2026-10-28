@@ -20,14 +20,13 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from result_paths import scope_root  # noqa: E402
 from selector_trajectories import parse, final  # noqa: E402
-
-RESULTS = Path(__file__).resolve().parent.parent / "lab" / "output" / "results"
 
 
 def load(scope: str, fold: int) -> dict[str, dict]:
     out = {}
-    for f in glob.glob(str(RESULTS / scope / "**" / "cf_per_instance" / f"fold_{fold}" / "cf_*.json"), recursive=True):
+    for f in glob.glob(str(scope_root(scope) / "**" / "cf_per_instance" / f"fold_{fold}" / "cf_*.json"), recursive=True):
         d = json.load(open(f))
         m = d["metrics"]
         out[d["id"]] = {"ged": m.get("GraphEditDistance"), "oc": m.get("OracleCalls")}
@@ -38,7 +37,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("a"); ap.add_argument("b"); ap.add_argument("--fold", type=int, default=0)
     ap.add_argument("--names", nargs=2, default=["A", "B"])
-    ap.add_argument("--logs", nargs=2, default=None, help="queue logs of A and B, for the calls up to the last improvement")
+    ap.add_argument("--logs", nargs=2, default=None, help="run logs of A and B (paths or <scope>:<fold>), for the calls up to the last improvement")
     args = ap.parse_args()
     A, B = load(args.a, args.fold), load(args.b, args.fold)
     last = [{}, {}]
@@ -63,8 +62,8 @@ def main() -> int:
             print(f"| id | {na} GED/OC | {na} last improvement at | {nb} GED/OC | {nb} last improvement at |")
             print("|---|---|---|---|---|")
             for i in groups[g]:
-                print(f"| {i} | {A[i]['ged']:.0f} / {A[i]['oc']:,} | {last[0].get(i, '?'):,} | "
-                      f"{B[i]['ged']:.0f} / {B[i]['oc']:,} | {last[1].get(i, '?'):,} |")
+                la, lb = (f"{last[j][i]:,}" if i in last[j] else "?" for j in (0, 1))
+                print(f"| {i} | {A[i]['ged']:.0f} / {A[i]['oc']:,} | {la} | {B[i]['ged']:.0f} / {B[i]['oc']:,} | {lb} |")
         else:
             print(f"| id | {na} GED/OC | {nb} GED/OC |")
             print("|---|---|---|")

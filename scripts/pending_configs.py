@@ -7,6 +7,7 @@ its checkbox says, so the list is always computed against what is actually on di
 ``launchers/slurm_submit.sh`` to build the Slurm job array.
 
     python scripts/pending_configs.py docs/selector/SERVER_PROTEINS_FOLDS.md > /tmp/pending.list
+    python scripts/pending_configs.py --where <config>   # "<scope> <fold> <log folder>", for slurm_job.sh
 """
 from __future__ import annotations
 
@@ -15,14 +16,20 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from result_paths import combo_dir  # noqa: E402
 from run_revision_queue import _fold_of, _parse_list, _results_already, _scope_of  # noqa: E402
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("queues", nargs="+", help="queue markdown files")
+    ap.add_argument("queues", nargs="*", help="queue markdown files")
     ap.add_argument("--run-number", type=int, default=1)
+    ap.add_argument("--where", metavar="CONFIG", help="print the scope, fold and log folder of one config")
     args = ap.parse_args()
+    if args.where:
+        scope = _scope_of(args.where)
+        print(scope, _fold_of(args.where), combo_dir(scope))
+        return 0
     pending, done = [], 0
     for q in args.queues:
         _, tasks = _parse_list(Path(q))

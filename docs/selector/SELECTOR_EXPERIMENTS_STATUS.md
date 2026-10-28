@@ -99,7 +99,7 @@ Todas son flags de `local_search_selection_net_v2.LocalSearch` sobre el mismo c�
 ## 7. Dónde está cada cosa
 
 - Código: rutas en la sección 2.
-- Resultados copiados para git: `lab/selector_experiments/results/` (JSON `results_<fold>_1.json` por scope, incluida la base sin calibrar de Synthie, BBBP y PROTEINS-10), `lab/selector_experiments/selector_logs/` (CSV del monitor por variante y dataset), `lab/selector_experiments/queue_logs/` (logs de las corridas relevantes, comprimidos).
+- Resultados en git (actualizado 2026-10-28): todo el estudio del selector está archivado por fases en `lab/selector_experiments/` (`1-calibration` es esta ronda, `2-proteins40` y `3-multi40` la sección 8, `4-final-config` la configuración final), con resultados, logs comprimidos en una carpeta por dataset, generador y minimizador, y CSV del monitor. Su README es el índice. Los scripts de análisis encuentran ahí los scopes y logs sin rutas (`scripts/result_paths.py`). El experimento final de 10 folds escribe en `lab/output/results/proteins-sel_*`, también en git.
 - En la máquina original, además: `lab/output/discarded/` (intentos fallidos de v2b y restos de v2d, v2g), `lab/output/_backup_precalibration/` (base sin calibrar completa), `lab/output/results/` (todo).
 - Memoria de la sesión de Claude: `~/.claude/projects/-home-rodrigo-projects-GRETEL/memory/` (no viaja en git; el contenido relevante está en este documento).
 

@@ -9,8 +9,9 @@
 #   -n  submit only the first LIMIT pending configs (use -n 1 to test a single job first)
 #   -e  conda environment activated inside each job (default GRTL)
 #
-# Logs: output/logs/gretel_<arrayjob>_<task>.out, one per config. The list of configs of the array is
-# kept in output/slurm/<date-time>.list (task i = line i+1; the job log also prints its config).
+# Logs: output/logs/<dataset>/<generator>-<minimizer>/fold<f>_<arrayjob>_<task>.out, one per config. The
+# list of configs of the array is kept in output/slurm/<date-time>.list (task i = line i+1), and the
+# scheduler's own output of each task (only what happens before the job opens its log) in output/slurm/.
 # Resubmitting is safe: configs whose results already exist are skipped.
 set -euo pipefail
 
@@ -39,5 +40,5 @@ if [ "$N" -eq 0 ]; then echo "nothing to submit"; rm -f "$TMP"; exit 0; fi
 echo "submitting $N config(s) to partition $PART, at most $MAX at a time:"
 sed 's/^/  /' "$TMP"
 JOB=$(GRETEL_ENV=$ENV_NAME sbatch --parsable -p "$PART" --array=0-$((N - 1))%"$MAX" launchers/slurm_job.sh "$TMP")
-echo "array job $JOB  (list: $TMP, logs: output/logs/gretel_${JOB}_<task>.out)"
-echo "watch it with: squeue -u \$USER   |   tail -f output/logs/gretel_${JOB}_0.out"
+echo "array job $JOB  (list: $TMP, logs: output/logs/<dataset>/<generator>-<minimizer>/fold<f>_${JOB}_<task>.out)"
+echo "watch it with: squeue -u \$USER   |   ls output/logs/*/*/*_${JOB}_*.out"

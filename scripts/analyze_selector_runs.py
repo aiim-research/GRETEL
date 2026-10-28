@@ -7,8 +7,7 @@ Examples (repo root)::
     python scripts/analyze_selector_runs.py compare \
         base=synthie_dce_lcls v1=synthie_dce_lcls-net v2=synthie_dce_lcls-net-v2 --folds 0 1
 
-    python scripts/analyze_selector_runs.py logs lab/output/queue_logs/synthie_dce_lcls-net-v2_fold0.log \
-        lab/output/queue_logs/synthie_dce_lcls-net-v2_fold1.log --block 10
+    python scripts/analyze_selector_runs.py logs synthie_dce_lcls-net-v2:0 synthie_dce_lcls-net-v2:1 --block 10
 
     python scripts/analyze_selector_runs.py monitor lab/output/selector_logs/selector_v2_Synthie-<hash>.csv
 
@@ -32,7 +31,8 @@ from pathlib import Path
 import numpy as np
 
 REPO = Path(__file__).resolve().parent.parent
-RESULTS = REPO / "lab" / "output" / "results"
+sys.path.insert(0, str(REPO / "scripts"))
+from result_paths import monitor_files, open_log, scope_root  # noqa: E402
 
 METRICS = ["GraphEditDistance", "FeatureEditDistance", "Correctness", "OracleCalls", "Runtime"]
 
@@ -52,8 +52,7 @@ def _val(v):
 
 
 def load_fold(scope: str, fold: int, run: int = 1) -> dict[str, dict[str, float]] | None:
-    # a scope containing "/" is taken as a path relative to lab/output (e.g. the pre-calibration backup)
-    root = (REPO / "lab" / "output" / scope) if "/" in scope else (RESULTS / scope)
+    root = scope_root(scope)
     files = glob.glob(str(root / "**" / f"results_{fold}_{run}.json"), recursive=True)
     if not files:
         return None
@@ -140,7 +139,7 @@ def parse_log(path: str) -> list[dict]:
     """Per-instance sequence in processing order: initial size, minimizer oracle calls, final size."""
     inst = []
     cur = {}
-    for line in open(path, errors="replace"):
+    for line in open_log(path):
         m = INIT_RE.search(line)
         if m:
             cur = {"initial": int(m.group(1))}
@@ -380,11 +379,10 @@ def cmd_stats(args) -> int:
 
 # -------------------------------------------------------------------------- training
 
-MONITOR_DIR = REPO / "lab" / "output" / "selector_logs"
 
 
 def _read_monitor(tag: str, dataset: str) -> list[dict]:
-    files = sorted(MONITOR_DIR.glob(f"selector_{tag}_{dataset}-*.csv"))
+    files = monitor_files(tag, dataset)
     if not files:
         return []
     return list(csv.DictReader(open(files[0])))

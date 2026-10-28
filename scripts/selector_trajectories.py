@@ -7,13 +7,18 @@ instances this prints, per instance, the initial size, each method's final size 
 improvement, and the calls each method needed to reach the other's final size, so that instances where
 one method keeps descending slowly while the other converges early stand out.
 
-    python scripts/selector_trajectories.py lab/output/queue_logs/proteins-sel_dce_lcls_fold0.log \\
-        lab/output/queue_logs/proteins-sel_dce_lcls-sel_fold0.log --names vanilla selector
+    python scripts/selector_trajectories.py proteins-sel_dce_lcls:0 proteins-sel_dce_lcls-sel:0 \\
+        --names vanilla selector      # or the log paths (lab/output/queue_logs/<dataset>/<gen>-<min>/fold<f>.log)
 """
 from __future__ import annotations
 
 import argparse
 import re
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from result_paths import open_log  # noqa: E402
 
 INST = re.compile(r"Evaluating instance with id (\d+)")
 INIT = re.compile(r"Initial solution size: (\d+)")
@@ -23,7 +28,7 @@ DONE = re.compile(r"evaluated instance with id (\d+)")
 
 def parse(path: str) -> dict[str, dict]:
     out, cur = {}, None
-    for line in open(path, errors="replace"):
+    for line in open_log(path):
         m = DONE.search(line)
         if m and m.group(1) in out:
             out[m.group(1)]["done"] = True

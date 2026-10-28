@@ -14,13 +14,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from compare_instances import load  # noqa: E402
+from result_paths import open_log, resolve_log  # noqa: E402
 
 
 def parse(path: str) -> tuple[list[str], dict[str, tuple[int, int]]]:
     order, out, cur = [], {}, None
-    if not Path(path).exists():
+    if resolve_log(path) is None:
         return order, out
-    for line in open(path, errors="replace"):
+    for line in open_log(path):
         m = re.search(r"Evaluating instance with id (\d+)$", line.strip())
         if m:
             cur = m.group(1); order.append(cur); continue

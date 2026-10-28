@@ -4,7 +4,7 @@
 # them locally, commit, push, and `git pull` there.
 #
 #SBATCH -J gretel
-#SBATCH -o output/logs/%x_%A_%a.out
+#SBATCH -o output/slurm/%x_%A_%a.out
 #SBATCH -n 1
 #SBATCH -c 4
 #SBATCH --mem=8G
@@ -35,9 +35,20 @@ for base in "${CONDA_EXE:+$(dirname "$(dirname "$CONDA_EXE")")}" "$HOME/minicond
     fi
 done
 
+# One log per config, in one folder per dataset, generator and minimizer (scripts/result_paths.py):
+# output/logs/<dataset>/<generator>-<minimizer>/fold<f>_<job>_<task>.out. The scheduler's own file
+# (output/slurm/) only keeps what happens before this point.
+read -r SCOPE FOLD COMBO < <(python scripts/pending_configs.py --where "$CFG")
+LOG="output/logs/$COMBO/fold${FOLD}_${SLURM_ARRAY_JOB_ID:-0}_${SLURM_ARRAY_TASK_ID:-0}.out"
+mkdir -p "$(dirname "$LOG")"
+echo "# log $LOG"
+exec > "$LOG" 2>&1
+export GRETEL_LOG_FILE=off  # stdout is the log: no second copy in output/logs/<pid>.info
+
 echo "# job ${SLURM_ARRAY_JOB_ID:-?}_${SLURM_ARRAY_TASK_ID:-?} on $(hostname), partition ${SLURM_JOB_PARTITION:-?}, ${SLURM_CPUS_PER_TASK:-?} cpus"
 echo "# python $(which python)  conda env ${CONDA_DEFAULT_ENV:-none}"
 echo "# config $CFG"
+echo "# scope $SCOPE  fold $FOLD"
 echo "# started $(date '+%Y-%m-%d %H:%M:%S')"
 
 python scripts/run_experiments.py --one "$CFG" --run-number 1

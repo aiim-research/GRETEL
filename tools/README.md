@@ -61,6 +61,18 @@ python tools/clear_stale_locks.py
 python tools/clear_stale_locks.py --apply
 ```
 
+### `resave_cache_cpu.py`
+Re-saves cached trained models (the oracles under `lab/data/cache/oracles`)
+with every tensor on the CPU. A model trained on a GPU is pickled with CUDA
+tensors and does not load on a machine without CUDA, and these caches are
+shared through git. It checks in a fresh process with CUDA hidden that each
+re-saved file loads with bit-identical weights, and leaves CPU files alone.
+Run it before committing a new oracle.
+
+```
+python tools/resave_cache_cpu.py
+```
+
 ### `check_configs_compose.py`
 Runs every configuration through the same `propagate(compose(...))` the
 framework runs at startup. Catches a malformed JSONC file, a `compose_*`
