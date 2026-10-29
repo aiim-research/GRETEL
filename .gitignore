@@ -227,3 +227,4 @@ Miniforge3-*.sh
 # selector study: shared generator outputs and v1 drift anchors (regenerable, machine-specific)
 lab/data/cache/generator_outputs/
 models/*.pt.init
+!models/pretrained/edge_selector_sel-pre_*.pt
