@@ -45,10 +45,15 @@ def _header(path: Path) -> tuple[str | None, int | None]:
     return cfg, status
 
 
-def _gzip(src: Path, dst: Path) -> None:
+def _gzip(src: Path, dst: Path) -> bool:
+    """Gzip ``src`` to ``dst``, unless ``dst`` already holds the same log (a new gzip header alone would
+    show every collected log as modified in git). True if it was written."""
+    if dst.exists() and gzip.decompress(dst.read_bytes()) == src.read_bytes():
+        return False
     dst.parent.mkdir(parents=True, exist_ok=True)
     with open(src, "rb") as fi, gzip.open(dst, "wb", compresslevel=9) as fo:
         shutil.copyfileobj(fi, fo)
+    return True
 
 
 def from_slurm(paths: list[Path]) -> None:
@@ -64,8 +69,8 @@ def from_slurm(paths: list[Path]) -> None:
         (best if status == 0 else failed)[cfg] = f
     for cfg, f in sorted(best.items()):
         out = run_log(_scope_of(cfg), _fold_of(cfg)).with_suffix(".log.gz")
-        _gzip(f, out)
-        print(f"{f.name:<32} -> {out.relative_to(REPO)}")
+        if _gzip(f, out):
+            print(f"{f.name:<32} -> {out.relative_to(REPO)}")
     for cfg in sorted(set(failed) - set(best)):
         print(f"no successful attempt: {cfg} (last: {failed[cfg].name})")
 
