@@ -38,7 +38,13 @@ ARMS = {
     "dce-lcls-sel": ("dce-lcls-net-v3b-pre-frozen", "selector"),
     "dce-lcls-sel-untrained": ("dce-lcls-net-v3b-frozen", "selector-untrained"),
     "dce-lcls-sel-random": ("dce-lcls-net-v2e-random", "selector-random"),
+    "dce-lcls-sel-uniform-fallback": ("dce-lcls-net-v3b-pre-frozen", "selector-uniform-fallback"),
 }
+# Per-arm settings on top of OVERSHOOT. uniform-fallback (2026-10-29, after the 10-fold run): the
+# selector, but with uniformly random blocks in the overshoot fallback, as plain LBS. On fold 1 id 275
+# and fold 2 id 236 no single removal keeps the counterfactual, the near-miss weighted fallback blocks
+# all fail (5005 calls each) and the selector ends at its initial size, while plain LBS reaches 24 and 11.
+EXTRA = {"dce-lcls-sel-uniform-fallback": {"overshoot_fallback_uniform": True}}
 BUDGET = 10000
 OVERSHOOT = {"overshoot": True, "overshoot_sizes": "geometric", "overshoot_ratio": 0.7, "overshoot_trials": 12,
              "overshoot_fallback": True, "overshoot_budget_frac": 0.5,
@@ -73,6 +79,7 @@ def main() -> int:
             if tag:
                 par["model_tag"] = tag
                 par.update(OVERSHOOT)
+                par.update(EXTRA.get(arm, {}))
             out = DST / arm / f"generate_minimize{fold}.jsonc"
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(json.dumps(conf, indent=4) + "\n")

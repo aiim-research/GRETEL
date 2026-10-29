@@ -194,6 +194,12 @@ class LocalSearch(ExplanationMinimizer):
         # not working here, so the overshoot uses the plain-LBS depth (linear sizes, neigh_factor^3
         # trials each); after the first improvement it uses the configured (cheaper) schedule
         self.overshoot_fallback = bool(p.get('overshoot_fallback', False))
+        # overshoot_fallback_uniform: in that fallback the blocks are uniformly random, exactly plain LBS,
+        # instead of near-miss weighted. When no single removal keeps the counterfactual (PROTEINS fold 1
+        # id 275, fold 2 id 236), the near-miss weights keep proposing similar blocks and the whole
+        # fallback fails, while plain LBS's uniform blocks of the same sizes succeed within a few hundred
+        # calls
+        self.overshoot_fallback_uniform = bool(p.get('overshoot_fallback_uniform', False))
         # stuck_swap_add: once removal is exhausted in a state (sweep and overshoot found nothing), the
         # rest of that outer iteration belongs to swap and add, half of the local budget each, instead of
         # the productivity-based shares, which leave them about 5 % each since they rarely succeed
@@ -698,13 +704,14 @@ class LocalSearch(ExplanationMinimizer):
         limit = min(self.max_oracle_calls, self.k + self.overshoot_budget_frac * self.max_oracle_calls)
         self.phase = "remove"
         sol_uv = self.id_to_uv(best)
+        uniform = no_progress and self.overshoot_fallback_uniform
         for size in sizes:
             for _ in range(trials):
                 if self.k >= limit:
                     return False, None, None, None
-                removed = self._near_sample(sol, size) if self.near_miss else None
-                if removed is not None:
-                    pass
+                removed = self._near_sample(sol, size) if self.near_miss and not uniform else None
+                if removed is not None or uniform:
+                    removed = removed or set(random.sample(sol, size))
                 elif self.overshoot_compose == "ranked" and self.use_model:
                     order, _, _ = self.selector.get_trial_order("remove", sol_uv, seed=random.randrange(1 << 31))
                     removed = self.uv_to_id(order[:size])
