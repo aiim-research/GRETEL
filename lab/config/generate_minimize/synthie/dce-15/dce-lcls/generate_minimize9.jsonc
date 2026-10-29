@@ -34,7 +34,7 @@
                             "attributed": true,
                             "max_oracle_calls":15000
                         }
-                    }
+                    }, "generator_cache": "lab/data/cache/generator_outputs"
                 }
             }
         }

@@ -134,6 +134,12 @@ dmypy.json
 data/*
 data/cache*
 data/working*
+# Except the RSGG GANs, trained models stored in data/<dataset>/GAN-* (their store path falls back to
+# data/): shared like the oracles, or RSGG starts from different GANs on every clone.
+!data/*/
+data/*/*
+!data/*/GAN-*
+data/*/*.lck*
 lab/data/cache*
 
 # Shared caches (see docs/reproducing-experiments.md, section 4): the dataset caches (they hold the random fold splits),

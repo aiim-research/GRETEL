@@ -71,6 +71,21 @@ Run it before committing a new oracle.
 
 ```
 python tools/resave_cache_cpu.py
+python tools/resave_cache_cpu.py data/*/GAN-*     # the RSGG GANs
+```
+
+### `warm_caches.py`
+Builds what configs load from the caches (dataset with its folds, oracle,
+explainer artefacts such as DCM or the RSGG GANs) without running them, so they
+can be committed before the configs run in parallel: the dataset caches hold the
+random folds, and parallel jobs on the server would otherwise create their own.
+`--check` creates nothing and lists what each config would load, stopping at the
+first object that is missing. Run it with CUDA hidden, or re-save what it trained
+with `resave_cache_cpu.py`.
+
+```
+CUDA_VISIBLE_DEVICES="" python tools/warm_caches.py <config> [<config> ...]
+python tools/warm_caches.py --check <config> [<config> ...]
 ```
 
 ### `check_configs_compose.py`

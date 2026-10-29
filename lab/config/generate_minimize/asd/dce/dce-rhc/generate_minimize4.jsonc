@@ -61,7 +61,7 @@
                             "seed": 0,
                             "recompute_features": false
                         }
-                    }
+                    }, "generator_cache": "lab/data/cache/generator_outputs"
                 }
             }
         }

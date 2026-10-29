@@ -77,7 +77,9 @@ launchers/slurm_submit.sh -p <partition> -m 10 docs/selector/SERVER_PROTEINS_CON
 
 Logs: one per config, in one folder per dataset, generator and minimizer, `output/logs/<dataset>/<generator>-<minimizer>/fold<f>_<job>_<task>.out` (for example `output/logs/proteins-sel/dce-lcls-sel/fold0_123456_0.out`). Each starts with the config, node and python it ran with and ends with its exit status. What Slurm itself prints before the job opens its log (a failed conda activation, for instance) is in `output/slurm/gretel_<job>_<task>.out`.
 
-Queues: `SERVER_PROTEINS_FOLDS.md` (selector and plain LBS, 10 folds each) and `SERVER_PROTEINS_CONTROLS.md` (untrained and random selector arms).
+With `-c`, each queue file becomes its own array, started when the previous one has ended (`--dependency=afterany`), so several queues that must run in order go out with one command.
+
+Queues: `SERVER_PROTEINS_FOLDS.md` (selector and plain LBS, 10 folds each), `SERVER_PROTEINS_CONTROLS.md` (untrained and random selector arms) and `SERVER_PROTEINS_FALLBACK.md` (the selector with a uniform fallback, for the two instances where it never left its initial counterfactual). The rerun of the thesis and paper-revision experiments has its own 61 queues, order and rules in `docs/rerun/README.md`.
 
 ## 5. Watch and cancel
 

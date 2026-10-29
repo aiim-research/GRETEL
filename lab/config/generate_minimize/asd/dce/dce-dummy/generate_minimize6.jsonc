@@ -32,7 +32,7 @@
                             "max_runtime" : 20,
                             "max_neigh" : 20
                         }
-                    }
+                    }, "generator_cache": "lab/data/cache/generator_outputs"
                 }
             }
         }
