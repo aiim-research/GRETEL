@@ -23,7 +23,7 @@ launchers/slurm_submit.sh -p normal -m 10 -c docs/rerun/light-1-generators.md do
 
 ## 2. Caches built on the server
 
-The BZR and ENZYMES datasets and oracles, and the DCM medoids of PROTEINS, BZR and ENZYMES, are not committed yet: a DCM takes from minutes to many hours (BBBP took 14 h on a laptop). One job each, any time:
+The ENZYMES dataset and oracle, and the DCM medoids of PROTEINS, BZR and ENZYMES, are not committed yet: a DCM takes from minutes to many hours (BBBP took 14 h on a laptop). BZR's dataset and oracle (and Cuneiform's, new for the selector paper) come out of the selector's local preliminary (`docs/selector/PLAN_PAPER_SELECTOR.md`, section 4.1) and are committed from there, so submit the bzr job only after that sync, when it only has the DCM left to build. One job each, any time:
 
 ```bash
 G=lab/config/generate_minimize

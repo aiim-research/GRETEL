@@ -18,12 +18,12 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))
-from gen_selector_paper_matrix import COLLECT_FOLDS, DATASETS  # noqa: E402
+from gen_selector_paper_matrix import COLLECT_FOLDS, DATASETS, SUBSETS  # noqa: E402
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--datasets", nargs="+", default=DATASETS)
+    ap.add_argument("--datasets", nargs="+", default=DATASETS + list(SUBSETS))
     args = ap.parse_args()
     built, waiting = 0, []
     for ds in args.datasets:

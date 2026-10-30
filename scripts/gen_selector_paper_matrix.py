@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The selector paper's experiment matrix: ten datasets, ten folds, DCE, four arms, and the collections
+"""The selector paper's experiment matrix: eleven datasets, ten folds, DCE, four arms, and the collections
 that pretrain the selector without leakage.
 
 Arms (names in the paper in brackets), each in ``lab/config/generate_minimize/<dataset>-sel/dce/``:
@@ -25,17 +25,24 @@ serves every fold but fold 1, ``-f2.pt`` serves fold 1 (``scripts/pretrain_selec
 builds whichever is missing). PROTEINS folds 1 to 9 keep ``edge_selector_v3-pre_PROTEINS.pt``, trained
 on fold-0 instances, which only fold 0 evaluates.
 
+Subsets (``SUBSETS``): a pseudo-dataset such as ``colors-3-s20`` is a large dataset evaluated on a fixed
+random sample of each fold's test instances (the evaluator's ``instance_ids``, hash-neutral), with its own
+scope, config tree (``colors-3-s20-sel``), collections and checkpoints. They exist for the local
+preliminary only and never enter the server queues.
+
 Queues (``docs/selector/PAPER_*.md``), in the order they can run:
 
-    PAPER_LOCAL_1.md   local: the collections (folds 1 and 2) of the small datasets with local caches
-                       (``LOCAL``), and their fold-0 preliminary (v0, bls_v1, control)
-    PAPER_LOCAL_2.md   local, after pretraining: selector_v1 on fold 0 of those datasets
-    PAPER_Q<nn>.md     server, at most 30 configs each: S1 needs nothing (v0, bls_v1, control, folds 1-9 of
-                       the local datasets and all folds of the large ones; every collection not run
-                       locally; PROTEINS v0 and uniform-fallback), S2 needs the committed checkpoints
-                       (selector_v1 wherever it is not run locally, PROTEINS fold 0 of selector and
-                       uniform-fallback), S3 needs the BZR and ENZYMES caches and checkpoints (everything
-                       of those two). Collections run on the server come back with ``make server-import``
+    PAPER_LOCAL_1.md   local, the fold-0 preliminary of ``PRELIM``: the collections of folds 1 and 2 and
+                       bls_v1 on fold 0 (``python scripts/run_revision_queue.py --list ... --workers 1
+                       --timeout 86400``), then ``scripts/pretrain_selector_checkpoints.py``
+    PAPER_LOCAL_2.md   local, after the pretraining: selector_v1 on fold 0 of ``PRELIM``
+    PAPER_Q<nn>.md     server, at most 30 configs each, every dataset of ``DATASETS`` on every fold (what
+                       the local preliminary already produced is skipped by ``slurm_submit.sh`` once its
+                       results are committed): S1 needs nothing (collections not run locally, v0, bls_v1,
+                       control, PROTEINS v0 and uniform-fallback), S2 needs the committed checkpoints
+                       (selector_v1, PROTEINS fold 0 of selector and uniform-fallback), S3 needs the
+                       committed caches of ``PENDING_CACHES`` (everything of those datasets).
+                       Collections run on the server come back with ``make server-import``
                        (``lab/output/selector_pretrain``) for the pretraining, which runs here
     PAPER_QUEUES.md    the index
 
@@ -44,22 +51,33 @@ Queues (``docs/selector/PAPER_*.md``), in the order they can run:
 from __future__ import annotations
 
 import json
+import pickle
+import random
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 TREE = REPO / "lab/config/generate_minimize"
 PROTEINS = TREE / "proteins-sel/dce"
 DOCS = REPO / "docs/selector"
-LOCAL = ["asd", "tcr-500-28", "tcr-tco-300", "synthie", "bbbp", "aids"]   # small, caches committed: fold 0 and collections here
-LARGE = ["colors-3"]                                                     # caches committed, too large for this machine: all on the server
-SERVER_CACHES = ["bzr", "enzymes"]                                       # caches built on the server first
-DATASETS = ["proteins"] + LOCAL + LARGE + SERVER_CACHES
+DATASETS = ["proteins", "asd", "tcr-500-28", "tcr-tco-300", "synthie", "bbbp", "aids", "colors-3", "bzr", "cuneiform", "enzymes"]
+PENDING_CACHES = ["bzr", "cuneiform", "enzymes"]      # dataset and oracle caches not committed yet (bzr and cuneiform are built by the local preliminary)
+PRELIM = ["aids", "bbbp", "synthie", "bzr", "cuneiform", "colors-3-s20"]   # the fold-0 preliminary on this machine, in queue order
+SUBSETS = {"colors-3-s20": ("colors-3", {0: 20, 1: 40, 2: 40})}           # pseudo-dataset: (base dataset, sampled test instances per fold)
+N_FOLDS = {"cuneiform": 8}       # StratifiedKFold is capped by the smallest class (8 graphs of 30 classes); 10 everywhere else
 DATASET_FLAGS = ["attributed", "recompute_features", "neigh_factor", "runtime_factor", "max_runtime", "max_neigh"]
 SEVEN = ["identity", "average_smoothing", "weighted_smoothing", "laplacian_regularization", "feature_aggregation",
          "heat_kernel_diffusion", "random_walk_diffusion"]
-BUDGET, COLLECT_BUDGET, COLLECT_FOLDS, FOLDS = 10000, 2000, (1, 2), range(10)
+BUDGET, COLLECT_BUDGET, COLLECT_FOLDS = 10000, 2000, (1, 2)
 CACHE = "lab/data/cache/generator_outputs"
 QUEUE_SIZE = 30
+
+
+def base(ds: str) -> str:
+    return SUBSETS[ds][0] if ds in SUBSETS else ds
+
+
+def folds(ds: str) -> range:
+    return range(N_FOLDS.get(base(ds), 10))
 
 
 def ckpt(ds: str, fold: int) -> str:
@@ -69,8 +87,19 @@ def ckpt(ds: str, fold: int) -> str:
 
 
 def thesis_config(ds: str, fold: int) -> dict:
+    ds = base(ds)
     tree = PROTEINS / "dce-lcls" if ds == "proteins" else TREE / ds / "dce/dce-lcls"
     return json.load(open(tree / f"generate_minimize{fold}.jsonc"))
+
+
+def subset_ids(ds: str, fold: int) -> list[int]:
+    """A fixed random sample of the fold's test instances, from the committed dataset cache (TU datasets
+    number their instances by position, so split indices are instance ids)."""
+    name, sizes = SUBSETS[ds]
+    caches = list((REPO / "lab/data/cache/datasets").glob(f"{name.upper()}-*"))
+    assert len(caches) == 1, f"{name}: expected one committed dataset cache, found {caches}"
+    splits = pickle.load(open(caches[0], "rb"))["splits"]
+    return sorted(random.Random(1000 + fold).sample(sorted(splits[fold]["test"]), sizes[fold]))
 
 
 def set_fold(conf: dict, fold: int) -> None:
@@ -109,6 +138,8 @@ def skeleton_config(ds: str, arm: str, fold: int) -> dict:
     set_fold(conf, fold)
     conf["experiment"]["scope"] = f"{ds}-sel_" + arm.replace("dce-lcls", "dce_lcls", 1)
     conf["evaluator"]["parameters"].pop("instance_ids", None)
+    if ds in SUBSETS:
+        conf["evaluator"]["parameters"]["instance_ids"] = subset_ids(ds, fold)
     thesis_min = conf["doe-triplets"][0]["explainer"]["parameters"]["minimizer"]["parameters"]
     expl = conf["doe-triplets"][0]["explainer"]["parameters"]
     expl["generator_cache"] = CACHE
@@ -141,47 +172,50 @@ def repoint_proteins_fold0(arm: str) -> str:
 
 
 def main() -> int:
-    local1, local2 = [], []
+    local1, local2 = {}, {}
     s1, s2, s3 = [], [], []
     for ds in DATASETS:
-        server_cached = ds in SERVER_CACHES
-        v0 = {f: write(v0_config(ds, f), ds, "dce-lcls-v0", f) for f in FOLDS}
+        v0 = {f: write(v0_config(ds, f), ds, "dce-lcls-v0", f) for f in folds(ds)}
+        coll = {f: write(skeleton_config(ds, "dce-lcls-sel-collect", f), ds, "dce-lcls-sel-collect", f) for f in COLLECT_FOLDS}
         if ds == "proteins":
-            coll = {f: write(skeleton_config(ds, "dce-lcls-sel-collect", f), ds, "dce-lcls-sel-collect", f) for f in COLLECT_FOLDS}
             sel0 = repoint_proteins_fold0("dce-lcls-sel")
-            fb = {f: str((PROTEINS / "dce-lcls-sel-uniform-fallback" / f"generate_minimize{f}.jsonc").relative_to(REPO)) for f in FOLDS}
+            fb = {f: str((PROTEINS / "dce-lcls-sel-uniform-fallback" / f"generate_minimize{f}.jsonc").relative_to(REPO)) for f in folds(ds)}
             repoint_proteins_fold0("dce-lcls-sel-uniform-fallback")
-            s1 += list(coll.values()) + list(v0.values()) + [fb[f] for f in FOLDS if f != 0]
+            s1 += list(coll.values()) + list(v0.values()) + [fb[f] for f in folds(ds) if f != 0]
             s2 += [sel0, fb[0]]
             continue
-        coll = {f: write(skeleton_config(ds, "dce-lcls-sel-collect", f), ds, "dce-lcls-sel-collect", f) for f in COLLECT_FOLDS}
-        rnd = {f: write(skeleton_config(ds, "dce-lcls-sel-random", f), ds, "dce-lcls-sel-random", f) for f in FOLDS}
-        unt = {f: write(skeleton_config(ds, "dce-lcls-sel-untrained", f), ds, "dce-lcls-sel-untrained", f) for f in FOLDS}
-        sel = {f: write(skeleton_config(ds, "dce-lcls-sel", f), ds, "dce-lcls-sel", f) for f in FOLDS}
-        if server_cached:
-            s3 += list(coll.values()) + list(v0.values()) + list(rnd.values()) + list(unt.values()) + list(sel.values())
-            continue
-        if ds in LARGE:
-            s1 += list(coll.values()) + list(v0.values()) + list(rnd.values()) + list(unt.values())
+        rnd = {f: write(skeleton_config(ds, "dce-lcls-sel-random", f), ds, "dce-lcls-sel-random", f) for f in folds(ds)}
+        unt = {f: write(skeleton_config(ds, "dce-lcls-sel-untrained", f), ds, "dce-lcls-sel-untrained", f) for f in folds(ds)}
+        sel = {f: write(skeleton_config(ds, "dce-lcls-sel", f), ds, "dce-lcls-sel", f) for f in folds(ds)}
+        if ds in PRELIM:
+            local1[ds] = [coll[1], coll[2], rnd[0]]
+            local2[ds] = [sel[0]]
+        server_coll = [] if ds in PRELIM else list(coll.values())
+        if ds in PENDING_CACHES:
+            s3 += server_coll + list(v0.values()) + list(rnd.values()) + list(unt.values()) + list(sel.values())
+        else:
+            s1 += server_coll + list(v0.values()) + list(rnd.values()) + list(unt.values())
             s2 += list(sel.values())
-            continue
-        local1 += [coll[1], coll[2], v0[0], rnd[0], unt[0]]
-        local2.append(sel[0])
-        s1 += [v0[f] for f in FOLDS if f] + [rnd[f] for f in FOLDS if f] + [unt[f] for f in FOLDS if f]
-        s2 += [sel[f] for f in FOLDS if f]
+    for ds in SUBSETS:
+        coll = {f: write(skeleton_config(ds, "dce-lcls-sel-collect", f), ds, "dce-lcls-sel-collect", f) for f in COLLECT_FOLDS}
+        local1[ds] = [coll[1], coll[2], write(skeleton_config(ds, "dce-lcls-sel-random", 0), ds, "dce-lcls-sel-random", 0)]
+        local2[ds] = [write(skeleton_config(ds, "dce-lcls-sel", 0), ds, "dce-lcls-sel", 0)]
+    local1 = [c for ds in PRELIM for c in local1[ds]]
+    local2 = [c for ds in PRELIM for c in local2[ds]]
 
     header = "Generated by `scripts/gen_selector_paper_matrix.py` (its docstring gives the order and the arms)."
+    prelim = ", ".join(PRELIM)
     (DOCS / "PAPER_LOCAL_1.md").write_text(
-        "# Selector paper, local queue 1: collections (folds 1 and 2) and the fold-0 preliminary (bls_v0, bls_v1, control) of the small datasets\n\n"
+        f"# Selector paper, local queue 1: the fold-0 preliminary of {prelim}: collections (folds 1 and 2) and bls_v1\n\n"
         f"{header} `python scripts/run_revision_queue.py --list docs/selector/PAPER_LOCAL_1.md --workers 1 --timeout 86400`, then "
         "`python scripts/pretrain_selector_checkpoints.py`.\n\n" + "\n".join(f"- [ ] {c}" for c in local1) + "\n")
     (DOCS / "PAPER_LOCAL_2.md").write_text(
-        "# Selector paper, local queue 2: selector_v1 on fold 0 (needs the fold-1 checkpoints)\n\n"
+        f"# Selector paper, local queue 2: selector_v1 on fold 0 of {prelim} (needs the fold-1 checkpoints)\n\n"
         f"{header}\n\n" + "\n".join(f"- [ ] {c}" for c in local2) + "\n")
     for old in DOCS.glob("PAPER_Q*.md"):
         old.unlink()
     index, n = [], 0
-    for phase, cfgs, needs in (("S1", s1, ""), ("S2", s2, "committed checkpoints"), ("S3", s3, "BZR and ENZYMES caches and checkpoints")):
+    for phase, cfgs, needs in (("S1", s1, ""), ("S2", s2, "committed checkpoints"), ("S3", s3, "committed caches of " + ", ".join(PENDING_CACHES) + " and their checkpoints")):
         for i in range(0, len(cfgs), QUEUE_SIZE):
             n += 1
             chunk = cfgs[i:i + QUEUE_SIZE]
@@ -193,9 +227,11 @@ def main() -> int:
             index.append(f"| `{name}` | {phase} | {len(chunk)} | {needs} | {', '.join(f'`{c}`' for c in cells)} |")
     (DOCS / "PAPER_QUEUES.md").write_text(
         "# Selector paper: server queues\n\nGenerated by `scripts/gen_selector_paper_matrix.py`, in submission order, one at a time "
-        "(`launchers/slurm_submit.sh -p normal -m 10 <queue>`). S1 needs nothing; S2 needs the checkpoints of "
-        "`scripts/pretrain_selector_checkpoints.py` committed and synced; S3 needs the BZR and ENZYMES caches (`docs/rerun/README.md`, "
-        "section 2) and their checkpoints.\n\n| Queue | Phase | Configs | Needs | Cells (dataset/generator/arm) |\n|---|---|---|---|---|\n"
+        "(`launchers/slurm_submit.sh -p normal -m 10 <queue>`). Every dataset on every fold; what the local preliminary "
+        "(`PAPER_LOCAL_1.md`, `PAPER_LOCAL_2.md`) already produced is skipped once committed. S1 needs nothing; S2 needs the checkpoints of "
+        f"`scripts/pretrain_selector_checkpoints.py` committed and synced; S3 needs the committed dataset and oracle caches of {', '.join(PENDING_CACHES)} "
+        "(bzr and cuneiform come out of the local preliminary, enzymes from the server's warm job, `docs/rerun/README.md`, section 2) "
+        "and their checkpoints.\n\n| Queue | Phase | Configs | Needs | Cells (dataset/generator/arm) |\n|---|---|---|---|---|\n"
         + "\n".join(index) + "\n")
     print(f"local 1: {len(local1)}, local 2: {len(local2)}, server: S1 {len(s1)} + S2 {len(s2)} + S3 {len(s3)} in {n} queues")
     return 0
