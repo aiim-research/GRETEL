@@ -26,7 +26,7 @@
                     },
                     "minimizer": {
                         "class": "src.explainer.future.metaheuristic.local_search.local_search_var_2.LocalSearch",
-                        "parameters": {
+                        "parameters": {"stop_after_failed_iteration": true, "attribute_methods": ["identity", "average_smoothing", "weighted_smoothing", "laplacian_regularization", "feature_aggregation", "heat_kernel_diffusion", "random_walk_diffusion"], 
                             "neigh_factor" : 4,
                             "runtime_factor" : 4,
                             "max_runtime" : 20,

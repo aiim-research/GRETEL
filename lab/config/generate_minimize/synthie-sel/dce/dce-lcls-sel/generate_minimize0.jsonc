@@ -117,7 +117,7 @@
                             "unlock_min_trials": 6,
                             "unlock_rate": 0.5,
                             "fill_remove_share": true,
-                            "init_checkpoint": "models/pretrained/edge_selector_sel-pre_synthie.pt",
+                            "init_checkpoint": "models/pretrained/edge_selector_sel-pre_synthie-f1.pt",
                             "overshoot": true,
                             "overshoot_sizes": "geometric",
                             "overshoot_ratio": 0.7,

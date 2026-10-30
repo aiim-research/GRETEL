@@ -79,7 +79,7 @@ Logs: one per config, in one folder per dataset, generator and minimizer, `outpu
 
 With `-c`, each queue file becomes its own array, started when the previous one has ended (`--dependency=afterany`), so several queues that must run in order go out with one command.
 
-Queues: `SERVER_PROTEINS_FOLDS.md` (selector and plain LBS, 10 folds each), `SERVER_PROTEINS_CONTROLS.md` (untrained and random selector arms) and `SERVER_PROTEINS_FALLBACK.md` (the selector with a uniform fallback, for the two instances where it never left its initial counterfactual). The rerun of the thesis and paper-revision experiments has its own 61 queues, order and rules in `docs/rerun/README.md`.
+Queues: `SERVER_PROTEINS_FOLDS.md` (selector and plain LBS, 10 folds each), `SERVER_PROTEINS_CONTROLS.md` (untrained and random selector arms) and `SERVER_PROTEINS_FALLBACK.md` (the selector with a uniform fallback, for the two instances where it never left its initial counterfactual). The selector paper's matrix (ten datasets, ten folds, bls_v0, bls_v1, selector_v1 and its control) is in `PAPER_Q01.md` to `PAPER_Q13.md`, indexed in `PAPER_QUEUES.md`, with the whole plan in `PLAN_PAPER_SELECTOR.md`. The rerun of the thesis and paper-revision experiments has its own 61 queues, order and rules in `docs/rerun/README.md`.
 
 ## 5. Watch and cancel
 

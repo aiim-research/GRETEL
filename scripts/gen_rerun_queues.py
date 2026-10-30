@@ -133,13 +133,42 @@ def enable_cache(path: Path) -> bool:
     return True
 
 
+BLS_MODULES = ("local_search.local_search.", "local_search.local_search_var_1.", "local_search.local_search_var_2.",
+               "local_search.local_search_var_3.", "local_search.local_search_var_4.")
+SEVEN = ["identity", "average_smoothing", "weighted_smoothing", "laplacian_regularization", "feature_aggregation",
+         "heat_kernel_diffusion", "random_walk_diffusion"]
+V0_FIX = ('"stop_after_failed_iteration": true, "attribute_methods": [' + ", ".join(f'"{m}"' for m in SEVEN) + "], ")
+
+
+def enable_v0_fix(path: Path) -> bool:
+    """BLS v0 as the paper describes it (docs/selector/ANALISIS_CONTROLES.md, 5b): stop after the first outer
+    iteration without improvement and the seven attribute strategies, stated in every BLS config (the removal
+    level fix is in the code). As text, like ``enable_cache``; idempotent."""
+    text = path.read_text()
+    mini = json.loads(text)["doe-triplets"][0]["explainer"]["parameters"]["minimizer"]
+    if not any(mod in mini["class"] for mod in BLS_MODULES):
+        return False
+    if mini["parameters"].get("stop_after_failed_iteration") and mini["parameters"].get("attribute_methods") == SEVEN:
+        return False
+    start = text.index('"minimizer"', text.index("generate_minimize.GenerateMinimize"))
+    end = _object_end(text, text.index("{", start))
+    key = text.index('"parameters"', start, end)
+    brace = text.index("{", key, end)
+    new = text[:brace + 1] + V0_FIX + text[brace + 1:]
+    par = json.loads(new)["doe-triplets"][0]["explainer"]["parameters"]["minimizer"]["parameters"]
+    assert par["stop_after_failed_iteration"] is True and par["attribute_methods"] == SEVEN, path
+    path.write_text(new)
+    return True
+
+
 def main() -> int:
     by_phase: dict[str, list[str]] = {p: [] for p in PHASES}
-    changed = 0
+    changed = fixed = 0
     for (ds, gen, var), phase in sorted(cells().items(), key=lambda kv: (kv[1], kv[0])):
         for fold in range(10):
             rel = f"{TREE}/{ds}/{gen}/{var}/generate_minimize{fold}.jsonc"
             changed += enable_cache(REPO / rel)
+            fixed += enable_v0_fix(REPO / rel)
             by_phase[phase].append(rel)
 
     OUT.mkdir(parents=True, exist_ok=True)
@@ -184,7 +213,7 @@ def main() -> int:
         "| Queue | Phase | Configs | Prep | Cells (dataset/generator/variant) |\n|---|---|---|---|---|\n"
         + "\n".join(lines) + "\n")
     total = sum(len(v) for v in by_phase.values())
-    print(f"{total} configs ({changed} given generator_cache now): light arm {len(light['A'])} + "
+    print(f"{total} configs ({changed} given generator_cache now, {fixed} given the v0 fix now): light arm {len(light['A'])} + "
           f"{len(light['rest'])}, {n} heavy queues: " + ", ".join(f"{p}={len(v)}" for p, v in heavy.items()))
     return 0
 

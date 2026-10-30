@@ -119,7 +119,7 @@
                             "overshoot_budget_frac": 0.5,
                             "stuck_swap_add": true,
                             "near_miss": true,
-                            "collect_examples": "lab/output/selector_pretrain/bbbp_collect.pt"
+                            "collect_examples": "lab/output/selector_pretrain/bbbp_collect-f1.pt"
                         }
                     },
                     "generator_cache": "lab/data/cache/generator_outputs"
