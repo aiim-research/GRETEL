@@ -126,7 +126,7 @@ def paired(x, y, a: str, b: str, label: str) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--arms", nargs="+", default=["lbs=proteins-sel_dce_lcls", "sel=proteins-sel_dce_lcls-sel",
+    ap.add_argument("--arms", nargs="+", default=["lbs=proteins-sel_dce_lcls-v0", "sel=proteins-sel_dce_lcls-sel",
                                                   "untrained=proteins-sel_dce_lcls-sel-untrained", "random=proteins-sel_dce_lcls-sel-random"],
                     help="name=scope; the first is plain LBS")
     ap.add_argument("--monitor", nargs="+", default=["sel=selector", "untrained=selector-untrained", "random=selector-random"],

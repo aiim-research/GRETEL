@@ -41,6 +41,7 @@ from src.explainer.future.metaheuristic.Tagging.OnlineSelectorV2 import OnlineNN
 from src.explainer.future.metaheuristic.Tagging.selector_monitor import SelectorMonitor
 from src.explainer.future.metaheuristic.Tagging.vectors_builder import VectorsBuilder
 from src.explainer.future.metaheuristic.local_search.cache import FixedSizeCache
+from src.explainer.future.metaheuristic.local_search.attribute_methods import build_methods, SEVEN_METHODS
 from src.explainer.future.metaheuristic.manipulation.methods import (
     average_smoothing, feature_aggregation, heat_kernel_diffusion, identity,
     laplacian_regularization, random_walk_diffusion, weighted_smoothing,
@@ -231,15 +232,9 @@ class LocalSearch(ExplanationMinimizer):
             "avg_neighbor_degree", "ego_density", "pagerank",
         ])
 
-        self.methods = [
-            lambda data, features: identity(data, features),
-            lambda data, features: average_smoothing(data, features, iterations=1),
-            lambda data, features: weighted_smoothing(data, features, iterations=1),
-            lambda data, features: laplacian_regularization(data, features, lambda_reg=0.01, iterations=1),
-            lambda data, features: feature_aggregation(data, features, alpha=0.5, iterations=1),
-            lambda data, features: heat_kernel_diffusion(data, features, t=0.5),
-            lambda data, features: random_walk_diffusion(data, features, steps=1),
-        ]
+        # Attribute strategies by name (attribute_methods.py); opt-in and hash-stable: without the
+        # parameter, the seven this module always evaluated, in the same order.
+        self.methods = build_methods(p.get('attribute_methods', SEVEN_METHODS))
 
         self.size_ema = {"remove": 1.0, "add": 1.0}
         self.learning = (self.selector_mode == 'learned')                 # updates and saves the selector

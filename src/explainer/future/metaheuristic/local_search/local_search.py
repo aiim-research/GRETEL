@@ -13,6 +13,7 @@ from typing import Generator
 from src.explainer.future.metaheuristic.initial_solution_search.simple_searcher import SimpleSearcher
 from src.explainer.future.metaheuristic.local_search.binary_model import BinaryModel
 from src.explainer.future.metaheuristic.local_search.cache import FixedSizeCache
+from src.explainer.future.metaheuristic.local_search.attribute_methods import build_methods, THESIS_METHODS, SEVEN_METHODS
 from src.explainer.future.metaheuristic.manipulation.methods import average_smoothing, average_smoothing_zero, feature_aggregation, heat_kernel_diffusion, identity, laplacian_regularization, random_walk_diffusion, weighted_smoothing
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.cfg_utils import init_dflts_to_of
@@ -81,15 +82,9 @@ class LocalSearch(ExplanationMinimizer):
         
         self.distance_metric = GraphEditDistanceMetric()  
         
-        self.methods = [
-            lambda data, features: identity(data, features),
-            lambda data, features: average_smoothing(data, features, iterations=1),
-            lambda data, features: weighted_smoothing(data, features, iterations=1),
-            lambda data, features: laplacian_regularization(data, features, lambda_reg=0.01, iterations=1),
-            lambda data, features: feature_aggregation(data, features, alpha=0.5, iterations=1),
-            # lambda data, features: heat_kernel_diffusion(data, features, t=0.5),
-            lambda data, features: random_walk_diffusion(data, features, steps=1)
-        ]
+        # Attribute strategies by name (attribute_methods.py); opt-in and hash-stable: without the
+        # parameter, the six this module always evaluated, in the same order.
+        self.methods = build_methods(self.local_config['parameters'].get('attribute_methods', THESIS_METHODS))
         
         
 
@@ -333,7 +328,10 @@ class LocalSearch(ExplanationMinimizer):
     def edge_remove(self, solution: set[int]) -> Generator[set[int], None, None]:
         cealing = len(solution)
         step = int((cealing / self.max_neigh) + 1)
-        for i in range(0, cealing, step):
+        # Levels start at one edge (the pseudocode's single-edit removal, 1a). The thesis runs
+        # started at level 0 (the unchanged solution) and so skipped single edges whenever step > 1,
+        # that is, for every |S| >= max_neigh.
+        for i in range(1, cealing, step):
             for _ in range(self.neigh_factor ** 3):
                 yield self.remove_random(set(solution), i)
                 
