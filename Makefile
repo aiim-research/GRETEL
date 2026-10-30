@@ -74,6 +74,7 @@ server-import:
 	ssh -O check $(SERVER) 2>/dev/null || ssh -fN $(SERVER)
 	rsync -av $(SERVER):$(SERVER_REPO)/lab/output/results/       lab/output/results/
 	rsync -av $(SERVER):$(SERVER_REPO)/lab/output/selector_logs/ lab/output/selector_logs/
+	rsync -av $(SERVER):$(SERVER_REPO)/lab/output/selector_pretrain/ lab/output/selector_pretrain/
 	rsync -av $(SERVER):$(SERVER_REPO)/output/logs/              lab/output/server_logs/
 	rsync -av $(SERVER):$(SERVER_REPO)/output/slurm/             lab/output/server_slurm/
 	@if running=$$(ssh $(SERVER) 'squeue -h -u $$USER -n warm') && [ -z "$$running" ]; then \

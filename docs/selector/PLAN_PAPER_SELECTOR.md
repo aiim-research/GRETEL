@@ -39,18 +39,18 @@ Generado por `scripts/gen_selector_paper_matrix.py` (brazos del paper) y `script
 
 ### 4.1 Local (esta máquina, un worker)
 
-1. `docs/selector/PAPER_LOCAL_1.md` (37 configs): colecciones de los folds 1 y 2 de asd, tcr-500-28, tcr-tco-300, synthie, bbbp, aids y colors-3, y su preliminar del fold 0 (bls_v0, bls_v1, control); al final, las dos colecciones de PROTEINS. Lo ya hecho de la cola anterior (bls_v1 y control de asd, tcr-500-28 y tcr-tco-300 en el fold 0) se salta solo. `python scripts/run_revision_queue.py --list docs/selector/PAPER_LOCAL_1.md --workers 1 --timeout 86400`.
+1. `docs/selector/PAPER_LOCAL_1.md` (30 configs): colecciones de los folds 1 y 2 de los seis datasets pequeños (asd, tcr-500-28, tcr-tco-300, synthie, bbbp, aids) y su preliminar del fold 0 (bls_v0, bls_v1, control). PROTEINS y colors-3 son demasiado grandes para esta máquina y van enteros al servidor. Lo ya hecho (bls_v1 y control de asd, tcr-500-28 y tcr-tco-300 en el fold 0, colecciones y bls_v0 de asd) se salta solo. `python scripts/run_revision_queue.py --list docs/selector/PAPER_LOCAL_1.md --workers 1 --timeout 86400`.
 2. `python scripts/pretrain_selector_checkpoints.py` (minutos) y commit de `models/pretrained/`.
-3. `docs/selector/PAPER_LOCAL_2.md` (7): selector_v1 en el fold 0 de esos siete datasets. Con esto se repite el análisis de arquitectura (sección 6 de `ANALISIS_CONTROLES.md`) y se diseña selector_v2.
-4. Cuando el servidor devuelva las cachés de BZR y ENZYMES (`docs/rerun/README.md`, sección 2): sus cuatro colecciones están en la cola S3 del servidor; si se prefieren en local, son los configs `bzr-sel/dce/dce-lcls-sel-collect` y `enzymes-sel/...` de los folds 1 y 2, luego el paso 2 de nuevo.
+3. `docs/selector/PAPER_LOCAL_2.md` (6): selector_v1 en el fold 0 de esos seis datasets. Con esto, más lo que ya hay de PROTEINS, se repite el análisis de arquitectura (sección 6 de `ANALISIS_CONTROLES.md`) y se diseña selector_v2.
+4. Las colecciones de PROTEINS y colors-3 corren en el servidor (fase S1) y las de BZR y ENZYMES en la fase S3, tras sus cachés (`docs/rerun/README.md`, sección 2). `make server-import` las trae (`lab/output/selector_pretrain/`); después, el paso 2 de nuevo, commit de los checkpoints y `server_sync` antes de sus brazos del selector.
 
-### 4.2 Servidor, paper del selector (`docs/selector/PAPER_QUEUES.md`, 13 colas de hasta 30)
+### 4.2 Servidor, paper del selector (`docs/selector/PAPER_QUEUES.md`, 14 colas de hasta 30)
 
 | Fase | Colas | Contenido | Necesita |
 |---|---|---|---|
-| S1 | `PAPER_Q01` a `PAPER_Q07` (208) | bls_v0, bls_v1 y control, folds 1 a 9 de los siete datasets locales; bls_v0 de PROTEINS (10 folds) y fallback uniforme folds 1 a 9 | nada |
-| S2 | `PAPER_Q08` a `PAPER_Q10` (65) | selector_v1 folds 1 a 9 de los siete; PROTEINS fold 0 de selector_v1 y del fallback uniforme | checkpoints commiteados y sincronizados (paso 4.1.2) |
-| S3 | `PAPER_Q11` a `PAPER_Q13` (84) | BZR y ENZYMES: colecciones, bls_v0, bls_v1, control y selector_v1, 10 folds | cachés de BZR y ENZYMES y sus checkpoints |
+| S1 | `PAPER_Q01` a `PAPER_Q08` (215) | bls_v0, bls_v1 y control, folds 1 a 9 de los seis datasets pequeños; colors-3 entero menos el selector (colecciones, bls_v0, bls_v1, control, 10 folds); PROTEINS: colecciones, bls_v0 (10 folds) y fallback uniforme folds 1 a 9 | nada |
+| S2 | `PAPER_Q09` a `PAPER_Q11` (66) | selector_v1 folds 1 a 9 de los seis pequeños y 10 folds de colors-3; PROTEINS fold 0 de selector_v1 y del fallback uniforme | checkpoints commiteados y sincronizados (paso 4.1.2; los de colors-3 y PROTEINS tras importar sus colecciones) |
+| S3 | `PAPER_Q12` a `PAPER_Q14` (84) | BZR y ENZYMES: colecciones, bls_v0, bls_v1, control y selector_v1, 10 folds | cachés de BZR y ENZYMES y sus checkpoints |
 
 Más las colas ya existentes: `SERVER_PROTEINS_CONTROLS.md` (en marcha) y `SERVER_PROTEINS_FALLBACK.md` (su fold 0 está también en S2; la cola completa sirve igual, `slurm_submit` salta lo ya lanzado). `SERVER_PROTEINS_LBS_ABLATIONS.md` (nivel de una arista y parada sobre el código viejo) queda obsoleta con el arreglo de v0 y no se lanza.
 
@@ -65,7 +65,7 @@ Un brazo `dce-lcls-sel-v2` por dataset, 10 folds, con el mismo generador de conf
 ## 5. Orden sugerido
 
 1. Local: `PAPER_LOCAL_1.md` (en marcha), checkpoints, `PAPER_LOCAL_2.md`. Servidor, en paralelo: `server_sync`, `PAPER_Q01` en adelante (S1 no necesita nada), los tres jobs de cachés de BZR y ENZYMES, y el brazo ligero del rerun.
-2. Checkpoints commiteados: `PAPER_Q08` a `PAPER_Q10`; cachés de BZR y ENZYMES traídas y commiteadas: sus colecciones, checkpoints, `PAPER_Q11` a `PAPER_Q13`.
+2. Checkpoints commiteados (los seis pequeños desde local; colors-3 y PROTEINS tras `make server-import` de sus colecciones de S1): `PAPER_Q09` a `PAPER_Q11`; cachés de BZR y ENZYMES traídas y commiteadas: `PAPER_Q12` a `PAPER_Q14`, con la importación de sus colecciones y sus checkpoints entre medias.
 3. Análisis de arquitectura con todos los datasets, diseño de selector_v2, sus configs y colas.
 4. Rerun de las tablas de la tesis y la revisión (`docs/rerun/Q01` a `Q39`), que no bloquea nada del paper.
 5. Al cerrar: renombrar módulos (`move_module.py`), análisis final con `scripts/analyze_selector_arms.py` por dataset.
