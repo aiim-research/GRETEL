@@ -59,11 +59,12 @@ REPO = Path(__file__).resolve().parent.parent
 TREE = REPO / "lab/config/generate_minimize"
 PROTEINS = TREE / "proteins-sel/dce"
 DOCS = REPO / "docs/selector"
-DATASETS = ["proteins", "asd", "tcr-500-28", "tcr-tco-300", "synthie", "bbbp", "aids", "colors-3", "bzr", "cuneiform", "enzymes"]
-PENDING_CACHES = ["bzr", "cuneiform", "enzymes"]      # dataset and oracle caches not committed yet (bzr and cuneiform are built by the local preliminary)
-PRELIM = ["aids", "bbbp", "synthie", "bzr", "cuneiform", "colors-3-s20"]   # the fold-0 preliminary on this machine, in queue order
+DATASETS = ["proteins", "asd", "tcr-500-28", "tcr-tco-300", "synthie", "bbbp", "aids", "colors-3", "bzr", "enzymes"]
+PENDING_CACHES = ["bzr", "enzymes"]      # dataset and oracle caches not committed yet (bzr is built by the local preliminary, enzymes on the server)
+PRELIM = ["aids", "bbbp", "synthie", "bzr", "colors-3-s20"]   # the fold-0 preliminary on this machine, in queue order
+LOCAL_TCR = ["tcr-500-28", "tcr-tco-300"]   # rerun locally after the tree-cycles generators were fixed: fold 0 of bls_v0, bls_v1 and the control, plus the collections
 SUBSETS = {"colors-3-s20": ("colors-3", {0: 20, 1: 40, 2: 40})}           # pseudo-dataset: (base dataset, sampled test instances per fold)
-N_FOLDS = {"cuneiform": 8}       # StratifiedKFold is capped by the smallest class (8 graphs of 30 classes); 10 everywhere else
+N_FOLDS = {}       # datasets with fewer than 10 folds (StratifiedKFold is capped by the smallest class); none since cuneiform left the matrix (2026-10-30, its classes are told apart by node positions: DCE finds a same-edge-set counterfactual, GED 0)
 DATASET_FLAGS = ["attributed", "recompute_features", "neigh_factor", "runtime_factor", "max_runtime", "max_neigh"]
 SEVEN = ["identity", "average_smoothing", "weighted_smoothing", "laplacian_regularization", "feature_aggregation",
          "heat_kernel_diffusion", "random_walk_diffusion"]
@@ -172,7 +173,7 @@ def repoint_proteins_fold0(arm: str) -> str:
 
 
 def main() -> int:
-    local1, local2 = {}, {}
+    local1, local2, local_tcr = {}, {}, []
     s1, s2, s3 = [], [], []
     for ds in DATASETS:
         v0 = {f: write(v0_config(ds, f), ds, "dce-lcls-v0", f) for f in folds(ds)}
@@ -190,6 +191,8 @@ def main() -> int:
         if ds in PRELIM:
             local1[ds] = [coll[1], coll[2], rnd[0]]
             local2[ds] = [sel[0]]
+        if ds in LOCAL_TCR:
+            local_tcr += [coll[1], coll[2], v0[0], rnd[0], unt[0]]
         server_coll = [] if ds in PRELIM else list(coll.values())
         if ds in PENDING_CACHES:
             s3 += server_coll + list(v0.values()) + list(rnd.values()) + list(unt.values()) + list(sel.values())
@@ -212,6 +215,10 @@ def main() -> int:
     (DOCS / "PAPER_LOCAL_2.md").write_text(
         f"# Selector paper, local queue 2: selector_v1 on fold 0 of {prelim} (needs the fold-1 checkpoints)\n\n"
         f"{header}\n\n" + "\n".join(f"- [ ] {c}" for c in local2) + "\n")
+    (DOCS / "PAPER_LOCAL_TCR.md").write_text(
+        f"# Selector paper, local queue: fold 0 of {', '.join(LOCAL_TCR)} again after the tree-cycles fix (collections, bls_v0, bls_v1, control)\n\n"
+        f"{header} Run after `PAPER_LOCAL_2.md`: `python scripts/run_revision_queue.py --list docs/selector/PAPER_LOCAL_TCR.md --workers 1 --timeout 86400`, "
+        "then `python scripts/pretrain_selector_checkpoints.py`.\n\n" + "\n".join(f"- [ ] {c}" for c in local_tcr) + "\n")
     for old in DOCS.glob("PAPER_Q*.md"):
         old.unlink()
     index, n = [], 0
@@ -230,10 +237,10 @@ def main() -> int:
         "(`launchers/slurm_submit.sh -p normal -m 10 <queue>`). Every dataset on every fold; what the local preliminary "
         "(`PAPER_LOCAL_1.md`, `PAPER_LOCAL_2.md`) already produced is skipped once committed. S1 needs nothing; S2 needs the checkpoints of "
         f"`scripts/pretrain_selector_checkpoints.py` committed and synced; S3 needs the committed dataset and oracle caches of {', '.join(PENDING_CACHES)} "
-        "(bzr and cuneiform come out of the local preliminary, enzymes from the server's warm job, `docs/rerun/README.md`, section 2) "
+        "(bzr comes out of the local preliminary, enzymes from the server's warm job, `docs/rerun/README.md`, section 2) "
         "and their checkpoints.\n\n| Queue | Phase | Configs | Needs | Cells (dataset/generator/arm) |\n|---|---|---|---|---|\n"
         + "\n".join(index) + "\n")
-    print(f"local 1: {len(local1)}, local 2: {len(local2)}, server: S1 {len(s1)} + S2 {len(s2)} + S3 {len(s3)} in {n} queues")
+    print(f"local 1: {len(local1)}, local 2: {len(local2)}, local tcr: {len(local_tcr)}, server: S1 {len(s1)} + S2 {len(s2)} + S3 {len(s3)} in {n} queues")
     return 0
 
 

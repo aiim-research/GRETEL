@@ -45,6 +45,7 @@ class Dataset(Savable):
             }
         )
         self._inject_dataset()
+        self._check_unique_ids()
 
         # Build manipulators from config (do NOT store the runtime objects on disk)
         self.manipulators: List[BaseManipulator] = self._create_manipulators()
@@ -57,6 +58,18 @@ class Dataset(Savable):
     def _inject_dataset(self):
         for instance in self.instances:
             instance._dataset = self
+
+    def _check_unique_ids(self):
+        """Every instance id must be unique: the evaluator picks the test set by id and the explainers'
+        caches are keyed by id, so a generator that appends its instances every time ``init`` runs (the
+        constructor runs it, and ``read`` runs it again) would evaluate each test instance twice and
+        replay another instance's counterfactual."""
+        ids = [instance.id for instance in self.instances]
+        duplicated = len(ids) - len(set(ids))
+        if duplicated:
+            raise ValueError(f"{duplicated} duplicated instance ids out of {len(ids)} in dataset "
+                             f"{self.local_config['parameters']['generator']['class']}: the generator must "
+                             "generate the instances once per dataset object (guard generate_dataset).")
             
     def _create_manipulators(self):
         manipulator_instances = []
@@ -228,6 +241,7 @@ class Dataset(Savable):
             )
             self.generator.init()
             self._inject_dataset()
+            self._check_unique_ids()
 
             # Rebuild manipulators from config (do NOT expect serialized objects)
             self.manipulators = self._create_manipulators()

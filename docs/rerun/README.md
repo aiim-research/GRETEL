@@ -15,7 +15,7 @@ Results from before the BLS selector were kept as metrics only and are no longer
 
 ## 1. The light arm: one command
 
-Every cell of Tree-Cycles (`tcr-500-28`, `tcr-tco-300`) and ASD: exact or rule-based oracles and few, small instances, 10 s to 2 min per fold on a laptop. 660 configs, about 4 hours at 10 at a time (most of it is each job's start-up). Two arrays, the second starting when the first has ended, so phase A comes first:
+Every cell of Tree-Cycles (`tcr-500-28`, `tcr-tco-300`) and ASD: exact or rule-based oracles and few, small instances, 10 s to 2 min per fold on a laptop. The Tree-Cycles generators were fixed on 2026-10-30 (seeded, and generated once per dataset object: before, every process drew different graphs and held each instance twice under the same id, so the evaluator ran each test instance twice and the generator cache replayed another instance's counterfactual) and their dataset caches were regenerated and committed with the fix, so Tree-Cycles results are only valid from that commit on. 660 configs, about 4 hours at 10 at a time (most of it is each job's start-up). Two arrays, the second starting when the first has ended, so phase A comes first:
 
 ```bash
 launchers/slurm_submit.sh -p normal -m 10 -c docs/rerun/light-1-generators.md docs/rerun/light-2-minimizers.md
@@ -23,7 +23,7 @@ launchers/slurm_submit.sh -p normal -m 10 -c docs/rerun/light-1-generators.md do
 
 ## 2. Caches built on the server
 
-The ENZYMES dataset and oracle, and the DCM medoids of PROTEINS, BZR and ENZYMES, are not committed yet: a DCM takes from minutes to many hours (BBBP took 14 h on a laptop). BZR's dataset and oracle (and Cuneiform's, new for the selector paper) come out of the selector's local preliminary (`docs/selector/PLAN_PAPER_SELECTOR.md`, section 4.1) and are committed from there, so submit the bzr job only after that sync, when it only has the DCM left to build. One job each, any time:
+The ENZYMES dataset and oracle, and the DCM medoids of PROTEINS, BZR and ENZYMES, are not committed yet: a DCM takes from minutes to many hours (BBBP took 14 h on a laptop). BZR's dataset and oracle come out of the selector's local preliminary (`docs/selector/PLAN_PAPER_SELECTOR.md`, section 4.1) and are committed from there, so submit the bzr job only after that sync, when it only has the DCM left to build. One job each, any time:
 
 ```bash
 G=lab/config/generate_minimize
