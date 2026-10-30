@@ -69,6 +69,12 @@ class LocalSearch(ExplanationMinimizer):
         # order of magnitude. Needed for equal-budget comparisons.
         self.strict_budget = self.local_config['parameters'].get('strict_budget', False)
 
+        # Opt-in (hash-stable): end the search after the first outer iteration
+        # that improves nothing, as the BLS pseudocode states (repeat until no
+        # strategy accepts). Without it, up to ``max_runtime`` further outer
+        # iterations are run, each repeating the whole neighbourhood sweep.
+        self.stop_after_failed_iteration = self.local_config['parameters'].get('stop_after_failed_iteration', False)
+
         self.tagger = SimpleTagger()
         
         self.searcher = SimpleSearcher()
@@ -225,7 +231,11 @@ class LocalSearch(ExplanationMinimizer):
                 if(expand > len(best)): break
                 actual = self.reduce_random(best, expand)
                 self.logger.info("actual +++> " + str(len(actual)))
-          
+
+            if self.stop_after_failed_iteration and not found:
+                self.logger.info("outer iteration without improvement, stopping (calls: " + str(self.k) + ")")
+                break
+
         if(self.oracle.predict(result) == self.oracle.predict(self.G)):
             self.logger.info("ERROR, returning non ctf ")
             self.logger.info("instance -> " + str(self.oracle.predict(self.G)))
