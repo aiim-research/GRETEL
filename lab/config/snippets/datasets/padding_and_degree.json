@@ -1,0 +1,6 @@
+{
+    "manipulators": [
+        { "class": "src.dataset.manipulators.padding.AdjacencyMatrixPadder", "parameters": {} },
+        { "class": "src.dataset.manipulators.degree.NodeDegree", "parameters": {} }
+    ]
+}

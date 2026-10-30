@@ -63,7 +63,15 @@ Más las colas ya existentes: `SERVER_PROTEINS_CONTROLS.md` (en marcha) y `SERVE
 
 Sin cambios de estructura: brazo ligero en un comando (660 configs), colas `Q01` a `Q39` (1140), reglas en `docs/rerun/README.md`. Regenerado con `stop_after_failed_iteration` y las siete estrategias en todos los configs de BLS (plain, var-1 a var-4 y semillas); OBS, DBS, RHC y los generadores solos no cambian. Lo esperado frente a los números del primer paper: GED igual o mejor, llamadas menores en casi todo.
 
-### 4.4 Cuando exista selector_v2
+### 4.4 Sondeo de datasets candidatos (2026-10-30)
+
+Para ampliar el paper con datasets donde el selector tenga margen frente a bls_v1 (oráculo que decida por estructura, grafos medianos o grandes, mínimo lejos de una o dos aristas). `docs/selector/PAPER_SCREEN.md`: bls_v0 y bls_v1 sobre 30 instancias fijas del fold 0 (`SCREEN` en el generador), en local y en paralelo a la cadena principal. Entra en la matriz el que cumpla: oráculo con acierto de al menos 75 %, mediana del GED final de 3 o más, menos de la mitad de las instancias sin mejora y diferencia visible entre bls_v0 y bls_v1.
+
+- IMDB-BINARY, árbol `imdb-deg`: el oráculo de la tesis (`imdb`, centralidades y RMSprop) predice una sola clase para los 1000 grafos, así que se usa uno nuevo con el grado del nodo en one-hot (`src/dataset/manipulators/degree.py`) y Adam: 84 % de acierto sobre el dataset completo (72 % en un test aparte, fuera de GRETEL).
+- Mutagenicity, árbol `mutagenicity-c100`: sin los 38 grafos de más de 100 nodos (`max_nodes` del generador TU, solo para el sondeo, porque el padding global a 417 nodos ocupa 3 GB). Oráculo con 82 % de acierto. Si pasa, entra completo en la matriz.
+- DD y REDDIT-BINARY quedan fuera hasta que el padding sea por pareja (tarea A3 del doctorado, Fase 0): con el padding global ocuparían 156 GB y 114 GB.
+
+### 4.5 Cuando exista selector_v2
 
 Un brazo `dce-lcls-sel-v2` por dataset, 10 folds, con el mismo generador de configs (añadir el brazo a `gen_selector_paper_matrix.py`), más su control sin entrenar si la arquitectura lo admite. Unos 200 configs.
 

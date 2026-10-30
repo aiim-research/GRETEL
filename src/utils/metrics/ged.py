@@ -35,43 +35,23 @@ def graph_edit_distance_metric(matrix_1: np.ndarray, matrix_2: np.ndarray, direc
     - The graph edit distance between the two graphs
     """
 
-    # Get the difference in the number of nodes
-    nodes_diff_count = abs(matrix_1.shape[0] - matrix_2.shape[0])
-
-    # Get the shape of the matrices
-    shape_matrix_1 = matrix_1.shape
-    shape_matrix_2 = matrix_2.shape
-
-    # Find the minimum dimensions of the matrices
-    min_shape = (min(shape_matrix_1[0], shape_matrix_2[0]), min(shape_matrix_1[1], shape_matrix_2[1]))
-
-    # Initialize an empty list to store the differences
-    edges_diff = []
-
-    # Iterate over the common elements of the matrices
-    for i in range(min_shape[0]):
-        for j in range(min_shape[1]):
-            if matrix_1[i,j] != matrix_2[i,j]:
-                edges_diff.append((i,j))
-
-    # If the matrices have different shapes, loop through the remaining cells in
-    # the larger matrix (the matrixes are square shaped)
-    if shape_matrix_1 != shape_matrix_2:
-        max_shape = np.maximum(shape_matrix_1, shape_matrix_2)
-
-        for i in range(min_shape[0], max_shape[0]):
-            for j in range(min_shape[1], max_shape[1]):
-                if shape_matrix_1 > shape_matrix_2:
-                    edge_val = matrix_1[i,j]
-                else:
-                    edge_val = matrix_2[i,j]
-
-                # Only add non-zero cells to the list
-                if edge_val != 0:  
-                    edges_diff.append((i, j))
-
-    edges_diff_count = len(edges_diff)
+    edges_diff_count = matched_edge_diff_count(matrix_1, matrix_2)
     if not directed:
         edges_diff_count /= 2
 
-    return nodes_diff_count + edges_diff_count
+    return abs(matrix_1.shape[0] - matrix_2.shape[0]) + edges_diff_count
+
+
+def matched_edge_diff_count(matrix_1: np.ndarray, matrix_2: np.ndarray) -> int:
+    """Number of adjacency cells that differ between two node-matched graphs, vectorised (the cell-by-cell
+    Python loop it replaces made DCE's scan of the training set take a minute per instance on graphs of
+    200 nodes). Same count as that loop, including its convention for matrices of different sizes: the
+    common top-left block cell by cell, plus the non-zero cells of the larger matrix's bottom-right block
+    beyond the smaller one (the side strips are not counted)."""
+    m0 = min(matrix_1.shape[0], matrix_2.shape[0])
+    m1 = min(matrix_1.shape[1], matrix_2.shape[1])
+    count = int(np.count_nonzero(matrix_1[:m0, :m1] != matrix_2[:m0, :m1]))
+    if matrix_1.shape != matrix_2.shape:
+        larger = matrix_1 if matrix_1.shape > matrix_2.shape else matrix_2
+        count += int(np.count_nonzero(larger[m0:, m1:]))
+    return count

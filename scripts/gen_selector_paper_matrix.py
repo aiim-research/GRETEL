@@ -45,6 +45,10 @@ Queues (``docs/selector/PAPER_*.md``), in the order they can run:
                        Collections run on the server come back with ``make server-import``
                        (``lab/output/selector_pretrain``) for the pretraining, which runs here
     PAPER_QUEUES.md    the index
+    PAPER_SCREEN.md    local, the screening of candidate datasets (``SCREEN``): bls_v0 and bls_v1 on a fixed
+                       sample of fold 0, on a copy of the dataset without its largest graphs (``max_nodes``
+                       of the TU generator, so that the global padding fits in memory). Screening only: a
+                       dataset that passes enters the matrix complete
 
     python scripts/gen_selector_paper_matrix.py
 """
@@ -64,6 +68,12 @@ PENDING_CACHES = ["bzr", "enzymes"]      # dataset and oracle caches not committ
 PRELIM = ["aids", "bbbp", "synthie", "bzr", "colors-3-s20"]   # the fold-0 preliminary on this machine, in queue order
 LOCAL_TCR = ["tcr-500-28", "tcr-tco-300"]   # rerun locally after the tree-cycles generators were fixed: fold 0 of bls_v0, bls_v1 and the control, plus the collections
 SUBSETS = {"colors-3-s20": ("colors-3", {0: 20, 1: 40, 2: 40})}           # pseudo-dataset: (base dataset, sampled test instances per fold)
+# Screening of candidate datasets (2026-10-30): (config tree of the dataset, sampled fold-0 test instances)
+# DD and REDDIT-BINARY were dropped on 2026-10-30 until the padding is per pair (task A3 of the PhD plan)
+# IMDB uses its own tree (imdb-deg): the thesis IMDB oracle predicts one class for all 1000 graphs.
+SCREEN = {"imdb-s30": ("imdb-deg", 30), "mutagenicity-s30": ("mutagenicity-c100", 30)}
+CACHE_PREFIX = {"colors-3": "COLORS-3", "imdb-deg": "IMDB-BINARY-97c8af347f83bb14228bd7f27567e0c4",
+                "mutagenicity-c100": "Mutagenicity"}   # dataset cache file prefix (or full name) of each config tree
 N_FOLDS = {}       # datasets with fewer than 10 folds (StratifiedKFold is capped by the smallest class); none since cuneiform left the matrix (2026-10-30, its classes are told apart by node positions: DCE finds a same-edge-set counterfactual, GED 0)
 DATASET_FLAGS = ["attributed", "recompute_features", "neigh_factor", "runtime_factor", "max_runtime", "max_neigh"]
 SEVEN = ["identity", "average_smoothing", "weighted_smoothing", "laplacian_regularization", "feature_aggregation",
@@ -74,6 +84,8 @@ QUEUE_SIZE = 30
 
 
 def base(ds: str) -> str:
+    if ds in SCREEN:
+        return SCREEN[ds][0]
     return SUBSETS[ds][0] if ds in SUBSETS else ds
 
 
@@ -96,8 +108,8 @@ def thesis_config(ds: str, fold: int) -> dict:
 def subset_ids(ds: str, fold: int) -> list[int]:
     """A fixed random sample of the fold's test instances, from the committed dataset cache (TU datasets
     number their instances by position, so split indices are instance ids)."""
-    name, sizes = SUBSETS[ds]
-    caches = list((REPO / "lab/data/cache/datasets").glob(f"{name.upper()}-*"))
+    name, sizes = SUBSETS[ds] if ds in SUBSETS else (SCREEN[ds][0], {0: SCREEN[ds][1]})
+    caches = list((REPO / "lab/data/cache/datasets").glob(f"{CACHE_PREFIX[name]}*"))
     assert len(caches) == 1, f"{name}: expected one committed dataset cache, found {caches}"
     splits = pickle.load(open(caches[0], "rb"))["splits"]
     return sorted(random.Random(1000 + fold).sample(sorted(splits[fold]["test"]), sizes[fold]))
@@ -139,7 +151,7 @@ def skeleton_config(ds: str, arm: str, fold: int) -> dict:
     set_fold(conf, fold)
     conf["experiment"]["scope"] = f"{ds}-sel_" + arm.replace("dce-lcls", "dce_lcls", 1)
     conf["evaluator"]["parameters"].pop("instance_ids", None)
-    if ds in SUBSETS:
+    if ds in SUBSETS or ds in SCREEN:
         conf["evaluator"]["parameters"]["instance_ids"] = subset_ids(ds, fold)
     thesis_min = conf["doe-triplets"][0]["explainer"]["parameters"]["minimizer"]["parameters"]
     expl = conf["doe-triplets"][0]["explainer"]["parameters"]
@@ -215,6 +227,19 @@ def main() -> int:
     (DOCS / "PAPER_LOCAL_2.md").write_text(
         f"# Selector paper, local queue 2: selector_v1 on fold 0 of {prelim} (needs the fold-1 checkpoints)\n\n"
         f"{header}\n\n" + "\n".join(f"- [ ] {c}" for c in local2) + "\n")
+    screen = []
+    for ds in SCREEN:
+        if not list((REPO / "lab/data/cache/datasets").glob(f"{CACHE_PREFIX[base(ds)]}*")):
+            print(f"screening: {ds} skipped, no dataset cache yet (tools/warm_caches.py on {base(ds)}/dce/dce-lcls)")
+            continue
+        conf = v0_config(ds, 0)
+        conf["evaluator"]["parameters"]["instance_ids"] = subset_ids(ds, 0)
+        screen += [write(conf, ds, "dce-lcls-v0", 0), write(skeleton_config(ds, "dce-lcls-sel-random", 0), ds, "dce-lcls-sel-random", 0)]
+    (DOCS / "PAPER_SCREEN.md").write_text(
+        "# Selector paper: screening of candidate datasets (bls_v0 and bls_v1 on 30 fixed fold-0 instances)\n\n"
+        f"{header} Datasets without their largest graphs (TU generator ``max_nodes``), for the screening only. "
+        "`python scripts/run_revision_queue.py --list docs/selector/PAPER_SCREEN.md --workers 1 --timeout 86400`.\n\n"
+        + "\n".join(f"- [ ] {c}" for c in screen) + "\n")
     (DOCS / "PAPER_LOCAL_TCR.md").write_text(
         f"# Selector paper, local queue: fold 0 of {', '.join(LOCAL_TCR)} again after the tree-cycles fix (collections, bls_v0, bls_v1, control)\n\n"
         f"{header} Run after `PAPER_LOCAL_2.md`: `python scripts/run_revision_queue.py --list docs/selector/PAPER_LOCAL_TCR.md --workers 1 --timeout 86400`, "
