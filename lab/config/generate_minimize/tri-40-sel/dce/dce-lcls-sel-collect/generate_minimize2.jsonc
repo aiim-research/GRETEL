@@ -26,7 +26,7 @@
                         "doe-triplets/dataset"
                     ],
                     "params": {
-                        "compose_man": "lab/config/snippets/datasets/empty.json"
+                        "compose_man": "lab/config/snippets/datasets/triangles.json"
                     }
                 }
             ],
@@ -118,7 +118,7 @@
                             "overshoot_budget_frac": 0.5,
                             "stuck_swap_add": true,
                             "near_miss": true,
-                            "recompute_features": false,
+                            "recompute_features": true,
                             "collect_examples": "lab/output/selector_pretrain/tri-40_collect-f2.pt"
                         }
                     },

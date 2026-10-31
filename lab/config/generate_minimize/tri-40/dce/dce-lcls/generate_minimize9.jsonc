@@ -26,7 +26,7 @@
                         "doe-triplets/dataset"
                     ],
                     "params": {
-                        "compose_man": "lab/config/snippets/datasets/empty.json"
+                        "compose_man": "lab/config/snippets/datasets/triangles.json"
                     }
                 }
             ],
@@ -69,7 +69,7 @@
                             "max_runtime": 20,
                             "max_neigh": 20,
                             "seed": 0,
-                            "recompute_features": false
+                            "recompute_features": true
                         }
                     },
                     "generator_cache": "lab/data/cache/generator_outputs"

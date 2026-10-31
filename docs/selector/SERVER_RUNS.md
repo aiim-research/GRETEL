@@ -4,6 +4,8 @@ Workflow: nothing is edited on the server. Configs and code change on the local 
 
 ## 1. Update the clone and the conda environment
 
+**Rule: on the server only Slurm jobs compute.** Nothing heavy runs on the login node (no notebooks, no python experiments, no smoke tests or imports of the code base): the commands here only sync git, install the pinned environment, submit jobs and read their logs. Anything to check is checked locally first, or inside a job.
+
 On the server, inside the repository, update with `launchers/server_sync.sh` instead of `git pull`. The first time, the script is not there yet, so run it straight from the branch:
 
 ```bash
@@ -16,8 +18,6 @@ From then on:
 launchers/server_sync.sh            # git fetch + pull, see below
 conda activate GRTL                 # or whatever the environment is called there
 pip install -r requirements-lock.txt --extra-index-url https://download.pytorch.org/whl/cu121
-python tools/import_smoke.py        # must end with "OK: no module broke that was not already broken"
-python -c "import src.explainer.future.metaheuristic.local_search.local_search_selection_net_v2"
 ```
 
 Caches and results are tracked in git, and a server that already ran experiments has its own untracked copies at the same paths, which make a plain `git pull` stop with "untracked working tree files would be overwritten by merge". `server_sync.sh` deals with exactly those files before pulling: one identical to the committed version (a result produced on the server and committed from the local machine) is removed, one that differs (a dataset or oracle cache trained on the server, which the committed one replaces) is moved to `~/gretel-untracked-backup/<date-time>/` and listed. Nothing tracked is touched.

@@ -4,16 +4,19 @@ Escrito el 2026-10-29, tras `docs/selector/ANALISIS_CONTROLES.md`. Es la lista c
 
 ## 0. Narrativa del paper (decidida el 2026-10-30)
 
-Los datasets del primer paper (proteins, asd, synthie, bbbp, aids, colors-3, bzr, enzymes; Tree-Cycles queda aparcado porque todos los métodos llegan al mínimo y no dice nada; ADHD también, sin oráculo que supere a la clase mayoritaria) y una tabla por oráculo, cada una con bls_v0, bls_v1, selector_v1 y, si sale bien, selector_v2:
+Los datasets del primer paper que admiten los tres oráculos: proteins, synthie, bbbp, aids, colors-3, bzr y enzymes. Aparcados (código y configs se quedan): Tree-Cycles (todos los métodos llegan al mínimo, no dice nada), ADHD (ningún oráculo supera a la clase mayoritaria) y ASD (su oráculo es una regla fija: ni el margen ni el reentrenamiento robusto tienen sentido).
 
-1. **El oráculo del primer paper.** bls_v0 sale del rerun de la tesis (`docs/rerun/`: mismo oráculo, mismas cachés y folds que el resto de la tabla; los números publicados del primer paper vienen de otras cachés, otros folds y del código anterior al arreglo de v0, así que se citan pero no se mezclan).
-2. **El oráculo con margen** (τ = 0.9, `<dataset>-m90`): todos los experimentos de nuevo. En asd no cambia nada (su oráculo es una regla con probabilidades 0 o 1) y en aids y colors-3 poco (oráculos saturados); la tabla lo dirá.
-3. **El oráculo robusto** (`<dataset>-rob`: el mismo GCN reentrenado con perturbaciones aleatorias de aristas, `edge_perturbation` {drop 0.1, add 0.1}): todos los experimentos de nuevo, salvo asd.
-4. **tri**, el sintético de triángulos, en varias configuraciones (tamaño, hueco entre clases, margen).
+Una tabla por oráculo, cada una con bls_v0, bls_v1, selector_v1 y, si sale bien, selector_v2:
+
+1. **El oráculo del primer paper.** bls_v0 son los configs `dce-lcls-v0` de la matriz: el BLS del primer paper con el mismo oráculo, cachés, folds y presupuesto estricto que las demás columnas (el rerun de `docs/rerun/` reproduce las tablas del primer paper con sus propios ajustes; los números publicados vienen de otras cachés y otros folds, se citan pero no se mezclan).
+2. **El oráculo con margen** (τ = 0.9, `<dataset>-m90`): todos los experimentos de nuevo. En aids y colors-3 cambiará poco (oráculos saturados); la tabla lo dirá.
+3. **El oráculo robusto** (`<dataset>-rob`: el mismo GCN reentrenado con perturbaciones aleatorias de aristas, `edge_perturbation` {drop 0.1, add 0.1}): todos los experimentos de nuevo.
+
+Aparte, **tri**, el sintético de triángulos, con su propia tabla: varias configuraciones (tri-40: 40 nodos, clase 0 con 55 triángulos o menos y clase 1 con 78 o más; tri-40n: hueco estrecho, 62 y 70; tri-80: 80 nodos, 100 y 155), cada una con la regla exacta como referencia y los tres oráculos sobre una GCN que ve los triángulos de cada nodo (`<tri>-gcn`, `-gcn-m90`, `-gcn-rob`). Es el dataset para ablaciones y combinaciones.
 
 Más ablaciones por decidir. Una tabla que no salga significativa se quita.
 
-Orden: primero el **sondeo** en el servidor (`docs/selector/PAPER_SONDEO.md`: fold 0 de cada dataset con cada oráculo, colecciones, bls_v0, bls_v1 y selector_v1), luego se diseña selector_v2 con todos esos datos y después se lanza la experimentación completa en el servidor. Las colas `PAPER_Q*` actuales son la tabla 1 sin selector_v2 y se regenerarán entonces.
+Orden: primero el **sondeo** en el servidor (`docs/selector/PAPER_SONDEO.md`: fold 0 de todo lo anterior con colecciones, bls_v0, bls_v1 y selector_v1, por pasos, como mucho 10 jobs a la vez); luego se diseña y se prueba selector_v2 con todos esos datos; después la experimentación completa en el servidor. Las colas `PAPER_Q*` actuales son la tabla 1 sin selector_v2 y se regenerarán entonces.
 
 ## 1. Versiones
 
