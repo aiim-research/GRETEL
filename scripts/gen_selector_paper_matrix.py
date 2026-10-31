@@ -88,6 +88,7 @@ VARIANTS = {"m90": list(DATASETS), "rob": list(DATASETS)}
 # <tri>-gcn, <tri>-gcn-m90, <tri>-gcn-rob. All of one configuration share the dataset cache and folds.
 TRI = {"tri-40": "TRI-500-40", "tri-40n": "TRI-500-40n", "tri-80": "TRI-500-80"}
 TRI_EXPS = [e for t in TRI for e in (t, f"{t}-gcn", f"{t}-gcn-m90", f"{t}-gcn-rob")]
+SONDEO_COLLECT = (1,)   # the sondeo evaluates fold 0 only, whose checkpoint (-f1) is trained on the collection of fold 1
 SONDEO_LOCAL = ["bbbp"]   # its original-oracle fold 0 is being rerun locally (PAPER_LOCAL_3/4), left out of the server sondeo
 # Screening of candidate datasets (2026-10-30): (config tree of the dataset, sampled fold-0 test instances)
 # DD and REDDIT-BINARY were dropped on 2026-10-30 until the padding is per pair (task A3 of the PhD plan)
@@ -289,7 +290,7 @@ def main() -> int:
             repoint_proteins_fold0("dce-lcls-sel-uniform-fallback")
             s1 += list(coll.values()) + list(v0.values()) + [fb[f] for f in folds(ds) if f != 0]
             s2 += [sel0, fb[0]]
-            sondeo_a += [coll[1], coll[2], v0[0], str((PROTEINS / "dce-lcls-sel-random/generate_minimize0.jsonc").relative_to(REPO))]
+            sondeo_a += [coll[1], v0[0], str((PROTEINS / "dce-lcls-sel-random/generate_minimize0.jsonc").relative_to(REPO))]
             sondeo_b.append(sel0)
             sondeo_ds.append(ds)
             continue
@@ -297,7 +298,7 @@ def main() -> int:
         unt = {f: write(skeleton_config(ds, "dce-lcls-sel-untrained", f), ds, "dce-lcls-sel-untrained", f) for f in folds(ds)}
         sel = {f: write(skeleton_config(ds, "dce-lcls-sel", f), ds, "dce-lcls-sel", f) for f in folds(ds)}
         if ds not in SONDEO_LOCAL and ds != "colors-3":
-            sondeo_a += [coll[1], coll[2], v0[0], rnd[0]]
+            sondeo_a += [coll[1], v0[0], rnd[0]]
             sondeo_b.append(sel[0])
             sondeo_ds.append(ds)
         if ds in PRELIM:
@@ -344,7 +345,7 @@ def main() -> int:
         "`python scripts/run_revision_queue.py --list docs/selector/PAPER_SCREEN.md --workers 1 --timeout 86400`.\n\n"
         + "\n".join(f"- [ ] {c}" for c in screen) + "\n")
     # Sondeo (2026-10-30): fold 0 of every dataset with every oracle (colors-3 on its 20-instance subset),
-    # collections of folds 1 and 2, bls_v0, bls_v1 and selector_v1, to design selector_v2 on all of it.
+    # the collection of fold 1 (the only one fold 0 needs: its checkpoint -f1 is trained on it), bls_v0, bls_v1 and selector_v1, to design selector_v2 on all of it.
     def subset_v0(name):
         conf = v0_config(name, 0)
         if name in SUBSETS:
@@ -354,12 +355,12 @@ def main() -> int:
     for v, dss in VARIANTS.items():
         for ds in dss:
             name = f"colors-3-{v}-s20" if ds == "colors-3" else f"{ds}-{v}"
-            sondeo_a += [write(skeleton_config(name, "dce-lcls-sel-collect", f), name, "dce-lcls-sel-collect", f) for f in COLLECT_FOLDS]
+            sondeo_a += [write(skeleton_config(name, "dce-lcls-sel-collect", f), name, "dce-lcls-sel-collect", f) for f in SONDEO_COLLECT]
             sondeo_a += [subset_v0(name), write(skeleton_config(name, "dce-lcls-sel-random", 0), name, "dce-lcls-sel-random", 0)]
             sondeo_b.append(write(skeleton_config(name, "dce-lcls-sel", 0), name, "dce-lcls-sel", 0))
             sondeo_ds.append(name)
     for name in TRI_EXPS:
-        sondeo_a += [write(skeleton_config(name, "dce-lcls-sel-collect", f), name, "dce-lcls-sel-collect", f) for f in COLLECT_FOLDS]
+        sondeo_a += [write(skeleton_config(name, "dce-lcls-sel-collect", f), name, "dce-lcls-sel-collect", f) for f in SONDEO_COLLECT]
         sondeo_a += [subset_v0(name), write(skeleton_config(name, "dce-lcls-sel-random", 0), name, "dce-lcls-sel-random", 0)]
         sondeo_b.append(write(skeleton_config(name, "dce-lcls-sel", 0), name, "dce-lcls-sel", 0))
         sondeo_ds.append(name)
@@ -372,12 +373,12 @@ def main() -> int:
         f"**Step 1. Caches: ENZYMES' dataset and oracle, and the robust oracles** ({len(warm)} jobs):\n\n```bash\nG=lab/config/generate_minimize\n"
         "for t in " + " ".join(warm) + "; do sbatch -p normal launchers/slurm_warm.sh $G/$t/dce/dce-lcls/generate_minimize0.jsonc; done\n"
         "squeue -u $USER\ngrep -L \"exit status 0\" output/slurm/warm_<job>.out     # for each job number sbatch printed: a file listed here failed\n```\n\n"
-        f"**Step 2. Queue A**: collections of folds 1 and 2, bls_v0 and bls_v1 on fold 0 ({len(sondeo_a)} configs, 10 at a time):\n\n"
+        f"**Step 2. Queue A**: the collection of fold 1 (the training data of the fold-0 checkpoint), bls_v0 and bls_v1 on fold 0 ({len(sondeo_a)} configs, 10 at a time):\n\n"
         "```bash\nlaunchers/slurm_submit.sh -p normal -m 10 docs/selector/PAPER_SONDEO_A.md\nsqueue -u $USER\n"
         "grep -lE \"exit status [1-9]|Traceback\" output/logs/*/*/*_<job>_*.out     # <job>: the array job number slurm_submit printed\n```\n\n"
         "A queue that ends with failures can be submitted again as it is: finished configs are skipped.\n\n"
         "**Step 3. Pretraining** of the selector checkpoints from those collections (1 job):\n\n"
-        "```bash\nsbatch -p normal launchers/slurm_pretrain.sh " + " ".join(sondeo_ds) + "\nsqueue -u $USER\ntail output/slurm/pretrain_<job>.out     # ends with: built N checkpoint(s); collections still missing: none\n```\n\n"
+        "```bash\nsbatch -p normal launchers/slurm_pretrain.sh " + " ".join(sondeo_ds) + "\nsqueue -u $USER\ntail output/slurm/pretrain_<job>.out     # ends with: built N checkpoint(s); the missing collections listed are the fold-2 ones, which the sondeo does not run\n```\n\n"
         f"**Step 4. Queue B**: selector_v1 on fold 0 ({len(sondeo_b)} configs):\n\n"
         "```bash\nlaunchers/slurm_submit.sh -p normal -m 10 docs/selector/PAPER_SONDEO_B.md\nsqueue -u $USER\n```\n\n"
         "**Step 5. Back home** (local machine): `make server-import`, then commit the results, logs, collections, checkpoints and new caches.\n")

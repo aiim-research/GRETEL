@@ -21,7 +21,7 @@ squeue -u $USER
 grep -L "exit status 0" output/slurm/warm_<job>.out     # for each job number sbatch printed: a file listed here failed
 ```
 
-**Step 2. Queue A**: collections of folds 1 and 2, bls_v0 and bls_v1 on fold 0 (125 configs, 10 at a time):
+**Step 2. Queue A**: the collection of fold 1 (the training data of the fold-0 checkpoint), bls_v0 and bls_v1 on fold 0 (94 configs, 10 at a time):
 
 ```bash
 launchers/slurm_submit.sh -p normal -m 10 docs/selector/PAPER_SONDEO_A.md
@@ -36,7 +36,7 @@ A queue that ends with failures can be submitted again as it is: finished config
 ```bash
 sbatch -p normal launchers/slurm_pretrain.sh proteins synthie aids bzr enzymes proteins-m90 synthie-m90 bbbp-m90 aids-m90 colors-3-m90-s20 bzr-m90 enzymes-m90 proteins-rob synthie-rob bbbp-rob aids-rob colors-3-rob-s20 bzr-rob enzymes-rob tri-40 tri-40-gcn tri-40-gcn-m90 tri-40-gcn-rob tri-40n tri-40n-gcn tri-40n-gcn-m90 tri-40n-gcn-rob tri-80 tri-80-gcn tri-80-gcn-m90 tri-80-gcn-rob
 squeue -u $USER
-tail output/slurm/pretrain_<job>.out     # ends with: built N checkpoint(s); collections still missing: none
+tail output/slurm/pretrain_<job>.out     # ends with: built N checkpoint(s); the missing collections listed are the fold-2 ones, which the sondeo does not run
 ```
 
 **Step 4. Queue B**: selector_v1 on fold 0 (31 configs):
