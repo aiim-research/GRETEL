@@ -66,14 +66,25 @@ DOCS = REPO / "docs/selector"
 DATASETS = ["proteins", "asd", "tcr-500-28", "tcr-tco-300", "synthie", "bbbp", "aids", "colors-3", "bzr", "enzymes"]
 PENDING_CACHES = ["bzr", "enzymes"]      # dataset and oracle caches not committed yet (bzr is built by the local preliminary, enzymes on the server)
 PRELIM = ["aids", "bbbp", "synthie", "bzr", "colors-3-s20"]   # the fold-0 preliminary on this machine, in queue order
+ADHD_EXPS, ADHD_CACHES = [], {}      # filled once the ADHD oracle exists
 LOCAL_TCR = ["tcr-500-28", "tcr-tco-300"]   # rerun locally after the tree-cycles generators were fixed: fold 0 of bls_v0, bls_v1 and the control, plus the collections
+LOCAL_REDO = ["bbbp"]   # rerun locally after the BBBP order was fixed (2026-10-30): collections and bls_v1 (PAPER_LOCAL_3), selector_v1 (PAPER_LOCAL_4)
 SUBSETS = {"colors-3-s20": ("colors-3", {0: 20, 1: 40, 2: 40})}           # pseudo-dataset: (base dataset, sampled test instances per fold)
 # Screening of candidate datasets (2026-10-30): (config tree of the dataset, sampled fold-0 test instances)
 # DD and REDDIT-BINARY were dropped on 2026-10-30 until the padding is per pair (task A3 of the PhD plan)
 # IMDB uses its own tree (imdb-deg): the thesis IMDB oracle predicts one class for all 1000 graphs.
-SCREEN = {"imdb-s30": ("imdb-deg", 30), "mutagenicity-s30": ("mutagenicity-c100", 30)}
+# Harder experiments (2026-10-30): the confidence-margin oracle (src/oracle/margin.py) on PROTEINS and bbbp
+# (aids left out: its oracle is saturated, the minimal counterfactuals already have a confidence >= 0.9 in
+# 67 % of the instances), the triangle-threshold synthetic (tri-40) with and without margin, and ADHD.
+NEW = ["proteins-m70", "proteins-m90", "bbbp-m70", "bbbp-m90", "tri-40", "tri-40-m70", "tri-40-m90"] + ADHD_EXPS
+SCREEN = {"imdb-s30": ("imdb-deg", 30), "mutagenicity-s30": ("mutagenicity-c100", 30),
+          **{f"{e}-s20": (e, 20) for e in NEW}}
 CACHE_PREFIX = {"colors-3": "COLORS-3", "imdb-deg": "IMDB-BINARY-97c8af347f83bb14228bd7f27567e0c4",
-                "mutagenicity-c100": "Mutagenicity"}   # dataset cache file prefix (or full name) of each config tree
+                "mutagenicity-c100": "Mutagenicity",
+                **{f"proteins-m{t}": "PROTEINS-084c6a1896e8a96ebacf7ff4868f1197" for t in (70, 90)},
+                **{f"bbbp-m{t}": "BBBP-c0cc58bdf4acf93936322304bf6b669e" for t in (70, 90)},
+                **{e: "TriangleThreshold-cd6e25aea0d32bb9b91d5eaeeb5b4122" for e in ("tri-40", "tri-40-m70", "tri-40-m90")},
+                **ADHD_CACHES}   # dataset cache file prefix (or full name) of each config tree
 N_FOLDS = {}       # datasets with fewer than 10 folds (StratifiedKFold is capped by the smallest class); none since cuneiform left the matrix (2026-10-30, its classes are told apart by node positions: DCE finds a same-edge-set counterfactual, GED 0)
 DATASET_FLAGS = ["attributed", "recompute_features", "neigh_factor", "runtime_factor", "max_runtime", "max_neigh"]
 SEVEN = ["identity", "average_smoothing", "weighted_smoothing", "laplacian_regularization", "feature_aggregation",
@@ -185,7 +196,7 @@ def repoint_proteins_fold0(arm: str) -> str:
 
 
 def main() -> int:
-    local1, local2, local_tcr = {}, {}, []
+    local1, local2, local_tcr, local_redo = {}, {}, [], []
     s1, s2, s3 = [], [], []
     for ds in DATASETS:
         v0 = {f: write(v0_config(ds, f), ds, "dce-lcls-v0", f) for f in folds(ds)}
@@ -205,6 +216,9 @@ def main() -> int:
             local2[ds] = [sel[0]]
         if ds in LOCAL_TCR:
             local_tcr += [coll[1], coll[2], v0[0], rnd[0], unt[0]]
+        if ds in LOCAL_REDO:
+            local_tcr += [coll[1], coll[2], rnd[0]]
+            local_redo.append(sel[0])
         server_coll = [] if ds in PRELIM else list(coll.values())
         if ds in PENDING_CACHES:
             s3 += server_coll + list(v0.values()) + list(rnd.values()) + list(unt.values()) + list(sel.values())
@@ -240,10 +254,26 @@ def main() -> int:
         f"{header} Datasets without their largest graphs (TU generator ``max_nodes``), for the screening only. "
         "`python scripts/run_revision_queue.py --list docs/selector/PAPER_SCREEN.md --workers 1 --timeout 86400`.\n\n"
         + "\n".join(f"- [ ] {c}" for c in screen) + "\n")
-    (DOCS / "PAPER_LOCAL_TCR.md").write_text(
-        f"# Selector paper, local queue: fold 0 of {', '.join(LOCAL_TCR)} again after the tree-cycles fix (collections, bls_v0, bls_v1, control)\n\n"
-        f"{header} Run after `PAPER_LOCAL_2.md`: `python scripts/run_revision_queue.py --list docs/selector/PAPER_LOCAL_TCR.md --workers 1 --timeout 86400`, "
-        "then `python scripts/pretrain_selector_checkpoints.py`.\n\n" + "\n".join(f"- [ ] {c}" for c in local_tcr) + "\n")
+    new_a, new_b = [], []
+    for ds in NEW:
+        new_a += [write(skeleton_config(ds, "dce-lcls-sel-collect", f), ds, "dce-lcls-sel-collect", f) for f in COLLECT_FOLDS]
+        new_a.append(write(skeleton_config(ds, "dce-lcls-sel-random", 0), ds, "dce-lcls-sel-random", 0))
+        new_b.append(write(skeleton_config(ds, "dce-lcls-sel", 0), ds, "dce-lcls-sel", 0))
+    arm = "launchers/slurm_selector_arm.sh -p normal -m 10 docs/selector/PAPER_NEW_A.md docs/selector/PAPER_NEW_B.md " + " ".join(NEW)
+    (DOCS / "PAPER_NEW_A.md").write_text(
+        "# Selector paper, server: harder experiments, fold 0 (collections of folds 1 and 2, bls_v1)\n\n"
+        f"{header} Submitted together with `PAPER_NEW_B.md` and the pretraining in between: `{arm}`.\n\n"
+        + "\n".join(f"- [ ] {c}" for c in new_a) + "\n")
+    (DOCS / "PAPER_NEW_B.md").write_text(
+        "# Selector paper, server: harder experiments, fold 0 (selector_v1, needs the checkpoints of PAPER_NEW_A's collections)\n\n"
+        f"{header} `{arm}`.\n\n" + "\n".join(f"- [ ] {c}" for c in new_b) + "\n")
+    (DOCS / "PAPER_LOCAL_3.md").write_text(
+        f"# Selector paper, local queue 3: fold 0 again after the generator fixes: {', '.join(LOCAL_TCR)} (collections, bls_v0, bls_v1, control) and {', '.join(LOCAL_REDO)} (collections, bls_v1)\n\n"
+        f"{header} Run after `PAPER_LOCAL_2.md`: `python scripts/run_revision_queue.py --list docs/selector/PAPER_LOCAL_3.md --workers 1 --timeout 86400`, "
+        f"then `python scripts/pretrain_selector_checkpoints.py --datasets {' '.join(LOCAL_TCR + LOCAL_REDO)}`, then `PAPER_LOCAL_4.md`.\n\n" + "\n".join(f"- [ ] {c}" for c in local_tcr) + "\n")
+    (DOCS / "PAPER_LOCAL_4.md").write_text(
+        f"# Selector paper, local queue 4: selector_v1 on fold 0 of {', '.join(LOCAL_REDO)} (needs the checkpoints of PAPER_LOCAL_3's collections)\n\n"
+        f"{header}\n\n" + "\n".join(f"- [ ] {c}" for c in local_redo) + "\n")
     for old in DOCS.glob("PAPER_Q*.md"):
         old.unlink()
     index, n = [], 0

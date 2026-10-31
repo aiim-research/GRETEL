@@ -2,7 +2,7 @@
 # Submit the configs of one or more queue files that still have no results as one Slurm job array,
 # with at most MAX tasks running at the same time. Run it from the repository root.
 #
-#   launchers/slurm_submit.sh -p <partition> [-m MAX] [-n LIMIT] [-e ENV] [-c] <queue.md> [<queue.md> ...]
+#   launchers/slurm_submit.sh -p <partition> [-m MAX] [-n LIMIT] [-e ENV] [-c] [-a JOB] <queue.md> [<queue.md> ...]
 #
 #   -p  partition (required: check `sinfo -s` and `sacctmgr show assoc user=$USER format=partition`)
 #   -m  maximum tasks running at once (default 10)
@@ -10,6 +10,7 @@
 #   -e  conda environment activated inside each job (default GRTL)
 #   -c  chain: one array per queue file, each starting once the previous one has ended (whatever its
 #       tasks' exit status), instead of a single array for all of them
+#   -a  start only once job JOB has ended (whatever its exit status)
 #
 # Logs: output/logs/<dataset>/<generator>-<minimizer>/fold<f>_<arrayjob>_<task>.out, one per config. The
 # list of configs of the array is kept in output/slurm/<arrayjob>.list (task i = line i+1), and the
@@ -18,19 +19,20 @@
 # earlier array, are skipped.
 set -euo pipefail
 
-PART=""; MAX=10; LIMIT=0; ENV_NAME=${GRETEL_ENV:-GRTL}; CHAIN=0
-while getopts "p:m:n:e:c" opt; do
+PART=""; MAX=10; LIMIT=0; ENV_NAME=${GRETEL_ENV:-GRTL}; CHAIN=0; AFTER=""
+while getopts "p:m:n:e:ca:" opt; do
     case $opt in
         p) PART=$OPTARG ;;
         m) MAX=$OPTARG ;;
         n) LIMIT=$OPTARG ;;
         e) ENV_NAME=$OPTARG ;;
         c) CHAIN=1 ;;
-        *) sed -n '2,18p' "$0"; exit 1 ;;
+        a) AFTER=$OPTARG ;;
+        *) sed -n '2,19p' "$0"; exit 1 ;;
     esac
 done
 shift $((OPTIND - 1))
-if [ -z "$PART" ] || [ $# -eq 0 ]; then sed -n '2,18p' "$0"; exit 1; fi
+if [ -z "$PART" ] || [ $# -eq 0 ]; then sed -n '2,19p' "$0"; exit 1; fi
 mkdir -p output/logs output/slurm
 
 # Configs still queued or running in an earlier array of this user have no results yet, so
@@ -69,17 +71,18 @@ submit() {
 
 JOBS=()
 if [ "$CHAIN" -eq 1 ]; then
-    prev=""
+    prev=$AFTER
     for q in "$@"; do
         j=$(submit "$prev" "$q")
         if [ -n "$j" ]; then JOBS+=("$j"); prev=$j; fi
     done
 else
-    j=$(submit "" "$@")
+    j=$(submit "$AFTER" "$@")
     if [ -n "$j" ]; then JOBS+=("$j"); fi
 fi
 rm -f "$ACTIVE"
 if [ ${#JOBS[@]} -gt 0 ]; then
     echo "logs: output/logs/<dataset>/<generator>-<minimizer>/fold<f>_<arrayjob>_<task>.out"
     echo "watch it with: squeue -u \$USER   (cancel everything: scancel ${JOBS[*]})"
+    echo "JOBS ${JOBS[*]}"
 fi

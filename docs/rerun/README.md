@@ -23,11 +23,11 @@ launchers/slurm_submit.sh -p normal -m 10 -c docs/rerun/light-1-generators.md do
 
 ## 2. Caches built on the server
 
-The ENZYMES dataset and oracle, and the DCM medoids of PROTEINS, BZR and ENZYMES, are not committed yet: a DCM takes from minutes to many hours (BBBP took 14 h on a laptop). BZR's dataset and oracle come out of the selector's local preliminary (`docs/selector/PLAN_PAPER_SELECTOR.md`, section 4.1) and are committed from there, so submit the bzr job only after that sync, when it only has the DCM left to build. One job each, any time:
+The ENZYMES dataset and oracle, and the DCM medoids of PROTEINS, BZR, ENZYMES and BBBP, are not committed yet (BBBP's and ASD's were removed on 2026-10-30: the BBBP molecules were shuffled without a seed on every load and ASD's files were read in file-system order, both fixed in their generators, so their dataset caches were regenerated with new folds and every cache computed from the old folds went; ASD's medoids are cheap and get rebuilt by its phase A): a DCM takes from minutes to many hours (BBBP took 14 h on a laptop). BZR's dataset and oracle come out of the selector's local preliminary (`docs/selector/PLAN_PAPER_SELECTOR.md`, section 4.1) and are committed from there, so submit the bzr job only after that sync, when it only has the DCM left to build. One job each, any time:
 
 ```bash
 G=lab/config/generate_minimize
-for ds in bzr enzymes proteins; do sbatch -p normal launchers/slurm_warm.sh $G/$ds/dcm/dcm-dummy/generate_minimize0.jsonc; done
+for ds in bzr enzymes proteins bbbp; do sbatch -p normal launchers/slurm_warm.sh $G/$ds/dcm/dcm-dummy/generate_minimize0.jsonc; done
 cat output/slurm/warm_<job>.out          # lists what each job loaded or created
 ```
 

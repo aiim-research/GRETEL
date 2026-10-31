@@ -19,7 +19,26 @@ class ADHD(Generator):
             
     def generate_dataset(self):
         if not len(self.dataset.instances):
-            self.read_adjacency_matrices()
+            # Opt-in ``subject_labels`` (read without being written into the config, so the configs
+            # without it keep their hash and behaviour): every subject of ``adhd_dataset`` with its own
+            # label (``<subject>_label.json``: 330 typically developing, 190 ADHD), in sorted order so that
+            # the instance ids, and with them the committed folds, are the same on every machine. Without
+            # it, the five graphs of ``td`` are class 0 and the 520 subjects all class 1, in directory order.
+            if self.local_config['parameters'].get('subject_labels', False):
+                self.read_subjects()
+            else:
+                self.read_adjacency_matrices()
+
+    def read_subjects(self):
+        for subject in sorted(listdir(self.adhd_class_path)):
+            graph_path = join(self.adhd_class_path, subject)
+            files = sorted(listdir(graph_path))
+            label_file = [f for f in files if f.endswith('_label.json')][0]
+            adjlist_file = [f for f in files if f.endswith('.adjlist')][0]
+            with open(join(graph_path, label_file), 'r') as f:
+                label = int(f.read().strip())
+            data = _nd_array_from_adjlist(join(graph_path, adjlist_file))
+            self.dataset.instances.append(GraphInstance(len(self.dataset.instances), label, data))
     
     def read_adjacency_matrices(self):
         """

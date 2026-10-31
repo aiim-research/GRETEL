@@ -130,6 +130,9 @@ class Evaluator(Configurable):
 
 
     def _real_evaluate(self, instance):
+        # Oracles whose answer depends on the instance being explained (MarginOracle) learn it here.
+        if hasattr(self.oracle, 'set_reference'):
+            self.oracle.set_reference(instance)
 
         # Creating an empty explanation for the pipeline
         explanation = LocalGraphCounterfactualExplanation(context=self.context,

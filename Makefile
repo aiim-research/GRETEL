@@ -59,7 +59,7 @@ kernel:
 	conda activate $(ENV_NAME) && python -m ipykernel install --user --name $(ENV_NAME) --display-name "Python 3.12 ($(ENV_NAME))"
 
 
-# server-import  Bring results, logs and the caches built on the Slurm server (RSGG GANs, BZR and ENZYMES
+# server-import  Bring results, logs, selector checkpoints pretrained there (launchers/slurm_pretrain.sh) and the caches built on the Slurm server (RSGG GANs, BZR and ENZYMES
 #                datasets and oracles, DCM medoids) back to this clone, read-only on the server
 #                (docs/rerun/README.md, section 4). Only caches written since SERVER_SINCE and missing here
 #                come back: the server still holds caches of its own from before the rerun, and a committed
@@ -75,6 +75,7 @@ server-import:
 	rsync -av $(SERVER):$(SERVER_REPO)/lab/output/results/       lab/output/results/
 	rsync -av $(SERVER):$(SERVER_REPO)/lab/output/selector_logs/ lab/output/selector_logs/
 	rsync -av $(SERVER):$(SERVER_REPO)/lab/output/selector_pretrain/ lab/output/selector_pretrain/
+	rsync -av --ignore-existing $(SERVER):$(SERVER_REPO)/models/pretrained/ models/pretrained/
 	rsync -av $(SERVER):$(SERVER_REPO)/output/logs/              lab/output/server_logs/
 	rsync -av $(SERVER):$(SERVER_REPO)/output/slurm/             lab/output/server_slurm/
 	@if running=$$(ssh $(SERVER) 'squeue -h -u $$USER -n warm') && [ -z "$$running" ]; then \
