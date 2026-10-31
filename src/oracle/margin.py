@@ -7,9 +7,10 @@ from src.core.oracle_base import Oracle
 
 
 class MarginOracle(Oracle):
-    """A trained binary oracle that only changes its answer with confidence: a graph gets the class other
-    than the reference (the class the base oracle gives to the instance being explained) only when the
-    base oracle gives that class a probability of at least ``margin`` (0.5 is the base oracle itself).
+    """A trained oracle that only changes its answer with confidence: a graph gets a class other than the
+    reference (the class the base oracle gives to the instance being explained) only when the base oracle
+    gives that class a probability of at least ``margin`` (0.5 is the base oracle itself when there are
+    two classes).
 
     Parameters: ``margin`` and ``base_oracle``, the base oracle's config exactly as it appears in the
     experiments (including the propagated ``fold_id`` and ``retrain``), so that it is loaded from its
@@ -52,18 +53,20 @@ class MarginOracle(Oracle):
         if (arr < 0).any() or abs(arr.sum() - 1.0) > 1e-6:   # logits (the GCN oracles have no softmax)
             e = np.exp(arr - arr.max())
             arr = e / e.sum()
-        if arr.size != 2:
-            raise ValueError("MarginOracle supports binary oracles only")
         return arr
 
     def _margin_probs(self, instance) -> np.ndarray:
+        """All the mass on the reference class and the most probable other class: the latter gets its base
+        probability minus (margin - 0.5), so it wins the arg max exactly when its base probability passes
+        the margin (with two classes this is just the shifted distribution)."""
         p = self._base_probs(instance)
         if self.reference is None:
             return p
-        other = 1 - self.reference
-        q = np.empty(2)
-        q[other] = min(1.0, max(0.0, p[other] - (self.margin - 0.5)))
-        q[self.reference] = 1.0 - q[other]
+        others = [c for c in range(p.size) if c != self.reference]
+        best = max(others, key=lambda c: p[c])
+        q = np.zeros_like(p)
+        q[best] = min(1.0, max(0.0, p[best] - (self.margin - 0.5)))
+        q[self.reference] = 1.0 - q[best]
         return q
 
     def _real_predict(self, data_instance):

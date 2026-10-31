@@ -1,0 +1,24 @@
+# Sondeo, queue B: selector_v1 on fold 0, after the pretraining (see PAPER_SONDEO.md)
+
+- [ ] lab/config/generate_minimize/proteins-sel/dce/dce-lcls-sel/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/asd-sel/dce/dce-lcls-sel/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/synthie-sel/dce/dce-lcls-sel/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/aids-sel/dce/dce-lcls-sel/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/bzr-sel/dce/dce-lcls-sel/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/enzymes-sel/dce/dce-lcls-sel/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/proteins-m90-sel/dce/dce-lcls-sel/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/asd-m90-sel/dce/dce-lcls-sel/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/synthie-m90-sel/dce/dce-lcls-sel/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/bbbp-m90-sel/dce/dce-lcls-sel/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/aids-m90-sel/dce/dce-lcls-sel/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/colors-3-m90-s20-sel/dce/dce-lcls-sel/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/bzr-m90-sel/dce/dce-lcls-sel/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/enzymes-m90-sel/dce/dce-lcls-sel/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/tri-40-m90-sel/dce/dce-lcls-sel/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/proteins-rob-sel/dce/dce-lcls-sel/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/synthie-rob-sel/dce/dce-lcls-sel/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/bbbp-rob-sel/dce/dce-lcls-sel/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/aids-rob-sel/dce/dce-lcls-sel/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/colors-3-rob-s20-sel/dce/dce-lcls-sel/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/bzr-rob-sel/dce/dce-lcls-sel/generate_minimize0.jsonc
+- [ ] lab/config/generate_minimize/enzymes-rob-sel/dce/dce-lcls-sel/generate_minimize0.jsonc

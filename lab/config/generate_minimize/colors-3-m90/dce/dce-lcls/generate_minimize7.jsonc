@@ -1,0 +1,86 @@
+{
+    "experiment": {
+        "scope": "colors-3-m90_dce_lcls",
+        "parameters": {
+            "lock_release_tout": 120,
+            "propagate": [
+                {
+                    "in_sections": [
+                        "doe-triplets/explainer"
+                    ],
+                    "params": {
+                        "fold_id": 7
+                    }
+                },
+                {
+                    "in_sections": [
+                        "doe-triplets/oracle"
+                    ],
+                    "params": {
+                        "fold_id": -1,
+                        "retrain": false
+                    }
+                },
+                {
+                    "in_sections": [
+                        "doe-triplets/dataset"
+                    ],
+                    "params": {
+                        "compose_man": "lab/config/snippets/datasets/padding.json"
+                    }
+                }
+            ],
+            "expand": {
+                "folds": [
+                    "doe-triplets/explainer"
+                ],
+                "triplets": true
+            }
+        }
+    },
+    "doe-triplets": [
+        {
+            "compose_do": "./lab/config/snippets/do-pairs/COLORS-3_GCN_m90.json",
+            "explainer": {
+                "class": "src.explainer.future.meta.generate_minimize.GenerateMinimize",
+                "parameters": {
+                    "fold_id": 1,
+                    "generator": {
+                        "class": "src.explainer.future.search.dces.DCESExplainer",
+                        "parameters": {
+                            "epochs": 500
+                        }
+                    },
+                    "minimizer": {
+                        "class": "src.explainer.future.metaheuristic.local_search.local_search.LocalSearch",
+                        "parameters": {
+                            "stop_after_failed_iteration": true,
+                            "attribute_methods": [
+                                "identity",
+                                "average_smoothing",
+                                "weighted_smoothing",
+                                "laplacian_regularization",
+                                "feature_aggregation",
+                                "heat_kernel_diffusion",
+                                "random_walk_diffusion"
+                            ],
+                            "neigh_factor": 4,
+                            "runtime_factor": 4,
+                            "max_runtime": 20,
+                            "max_neigh": 20,
+                            "attributed": true
+                        }
+                    },
+                    "generator_cache": "lab/data/cache/generator_outputs"
+                }
+            }
+        }
+    ],
+    "evaluator": {
+        "class": "src.evaluation.future.evaluator.Evaluator",
+        "parameters": {
+            "compose_pip": "./lab/config/snippets/minimizing_pipeline.json"
+        }
+    },
+    "compose_strs": "./lab/config/snippets/default_store_paths.json"
+}

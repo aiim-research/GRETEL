@@ -56,6 +56,8 @@ from __future__ import annotations
 
 import json
 import pickle
+import re
+from collections import OrderedDict
 import random
 from pathlib import Path
 
@@ -63,24 +65,35 @@ REPO = Path(__file__).resolve().parent.parent
 TREE = REPO / "lab/config/generate_minimize"
 PROTEINS = TREE / "proteins-sel/dce"
 DOCS = REPO / "docs/selector"
-DATASETS = ["proteins", "asd", "tcr-500-28", "tcr-tco-300", "synthie", "bbbp", "aids", "colors-3", "bzr", "enzymes"]
+# The datasets of the first paper. Tree-Cycles (tcr-500-28, tcr-tco-300) is stale since 2026-10-30 (user's decision:
+# every method reaches the minimum, it tells nothing); its configs stay.
+DATASETS = ["proteins", "asd", "synthie", "bbbp", "aids", "colors-3", "bzr", "enzymes"]
 PENDING_CACHES = ["bzr", "enzymes"]      # dataset and oracle caches not committed yet (bzr is built by the local preliminary, enzymes on the server)
 PRELIM = ["aids", "bbbp", "synthie", "bzr", "colors-3-s20"]   # the fold-0 preliminary on this machine, in queue order
 ADHD_EXPS, ADHD_CACHES = [], {}      # filled once the ADHD oracle exists
-LOCAL_TCR = ["tcr-500-28", "tcr-tco-300"]   # rerun locally after the tree-cycles generators were fixed: fold 0 of bls_v0, bls_v1 and the control, plus the collections
+LOCAL_TCR = []   # Tree-Cycles is stale (see DATASETS); it was ["tcr-500-28", "tcr-tco-300"], fold 0 again after the generator fix
 LOCAL_REDO = ["bbbp"]   # rerun locally after the BBBP order was fixed (2026-10-30): collections and bls_v1 (PAPER_LOCAL_3), selector_v1 (PAPER_LOCAL_4)
-SUBSETS = {"colors-3-s20": ("colors-3", {0: 20, 1: 40, 2: 40})}           # pseudo-dataset: (base dataset, sampled test instances per fold)
+SUBSETS = {"colors-3-s20": ("colors-3", {0: 20, 1: 40, 2: 40}),           # pseudo-dataset: (base dataset, sampled test instances per fold)
+           "colors-3-m90-s20": ("colors-3-m90", {0: 20, 1: 40, 2: 40}),
+           "colors-3-rob-s20": ("colors-3-rob", {0: 20, 1: 40, 2: 40})}
+# The three oracles of the paper's tables (2026-10-30): the first paper's (the trees above), the same with a
+# confidence margin (MarginOracle, <dataset>-m90) and one retrained with random edge perturbations
+# (OracleTorch edge_perturbation, <dataset>-rob; not for asd, whose oracle is a fixed rule).
+MARGIN = 0.9
+ROBUST = {"drop": 0.1, "add": 0.1}
+VARIANTS = {"m90": DATASETS + ["tri-40"], "rob": [d for d in DATASETS if d != "asd"]}
+SONDEO_LOCAL = ["bbbp"]   # its original-oracle fold 0 is being rerun locally (PAPER_LOCAL_3/4), left out of the server sondeo
 # Screening of candidate datasets (2026-10-30): (config tree of the dataset, sampled fold-0 test instances)
 # DD and REDDIT-BINARY were dropped on 2026-10-30 until the padding is per pair (task A3 of the PhD plan)
 # IMDB uses its own tree (imdb-deg): the thesis IMDB oracle predicts one class for all 1000 graphs.
 # Harder experiments (2026-10-30): the confidence-margin oracle (src/oracle/margin.py) on PROTEINS and bbbp
 # (aids left out: its oracle is saturated, the minimal counterfactuals already have a confidence >= 0.9 in
 # 67 % of the instances), the triangle-threshold synthetic (tri-40) with and without margin, and ADHD.
-NEW = ["proteins-m70", "proteins-m90", "bbbp-m70", "bbbp-m90", "tri-40", "tri-40-m70", "tri-40-m90"] + ADHD_EXPS
+NEW = ["proteins-m70", "proteins-m90", "bbbp-m70", "bbbp-m90", "tri-40", "tri-40-m70", "tri-40-m90"] + ADHD_EXPS   # the local screening of 2026-10-30 (PAPER_SCREEN.md)
 SCREEN = {"imdb-s30": ("imdb-deg", 30), "mutagenicity-s30": ("mutagenicity-c100", 30),
           **{f"{e}-s20": (e, 20) for e in NEW}}
 CACHE_PREFIX = {"colors-3": "COLORS-3", "imdb-deg": "IMDB-BINARY-97c8af347f83bb14228bd7f27567e0c4",
-                "mutagenicity-c100": "Mutagenicity",
+                "mutagenicity-c100": "Mutagenicity", "colors-3-m90": "COLORS-3", "colors-3-rob": "COLORS-3",
                 **{f"proteins-m{t}": "PROTEINS-084c6a1896e8a96ebacf7ff4868f1197" for t in (70, 90)},
                 **{f"bbbp-m{t}": "BBBP-c0cc58bdf4acf93936322304bf6b669e" for t in (70, 90)},
                 **{e: "TriangleThreshold-cd6e25aea0d32bb9b91d5eaeeb5b4122" for e in ("tri-40", "tri-40-m70", "tri-40-m90")},
@@ -195,9 +208,61 @@ def repoint_proteins_fold0(arm: str) -> str:
     return str(path.relative_to(REPO))
 
 
+def template_dir(ds: str) -> Path:
+    return PROTEINS / "dce-lcls" if ds == "proteins" else TREE / ds / "dce/dce-lcls"
+
+
+def make_tri_template() -> None:
+    """tri-40's thesis-style tree, all ten folds, from Tree-Cycles' (exact oracle, no manipulators)."""
+    for f in range(10):
+        t = (TREE / "tcr-500-28/dce/dce-lcls" / f"generate_minimize{f}.jsonc").read_text()
+        conf = json.loads(t.replace("do-pairs/TCR-500-28-0.25_Custom.json", "do-pairs/TRI-500-40_Custom.json"))
+        conf["experiment"]["scope"] = "tri-40_dce_lcls"
+        out = TREE / "tri-40/dce/dce-lcls" / f"generate_minimize{f}.jsonc"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(conf, indent=4) + "\n")
+
+
+def make_variant(ds: str, v: str) -> str:
+    """The thesis-style tree <ds>-<v> (every fold) with the dataset-oracle pair of <ds> turned into the
+    variant's oracle: MarginOracle around the original one (loaded from its cache) or the same oracle
+    retrained with edge perturbations. Returns the variant's name."""
+    name = f"{ds}-{v}"
+    for f in range(10):
+        src = template_dir(ds) / f"generate_minimize{f}.jsonc"
+        if not src.exists():
+            continue
+        text = src.read_text()
+        pair = re.search(r'do-pairs/([^"]+)\.json', text).group(1)
+        snip_path = REPO / f"lab/config/snippets/do-pairs/{pair}_{v}.json"
+        if not snip_path.exists() or f == 0:
+            orig = json.loads((REPO / f"lab/config/snippets/do-pairs/{pair}.json").read_text(), object_pairs_hook=OrderedDict)
+            oracle = json.loads(json.dumps(orig["oracle"]), object_pairs_hook=OrderedDict)
+            if v.startswith("m"):
+                oracle["parameters"]["fold_id"] = -1
+                oracle["parameters"]["retrain"] = False
+                oracle = OrderedDict([("class", "src.oracle.margin.MarginOracle"),
+                                      ("parameters", OrderedDict([("margin", MARGIN), ("base_oracle", oracle)]))])
+            else:
+                assert oracle["class"].endswith("OracleTorch"), (ds, oracle["class"])
+                oracle["parameters"]["edge_perturbation"] = dict(ROBUST)
+            snip_path.write_text(json.dumps(OrderedDict(dataset=orig["dataset"], oracle=oracle), indent=4) + "\n")
+        conf = json.loads(text.replace(f"do-pairs/{pair}.json", f"do-pairs/{pair}_{v}.json"))
+        conf["experiment"]["scope"] = f"{name}_dce_lcls"
+        out = TREE / name / "dce/dce-lcls" / f"generate_minimize{f}.jsonc"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(conf, indent=4) + "\n")
+    return name
+
+
 def main() -> int:
     local1, local2, local_tcr, local_redo = {}, {}, [], []
     s1, s2, s3 = [], [], []
+    sondeo_a, sondeo_b, sondeo_ds = [], [], []
+    make_tri_template()
+    for v, dss in VARIANTS.items():
+        for ds in dss:
+            make_variant(ds, v)
     for ds in DATASETS:
         v0 = {f: write(v0_config(ds, f), ds, "dce-lcls-v0", f) for f in folds(ds)}
         coll = {f: write(skeleton_config(ds, "dce-lcls-sel-collect", f), ds, "dce-lcls-sel-collect", f) for f in COLLECT_FOLDS}
@@ -207,10 +272,17 @@ def main() -> int:
             repoint_proteins_fold0("dce-lcls-sel-uniform-fallback")
             s1 += list(coll.values()) + list(v0.values()) + [fb[f] for f in folds(ds) if f != 0]
             s2 += [sel0, fb[0]]
+            sondeo_a += [coll[1], coll[2], v0[0], str((PROTEINS / "dce-lcls-sel-random/generate_minimize0.jsonc").relative_to(REPO))]
+            sondeo_b.append(sel0)
+            sondeo_ds.append(ds)
             continue
         rnd = {f: write(skeleton_config(ds, "dce-lcls-sel-random", f), ds, "dce-lcls-sel-random", f) for f in folds(ds)}
         unt = {f: write(skeleton_config(ds, "dce-lcls-sel-untrained", f), ds, "dce-lcls-sel-untrained", f) for f in folds(ds)}
         sel = {f: write(skeleton_config(ds, "dce-lcls-sel", f), ds, "dce-lcls-sel", f) for f in folds(ds)}
+        if ds not in SONDEO_LOCAL and ds != "colors-3":
+            sondeo_a += [coll[1], coll[2], v0[0], rnd[0]]
+            sondeo_b.append(sel[0])
+            sondeo_ds.append(ds)
         if ds in PRELIM:
             local1[ds] = [coll[1], coll[2], rnd[0]]
             local2[ds] = [sel[0]]
@@ -254,19 +326,37 @@ def main() -> int:
         f"{header} Datasets without their largest graphs (TU generator ``max_nodes``), for the screening only. "
         "`python scripts/run_revision_queue.py --list docs/selector/PAPER_SCREEN.md --workers 1 --timeout 86400`.\n\n"
         + "\n".join(f"- [ ] {c}" for c in screen) + "\n")
-    new_a, new_b = [], []
-    for ds in NEW:
-        new_a += [write(skeleton_config(ds, "dce-lcls-sel-collect", f), ds, "dce-lcls-sel-collect", f) for f in COLLECT_FOLDS]
-        new_a.append(write(skeleton_config(ds, "dce-lcls-sel-random", 0), ds, "dce-lcls-sel-random", 0))
-        new_b.append(write(skeleton_config(ds, "dce-lcls-sel", 0), ds, "dce-lcls-sel", 0))
-    arm = "launchers/slurm_selector_arm.sh -p normal -m 10 docs/selector/PAPER_NEW_A.md docs/selector/PAPER_NEW_B.md " + " ".join(NEW)
-    (DOCS / "PAPER_NEW_A.md").write_text(
-        "# Selector paper, server: harder experiments, fold 0 (collections of folds 1 and 2, bls_v1)\n\n"
-        f"{header} Submitted together with `PAPER_NEW_B.md` and the pretraining in between: `{arm}`.\n\n"
-        + "\n".join(f"- [ ] {c}" for c in new_a) + "\n")
-    (DOCS / "PAPER_NEW_B.md").write_text(
-        "# Selector paper, server: harder experiments, fold 0 (selector_v1, needs the checkpoints of PAPER_NEW_A's collections)\n\n"
-        f"{header} `{arm}`.\n\n" + "\n".join(f"- [ ] {c}" for c in new_b) + "\n")
+    # Sondeo (2026-10-30): fold 0 of every dataset with every oracle (colors-3 on its 20-instance subset),
+    # collections of folds 1 and 2, bls_v0, bls_v1 and selector_v1, to design selector_v2 on all of it.
+    def subset_v0(name):
+        conf = v0_config(name, 0)
+        if name in SUBSETS:
+            conf["evaluator"]["parameters"]["instance_ids"] = subset_ids(name, 0)
+        return write(conf, name, "dce-lcls-v0", 0)
+    sondeo_a.append(subset_v0("colors-3-s20"))   # its collections, bls_v1 and selector_v1 are the local preliminary's
+    for v, dss in VARIANTS.items():
+        for ds in dss:
+            name = f"colors-3-{v}-s20" if ds == "colors-3" else f"{ds}-{v}"
+            sondeo_a += [write(skeleton_config(name, "dce-lcls-sel-collect", f), name, "dce-lcls-sel-collect", f) for f in COLLECT_FOLDS]
+            sondeo_a += [subset_v0(name), write(skeleton_config(name, "dce-lcls-sel-random", 0), name, "dce-lcls-sel-random", 0)]
+            sondeo_b.append(write(skeleton_config(name, "dce-lcls-sel", 0), name, "dce-lcls-sel", 0))
+            sondeo_ds.append(name)
+    warm = ["enzymes"] + [f"{ds}-rob" for ds in VARIANTS["rob"]]
+    cmd = ("G=lab/config/generate_minimize\n"
+           "W=$(for t in " + " ".join(warm) + "; do sbatch --parsable -p normal launchers/slurm_warm.sh $G/$t/dce/dce-lcls/generate_minimize0.jsonc; done | paste -sd:)\n"
+           "launchers/slurm_selector_arm.sh -p normal -m 10 -a $W docs/selector/PAPER_SONDEO_A.md docs/selector/PAPER_SONDEO_B.md " + " ".join(sondeo_ds))
+    (DOCS / "PAPER_SONDEO.md").write_text(
+        "# Selector paper: the sondeo, fold 0 of every dataset with every oracle\n\n"
+        f"{header} Datasets {', '.join(DATASETS)} with the first paper's oracle, the margin oracle (τ = {MARGIN}, also tri-40) and the "
+        f"robust one (edge perturbations {ROBUST}, not asd). colors-3 on 20 fixed fold-0 instances. bbbp's original-oracle fold 0 runs locally. "
+        "Queue A: collections of folds 1 and 2, bls_v0 and bls_v1 on fold 0; then the pretraining of the checkpoints on a compute node; "
+        "then queue B: selector_v1 on fold 0. Before A, one warm job per robust oracle (they are trained there) and ENZYMES' dataset and oracle. "
+        "On the server, after `launchers/server_sync.sh`:\n\n```bash\n" + cmd + "\n```\n\n"
+        f"Queue A: `PAPER_SONDEO_A.md` ({len(sondeo_a)} configs). Queue B: `PAPER_SONDEO_B.md` ({len(sondeo_b)} configs).\n")
+    (DOCS / "PAPER_SONDEO_A.md").write_text("# Sondeo, queue A: collections, bls_v0 and bls_v1 on fold 0 (see PAPER_SONDEO.md)\n\n"
+                                            + "\n".join(f"- [ ] {c}" for c in sondeo_a) + "\n")
+    (DOCS / "PAPER_SONDEO_B.md").write_text("# Sondeo, queue B: selector_v1 on fold 0, after the pretraining (see PAPER_SONDEO.md)\n\n"
+                                            + "\n".join(f"- [ ] {c}" for c in sondeo_b) + "\n")
     (DOCS / "PAPER_LOCAL_3.md").write_text(
         f"# Selector paper, local queue 3: fold 0 again after the generator fixes: {', '.join(LOCAL_TCR)} (collections, bls_v0, bls_v1, control) and {', '.join(LOCAL_REDO)} (collections, bls_v1)\n\n"
         f"{header} Run after `PAPER_LOCAL_2.md`: `python scripts/run_revision_queue.py --list docs/selector/PAPER_LOCAL_3.md --workers 1 --timeout 86400`, "
@@ -295,7 +385,7 @@ def main() -> int:
         "(bzr comes out of the local preliminary, enzymes from the server's warm job, `docs/rerun/README.md`, section 2) "
         "and their checkpoints.\n\n| Queue | Phase | Configs | Needs | Cells (dataset/generator/arm) |\n|---|---|---|---|---|\n"
         + "\n".join(index) + "\n")
-    print(f"local 1: {len(local1)}, local 2: {len(local2)}, local tcr: {len(local_tcr)}, server: S1 {len(s1)} + S2 {len(s2)} + S3 {len(s3)} in {n} queues")
+    print(f"sondeo: A {len(sondeo_a)} + B {len(sondeo_b)}; local 1: {len(local1)}, local 2: {len(local2)}, local 3: {len(local_tcr)}, server: S1 {len(s1)} + S2 {len(s2)} + S3 {len(s3)} in {n} queues")
     return 0
 
 

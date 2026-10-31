@@ -2,6 +2,19 @@
 
 Escrito el 2026-10-29, tras `docs/selector/ANALISIS_CONTROLES.md`. Es la lista completa de lo que hay que lanzar y en qué orden, y el mapa entre los nombres del paper y el código.
 
+## 0. Narrativa del paper (decidida el 2026-10-30)
+
+Los datasets del primer paper (proteins, asd, synthie, bbbp, aids, colors-3, bzr, enzymes; Tree-Cycles queda aparcado porque todos los métodos llegan al mínimo y no dice nada; ADHD también, sin oráculo que supere a la clase mayoritaria) y una tabla por oráculo, cada una con bls_v0, bls_v1, selector_v1 y, si sale bien, selector_v2:
+
+1. **El oráculo del primer paper.** bls_v0 sale del rerun de la tesis (`docs/rerun/`: mismo oráculo, mismas cachés y folds que el resto de la tabla; los números publicados del primer paper vienen de otras cachés, otros folds y del código anterior al arreglo de v0, así que se citan pero no se mezclan).
+2. **El oráculo con margen** (τ = 0.9, `<dataset>-m90`): todos los experimentos de nuevo. En asd no cambia nada (su oráculo es una regla con probabilidades 0 o 1) y en aids y colors-3 poco (oráculos saturados); la tabla lo dirá.
+3. **El oráculo robusto** (`<dataset>-rob`: el mismo GCN reentrenado con perturbaciones aleatorias de aristas, `edge_perturbation` {drop 0.1, add 0.1}): todos los experimentos de nuevo, salvo asd.
+4. **tri**, el sintético de triángulos, en varias configuraciones (tamaño, hueco entre clases, margen).
+
+Más ablaciones por decidir. Una tabla que no salga significativa se quita.
+
+Orden: primero el **sondeo** en el servidor (`docs/selector/PAPER_SONDEO.md`: fold 0 de cada dataset con cada oráculo, colecciones, bls_v0, bls_v1 y selector_v1), luego se diseña selector_v2 con todos esos datos y después se lanza la experimentación completa en el servidor. Las colas `PAPER_Q*` actuales son la tabla 1 sin selector_v2 y se regenerarán entonces.
+
 ## 1. Versiones
 
 | Nombre en el paper | Qué es | Código | Configs |
