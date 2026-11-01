@@ -1,0 +1,161 @@
+{
+  "scope": "paper-probes-matrix-10nodes",
+  "sample_limit": 5,
+  "num_nodes": 10,
+  "model_defaults": {
+    "engine": "vllm",
+    "dtype": "auto",
+    "temperature": 0.0,
+    "seed": 0,
+    "max_new_tokens": 2048,
+    "enable_thinking": false,
+    "gpu_memory_utilization": 0.75,
+    "max_model_len": 8192,
+    "max_num_seqs": 1,
+    "local_files_only": true
+  },
+  "slurm": {
+    "node": "compute-2-3",
+    "time": "04:00:00",
+    "mem": "96G",
+    "min_free_mb": 115000,
+    "max_wait": 1800
+  },
+  "generators": [
+    {
+      "id": "qwen3.5-2b",
+      "family": "qwen",
+      "parameters": {
+        "model": "Qwen/Qwen3.5-2B",
+        "revision": "15852e8c16360a2fea060d615a32b45270f8a8fc",
+        "limit_mm_per_prompt": {
+          "image": 0,
+          "video": 0
+        }
+      }
+    },
+    {
+      "id": "qwen3.5-4b",
+      "family": "qwen",
+      "parameters": {
+        "model": "Qwen/Qwen3.5-4B",
+        "revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+        "limit_mm_per_prompt": {
+          "image": 0,
+          "video": 0
+        }
+      }
+    },
+    {
+      "id": "qwen3.5-9b",
+      "family": "qwen",
+      "parameters": {
+        "model": "Qwen/Qwen3.5-9B",
+        "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+        "limit_mm_per_prompt": {
+          "image": 0,
+          "video": 0
+        }
+      }
+    },
+    {
+      "id": "qwen3.5-27b",
+      "family": "qwen",
+      "parameters": {
+        "model": "Qwen/Qwen3.5-27B",
+        "revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+        "limit_mm_per_prompt": {
+          "image": 0,
+          "video": 0
+        }
+      }
+    },
+    {
+      "id": "qwen3.8-27b",
+      "family": "qwen",
+      "parameters": {
+        "model": "Qwen/Qwen3.8-27B",
+        "revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+        "limit_mm_per_prompt": {
+          "image": 0,
+          "video": 0
+        }
+      }
+    },
+    {
+      "id": "gemma-4-31b-it",
+      "family": "gemma",
+      "parameters": {
+        "model": "google/gemma-4-31B-it",
+        "revision": "842da3794eaa0b77d5f08bae87a17459d91ff475",
+        "limit_mm_per_prompt": {
+          "image": 0,
+          "video": 0
+        }
+      }
+    }
+  ],
+  "judges": [
+    {
+      "id": "gpt-oss-20b",
+      "family": "gpt-oss",
+      "parameters": {
+        "model": "openai/gpt-oss-20b",
+        "revision": "6cee5e81ee83917806bbde320786a8fb61efebee",
+        "reasoning_effort": "low"
+      }
+    },
+    {
+      "id": "muse-glimmer-30b",
+      "family": "muse",
+      "parameters": {
+        "model": "meta-models/Muse-Glimmer-30B",
+        "revision": "a4e59da52a7bc87ae7251dd5545c0dd437c44b68",
+        "system_prefix": "Reasoning strength: low",
+        "limit_mm_per_prompt": {
+          "image": 0
+        },
+        "skip_special_tokens": false
+      }
+    },
+    {
+      "id": "glm-4.7-flash",
+      "family": "glm",
+      "parameters": {
+        "model": "zai-org/GLM-4.7-Flash",
+        "revision": "7dd20894a642a0aa287e9827cb1a1f7f91386b67"
+      }
+    }
+  ],
+  "probes": {
+    "reconstruction": {
+      "feature_match": "transition",
+      "conditions": [
+        {
+          "context": "on",
+          "mode": "dict"
+        }
+      ]
+    },
+    "reversal": {
+      "feature_match": "transition",
+      "conditions": [
+        {
+          "context": "on",
+          "mode": "dict"
+        }
+      ]
+    },
+    "recourse": {
+      "control": true,
+      "success": "target",
+      "preprocess": true,
+      "conditions": [
+        {
+          "context": "off",
+          "mode": "dict"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,35 @@
+// First integration pilot: ~5 held-out graphs; same general paper pipeline.
+// Node IDs explicitly use matrix positions, including DCE's selected seed.
+{
+  "experiment": {"scope": "paper-probes-pilot", "parameters": {"lock_release_tout": 120}},
+  "doe-triplets": [
+    {
+      "dataset": {
+        "class": "src.dataset.dataset_base.Dataset",
+        "parameters": {
+          "generator": {
+            "class": "src.dataset.generators.treecycles_seeded.TreeCyclesSeeded",
+            "parameters": {"num_instances": 50, "num_nodes_per_instance": 16, "ratio_nodes_in_cycles": 0.40, "seed": 0}
+          },
+          "n_splits": 10,
+          "compose_man": "lab/config/snippets/datasets/empty.json"
+        }
+      },
+      "oracle": {"class": "src.oracle.custom.oracle_tree_cycles.TreeCyclesOracle", "parameters": {"fold_id": -1, "retrain": false}},
+      "compose_dataset_info": "lab/config/snippets/dataset_infos/tcr-ablation-cycles.json",
+      "explainer": {
+        "class": "src.explainer.future.meta.generate_minimize.GenerateMinimize",
+        "parameters": {
+          "fold_id": 0,
+          "generator": {"class": "src.explainer.future.search.dces.DCESExplainer", "parameters": {}},
+          "minimizer": {
+            "class": "src.explainer.future.metaheuristic.local_search.local_search.LocalSearch",
+            "parameters": {"neigh_factor": 4, "runtime_factor": 4, "max_runtime": 20, "max_neigh": 20, "seed": 0, "attributed": false}
+          }
+        }
+      }
+    }
+  ],
+  "evaluator": {"class": "src.evaluation.future.evaluator.Evaluator", "parameters": {"compose_pip": "lab/config/snippets/paper_generation_pipeline.json"}},
+  "compose_strs": "lab/config/snippets/default_store_paths.json"
+}

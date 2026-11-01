@@ -1,0 +1,20 @@
+// Same independent judge for all three probes, over the AIDS + DCE pilot (hidden padding).
+// Sampling as recommended for gpt-oss: greedy decoding looped in reasoning.
+{
+  "experiment": {"scope": "paper-probes-aids-dce"},
+  "compose_strs": "lab/config/snippets/default_store_paths.json",
+  "judge_family": "gpt-oss",
+  "judge": {
+    "class": "src.LLMexplaneability.huggingface.HuggingFaceLLM",
+    "parameters": {
+      "model": "openai/gpt-oss-20b", "engine": "vllm", "temperature": 1.0, "top_p": 1.0,
+      "seed": 0, "max_new_tokens": 2048, "reasoning_effort": "low",
+      "gpu_memory_utilization": 0.3, "max_model_len": 16384
+    }
+  },
+  "probes": {
+    "reconstruction": {"feature_match": "transition", "conditions": [{"context": "on", "mode": "dict"}]},
+    "reversal": {"feature_match": "transition", "conditions": [{"context": "on", "mode": "dict"}]},
+    "recourse": {"control": true, "success": "target", "preprocess": true, "conditions": [{"context": "off", "mode": "dict"}]}
+  }
+}
