@@ -1,0 +1,19 @@
+// Second pass, shared inputs and external judge. --probe runs just one probe.
+{
+  "experiment": {"scope": "paper-probes-pilot"},
+  "compose_strs": "lab/config/snippets/default_store_paths.json",
+  "judge_family": "gpt-oss",
+  "judge": {
+    "class": "src.LLMexplaneability.huggingface.HuggingFaceLLM",
+    "parameters": {
+      "model": "openai/gpt-oss-20b", "engine": "vllm", "temperature": 0.0,
+      "seed": 0, "max_new_tokens": 2048, "reasoning_effort": "low",
+      "gpu_memory_utilization": 0.3, "max_model_len": 8192
+    }
+  },
+  "probes": {
+    "reconstruction": {"feature_match": "transition", "conditions": [{"context": "off", "mode": "dict"}]},
+    "reversal": {"feature_match": "transition", "conditions": [{"context": "off", "mode": "dict"}]},
+    "recourse": {"control": true, "success": "target", "preprocess": true, "conditions": [{"context": "off", "mode": "dict"}]}
+  }
+}
