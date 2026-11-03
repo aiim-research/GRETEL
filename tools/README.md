@@ -61,6 +61,33 @@ python tools/clear_stale_locks.py
 python tools/clear_stale_locks.py --apply
 ```
 
+### `resave_cache_cpu.py`
+Re-saves cached trained models (the oracles under `lab/data/cache/oracles`)
+with every tensor on the CPU. A model trained on a GPU is pickled with CUDA
+tensors and does not load on a machine without CUDA, and these caches are
+shared through git. It checks in a fresh process with CUDA hidden that each
+re-saved file loads with bit-identical weights, and leaves CPU files alone.
+Run it before committing a new oracle.
+
+```
+python tools/resave_cache_cpu.py
+python tools/resave_cache_cpu.py data/*/GAN-*     # the RSGG GANs
+```
+
+### `warm_caches.py`
+Builds what configs load from the caches (dataset with its folds, oracle,
+explainer artefacts such as DCM or the RSGG GANs) without running them, so they
+can be committed before the configs run in parallel: the dataset caches hold the
+random folds, and parallel jobs on the server would otherwise create their own.
+`--check` creates nothing and lists what each config would load, stopping at the
+first object that is missing. Run it with CUDA hidden, or re-save what it trained
+with `resave_cache_cpu.py`.
+
+```
+CUDA_VISIBLE_DEVICES="" python tools/warm_caches.py <config> [<config> ...]
+python tools/warm_caches.py --check <config> [<config> ...]
+```
+
 ### `check_configs_compose.py`
 Runs every configuration through the same `propagate(compose(...))` the
 framework runs at startup. Catches a malformed JSONC file, a `compose_*`

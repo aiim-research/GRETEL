@@ -43,7 +43,17 @@ class TUDataset(Generator):
         features_map = {f'attribute_{i}': i for i in range(num_node_feats)}
         self.dataset.node_features_map = features_map
 
-        for gid, g in enumerate(data):
+        # Optional ``max_nodes`` (read without being written into the config, so configs without it keep
+        # their hash): graphs with more nodes are left out. Every graph is padded to the largest one
+        # (AdjacencyMatrixPadder), so the tail of DD or REDDIT-BINARY (thousands of nodes) would not fit in
+        # memory. Ids stay consecutive, since the evaluator and the splits identify instances by position.
+        max_nodes = self.local_config['parameters'].get('max_nodes')
+        dropped = 0
+        for g in data:
+            if max_nodes is not None and g.num_nodes > max_nodes:
+                dropped += 1
+                continue
+            gid = len(self.dataset.instances)
             x = g.x if getattr(g, "x", None) is not None else torch.empty((g.num_nodes, 0))
             ei = g.edge_index  # [2, E]
 
@@ -72,3 +82,6 @@ class TUDataset(Generator):
                     edge_features=edge_np
                 )
             )
+        if max_nodes is not None:
+            self.context.logger.info(f"{self.dataset_name}: {dropped} of {len(data)} graphs have more than "
+                                     f"{max_nodes} nodes and are left out")

@@ -22,7 +22,8 @@ class ASD(Generator):
         #TODO pad node and edge features
         
     def read(self, path, label=0):
-        files = [f for f in listdir(path) if isfile(join(path, f))]
+        # sorted: the directory order depends on the file system, so it differed between machines
+        files = sorted(f for f in listdir(path) if isfile(join(path, f)))
         instance_id = len(self.dataset.instances)
         for filename in files:
             with open(join(path, filename), 'r') as f:

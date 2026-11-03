@@ -22,7 +22,7 @@ Idempotent and restart-safe:
 
 Outputs land where each config declares: ``lab/output/results/<scope>/``.
 Per-config subprocess stdout/stderr is mirrored to
-``lab/output/queue_logs/<scope>_fold<f>.log``.
+``lab/output/queue_logs/<dataset>/<generator>-<minimizer>/fold<f>.log`` (``result_paths.run_log``).
 
 Usage from the repo root::
 
@@ -61,6 +61,9 @@ LIST_PATH = REPO / "docs" / "revision" / "REVISION_EXECUTION_ORDER.md"
 RESULTS_ROOT = REPO / "lab" / "output" / "results"
 LOG_DIR = REPO / "lab" / "output" / "queue_logs"
 RUNNER_CHILD = REPO / "scripts" / "run_experiments.py"
+
+sys.path.insert(0, str(REPO / "scripts"))
+from result_paths import run_log  # noqa: E402
 
 TASK_RE = re.compile(r"^- \[(?P<mark>[ x])\] (?P<path>.+)$")
 FOLD_RE = re.compile(r"generate_minimize(\d+)\.jsonc$")
@@ -210,11 +213,12 @@ def _run_one(rel_cfg: str, scope: str, fold: int, run_number: int,
       * ``None``  -> ``CUDA_VISIBLE_DEVICES=""`` (force CPU)
       * ``int``   -> ``CUDA_VISIBLE_DEVICES="<id>"`` (pin to one GPU)
     """
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-    log_path = LOG_DIR / f"{scope}_fold{fold}.log"
+    log_path = run_log(scope, fold, LOG_DIR)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
 
     env = os.environ.copy()
     env["CUDA_VISIBLE_DEVICES"] = "" if gpu_id is None else str(gpu_id)
+    env["GRETEL_LOG_FILE"] = "off"  # the log above already has everything the framework logger prints
 
     t_start = time.time()
     with open(log_path, "w") as logf:
