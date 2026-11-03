@@ -40,7 +40,9 @@ class MolGenerator(Generator):
 
     def _read(self, path):
         data = pd.read_csv(path)
-        data = data.sample(frac=1.0).reset_index(drop=True)
+        # seeded (optional ``seed``, default 0, not written into the config): unseeded, every process saw
+        # another order, so the folds stored as positions in the dataset cache held other molecules each time
+        data = data.sample(frac=1.0, random_state=self.local_config["parameters"].get("seed", 0)).reset_index(drop=True)
         data_labels = data[self._data_label_name]
 
         skipped_molecules = 0
