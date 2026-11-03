@@ -7,7 +7,7 @@
         "class": "src.dataset.dataset_base.Dataset",
         "parameters": {
           "generator": {
-            "class": "src.dataset.generators.treecycles_seeded.TreeCyclesSeeded",
+            "class": "src.dataset.generators.treecycles_rand.TreeCyclesRand",
             "parameters": {"num_instances": 10, "num_nodes_per_instance": 10, "ratio_nodes_in_cycles": 0.40, "seed": 0}
           },
           "n_splits": 2,

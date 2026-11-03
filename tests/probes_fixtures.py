@@ -1,14 +1,26 @@
 """Explicitly scripted components for integration tests, never paper models."""
 import ast
 import json
+import types
 
 from src.core.configurable import Configurable
 from src.core.explainer_base import Explainer
 from src.core.llm_base import LLM
-from src.dataset.generators.treecycles_seeded import generate_tree_cycles
+from src.dataset.generators.treecycles_rand import TreeCyclesRand
 from src.dataset.instances.graph import GraphInstance
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.probe_graph import apply_edits
+
+
+def tree_cycles(num_instances, num_nodes, ratio, seed):
+    """(adjacency, label) pairs as TreeCyclesRand draws them, without a Dataset."""
+    generator = object.__new__(TreeCyclesRand)
+    generator.dataset = types.SimpleNamespace(instances=[])
+    generator.context = types.SimpleNamespace(logger=types.SimpleNamespace(info=lambda *a, **k: None))
+    generator.num_instances, generator.num_nodes_per_instance = num_instances, num_nodes
+    generator.ratio_nodes_in_cycles, generator.seed = ratio, seed
+    generator.generate_dataset()
+    return [(g.data, g.label) for g in generator.dataset.instances]
 
 
 def delta(added=(), removed=(), features=()):
@@ -26,7 +38,7 @@ class DatasetFixture(Configurable):
         self.domain = 'Undirected synthetic graphs. Class 1 means a cycle exists; class 0 means no cycles.'
         self.node_features_map = {}
         self.instances = [GraphInstance(i, label, adj, dataset=self)
-                          for i, (adj, label) in enumerate(generate_tree_cycles(50, 16, .4, 0))]
+                          for i, (adj, label) in enumerate(tree_cycles(50, 16, .4, 0))]
 
     def manipulate(self, instance):
         pass

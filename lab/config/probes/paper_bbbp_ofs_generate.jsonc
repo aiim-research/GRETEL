@@ -14,7 +14,7 @@
         "class": "src.dataset.dataset_base.Dataset",
         "parameters": {
           "generator": {
-            "class": "src.dataset.generators.mol_seeded.SeededMolGenerator",
+            "class": "src.dataset.generators.mol_gen.MolGenerator",
             "parameters": {"data_dir": "data/datasets/bbbp/", "data_file_name": "BBBP.csv", "data_label_name": "p_np", "seed": 0}
           },
           "n_splits": 40,

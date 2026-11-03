@@ -275,7 +275,7 @@ All under `lab/config/probes/`; each file's header describes its setup.
 | `paper_aids_dce_generate.jsonc` | `paper_aids_dce_judge.jsonc` | AIDS with the BBBP DCE setup and named feature columns |
 
 `lab/config/snippets/paper_generation_pipeline.json` is the first-pass
-pipeline (Qwen3-8B generator). The molecule configs use `SeededMolGenerator`,
+pipeline (Qwen3-8B generator). The molecule configs use `MolGenerator` (seeded shuffle),
 `OracleView` (drops bond features and SMILES, which the GCN oracles never
 read) and, for AIDS, `FeatureNames`.
 
@@ -288,7 +288,7 @@ python tests/reconstruction_probe_unit.py
 python tests/paper_probes_unit.py
 ```
 
-The last test runs five graphs from the real seeded TreeCycles generator
+The last test runs five graphs from the real TreeCyclesRand generator
 through real stages, saving/reloading, factories and TreeCyclesOracle. Its
 CF explainer and LLM replies are explicitly scripted test fixtures.
 On a machine lacking torch, `--light` isolates only the unused utils package

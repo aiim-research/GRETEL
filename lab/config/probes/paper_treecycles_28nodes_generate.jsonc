@@ -1,5 +1,5 @@
 // Baseline pilot: Tree-Cycles as in the LBS paper (tcr-500-28: 500 graphs,
-// 28 nodes, 25% of nodes in cycles), seeded for reproducibility, DCE + LBS
+// 28 nodes, 25% of nodes in cycles), deterministic (TreeCyclesRand, seed 0), DCE + LBS
 // with the paper's dce-lcls parameters. Stratified splits without shuffle:
 // fold 0 holds 50 held-out instances. The domain text states the cycle rule.
 {
@@ -10,7 +10,7 @@
         "class": "src.dataset.dataset_base.Dataset",
         "parameters": {
           "generator": {
-            "class": "src.dataset.generators.treecycles_seeded.TreeCyclesSeeded",
+            "class": "src.dataset.generators.treecycles_rand.TreeCyclesRand",
             "parameters": {"num_instances": 500, "num_nodes_per_instance": 28, "ratio_nodes_in_cycles": 0.25, "seed": 0}
           },
           "n_splits": 10,

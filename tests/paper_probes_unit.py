@@ -173,8 +173,7 @@ class GeneralContracts(unittest.TestCase):
 
     @unittest.skipUnless(importlib.util.find_spec('rdkit'), 'needs RDKit')
     def test_seeded_molecules_keep_their_order(self):
-        from src.dataset.generators.mol_gen import rdk_edge_features_map, rdk_node_features_map
-        from src.dataset.generators.mol_seeded import SeededMolGenerator
+        from src.dataset.generators.mol_gen import MolGenerator, rdk_edge_features_map, rdk_node_features_map
         with tempfile.TemporaryDirectory() as root:
             path = Path(root) / 'molecules.csv'
             path.write_text('smiles,y\nCCO,1\nc1ccccc1,0\nnot-a-smiles,1\nCC(=O)O,1\nCCN,0\n')
@@ -182,7 +181,7 @@ class GeneralContracts(unittest.TestCase):
             for _ in range(2):
                 dataset = types.SimpleNamespace(instances=[], node_features_map=rdk_node_features_map(),
                                                 edge_features_map=rdk_edge_features_map())
-                generator = object.__new__(SeededMolGenerator)
+                generator = object.__new__(MolGenerator)
                 generator.dataset, generator._data_label_name = dataset, 'y'
                 generator.local_config = {'parameters': {'seed': 0}}
                 generator._read(str(path))
@@ -939,7 +938,7 @@ if __name__ == '__main__':
         _, _, _, output, errors = integrated_run(OPTIONS.demo_output)
         Path(OPTIONS.demo_output, 'README.md').write_text(
             '# Feedback tecnico su cinque grafi TreeCycles\n\n'
-            'Dataset: generazione TreeCyclesSeeded (50 grafi, 16 nodi, seed 0); cinque grafi senza cicli. '
+            'Dataset: generazione TreeCyclesRand (50 grafi, 16 nodi, seed 0); cinque grafi senza cicli. '
             'Oracolo reale: TreeCyclesOracle di GRETEL. Counterfactual minimo: aggiunta di un solo arco.\n\n'
             'Generatore e giudice sono SCRIPTED: questi punteggi verificano il software, '
             'non sono risultati sperimentali o evidenza per il paper. La narrazione sintetica '
