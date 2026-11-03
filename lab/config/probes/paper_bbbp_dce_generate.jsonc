@@ -1,0 +1,65 @@
+// BBBP with the thesis setup as packaged (bbbp-no-attr/dce/dce-lcls): padding,
+// DCE + LocalSearch editing bonds only, the BBBP_GCN oracle architecture. The
+// probes hide the trailing padding nodes from every prompt and discard
+// counterfactuals that edit them (status padding_edit). OracleView drops what
+// the GCN never reads (bond features, SMILES/RDKit graph features); the seeded
+// molecule order and 40 splits without shuffle give the same 51 fold-0
+// molecules as the OFS pilot, with the oracle trained on the other folds.
+// Prompts may exceed 8192 tokens, so the generator context is 16384.
+{
+  "experiment": {"scope": "paper-probes-bbbp-dce", "parameters": {"lock_release_tout": 120}},
+  "doe-triplets": [
+    {
+      "dataset": {
+        "class": "src.dataset.dataset_base.Dataset",
+        "parameters": {
+          "generator": {
+            "class": "src.dataset.generators.mol_seeded.SeededMolGenerator",
+            "parameters": {"data_dir": "data/datasets/bbbp/", "data_file_name": "BBBP.csv", "data_label_name": "p_np", "seed": 0}
+          },
+          "n_splits": 40,
+          "shuffle": false,
+          "manipulators": [
+            {"class": "src.dataset.manipulators.padding.AdjacencyMatrixPadder", "parameters": {}},
+            {"class": "src.dataset.manipulators.oracle_view.OracleView", "parameters": {}}
+          ]
+        }
+      },
+      "oracle": {
+        "class": "src.oracle.nn.torch.OracleTorch",
+        "parameters": {
+          "fold_id": 0, "retrain": false, "epochs": 1000, "batch_size": 64,
+          "optimizer": {"class": "torch.optim.RMSprop", "parameters": {"lr": 0.001, "momentum": 0.5}},
+          "loss_fn": {"class": "torch.nn.CrossEntropyLoss", "parameters": {"reduction": "mean"}},
+          "model": {"class": "src.oracle.nn.gcn.DownstreamGCN",
+                    "parameters": {"num_conv_layers": 2, "num_dense_layers": 1, "conv_booster": 2, "linear_decay": 1.8}}
+        }
+      },
+      "compose_dataset_info": "lab/config/snippets/dataset_infos/bbbp.json",
+      "explainer": {
+        "class": "src.explainer.future.meta.generate_minimize.GenerateMinimize",
+        "parameters": {
+          "fold_id": 0,
+          "generator": {"class": "src.explainer.future.search.dces.DCESExplainer", "parameters": {}},
+          "minimizer": {
+            "class": "src.explainer.future.metaheuristic.local_search.local_search.LocalSearch",
+            "parameters": {"neigh_factor": 4, "runtime_factor": 4, "max_runtime": 20, "max_neigh": 20,
+                           "attributed": false, "seed": 0}
+          }
+        }
+      }
+    }
+  ],
+  "evaluator": {
+    "class": "src.evaluation.future.evaluator.Evaluator",
+    "parameters": {"pipeline": {"class": "src.evaluation.future.stages.main_pipeline.MainPipeline", "parameters": {"stages": [
+          {"class": "src.evaluation.future.stages.runtime.Runtime", "parameters": {}},
+          {"class": "src.evaluation.future.stages.correctness.Correctness", "parameters": {}},
+          {"class": "src.evaluation.future.stages.ged.GraphEditDistance", "parameters": {}},
+          {"class": "src.evaluation.future.stages.oracle_calls.OracleCalls", "parameters": {}},
+          {"class": "src.evaluation.future.stages.probe_narratives.ProbeNarratives", "parameters": {"node_matching": "position", "generator_family": "qwen", "generator": {"class": "src.LLMexplaneability.huggingface.HuggingFaceLLM", "parameters": {"model": "Qwen/Qwen3-8B", "engine": "vllm", "temperature": 0.0, "seed": 0, "max_new_tokens": 2048, "enable_thinking": false, "gpu_memory_utilization": 0.3, "max_model_len": 16384}}, "hide_padding": true}},
+          {"class": "src.evaluation.future.stages.probe_dump.ProbeDump", "parameters": {}}
+    ]}}}
+  },
+  "compose_strs": "lab/config/snippets/default_store_paths.json"
+}
