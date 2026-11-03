@@ -150,6 +150,7 @@ Qué esperar, por el régimen de intentos por eliminación conseguida medido en 
 
 ## 8. Pendiente
 
+- Hecho el 2026-11-03: el análisis de arquitectura sobre las 33 celdas del sondeo está en `ANALISIS_SONDEO.md`, que sustituye a la propuesta de la sección 6 (la propuesta A queda aparcada, v2 va por cabeza de valor y puntuador de bloques con umbrales offline).
 - Folds 5 a 9 de los controles: confirmar las secciones 3 y 4 con las 1113 instancias.
 - Brazo `uniform-fallback`: si rescata las dos instancias de LBS sin perder los 74 rescates del near-miss.
 - Brazo de LBS puro con nivel de una arista y parada (sección 5), para la ablación de la primera contribución.

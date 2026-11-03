@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Build every missing selector checkpoint of the paper matrix from the collections that exist.
 
-For each dataset of ``gen_selector_paper_matrix.py`` and each collection fold (1 and 2), when
-``lab/output/selector_pretrain/<dataset>_collect-f<c>.pt`` exists and
-``models/pretrained/edge_selector_sel-pre_<dataset>-f<c>.pt`` does not, runs
-``scripts/pretrain_selector_v3.py`` on it (the selector settings come from the dataset's selector_v1
-config) and writes the checkpoint with its report next to it. Idempotent: run it after every collection.
+For each cell of ``gen_selector_paper_matrix.py`` and each collection fold (1 and 2), when
+``lab/output/selector_pretrain/<cell>_<COLLECT_NAME>-f<c>.pt`` exists and
+``models/pretrained/<CKPT_PREFIX>_<cell>-f<c>.pt`` does not, runs ``scripts/pretrain_selector_v3.py`` on it
+(the selector settings come from the cell's selector_v1 config) and writes the checkpoint with its report
+next to it. Idempotent: run it after every collection. The first sondeo's checkpoints
+(``edge_selector_sel-pre_*``, from the ``_collect-f`` collections) are not touched.
 
-    python scripts/pretrain_selector_checkpoints.py [--datasets asd bbbp ...]
+    python scripts/pretrain_selector_checkpoints.py [--datasets bbbp-m70 tri-40 ...]
 """
 from __future__ import annotations
 
@@ -18,24 +19,24 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))
-from gen_selector_paper_matrix import COLLECT_FOLDS, DATASETS, SUBSETS  # noqa: E402
+from gen_selector_paper_matrix import CKPT_PREFIX, COLLECT_FOLDS, COLLECT_NAME, SEL1, cells  # noqa: E402
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--datasets", nargs="+", default=DATASETS + list(SUBSETS))
+    ap.add_argument("--datasets", nargs="+", default=cells())
     args = ap.parse_args()
     built, waiting = 0, []
     for ds in args.datasets:
         for c in COLLECT_FOLDS:
-            examples = REPO / f"lab/output/selector_pretrain/{ds}_collect-f{c}.pt"
-            out = REPO / f"models/pretrained/edge_selector_sel-pre_{ds}-f{c}.pt"
+            examples = REPO / f"lab/output/selector_pretrain/{ds}_{COLLECT_NAME}-f{c}.pt"
+            out = REPO / f"models/pretrained/{CKPT_PREFIX}_{ds}-f{c}.pt"
             if out.exists():
                 continue
             if not examples.exists():
                 waiting.append(f"{ds} fold {c}")
                 continue
-            config = REPO / f"lab/config/generate_minimize/{ds}-sel/dce/dce-lcls-sel/generate_minimize0.jsonc"
+            config = REPO / f"lab/config/generate_minimize/{ds}-sel/dce/{SEL1}/generate_minimize0.jsonc"
             print(f"== {ds}, collection of fold {c} -> {out.relative_to(REPO)}")
             subprocess.run([sys.executable, str(REPO / "scripts/pretrain_selector_v3.py"), "--examples", str(examples),
                             "--config", str(config), "--out", str(out), "--report", str(out.with_suffix(".json"))],

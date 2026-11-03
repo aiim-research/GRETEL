@@ -2,14 +2,16 @@
 
 Escrito el 2026-10-29, tras `docs/selector/ANALISIS_CONTROLES.md`. Es la lista completa de lo que hay que lanzar y en qué orden, y el mapa entre los nombres del paper y el código.
 
-## 0. Narrativa del paper (decidida el 2026-10-30)
+## 0. Narrativa del paper (decidida el 2026-10-30, ajustada el 2026-11-03 tras el sondeo)
+
+**Actualización 2026-11-03** (`ANALISIS_SONDEO.md`, decisiones del usuario): el margen de la tabla 2 baja a τ = 0.7 (`<dataset>-m70`; con 0.9 PROTEINS era irresoluble para todos los brazos). synthie, colors-3, enzymes y bzr se quedan como filas de "no hace daño" (empates con los tres oráculos), colors-3 siempre como su pseudo-dataset de 20 instancias por fold. Los brazos pasan a la generación 2 (`dce-lcls-v1`, `dce-lcls-sel-v1`, `dce-lcls-sel-v1-untrained`, `dce-lcls-collect2`): escalera de bloques apagada, fallback ciego con todo el presupuesto restante, un monitor por celda y colecciones con identificadores de aristas. Los brazos del primer sondeo y sus resultados se quedan como registro bajo sus nombres antiguos. selector_v2 se diseña según la sección 6 de `ANALISIS_SONDEO.md`.
 
 Los datasets del primer paper que admiten los tres oráculos: proteins, synthie, bbbp, aids, colors-3, bzr y enzymes. Aparcados (código y configs se quedan): Tree-Cycles (todos los métodos llegan al mínimo, no dice nada), ADHD (ningún oráculo supera a la clase mayoritaria) y ASD (su oráculo es una regla fija: ni el margen ni el reentrenamiento robusto tienen sentido).
 
 Una tabla por oráculo, cada una con bls_v0, bls_v1, selector_v1 y, si sale bien, selector_v2:
 
 1. **El oráculo del primer paper.** bls_v0 son los configs `dce-lcls-v0` de la matriz: el BLS del primer paper con el mismo oráculo, cachés, folds y presupuesto estricto que las demás columnas (el rerun de `docs/rerun/` reproduce las tablas del primer paper con sus propios ajustes; los números publicados vienen de otras cachés y otros folds, se citan pero no se mezclan).
-2. **El oráculo con margen** (τ = 0.9, `<dataset>-m90`): todos los experimentos de nuevo. En aids y colors-3 cambiará poco (oráculos saturados); la tabla lo dirá.
+2. **El oráculo con margen** (τ = 0.7 desde el 2026-11-03, `<dataset>-m70`; el sondeo con 0.9 está en `ANALISIS_SONDEO.md`): todos los experimentos de nuevo.
 3. **El oráculo robusto** (`<dataset>-rob`: el mismo GCN reentrenado con perturbaciones aleatorias de aristas, `edge_perturbation` {drop 0.1, add 0.1}): todos los experimentos de nuevo.
 
 Aparte, **tri**, el sintético de triángulos, con su propia tabla: varias configuraciones (tri-40: 40 nodos, clase 0 con 55 triángulos o menos y clase 1 con 78 o más; tri-40n: hueco estrecho, 62 y 70; tri-80: 80 nodos, 100 y 155), cada una con la regla exacta como referencia y los tres oráculos sobre una GCN que ve los triángulos de cada nodo (`<tri>-gcn`, `-gcn-m90`, `-gcn-rob`). Es el dataset para ablaciones y combinaciones.
@@ -23,11 +25,11 @@ Orden: primero el **sondeo** en el servidor (`docs/selector/PAPER_SONDEO.md`: fo
 | Nombre en el paper | Qué es | Código | Configs |
 |---|---|---|---|
 | bls_v0 | BLS del primer paper (aceptado) tal como su pseudocódigo lo describe: niveles de eliminación desde una arista (arreglo en el código, commit `3061c7c22`), parada tras la primera iteración externa sin mejora, las siete estrategias de atributos | `local_search.py` (y `local_search_var_1..4.py` para las variantes de la tesis y la revisión) | `<dataset>-sel/dce/dce-lcls-v0` y todo `docs/rerun/` |
-| bls_v1 | El esqueleto de búsqueda del selector con propuestas uniformes y sin red: barrido exhaustivo de aristas sueltas, sobrepaso geométrico con retroceso a la profundidad de v0, near-miss, parada tras una iteración sin mejora, tope local y cuotas por fase | `local_search_selection_net_v2.py` con `selector_mode: random` | `<dataset>-sel/dce/dce-lcls-sel-random` |
-| selector_v1 | bls_v1 guiado por el selector preentrenado y congelado (el "selector" de `ANALISIS_CONTROLES.md`) | `local_search_selection_net_v2.py` + `Tagging/OnlineSelectorV2.py`, `selector_mode: frozen` | `<dataset>-sel/dce/dce-lcls-sel` |
-| control sin entrenar | selector_v1 con la red sin entrenar | ídem, sin `init_checkpoint` | `<dataset>-sel/dce/dce-lcls-sel-untrained` |
+| bls_v1 | El esqueleto de búsqueda del selector con propuestas uniformes y sin red: barrido exhaustivo de aristas sueltas, sobrepaso geométrico con retroceso a la profundidad de v0 (con todo el presupuesto restante desde la generación 2), near-miss, parada tras una iteración sin mejora, tope local y cuotas por fase, sin escalera de bloques | `local_search_selection_net_v2.py` con `selector_mode: random` | `<celda>-sel/dce/dce-lcls-v1` (generación 2; el sondeo usó `dce-lcls-sel-random`) |
+| selector_v1 | bls_v1 guiado por el selector preentrenado y congelado (el "selector" de `ANALISIS_CONTROLES.md`) | `local_search_selection_net_v2.py` + `Tagging/OnlineSelectorV2.py`, `selector_mode: frozen` | `<celda>-sel/dce/dce-lcls-sel-v1` (el sondeo usó `dce-lcls-sel`) |
+| control sin entrenar | selector_v1 con la red sin entrenar | ídem, sin `init_checkpoint` | `<celda>-sel/dce/dce-lcls-sel-v1-untrained` |
 | selector_v1 con fallback uniforme | selector_v1 con bloques uniformes en el retroceso del sobrepaso | ídem, `overshoot_fallback_uniform` | `proteins-sel/dce/dce-lcls-sel-uniform-fallback` |
-| selector_v2 | La arquitectura nueva, por diseñar cuando termine el estudio de un fold en los otros datasets (sección 6 de `ANALISIS_CONTROLES.md`) | por escribir | por generar |
+| selector_v2 | selector_v1 con una cabeza de valor para el ranking de sueltas y un puntuador de bloques para el régimen atascado, sujeto a los umbrales offline de `ANALISIS_SONDEO.md` sección 6 | por escribir | `<celda>-sel/dce/dce-lcls-sel-v2`, por generar |
 | bls-selector_v0 | El selector de la tesis. Fuera del paper; el documento del doctorado lo menciona como versión preliminar | `local_search_selection_net.py` + `Tagging/OnlineSelector.py` | `*/dce-lcls-net*` (no se relanzan) |
 
 Los nombres de módulo (`_v2` es selector_v1) se renombran al final con `tools/move_module.py`, porque están en los hashes de los configs. Los números del primer paper se citan como referencia, no entran en las tablas: salieron de otras cachés y otros folds.
@@ -36,7 +38,7 @@ Los nombres de módulo (`_v2` es selector_v1) se renombran al final con `tools/m
 
 - Generador DCE en todo; `generator_cache` compartido por fold (DCE es determinista).
 - Diez folds, el test completo de cada uno, semilla 0, presupuesto 10 000 llamadas del minimizador. La excepción es el pseudo-dataset colors-3-s20 del preliminar local (sección 4.1), que fija 20 instancias del test.
-- Preentrenamiento sin fuga: dos checkpoints por dataset (`models/pretrained/edge_selector_sel-pre_<dataset>-f1.pt` para todos los folds menos el 1, `-f2.pt` para el fold 1), entrenados con las colecciones de los folds 1 y 2 (`dce-lcls-sel-collect`, uniforme, 2000 llamadas). PROTEINS conserva `edge_selector_v3-pre_PROTEINS.pt` (instancias del fold 0) en los folds 1 a 9 y usa `-f1` en el fold 0. `scripts/pretrain_selector_checkpoints.py` construye los que falten; los checkpoints se commitean.
+- Preentrenamiento sin fuga: dos checkpoints por celda (`models/pretrained/edge_selector_sel2-pre_<celda>-f1.pt` para todos los folds menos el 1, `-f2.pt` para el fold 1), entrenados con las colecciones de los folds 1 y 2 (`dce-lcls-collect2`, uniforme, 2000 llamadas, con identificadores de aristas). PROTEINS ya no tiene excepción. `scripts/pretrain_selector_checkpoints.py` construye los que falten; los checkpoints se commitean. Los del primer sondeo (`edge_selector_sel-pre_*`) se quedan.
 - Nada se edita en el servidor: configs y código se commitean aquí, el servidor hace `launchers/server_sync.sh` y lanza colas (`docs/selector/SERVER_RUNS.md`); los resultados vuelven con `make server-import`.
 
 ## 3. Estado de lo que ya existe (PROTEINS, 10 folds)
@@ -102,9 +104,14 @@ Brazo en el servidor (como el preliminar local): `PAPER_NEW_A.md` (colecciones d
 
 **Defecto encontrado en BBBP y ASD (2026-10-30).** El generador de moléculas (BBBP y HIV) barajaba el CSV sin semilla en cada carga: los folds, guardados como posiciones en la caché, contenían otras moléculas en cada proceso, y la caché del generador (por id) devolvía el contrafactual de otra molécula. ASD leía sus ficheros en el orden del sistema de archivos, estable en una máquina pero no entre máquinas. Arreglado (semilla 0 y orden alfabético, sin cambiar hashes), cachés de dataset de BBBP y ASD regeneradas con folds nuevos y retirado todo lo calculado con los folds viejos: resultados del fold 0 de bbbp y asd, sus colecciones y checkpoints, contrafactuales del generador y los medoides DCM (los de BBBP se reconstruyen en el servidor, `docs/rerun/README.md`, sección 2). bbbp se repite en local (`PAPER_LOCAL_3.md` y `PAPER_LOCAL_4.md`) y asd entero en el servidor (fase S1).
 
-### 4.6 Cuando exista selector_v2
+### 4.6 Después del sondeo (2026-11-03): sondeo 2, selector_v2 y la flota
 
-Un brazo `dce-lcls-sel-v2` por dataset, 10 folds, con el mismo generador de configs (añadir el brazo a `gen_selector_paper_matrix.py`), más su control sin entrenar si la arquitectura lo admite. Unos 200 configs.
+El análisis del sondeo y el plan de v2 están en `ANALISIS_SONDEO.md` (secciones 6 a 8). Resumen del orden:
+
+1. Sondeo 2 en el servidor (`PAPER_SONDEO.md`, regenerado): fold 0 de las 33 celdas con los brazos de la generación 2 y el margen 0.7, con las colecciones de los folds 1 y 2 (132 + 33 configs, un job de preentrenamiento entre medias). Sirve de verificación de la configuración (bls_v1 debe contener a bls_v0 en bbbp y aids con oráculos duros, selector_v1 recuperar tri-80-gcn) y de material offline para v2.
+2. Local, offline: las dos cabezas de v2 sobre las colecciones nuevas y sus umbrales (`ANALISIS_SONDEO.md` 6.3).
+3. Servidor: prueba en línea de v2 en 9 celdas del fold 0 (6.4).
+4. La flota (`PAPER_QUEUES.md`, 47 colas: S1 colecciones, bls_v0, bls_v1 y control, S2 selector_v1) más el brazo `dce-lcls-sel-v2` si pasa, 10 folds. Lo que el sondeo 2 ya produjo se salta.
 
 ## 5. Orden sugerido
 

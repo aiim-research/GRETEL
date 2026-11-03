@@ -175,6 +175,10 @@ class LocalSearch(ExplanationMinimizer):
         self.skip_swap = bool(p.get('skip_swap', False))
         self.init_checkpoint = p.get('init_checkpoint')
         self.collect_path = p.get('collect_examples')
+        # collect_ids (opt-in, with collect_examples): every collected example also carries the (u, v) pairs of
+        # its context and of its move, and the instance ends with a 'final' record (initial and final solution),
+        # so that offline studies can rebuild blocks and label each edit by whether it survives in the final cf.
+        self.collect_ids = bool(p.get('collect_ids', False))
         # overshoot: when a removal sweep finds nothing, try removing many edges at once, as plain LBS
         # does on every sweep (uniformly random blocks of increasing size, ``overshoot_trials`` per size).
         # Done once per search state, so retries never repeat it and the selector's stopping criterion
@@ -627,6 +631,9 @@ class LocalSearch(ExplanationMinimizer):
         added_edges = best - initial_solution
         self.logger.info(f"original: {len(initial_solution)}, final: {len(best)}, "
                          f"removed: {len(removed_edges)}, added: {len(added_edges)}")
+        if self.collect_path and self.collect_ids:
+            self.collected.append({"mode": "final", "instance": int(self.G.id), "size": len(best), "step": self.k,
+                                   "initial": self.id_to_uv(sorted(initial_solution)), "final": self.id_to_uv(sorted(best))})
 
         if self.learning:
             # end-of-run positives, each in its correct context
@@ -643,10 +650,14 @@ class LocalSearch(ExplanationMinimizer):
         if ex is not None:
             # evidence block from the moves evaluated before this one (the observation comes after)
             pairs = self.selector.last_example_pairs
-            self.collected.append({"mode": mode, "instance": int(self.G.id), "size": len(move),
-                                   "feats": ex.feats, "y": ex.y,
-                                   "evid": torch.as_tensor(self.selector.evidence_block(pairs)),
-                                   "step": self.k})
+            rec = {"mode": mode, "instance": int(self.G.id), "size": len(move),
+                   "feats": ex.feats, "y": ex.y,
+                   "evid": torch.as_tensor(self.selector.evidence_block(pairs)),
+                   "step": self.k}
+            if self.collect_ids:
+                rec["ctx"] = self.id_to_uv(sorted(sol_ctx))
+                rec["move"] = self.id_to_uv(sorted(move))
+            self.collected.append(rec)
 
     def _flush_collected(self) -> None:
         """Append this instance's examples to ``collect_examples`` (one torch file per run)."""
