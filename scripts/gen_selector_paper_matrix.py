@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
-"""The selector paper's experiment matrix: seven datasets with three oracles each plus the tri family,
+"""The selector paper's experiment matrix: seven datasets with two oracles each plus the tri family,
 ten folds, DCE, the arms below, and the collections that pretrain the selector without leakage.
+
+Final shape (user's decisions of 2026-11-03, after ``docs/selector/ANALISIS_SONDEO.md``): the paper is
+bls_v0, bls_v1, selector_v1 and the untrained control, no selector_v2; the robust oracle is out of the
+experiments (its code, trees and sondeo results stay); the margin oracle uses τ = 0.7. The server runs the
+fleet in batches sized by estimated hours (``HOURS``, from the sondeo), 10 jobs at a time, about two
+days each (``PAPER_FLOTA.md`` is the tutorial, ``PAPER_B<nn>.md`` the batches).
 
 Generation 2 of the arms (2026-11-03, after the sondeo, ``docs/selector/ANALISIS_SONDEO.md``): the block
 ladder is off and the blind fallback may spend the whole remaining budget (``KNOBS``), every monitor CSV
@@ -25,11 +31,11 @@ The skeleton arms take the minimizer settings of the PROTEINS study (the templat
 ``ARMS``), the cell's thesis config for everything else, and the flags that config sets about how the
 oracle is queried (``DATASET_FLAGS``).
 
-Cells (``cells()``): every dataset of ``DATASETS`` with the first paper's oracle (``<dataset>``), with a
-confidence margin around it (``<dataset>-m70``, MarginOracle) and retrained with random edge perturbations
-(``<dataset>-rob``); colors-3 always as its 20-instance pseudo-dataset (``colors-3<variant>-s20``, the
-evaluator's ``instance_ids``, hash-neutral, 40 instances on the collection folds); and tri (``TRI``), each
-configuration with its exact rule, a GCN, and the GCN with margin and robust (``TRI_EXPS``).
+Cells (``cells()``): every dataset of ``DATASETS`` with the first paper's oracle (``<dataset>``) and with a
+confidence margin around it (``<dataset>-m70``, MarginOracle); colors-3 always as its 20-instance
+pseudo-dataset (``colors-3<variant>-s20``, the evaluator's ``instance_ids``, hash-neutral, 40 instances on
+the collection folds); and tri (``TRI``), each configuration with its exact rule, a GCN, and the GCN with
+margin (``TRI_EXPS``).
 
 Pretraining without leakage: the checkpoint used on fold f must not have seen f's test instances, so each
 cell has two, trained on the collections of folds 1 and 2: ``<CKPT_PREFIX>_<cell>-f1.pt`` serves every fold
@@ -37,12 +43,12 @@ but fold 1, ``-f2.pt`` serves fold 1 (``scripts/pretrain_selector_checkpoints.py
 
 Queues (``docs/selector/PAPER_*.md``), in the order they can run (server, at most 10 jobs at a time):
 
-    PAPER_SONDEO.md    the tutorial of the sondeo: fold 0 of every cell. PAPER_SONDEO_A.md (collections of
-                       folds 1 and 2, bls_v0 and bls_v1 on fold 0), the pretraining job, PAPER_SONDEO_B.md
-                       (selector_v1 on fold 0). What already has results in git is skipped
-    PAPER_Q<nn>.md     the fleet, at most 30 configs each, every cell on every fold: S1 needs nothing
-                       (collections, v0, bls_v1, control), S2 needs the committed checkpoints (selector_v1)
-    PAPER_QUEUES.md    the index
+    PAPER_FLOTA.md     the tutorial: one batch at a time, the pretraining job after the first batch
+    PAPER_B<nn>.md     the batches, each about ``BATCH_HOURS`` job-hours (two days at 10 jobs): the
+                       collections first, then bls_v0, bls_v1 and the control cell by cell, then
+                       selector_v1 (which needs the committed checkpoints). What already has results in
+                       git is skipped by ``slurm_submit.sh``
+    PAPER_QUEUES.md    the index, with the estimated hours
 
     python scripts/gen_selector_paper_matrix.py
 """
@@ -63,27 +69,45 @@ DOCS = REPO / "docs/selector"
 # synthie, colors-3, enzymes and bzr are "no harm" rows (user's decision 2026-11-03): every arm reaches a
 # 1 to 3 edge counterfactual with every oracle, they stay in the tables to show the selector costs nothing.
 DATASETS = ["proteins", "synthie", "bbbp", "aids", "colors-3", "bzr", "enzymes"]
-SUBSETS = {"colors-3-s20": "colors-3", "colors-3-m70-s20": "colors-3-m70", "colors-3-rob-s20": "colors-3-rob"}   # pseudo-dataset -> dataset tree
+SUBSETS = {"colors-3-s20": "colors-3", "colors-3-m70-s20": "colors-3-m70"}   # pseudo-dataset -> dataset tree
 SUBSET_EVAL, SUBSET_COLLECT = 20, 40      # sampled test instances per fold: evaluation arms, collection arms
-# The three oracles of the paper's tables: the first paper's (the thesis trees), the same with a confidence
-# margin (MarginOracle, <dataset>-m70; τ = 0.9 made PROTEINS unsolvable, ANALISIS_SONDEO.md section 7) and
-# one retrained with random edge perturbations (OracleTorch edge_perturbation, <dataset>-rob).
+# The two oracles of the paper's tables: the first paper's (the thesis trees) and the same with a confidence
+# margin (MarginOracle, <dataset>-m70; τ = 0.9 made PROTEINS unsolvable, ANALISIS_SONDEO.md section 7).
+# The robust oracle (OracleTorch edge_perturbation, the <dataset>-rob trees) is out of the experiments since
+# 2026-11-03: it changed little except in bbbp. Its trees and sondeo results stay; set VARIANTS["rob"] to
+# bring it back.
 MARGIN = 0.7
 ROBUST = {"drop": 0.1, "add": 0.1}
-VARIANTS = {"m70": list(DATASETS), "rob": list(DATASETS)}
+VARIANTS = {"m70": list(DATASETS)}
 # tri, the triangle-threshold synthetic, has its own table: several configurations, each with the exact rule
-# as reference and the three oracles on a GCN (with each node's triangle count as a feature):
-# <tri>-gcn, <tri>-gcn-m70, <tri>-gcn-rob. All of one configuration share the dataset cache and folds.
+# as reference and the oracles on a GCN (with each node's triangle count as a feature): <tri>-gcn and
+# <tri>-gcn-m70. All of one configuration share the dataset cache and folds.
 TRI = {"tri-40": "TRI-500-40", "tri-40n": "TRI-500-40n", "tri-80": "TRI-500-80"}
-TRI_EXPS = [e for t in TRI for e in (t, f"{t}-gcn", f"{t}-gcn-m70", f"{t}-gcn-rob")]
-CACHE_PREFIX = {"colors-3": "COLORS-3", "colors-3-m70": "COLORS-3", "colors-3-rob": "COLORS-3"}   # dataset cache file prefix of each subset's tree
+TRI_EXPS = [e for t in TRI for e in (t, f"{t}-gcn", *(f"{t}-gcn-{v}" for v in VARIANTS))]
+CACHE_PREFIX = {"colors-3": "COLORS-3", "colors-3-m70": "COLORS-3"}   # dataset cache file prefix of each subset's tree
 N_FOLDS = {}       # datasets with fewer than 10 folds; none
 DATASET_FLAGS = ["attributed", "recompute_features", "neigh_factor", "runtime_factor", "max_runtime", "max_neigh"]
 SEVEN = ["identity", "average_smoothing", "weighted_smoothing", "laplacian_regularization", "feature_aggregation",
          "heat_kernel_diffusion", "random_walk_diffusion"]
 BUDGET, COLLECT_BUDGET, COLLECT_FOLDS = 10000, 2000, (1, 2)
 CACHE = "lab/data/cache/generator_outputs"
-QUEUE_SIZE = 30
+BATCH_HOURS = 420          # job-hours per batch: two days at 10 jobs with some slack for the longest jobs
+JOB_OVERHEAD_H = 0.3       # start-up of every job (environment, dataset and oracle load, generator cache)
+SKELETON_FACTOR = 1.5      # generation 2 lets the blind fallback spend the whole budget on stuck instances
+# Hours per config measured in the sondeo (fold 0, 2026-10-31; the Runtime metric summed over the
+# instances): (bls_v0, bls_v1, selector_v1, collection). The m70 cells take the larger of the original and
+# the m90 cell; bbbp's v0 the m90 one; colors-3 the DCE scan of its 20 instances, paid by the first job of
+# each fold. The untrained control counts as bls_v1.
+HOURS = {"proteins": (3.1, 4.2, 5.5, 0.95), "proteins-m70": (4.6, 4.2, 6.3, 1.2),
+         "synthie": (0.09, 0.06, 0.12, 0.04), "synthie-m70": (0.16, 0.11, 0.30, 0.09),
+         "bbbp": (1.5, 0.33, 0.41, 0.40), "bbbp-m70": (1.5, 1.35, 3.22, 0.86),
+         "aids": (1.5, 0.89, 0.77, 0.46), "aids-m70": (1.5, 1.17, 3.17, 0.85),
+         "bzr": (0.07, 0.03, 0.03, 0.02), "bzr-m70": (0.08, 0.06, 0.07, 0.04),
+         "enzymes": (0.13, 0.09, 0.23, 0.08), "enzymes-m70": (0.14, 0.11, 0.15, 0.09),
+         "colors-3-s20": (0.9, 0.9, 0.9, 0.9), "colors-3-m70-s20": (0.9, 0.9, 0.9, 0.9),
+         "tri-40": (0.01, 0.01, 0.03, 0.06), "tri-40-gcn": (0.03, 0.02, 0.06, 0.06), "tri-40-gcn-m70": (0.04, 0.03, 0.04, 0.09),
+         "tri-40n": (0.01, 0.01, 0.02, 0.04), "tri-40n-gcn": (0.02, 0.01, 0.02, 0.05), "tri-40n-gcn-m70": (0.03, 0.02, 0.05, 0.07),
+         "tri-80": (0.02, 0.03, 0.13, 0.13), "tri-80-gcn": (0.10, 0.08, 0.30, 0.15), "tri-80-gcn-m70": (0.10, 0.09, 0.14, 0.16)}
 # Generation 2 of the skeleton arms: name -> (template arm in proteins-sel/dce, monitor tag)
 Arm = namedtuple("Arm", "template tag")
 V0, V1, SEL1, UNT1, COLL = "dce-lcls-v0", "dce-lcls-v1", "dce-lcls-sel-v1", "dce-lcls-sel-v1-untrained", "dce-lcls-collect2"
@@ -100,9 +124,15 @@ CKPT_PREFIX = "edge_selector_sel2-pre"     # models/pretrained/edge_selector_sel
 def cells() -> list[str]:
     out = []
     for ds in DATASETS:
-        for v in ("", "-m70", "-rob"):
+        for v in ("", *(f"-{v}" for v in VARIANTS)):
             out.append(f"colors-3{v}-s20" if ds == "colors-3" else f"{ds}{v}")
     return out + list(TRI_EXPS)
+
+
+def est_hours(ds: str, arm: str) -> float:
+    v0, v1, sel, coll = HOURS[ds]
+    base = {V0: v0, V1: v1 * SKELETON_FACTOR, UNT1: v1 * SKELETON_FACTOR, SEL1: sel * SKELETON_FACTOR, COLL: coll}[arm]
+    return base + JOB_OVERHEAD_H
 
 
 def base(ds: str) -> str:
@@ -255,71 +285,88 @@ def main() -> int:
     for t in TRI:
         for v in VARIANTS:
             make_variant(f"{t}-gcn", v)
-    sondeo_a, sondeo_b, s1, s2 = [], [], [], []
     all_cells = cells()
+    first, rest, last = [], [], []        # (config, hours): collections; v0, v1, control; selector_v1
     for ds in all_cells:
-        v0 = {f: write(v0_config(ds, f), ds, V0, f) for f in folds(ds)}
-        coll = {f: write(skeleton_config(ds, COLL, f), ds, COLL, f) for f in COLLECT_FOLDS}
-        v1 = {f: write(skeleton_config(ds, V1, f), ds, V1, f) for f in folds(ds)}
-        unt = {f: write(skeleton_config(ds, UNT1, f), ds, UNT1, f) for f in folds(ds)}
-        sel = {f: write(skeleton_config(ds, SEL1, f), ds, SEL1, f) for f in folds(ds)}
-        sondeo_a += [coll[1], coll[2], v0[0], v1[0]]
-        sondeo_b.append(sel[0])
-        s1 += list(coll.values()) + list(v0.values()) + list(v1.values()) + list(unt.values())
-        s2 += list(sel.values())
-
-    header = "Generated by `scripts/gen_selector_paper_matrix.py` (its docstring gives the arms and the order)."
-    steps = (
-        "Rule: on the server only Slurm jobs compute (nothing heavy on the login node), and at most 10 jobs at a time. "
-        "Each step starts once `squeue -u $USER` shows nothing left of the previous one. No cache job is needed: the "
-        "margin oracles wrap the committed base oracles, and the robust ones are committed.\n\n"
-        "**Step 0. Sync** (only git and the pinned environment):\n\n```bash\ncd ~/projects/GRETEL\nlaunchers/server_sync.sh\n"
-        "conda activate GRTL\n```\n\n"
-        f"**Step 1. Queue A**: the collections of folds 1 and 2, bls_v0 and bls_v1 on fold 0 ({len(sondeo_a)} configs, 10 at a time; "
-        "the bls_v0 configs that already have results are skipped):\n\n"
-        "```bash\nlaunchers/slurm_submit.sh -p normal -m 10 docs/selector/PAPER_SONDEO_A.md\nsqueue -u $USER\n"
-        "grep -lE \"exit status [1-9]|Traceback\" output/logs/*/*/*_<job>_*.out     # <job>: the array job number slurm_submit printed\n```\n\n"
-        "A queue that ends with failures can be submitted again as it is: finished configs are skipped.\n\n"
-        "**Step 2. Pretraining** of the selector checkpoints from those collections (1 job, both folds of every cell):\n\n"
-        "```bash\nsbatch -p normal launchers/slurm_pretrain.sh " + " ".join(all_cells) + "\nsqueue -u $USER\ntail output/slurm/pretrain_<job>.out     # ends with: built N checkpoint(s); collections still missing: none\n```\n\n"
-        f"**Step 3. Queue B**: selector_v1 on fold 0 ({len(sondeo_b)} configs):\n\n"
-        "```bash\nlaunchers/slurm_submit.sh -p normal -m 10 docs/selector/PAPER_SONDEO_B.md\nsqueue -u $USER\n```\n\n"
-        "**Step 4. Back home** (local machine): `make server-import`, then commit the results, logs, checkpoints and new caches, "
-        "and `python scripts/sondeo_summary.py` for the table.\n")
-    (DOCS / "PAPER_SONDEO.md").write_text(
-        "# Selector paper: the sondeo (generation 2 of the arms), fold 0 of every cell\n\n"
-        f"{header} Datasets {', '.join(DATASETS)} with the first paper's oracle, the margin oracle (τ = {MARGIN}) and the "
-        f"robust one (edge perturbations {ROBUST}); and tri ({', '.join(TRI)}) with its exact rule and the three oracles on a GCN. "
-        f"colors-3 on {SUBSET_EVAL} fixed instances per fold ({SUBSET_COLLECT} on the collection folds). "
-        "The arms carry the configuration decided after the first sondeo (`ANALISIS_SONDEO.md`, section 5) and new names, so "
-        "everything but bls_v0 runs again; the first sondeo's results stay under their old scopes. "
-        "What already has results in git is skipped.\n\n" + steps)
-    (DOCS / "PAPER_SONDEO_A.md").write_text("# Sondeo, queue A: collections (folds 1 and 2), bls_v0 and bls_v1 on fold 0 (see PAPER_SONDEO.md)\n\n"
-                                            + "\n".join(f"- [ ] {c}" for c in sondeo_a) + "\n")
-    (DOCS / "PAPER_SONDEO_B.md").write_text("# Sondeo, queue B: selector_v1 on fold 0, after the pretraining (see PAPER_SONDEO.md)\n\n"
-                                            + "\n".join(f"- [ ] {c}" for c in sondeo_b) + "\n")
-    for old in DOCS.glob("PAPER_Q*.md"):
+        first += [(write(skeleton_config(ds, COLL, f), ds, COLL, f), est_hours(ds, COLL)) for f in COLLECT_FOLDS]
+        for arm in (V0, V1, UNT1):
+            rest += [(write(v0_config(ds, f) if arm == V0 else skeleton_config(ds, arm, f), ds, arm, f), est_hours(ds, arm)) for f in folds(ds)]
+        last += [(write(skeleton_config(ds, SEL1, f), ds, SEL1, f), est_hours(ds, SEL1)) for f in folds(ds)]
+    done = {c for c, _ in first + rest + last if _results_exist(c)}
+    batches, cur, cur_h = [], [], 0.0
+    for c, h in first + rest + last:
+        if c in done:
+            continue
+        if cur and cur_h + h > BATCH_HOURS:
+            batches.append((cur, cur_h)); cur, cur_h = [], 0.0
+        cur.append(c); cur_h += h
+    if cur:
+        batches.append((cur, cur_h))
+    sel_batch = next((i for i, (b, _) in enumerate(batches, 1) if any(f"/{SEL1}/" in c for c in b)), None)
+    for old in list(DOCS.glob("PAPER_Q*.md")) + list(DOCS.glob("PAPER_B*.md")) + list(DOCS.glob("PAPER_SONDEO*.md")):
         old.unlink()
-    index, n = [], 0
-    for phase, cfgs, needs in (("S1", s1, ""), ("S2", s2, "committed checkpoints")):
-        for i in range(0, len(cfgs), QUEUE_SIZE):
-            n += 1
-            chunk = cfgs[i:i + QUEUE_SIZE]
-            name = f"PAPER_Q{n:02d}.md"
-            (DOCS / name).write_text(f"# Selector paper, server queue {n:02d} (phase {phase}{', needs ' + needs if needs else ''})\n\n"
-                                     f"{header} `launchers/slurm_submit.sh -p normal -m 10 docs/selector/{name}`.\n\n"
-                                     + "\n".join(f"- [ ] {c}" for c in chunk) + "\n")
-            cs = sorted({"/".join(c.split("/")[3:6]) for c in chunk})
-            index.append(f"| `{name}` | {phase} | {len(chunk)} | {needs} | {', '.join(f'`{c}`' for c in cs)} |")
+    header = "Generated by `scripts/gen_selector_paper_matrix.py` (its docstring gives the arms and the order)."
+    index = []
+    for i, (b, h) in enumerate(batches, 1):
+        name = f"PAPER_B{i:02d}.md"
+        arms = sorted({c.split("/")[5] for c in b})
+        needs = "the committed checkpoints" if any(f"/{SEL1}/" in c for c in b) else ""
+        (DOCS / name).write_text(f"# Selector paper, batch {i:02d}: about {h:.0f} job-hours, {h / 10 / 24:.1f} days at 10 jobs{', needs ' + needs if needs else ''}\n\n"
+                                 f"{header} `launchers/slurm_submit.sh -p normal -m 10 docs/selector/{name}`.\n\n"
+                                 + "\n".join(f"- [ ] {c}" for c in b) + "\n")
+        cs = sorted({c.split("/")[3] for c in b})
+        index.append(f"| `{name}` | {len(b)} | {h:.0f} | {h / 10 / 24:.1f} | {needs} | {', '.join(arms)} | {', '.join(cs)} |")
+    total = sum(h for _, h in batches)
     (DOCS / "PAPER_QUEUES.md").write_text(
-        "# Selector paper: server queues (the fleet)\n\nGenerated by `scripts/gen_selector_paper_matrix.py`, in submission order, one at a time "
-        "(`launchers/slurm_submit.sh -p normal -m 10 <queue>`). Every cell on every fold; what the sondeo (`PAPER_SONDEO.md`) "
-        "already produced is skipped once committed. S1 needs nothing; S2 needs the checkpoints of both collection folds "
-        "(`scripts/pretrain_selector_checkpoints.py`) committed and synced. The selector_v2 arm is added here once it exists "
-        "(`ANALISIS_SONDEO.md`, section 6).\n\n| Queue | Phase | Configs | Needs | Cells (dataset/generator/arm) |\n|---|---|---|---|---|\n"
-        + "\n".join(index) + "\n")
-    print(f"{len(all_cells)} cells; sondeo: A {len(sondeo_a)} + B {len(sondeo_b)}; fleet: S1 {len(s1)} + S2 {len(s2)} in {n} queues")
+        "# Selector paper: the server batches\n\nGenerated by `scripts/gen_selector_paper_matrix.py`; the tutorial is `PAPER_FLOTA.md`. "
+        f"{len(all_cells)} cells, every fold, {sum(len(b) for b, _ in batches)} configs still to run ({len(done)} already have results), "
+        f"about {total:.0f} job-hours, {total / 10 / 24:.1f} days at 10 jobs. Hours are the sondeo's per-config times (`HOURS`), "
+        f"times {SKELETON_FACTOR} for the skeleton arms, plus {JOB_OVERHEAD_H} h per job.\n\n"
+        "| Batch | Configs | Job-hours | Days at 10 | Needs | Arms | Cells |\n|---|---|---|---|---|---|---|\n" + "\n".join(index) + "\n")
+    steps = [
+        "Rule: on the server only Slurm jobs compute (nothing heavy on the login node), and at most 10 jobs at a time. "
+        "Every batch is one job array throttled to 10 tasks: Slurm starts the next task as soon as one ends, so a batch "
+        "needs no attention until `squeue -u $USER` is empty. A batch that ends with failed tasks is submitted again as it is: "
+        "finished configs are skipped. No cache job is needed: the margin oracles wrap the committed base oracles.\n",
+        "**Step 0. Sync** (only git and the pinned environment):\n\n```bash\ncd ~/projects/GRETEL\nlaunchers/server_sync.sh\nconda activate GRTL\n```\n",
+        f"**Step 1. Batch 1** ({len(batches[0][0])} configs, about {batches[0][1] / 10 / 24:.1f} days): the collections of folds 1 and 2 of every cell, "
+        "then bls_v0, bls_v1 and the untrained control cell by cell:\n\n```bash\nlaunchers/slurm_submit.sh -p normal -m 10 docs/selector/PAPER_B01.md\n"
+        "squeue -u $USER                                                        # empty: the batch is over\n"
+        "grep -lE \"exit status [1-9]|Traceback\" output/logs/*/*/*_<job>_*.out     # <job>: the array number slurm_submit printed; failed tasks, if any\n```\n",
+        "**Step 2. Pretraining** (1 job, both collection folds of every cell, about an hour), as soon as batch 1 is over:\n\n"
+        "```bash\nsbatch -p normal launchers/slurm_pretrain.sh " + " ".join(all_cells) + "\nsqueue -u $USER\n"
+        "tail -1 output/slurm/pretrain_<job>.out     # built 46 checkpoint(s); collections still missing: none\n```\n\n"
+        "Then on the local machine, so that every clone has the checkpoints and the results so far:\n\n"
+        "```bash\nmake server-import\ngit add lab/output/results lab/output/queue_logs lab/output/selector_logs models/pretrained && git commit -m \"Selector paper: batch 1 and the checkpoints\" && git push\n```\n\n"
+        "and on the server `launchers/server_sync.sh` again.\n",
+    ]
+    for i, (b, h) in enumerate(batches[1:], 2):
+        steps.append(f"**Step {i + 1}. Batch {i}** ({len(b)} configs, about {h / 10 / 24:.1f} days"
+                     + (", selector_v1 starts here: it needs the checkpoints of step 2 synced" if i == sel_batch else "") + "):\n\n"
+                     f"```bash\nlaunchers/slurm_submit.sh -p normal -m 10 docs/selector/PAPER_B{i:02d}.md\nsqueue -u $USER\n```\n")
+    steps.append("**Last step. Back home** after every batch, or at the end: `make server-import`, commit the results and logs "
+                 "(`git add lab/output/results lab/output/queue_logs lab/output/selector_logs`), and the tables: "
+                 "`python scripts/sondeo_summary.py --gen 2 --fold <f>` gives one row per cell for one fold, "
+                 "`scripts/analyze_selector_arms.py --arms v0=<cell>-sel_dce_lcls-v0 v1=<cell>-sel_dce_lcls-v1 sel=<cell>-sel_dce_lcls-sel-v1 "
+                 "untrained=<cell>-sel_dce_lcls-sel-v1-untrained --monitor sel=sel-v1-<cell> untrained=sel-v1-untrained-<cell> v1=v1-<cell> "
+                 "--dataset <dataset cache name> --folds 0 1 2 3 4 5 6 7 8 9` the full study of one cell.\n")
+    (DOCS / "PAPER_FLOTA.md").write_text(
+        "# Selector paper: running every experiment on the server\n\n"
+        f"{header} The paper's arms are bls_v0, bls_v1, selector_v1 and the untrained control on {len(all_cells)} cells "
+        f"({', '.join(DATASETS)} with the first paper's oracle and with the margin oracle τ = {MARGIN}, colors-3 on {SUBSET_EVAL} fixed "
+        f"instances per fold, and tri: {', '.join(TRI)} with the exact rule, a GCN and the GCN with margin), ten folds, "
+        f"10 000 calls. {sum(len(b) for b, _ in batches)} configs in {len(batches)} batches (`PAPER_QUEUES.md`), one batch at a time.\n\n"
+        + "\n".join(steps))
+    print(f"{len(all_cells)} cells; {len(done)} configs with results; {len(batches)} batches: "
+          + ", ".join(f"B{i:02d} {len(b)} cfg {h:.0f} h" for i, (b, h) in enumerate(batches, 1)) + f"; selector_v1 from batch {sel_batch}")
     return 0
+
+
+def _results_exist(rel_cfg: str) -> bool:
+    conf = json.load(open(REPO / rel_cfg))
+    scope, fold = conf["experiment"]["scope"], re.search(r"generate_minimize(\d+)\.jsonc$", rel_cfg).group(1)
+    root = REPO / "lab/output/results" / scope
+    return root.is_dir() and any(root.rglob(f"results_{fold}_1.json"))
 
 
 if __name__ == "__main__":

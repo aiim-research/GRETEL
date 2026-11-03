@@ -4,7 +4,7 @@ Escrito el 2026-10-29, tras `docs/selector/ANALISIS_CONTROLES.md`. Es la lista c
 
 ## 0. Narrativa del paper (decidida el 2026-10-30, ajustada el 2026-11-03 tras el sondeo)
 
-**Actualización 2026-11-03** (`ANALISIS_SONDEO.md`, decisiones del usuario): el margen de la tabla 2 baja a τ = 0.7 (`<dataset>-m70`; con 0.9 PROTEINS era irresoluble para todos los brazos). synthie, colors-3, enzymes y bzr se quedan como filas de "no hace daño" (empates con los tres oráculos), colors-3 siempre como su pseudo-dataset de 20 instancias por fold. Los brazos pasan a la generación 2 (`dce-lcls-v1`, `dce-lcls-sel-v1`, `dce-lcls-sel-v1-untrained`, `dce-lcls-collect2`): escalera de bloques apagada, fallback ciego con todo el presupuesto restante, un monitor por celda y colecciones con identificadores de aristas. Los brazos del primer sondeo y sus resultados se quedan como registro bajo sus nombres antiguos. selector_v2 se diseña según la sección 6 de `ANALISIS_SONDEO.md`.
+**Actualización 2026-11-03** (`ANALISIS_SONDEO.md`, decisiones del usuario): el paper es bls_v0, bls_v1, selector_v1 y el control sin entrenar, sin selector_v2 (en PROTEINS, folds 1 a 9, el entrenamiento está demostrado sin fuga; la flota lo extiende a las demás celdas). El oráculo robusto sale de los experimentos (su código, árboles `<dataset>-rob` y resultados del sondeo se quedan). El margen de la tabla 2 baja a τ = 0.7 (`<dataset>-m70`; con 0.9 PROTEINS era irresoluble). synthie, colors-3, enzymes y bzr se quedan como filas de "no hace daño" (empates con los dos oráculos), colors-3 siempre como su pseudo-dataset de 20 instancias por fold. Los brazos pasan a la generación 2 (`dce-lcls-v1`, `dce-lcls-sel-v1`, `dce-lcls-sel-v1-untrained`, `dce-lcls-collect2`): escalera de bloques apagada, fallback ciego con todo el presupuesto restante, un monitor por celda y colecciones con identificadores de aristas. Los brazos del primer sondeo y sus resultados se quedan como registro bajo sus nombres antiguos. La flota va en tres batches de unos dos días (`PAPER_FLOTA.md`).
 
 Los datasets del primer paper que admiten los tres oráculos: proteins, synthie, bbbp, aids, colors-3, bzr y enzymes. Aparcados (código y configs se quedan): Tree-Cycles (todos los métodos llegan al mínimo, no dice nada), ADHD (ningún oráculo supera a la clase mayoritaria) y ASD (su oráculo es una regla fija: ni el margen ni el reentrenamiento robusto tienen sentido).
 
@@ -104,14 +104,9 @@ Brazo en el servidor (como el preliminar local): `PAPER_NEW_A.md` (colecciones d
 
 **Defecto encontrado en BBBP y ASD (2026-10-30).** El generador de moléculas (BBBP y HIV) barajaba el CSV sin semilla en cada carga: los folds, guardados como posiciones en la caché, contenían otras moléculas en cada proceso, y la caché del generador (por id) devolvía el contrafactual de otra molécula. ASD leía sus ficheros en el orden del sistema de archivos, estable en una máquina pero no entre máquinas. Arreglado (semilla 0 y orden alfabético, sin cambiar hashes), cachés de dataset de BBBP y ASD regeneradas con folds nuevos y retirado todo lo calculado con los folds viejos: resultados del fold 0 de bbbp y asd, sus colecciones y checkpoints, contrafactuales del generador y los medoides DCM (los de BBBP se reconstruyen en el servidor, `docs/rerun/README.md`, sección 2). bbbp se repite en local (`PAPER_LOCAL_3.md` y `PAPER_LOCAL_4.md`) y asd entero en el servidor (fase S1).
 
-### 4.6 Después del sondeo (2026-11-03): sondeo 2, selector_v2 y la flota
+### 4.6 Después del sondeo (2026-11-03): la flota
 
-El análisis del sondeo y el plan de v2 están en `ANALISIS_SONDEO.md` (secciones 6 a 8). Resumen del orden:
-
-1. Sondeo 2 en el servidor (`PAPER_SONDEO.md`, regenerado): fold 0 de las 33 celdas con los brazos de la generación 2 y el margen 0.7, con las colecciones de los folds 1 y 2 (132 + 33 configs, un job de preentrenamiento entre medias). Sirve de verificación de la configuración (bls_v1 debe contener a bls_v0 en bbbp y aids con oráculos duros, selector_v1 recuperar tri-80-gcn) y de material offline para v2.
-2. Local, offline: las dos cabezas de v2 sobre las colecciones nuevas y sus umbrales (`ANALISIS_SONDEO.md` 6.3).
-3. Servidor: prueba en línea de v2 en 9 celdas del fold 0 (6.4).
-4. La flota (`PAPER_QUEUES.md`, 47 colas: S1 colecciones, bls_v0, bls_v1 y control, S2 selector_v1) más el brazo `dce-lcls-sel-v2` si pasa, 10 folds. Lo que el sondeo 2 ya produjo se salta.
+El análisis del sondeo está en `ANALISIS_SONDEO.md`. Con selector_v1 como versión final, la flota es todo lo que queda: `PAPER_FLOTA.md` (tutorial) y `PAPER_B01.md` a `PAPER_B03.md` (batches de unos 420 job-hours, 1.7 días a 10 jobs cada uno, índice en `PAPER_QUEUES.md`): batch 1 con las colecciones y bls_v0, bls_v1 y el control, el job de preentrenamiento, batch 2 con el resto de esos brazos, batch 3 con selector_v1. Lo que ya tiene resultados se salta.
 
 ## 5. Orden sugerido
 
