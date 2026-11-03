@@ -134,22 +134,28 @@ dmypy.json
 data/*
 data/cache*
 data/working*
+# Except the RSGG GANs, trained models stored in data/<dataset>/GAN-* (their store path falls back to
+# data/): shared like the oracles, or RSGG starts from different GANs on every clone.
+!data/*/
+data/*/*
+!data/*/GAN-*
+data/*/*.lck*
 lab/data/cache*
 
-# Keep the small trained-artifact pickles in the repo: DCM medoids,
-# LST node-attribute method scores, and the upcoming hyperparameters cache.
-# Walk back the negation through every level (gitignore won't re-include a file
-# inside an ignored directory), then explicitly re-ignore siblings we don't
-# want tracked (the big dataset/oracle caches, lock files, anything else).
+# Shared caches (see docs/reproducing-experiments.md, section 4): the dataset caches (they hold the random fold splits),
+# the trained oracles (re-saved on the CPU, tools/resave_cache_cpu.py) and the small trained explainer
+# artifacts (DCM medoids, LST node-attribute method scores, hyperparameters). Every clone must use the
+# same ones, or results stop being comparable. Walk back the negation through every level (gitignore
+# won't re-include a file inside an ignored directory), then re-ignore what stays local.
 !lab/data/
 !lab/data/cache/
+!lab/data/cache/datasets/
+!lab/data/cache/oracles/
+!lab/data/cache/oracles/*/
 !lab/data/cache/explainers/
 !lab/data/cache/explainers/*/
-
-# Keep dataset / oracle caches out of git — they're large and rebuildable.
-lab/data/cache/datasets/
-lab/data/cache/oracles/
 lab/data/cache/working/
+lab/data/cache/**/*.lck*
 
 # By default still ignore everything inside the per-dataset explainer dir,
 # then surgically re-include just the artifact files we want to ship.
@@ -166,6 +172,13 @@ lab/output_legacy/
 lab/stats_legacy*
 lab/pickles*
 output/
+# Results are tracked (docs/reproducing-experiments.md, section 4): lab/output/results with
+# the per-instance counterfactual dumps, and the runner logs gzipped (lab/output/queue_logs/**/*.log.gz).
+# Raw *.log files and the rest of lab/output stay local.
+!lab/output/
+lab/output/*
+!lab/output/results/
+!lab/output/queue_logs/
 stats/
 AAAI/
 legacy/config-v2/_papers/
@@ -209,3 +222,6 @@ Miniforge3-*.sh
 *.lock
 !poetry.lock
 *.lck
+
+# generator outputs shared between minimizers (GenerateMinimize generator_cache): regenerable
+lab/data/cache/generator_outputs/

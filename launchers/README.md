@@ -12,6 +12,7 @@ none of them runs unmodified elsewhere.
 | `experiments.sh`, `experiments_kalifano.sh` | the sweep driven by `docs/legacy/execution_pipeline.txt` |
 | `del_multi.sh` | cancels a submitted batch |
 | `env_install.sh` | the pre-conda environment bootstrap |
+| `slurm_submit.sh`, `slurm_job.sh` | the current Slurm path: the pending configs of one or more queue files as one job array, at most N at a time, one log per config in `output/logs/<dataset>/<generator>-<minimizer>/` (usage in each script's header). `server_sync.sh` updates the server's clone to the pushed branch, `slurm_warm.sh` builds caches on a compute node |
 
 For running the current batch on one machine, use
 `scripts/run_revision_queue.py` instead: it parallelises over local workers or

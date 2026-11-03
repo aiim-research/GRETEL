@@ -3,6 +3,8 @@ from src.core.oracle_base import Oracle
 from src.core.explainer_base import Explainer
 import numpy as np
 
+from src.utils.metrics.ged import matched_edge_diff_count
+
 class GraphEditDistanceMetric(EvaluationMetric):
     """Provides a graph edit distance function for graphs where nodes are already matched, 
     thus eliminating the need of performing an NP-Complete graph matching.
@@ -53,41 +55,9 @@ class GraphEditDistanceMetric(EvaluationMetric):
         # return result
         # ---------------------------------------------------------------------
 
-        # Get the difference in the number of nodes
+        # Vectorised cell count, same result as the former cell-by-cell loop (src/utils/metrics/ged.py)
         nodes_diff_count = abs(A_g1.shape[0] - A_g2.shape[0])
-
-        # Get the shape of the matrices
-        shape_A_g1 = A_g1.shape
-        shape_A_g2 = A_g2.shape
-
-        # Find the minimum dimensions of the matrices
-        min_shape = (min(shape_A_g1[0], shape_A_g2[0]), min(shape_A_g1[1], shape_A_g2[1]))
-
-        # Initialize an empty list to store the differences
-        edges_diff = []
-
-        # Iterate over the common elements of the matrices
-        for i in range(min_shape[0]):
-            for j in range(min_shape[1]):
-                if A_g1[i,j] != A_g2[i,j]:
-                    edges_diff.append((i,j))
-
-        # If the matrices have different shapes, loop through the remaining cells in the larger matrix (the matrixes are square shaped)
-        if shape_A_g1 != shape_A_g2:
-            max_shape = np.maximum(shape_A_g1, shape_A_g2)
-
-            for i in range(min_shape[0], max_shape[0]):
-                for j in range(min_shape[1], max_shape[1]):
-                    if shape_A_g1 > shape_A_g2:
-                        edge_val = A_g1[i,j]
-                    else:
-                        edge_val = A_g2[i,j]
-
-                    # Only add non-zero cells to the list
-                    if edge_val != 0:  
-                        edges_diff.append((i, j))
-
-        edges_diff_count = len(edges_diff)
+        edges_diff_count = matched_edge_diff_count(A_g1, A_g2)
         if self.undirected:
             edges_diff_count /= 2
 
