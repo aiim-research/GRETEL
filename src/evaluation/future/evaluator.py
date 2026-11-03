@@ -108,6 +108,15 @@ class Evaluator(Configurable):
         else:
             test_set = self.dataset.instances 
 
+        # Optional fixed subset of instance ids (evaluator parameter ``instance_ids``). Used to run
+        # several minimizers on the same handful of instances of an expensive dataset. Hash-neutral
+        # for the explainer; the scope name should make the subset explicit.
+        wanted = self.local_config.get('parameters', {}).get('instance_ids')
+        if wanted:
+            wanted = {str(x) for x in wanted}
+            test_set = [i for i in test_set if str(i.id) in wanted]
+            self._logger.info("Restricting evaluation to %d fixed instances: %s", len(test_set), sorted(wanted, key=lambda x: int(x) if x.isdigit() else x))
+
         for inst in test_set:
             self._logger.info("Evaluating instance with id %s", str(inst.id))
 
@@ -121,6 +130,9 @@ class Evaluator(Configurable):
 
 
     def _real_evaluate(self, instance):
+        # Oracles whose answer depends on the instance being explained (MarginOracle) learn it here.
+        if hasattr(self.oracle, 'set_reference'):
+            self.oracle.set_reference(instance)
 
         # Creating an empty explanation for the pipeline
         explanation = LocalGraphCounterfactualExplanation(context=self.context,
