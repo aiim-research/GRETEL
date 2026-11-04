@@ -112,6 +112,11 @@ def _child_main(rel_cfg: str) -> int:
     try:
         ctx = Context.get_context(str(cfg_path))
         ctx.run_number = 0
+        # --output: the per-instance dumps of the smoke go there, not to the tracked results tree.
+        if os.environ.get("SMOKE_OUTPUT"):
+            for store in ctx.conf.get("store_paths", []):
+                if store.get("name") == "output_store_path":
+                    store["address"] = os.environ["SMOKE_OUTPUT"]
         mgr = EvaluatorManager(ctx)
         try:
             mgr.evaluate()
@@ -152,22 +157,44 @@ def _print_row(combo: str, status: str, detail: str = ""):
     print(f"  {mark} {combo:<35} {status:<10} {detail[:90]}", flush=True)
 
 
+def _discover(tree: str, args) -> list[tuple[str, str, str, str]]:
+    """(dataset, generator dir, variant dir, config) for every fold-0 config under ``tree``, grouped by
+    dataset so each dataset's caches are built by its first config; --datasets, --gens and --vars filter
+    by exact name and --exclude by substring of the path."""
+    out = []
+    for path in sorted((REPO / tree).glob("*/*/*/generate_minimize0.jsonc")):
+        ds, gen, var = path.parts[-4], path.parts[-3], path.parts[-2]
+        rel = str(path.relative_to(REPO))
+        if (args.datasets and ds not in args.datasets) or (args.gens and gen not in args.gens) \
+                or (args.vars and var not in args.vars) or any(x in rel for x in args.exclude or []):
+            continue
+        out.append((ds, gen, var, rel))
+    return out
+
+
 def driver_main(args: argparse.Namespace) -> int:
-    datasets = _filter(DATASETS, args.datasets)
-    gens = _filter(GENERATORS, args.gens)
-    vars_ = _filter(VARIANTS, args.vars)
+    if args.output:
+        os.environ["SMOKE_OUTPUT"] = str(Path(args.output).resolve())
+    if args.discover:
+        combos = _discover(args.tree, args)
+    else:
+        datasets = _filter(DATASETS, args.datasets)
+        gens = _filter(GENERATORS, args.gens)
+        vars_ = _filter(VARIANTS, args.vars)
+        combos = [(ds, gen, f"{gen}-{var}", CFG_TMPL.format(ds=ds, gen=gen, variant=var).replace(
+                      "lab/config/generate_minimize", args.tree))
+                  for ds, gen, var in _enumerate(datasets, gens, vars_)]
 
     rows: list[tuple[str, str, str]] = []
-    n_total = sum(1 for _ in _enumerate(datasets, gens, vars_))
+    n_total = len(combos)
     n_done = 0
 
     print(f"Running {n_total} (dataset × generator × variant) smoke tests, "
           f"{args.timeout}s budget each.\n", flush=True)
 
-    for ds, gen, var in _enumerate(datasets, gens, vars_):
+    for ds, gen, var, rel in combos:
         n_done += 1
-        rel = CFG_TMPL.format(ds=ds, gen=gen, variant=var)
-        combo = f"[{n_done:>3}/{n_total}] {ds}/{gen}/{gen}-{var}"
+        combo = f"[{n_done:>3}/{n_total}] {ds}/{gen}/{var}"
         cfg_path = REPO / rel
         if not cfg_path.is_file():
             rows.append((combo, "MISSING", ""))
@@ -240,6 +267,14 @@ def parse_args() -> argparse.Namespace:
                     help="stop at the first failed/timed-out combo")
     ap.add_argument("--verbose", action="store_true",
                     help="dump the subprocess tail on failure")
+    ap.add_argument("--tree", default="lab/config/generate_minimize",
+                    help="config tree (lab/config/v2/generate_minimize for protocol v2)")
+    ap.add_argument("--discover", action="store_true",
+                    help="every <dataset>/<generator>/<variant> of the tree instead of the fixed matrix")
+    ap.add_argument("--exclude", nargs="+", default=None,
+                    help="with --discover, leave out configs whose path contains any of these")
+    ap.add_argument("--output", default=None,
+                    help="write the per-instance dumps here instead of the configs' output store")
     return ap.parse_args()
 
 
