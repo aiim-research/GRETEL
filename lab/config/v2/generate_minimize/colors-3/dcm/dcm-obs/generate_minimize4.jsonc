@@ -49,7 +49,7 @@
                     "generator": {
                         "class": "src.explainer.future.search.dcm.DCM",
                         "parameters": {
-                            "proportion": 0.1,
+                            "proportion": 0.2,
                             "projection": "assignment",
                             "classify_with": "oracle"
                         }

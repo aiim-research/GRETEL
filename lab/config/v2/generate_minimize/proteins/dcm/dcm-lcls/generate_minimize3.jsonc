@@ -51,7 +51,8 @@
                         "parameters": {
                             "epochs": 500,
                             "projection": "assignment",
-                            "classify_with": "oracle"
+                            "classify_with": "oracle",
+                            "proportion": 0.5
                         }
                     },
                     "minimizer": {

@@ -23,7 +23,8 @@ with ``compose`` whose value is a file, also inside ``propagate`` blocks):
   the feature distance under the same correspondence, replaces it);
 * the DCE and DCM generators get ``projection: "assignment"``, the generator contract of v2 (the full
   projection of the nearest candidate the oracle accepts, decided by the generator alone, so generation
-  stays decoupled from minimization), and DCM classifies its medoids with the oracle;
+  stays decoupled from minimization), and DCM classifies its medoids with the oracle (and subsamples its
+  candidates on COLORS-3 and PROTEINS, ``DCM_PROPORTION``);
 * the experiment scope and the selector's ``model_tag`` get the prefix ``v2-``, and its checkpoints and
   collections (``init_checkpoint``, ``collect_examples``) move to a ``v2/`` subfolder, so v2 never reads or
   overwrites a v1 artefact;
@@ -69,6 +70,7 @@ ISOLATED = {"class": "src.dataset.manipulators.isolated.DeleteIsolatedNodes", "p
 # edit leaves isolated, and loses the isolated nodes it has when it loads (salt ions in molecules).
 KEEP_ISOLATED = ("colors-3", "synthie", "asd")
 DCM = "src.explainer.future.search.dcm.DCM"
+DCM_PROPORTION = {"colors-3": 0.2, "proteins": 0.5}    # 10 500 graphs; graphs of up to 620 nodes
 BLS = "src.explainer.future.metaheuristic.local_search.local_search.LocalSearch"
 BLSF = "src.explainer.future.metaheuristic.local_search.local_search_features.LocalSearch"
 EDIT_STAGES = [f"src.evaluation.future.stages.edit_distance.{name}"
@@ -104,6 +106,7 @@ class Transformer:
     def __init__(self):
         self.snippets: dict[str, str] = {}      # (v1 snippet path, policy) -> v2 snippet path, written once each
         self.policy = "keep"                    # isolated-node policy of the config being transformed
+        self.cell = ""                          # its cell (dataset tree name)
 
     def node(self, value):
         if isinstance(value, list):
@@ -134,6 +137,10 @@ class Transformer:
             out.setdefault("parameters", {})["projection"] = "assignment"
             if cls == DCM:
                 out["parameters"]["classify_with"] = "oracle"
+                # The v2 medoids cost one Hungarian assignment per pair of graphs of different classes: on
+                # the largest datasets the candidates are subsampled (deterministic, random_seed).
+                if self.cell.startswith(tuple(DCM_PROPORTION)):
+                    out["parameters"]["proportion"] = next(v for k, v in DCM_PROPORTION.items() if self.cell.startswith(k))
         return out
 
     def snippet(self, rel: str, isolated: bool = False) -> str:
@@ -156,6 +163,7 @@ class Transformer:
 
     def config(self, rel: str, cell: str) -> tuple[str, dict]:
         self.policy = "keep" if cell.startswith(KEEP_ISOLATED) else "delete"
+        self.cell = cell
         data = self.node(read_jsonc(REPO / rel))
         data["experiment"]["scope"] = PREFIX + data["experiment"]["scope"]
         if self.policy == "delete" and "compose_man" not in json.dumps(data):
