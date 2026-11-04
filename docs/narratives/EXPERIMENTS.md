@@ -133,3 +133,23 @@ Comparisons across conditions always use the intersection of samples valid in ev
 4. C6, C7, C9, C11 and C12, then E1 and E2 for one narrator end to end.
 5. The full E1 and E2, then E3 to E6.
 6. E7 and E8 offline, and the analyses of section 6.
+
+## 8. Status on 3 November 2026
+
+Step 2 of section 0 is done: Gianrico's #88 and #91 are merged into this branch, #90 went to `main` (#92 brought the general framework fixes of `dev-bls-selector` there too), and #89 was closed because `main` fixed `TreeCyclesRand` and `MolGenerator` in place; the probe configs use them.
+
+Decisions taken:
+
+| # | Decision |
+|---|---|
+| D2 | Tree-Cycles with 500 graphs of 64 nodes, 40 % of the nodes in cycles, rule oracle. |
+| D3 | The current oracles, padding hidden from the prompts (BBBP and AIDS as in Gianrico's DCE pilots). |
+| D4 | DCE seeds, LBS with the LBS paper's parameters. |
+| D8 | Qwen2.5-Instruct 3B, 7B, 14B and 32B and Llama-3.1-8B-Instruct in bf16. Gemini 2.5 Flash waits for API access. |
+| D9 | Until there is API access, GPT-OSS-120B (local) is the only judge and plays the primary role; DeepSeek-V3.2 and Gemini 3 Flash, and with them E5, wait. |
+| D10 | Temperature 0.7, top-p 0.95, 1024 output tokens, seed 0; the identity narrative uses seed 1. |
+| D11 | 100 instances per dataset (fold 0 of 5 splits for Tree-Cycles, of 20 for BBBP and AIDS); Recourse K = the instance's minimized edit count, the same for both arms and for the seed and minimized pairs of an instance; sweep K in 1, 2, 3, 5, 8. |
+
+Still open: D5 (all four CTX x MODE conditions are run, so it only changes which one the tables lead with), D6 (runs use `transition`, as the pilots), D7 (C8 not written). Also open: the Tree-Cycles domain text (`dataset_infos/tcr.json`) states the classification mechanism to the narrator, which may explain part of the saturation of the pilots.
+
+Code: C1 (`src/utils/consistency_probe.py`), C2 and C3 (`directions` of `ProbeNarratives`), C4 (Reversal stays in the code, no paper config uses it), C5 and C6 (`arms`), C7 (`budget` of the Recourse conditions), C10 for the HuggingFace backend (per-prompt seeds, sampling saved per answer) and C11 (`self_evaluation`) are written and tested (`tests/narrative_arms_unit.py`). Not written: C8, C9 runs and C12 (offline, after the runs), and API backends with per-call seeds (OpenRouter refuses per-prompt seeds for now). The runs, their batches and the server steps are in `RUNS.md`.

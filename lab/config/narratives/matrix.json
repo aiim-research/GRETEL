@@ -1,0 +1,220 @@
+{
+  "scope": "narr-matrix",
+  "arms": [
+    "minimized",
+    "seed",
+    "random_subset"
+  ],
+  "model_defaults": {
+    "engine": "vllm",
+    "dtype": "bfloat16",
+    "temperature": 0.7,
+    "top_p": 0.95,
+    "seed": 0,
+    "max_new_tokens": 1024,
+    "enable_thinking": false,
+    "gpu_memory_utilization": 0.75,
+    "max_model_len": 16384,
+    "max_num_seqs": 64,
+    "local_files_only": true
+  },
+  "slurm": {
+    "partition": "cuda",
+    "gres": "gpu:fast:1",
+    "node": "compute-2-3",
+    "time": "1-00:00:00",
+    "mem": "96G",
+    "min_free_mb": 115000,
+    "max_wait": 21600
+  },
+  "generators": [
+    {
+      "id": "qwen2.5-3b",
+      "family": "qwen",
+      "parameters": {
+        "model": "Qwen/Qwen2.5-3B-Instruct",
+        "revision": "aa8e72537993ba99e69dfaafa59ed015b17504d1"
+      }
+    },
+    {
+      "id": "qwen2.5-7b",
+      "family": "qwen",
+      "parameters": {
+        "model": "Qwen/Qwen2.5-7B-Instruct",
+        "revision": "a09a35458c702b33eeacc393d103063234e8bc28"
+      }
+    },
+    {
+      "id": "qwen2.5-14b",
+      "family": "qwen",
+      "parameters": {
+        "model": "Qwen/Qwen2.5-14B-Instruct",
+        "revision": "cf98f3b3bbb457ad9e2bb7baf9a0125b6b88caa8"
+      }
+    },
+    {
+      "id": "qwen2.5-32b",
+      "family": "qwen",
+      "parameters": {
+        "model": "Qwen/Qwen2.5-32B-Instruct",
+        "revision": "5ede1c97bbab6ce5cda5812749b4c0bdf79b18dd"
+      }
+    },
+    {
+      "id": "llama3.1-8b",
+      "family": "llama",
+      "parameters": {
+        "model": "meta-llama/Llama-3.1-8B-Instruct",
+        "revision": "0e9e39f249a16976918f6564b8830bc894c89659"
+      }
+    }
+  ],
+  "judges": [
+    {
+      "id": "gpt-oss-120b",
+      "family": "gpt-oss",
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "revision": "b5c939de8f754692c1647ca79fbf85e8c1e70f8a",
+        "temperature": 1.0,
+        "top_p": 1.0,
+        "max_new_tokens": 4096,
+        "reasoning_effort": "low"
+      }
+    },
+    {
+      "id": "gpt-oss-120b-sweep",
+      "family": "gpt-oss",
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "revision": "b5c939de8f754692c1647ca79fbf85e8c1e70f8a",
+        "temperature": 1.0,
+        "top_p": 1.0,
+        "max_new_tokens": 4096,
+        "reasoning_effort": "low"
+      },
+      "source_filter": [
+        "narr-tcr64_dce_lcls",
+        "narr-bbbp_dce_lcls"
+      ],
+      "probes": {
+        "recourse": {
+          "arms": [
+            "minimized"
+          ],
+          "control": true,
+          "success": "target",
+          "preprocess": true,
+          "feature_match": "transition",
+          "conditions": [
+            {
+              "context": "off",
+              "mode": "dict",
+              "budget": 1
+            },
+            {
+              "context": "off",
+              "mode": "dict",
+              "budget": 2
+            },
+            {
+              "context": "off",
+              "mode": "dict",
+              "budget": 3
+            },
+            {
+              "context": "off",
+              "mode": "dict",
+              "budget": 5
+            },
+            {
+              "context": "off",
+              "mode": "dict",
+              "budget": 8
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "probes": {
+    "reconstruction": {
+      "feature_match": "transition",
+      "conditions": [
+        {
+          "context": "off",
+          "mode": "dict"
+        },
+        {
+          "context": "off",
+          "mode": "full"
+        },
+        {
+          "context": "on",
+          "mode": "dict"
+        },
+        {
+          "context": "on",
+          "mode": "full"
+        }
+      ]
+    },
+    "consistency": {
+      "arms": [
+        "seed",
+        "minimized"
+      ],
+      "conditions": [
+        {
+          "test": "inversion",
+          "mode": "dict"
+        },
+        {
+          "test": "renaming",
+          "mode": "dict"
+        },
+        {
+          "test": "identity",
+          "mode": "dict"
+        }
+      ]
+    },
+    "recourse": {
+      "arms": [
+        "seed",
+        "minimized"
+      ],
+      "control": true,
+      "success": "target",
+      "preprocess": true,
+      "feature_match": "transition",
+      "conditions": [
+        {
+          "context": "off",
+          "mode": "dict",
+          "budget": "record"
+        }
+      ]
+    }
+  },
+  "self_evaluation": {
+    "source_filter": [
+      "narr-tcr64_dce_lcls",
+      "narr-bbbp_dce_lcls"
+    ],
+    "probes": {
+      "consistency": {
+        "arms": [
+          "seed",
+          "minimized"
+        ],
+        "conditions": [
+          {
+            "test": "inversion",
+            "mode": "dict"
+          }
+        ]
+      }
+    }
+  }
+}
