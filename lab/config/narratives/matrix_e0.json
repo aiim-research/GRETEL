@@ -113,7 +113,7 @@
   },
   "self_evaluation": {
     "source_filter": [
-      "narr-tcr64_dce_lcls"
+      "narr-tcr64_dce_lclsf"
     ],
     "probes": {
       "consistency": {

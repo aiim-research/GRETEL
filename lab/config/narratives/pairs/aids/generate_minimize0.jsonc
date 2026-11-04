@@ -1,35 +1,119 @@
-// Narrative paper, pairs pass for AIDS, with the setup of Gianrico's AIDS DCE pilot: padding, DCE + LBS
-// editing bonds only (the thesis aids/dce/dce-lcls uses attributed: true, which smooths node features into
-// arbitrary decimals), the AIDS_GCN oracle architecture trained on the other folds, padding hidden from
-// the prompts. OracleView drops the bond valences the GCN never reads; FeatureNames names the 42 columns
-// as in the TU README (chem, charge, x, y, then the one-hot of the 38 symbols in label order). Twenty
-// stratified splits without shuffle: fold 0 holds 100 molecules (class 0 = active, 1 = inactive). No
-// LLM: the pairs are frozen for the narrators (lab/config/narratives/matrix.json).
+// Narrative paper, pairs pass for AIDS, protocol v2 (docs/v2/README.md), as BBBP's: no padding, isolated
+// atoms removed at load and deleted when an edit isolates them, AIDS_GCN oracle retrained without padding.
+// OracleView drops the bond valences the GCN never reads; FeatureNames names the 42 columns as in the TU
+// README (chem, charge, x, y, then the one-hot of the 38 symbols in label order). DCE with the v2 contract
+// (projection by assignment), BLS-F as the minimizer. Twenty stratified splits without shuffle: fold 0 holds
+// 100 molecules (class 0 = active, 1 = inactive). No LLM: the pairs are frozen for the narrators.
 {
-  "experiment": {"scope": "narr-aids_dce_lcls", "parameters": {"lock_release_tout": 120}},
+  "experiment": {
+    "scope": "narr-aids_dce_lclsf",
+    "parameters": {
+      "lock_release_tout": 120
+    }
+  },
   "doe-triplets": [
     {
       "dataset": {
         "class": "src.dataset.dataset_base.Dataset",
         "parameters": {
-          "generator": {"class": "src.dataset.generators.TUDataset.TUDataset", "parameters": {"alias": "AIDS"}},
+          "generator": {
+            "class": "src.dataset.generators.TUDataset.TUDataset",
+            "parameters": {
+              "alias": "AIDS"
+            }
+          },
           "n_splits": 20,
           "shuffle": false,
           "manipulators": [
-            {"class": "src.dataset.manipulators.padding.AdjacencyMatrixPadder", "parameters": {}},
-            {"class": "src.dataset.manipulators.oracle_view.OracleView", "parameters": {}},
-            {"class": "src.dataset.manipulators.feature_names.FeatureNames", "parameters": {"names": ["chem", "charge", "x", "y", "C", "O", "N", "Cl", "F", "S", "Se", "P", "Na", "I", "Co", "Br", "Li", "Si", "Mg", "Cu", "As", "B", "Pt", "Ru", "K", "Pd", "Au", "Te", "W", "Rh", "Zn", "Bi", "Pb", "Ge", "Sb", "Sn", "Ga", "Hg", "Ho", "Tl", "Ni", "Tb"]}}
+            {
+              "class": "src.dataset.manipulators.isolated.DeleteIsolatedNodes",
+              "parameters": {}
+            },
+            {
+              "class": "src.dataset.manipulators.oracle_view.OracleView",
+              "parameters": {}
+            },
+            {
+              "class": "src.dataset.manipulators.feature_names.FeatureNames",
+              "parameters": {
+                "names": [
+                  "chem",
+                  "charge",
+                  "x",
+                  "y",
+                  "C",
+                  "O",
+                  "N",
+                  "Cl",
+                  "F",
+                  "S",
+                  "Se",
+                  "P",
+                  "Na",
+                  "I",
+                  "Co",
+                  "Br",
+                  "Li",
+                  "Si",
+                  "Mg",
+                  "Cu",
+                  "As",
+                  "B",
+                  "Pt",
+                  "Ru",
+                  "K",
+                  "Pd",
+                  "Au",
+                  "Te",
+                  "W",
+                  "Rh",
+                  "Zn",
+                  "Bi",
+                  "Pb",
+                  "Ge",
+                  "Sb",
+                  "Sn",
+                  "Ga",
+                  "Hg",
+                  "Ho",
+                  "Tl",
+                  "Ni",
+                  "Tb"
+                ]
+              }
+            }
           ]
         }
       },
       "oracle": {
         "class": "src.oracle.nn.torch.OracleTorch",
         "parameters": {
-          "fold_id": 0, "retrain": false, "epochs": 400, "batch_size": 32,
-          "optimizer": {"class": "torch.optim.RMSprop", "parameters": {"lr": 0.01}},
-          "loss_fn": {"class": "torch.nn.CrossEntropyLoss", "parameters": {"reduction": "mean"}},
-          "model": {"class": "src.oracle.nn.gcn.DownstreamGCN",
-                    "parameters": {"num_conv_layers": 3, "num_dense_layers": 1, "conv_booster": 2, "linear_decay": 1.8}}
+          "fold_id": 0,
+          "retrain": false,
+          "epochs": 400,
+          "batch_size": 32,
+          "optimizer": {
+            "class": "torch.optim.RMSprop",
+            "parameters": {
+              "lr": 0.01
+            }
+          },
+          "loss_fn": {
+            "class": "torch.nn.CrossEntropyLoss",
+            "parameters": {
+              "reduction": "mean"
+            }
+          },
+          "model": {
+            "class": "src.oracle.nn.gcn.DownstreamGCN",
+            "parameters": {
+              "num_conv_layers": 3,
+              "num_dense_layers": 1,
+              "conv_booster": 2,
+              "linear_decay": 1.8,
+              "exact_conv_layers": true
+            }
+          }
         }
       },
       "compose_dataset_info": "lab/config/snippets/dataset_infos/aids.json",
@@ -37,10 +121,22 @@
         "class": "src.explainer.future.meta.generate_minimize.GenerateMinimize",
         "parameters": {
           "fold_id": 0,
-          "generator": {"class": "src.explainer.future.search.dces.DCESExplainer", "parameters": {}},
+          "generator": {
+            "class": "src.explainer.future.search.dces.DCESExplainer",
+            "parameters": {
+              "projection": "assignment"
+            }
+          },
           "minimizer": {
-            "class": "src.explainer.future.metaheuristic.local_search.local_search.LocalSearch",
-            "parameters": {"neigh_factor": 4, "runtime_factor": 4, "max_runtime": 20, "max_neigh": 20, "attributed": false, "seed": 0}
+            "class": "src.explainer.future.metaheuristic.local_search.local_search_features.LocalSearch",
+            "parameters": {
+              "neigh_factor": 4,
+              "runtime_factor": 4,
+              "max_runtime": 20,
+              "max_neigh": 20,
+              "attributed": false,
+              "seed": 0
+            }
           }
         }
       }
@@ -48,17 +144,55 @@
   ],
   "evaluator": {
     "class": "src.evaluation.future.evaluator.Evaluator",
-    "parameters": {"pipeline": {"class": "src.evaluation.future.stages.main_pipeline.MainPipeline", "parameters": {"stages": [
-          {"class": "src.evaluation.future.stages.runtime.Runtime", "parameters": {}},
-          {"class": "src.evaluation.future.stages.correctness.Correctness", "parameters": {}},
-          {"class": "src.evaluation.future.stages.ged.GraphEditDistance", "parameters": {}},
-          {"class": "src.evaluation.future.stages.oracle_calls.OracleCalls", "parameters": {}},
-          {"class": "src.evaluation.future.stages.probe_narratives.ProbeNarratives", "parameters": {
-            "node_matching": "position", "freeze_only": true, "hide_padding": true,
-            "arms": ["minimized", "seed", "random_subset"], "directions": ["direct", "inverse", "renamed", "identity"],
-            "identity_seed_offset": 1, "sample_seed": 0}},
-          {"class": "src.evaluation.future.stages.probe_dump.ProbeDump", "parameters": {}}
-    ]}}}
+    "parameters": {
+      "pipeline": {
+        "class": "src.evaluation.future.stages.main_pipeline.MainPipeline",
+        "parameters": {
+          "stages": [
+            {
+              "class": "src.evaluation.future.stages.runtime.Runtime",
+              "parameters": {}
+            },
+            {
+              "class": "src.evaluation.future.stages.correctness.Correctness",
+              "parameters": {}
+            },
+            {
+              "class": "src.evaluation.future.stages.ged.GraphEditDistance",
+              "parameters": {}
+            },
+            {
+              "class": "src.evaluation.future.stages.oracle_calls.OracleCalls",
+              "parameters": {}
+            },
+            {
+              "class": "src.evaluation.future.stages.probe_narratives.ProbeNarratives",
+              "parameters": {
+                "node_matching": "position",
+                "freeze_only": true,
+                "arms": [
+                  "minimized",
+                  "seed",
+                  "random_subset"
+                ],
+                "directions": [
+                  "direct",
+                  "inverse",
+                  "renamed",
+                  "identity"
+                ],
+                "identity_seed_offset": 1,
+                "sample_seed": 0
+              }
+            },
+            {
+              "class": "src.evaluation.future.stages.probe_dump.ProbeDump",
+              "parameters": {}
+            }
+          ]
+        }
+      }
+    }
   },
   "compose_strs": "lab/config/snippets/default_store_paths.json"
 }

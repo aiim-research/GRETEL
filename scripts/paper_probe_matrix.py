@@ -53,7 +53,7 @@ def write_json(path, value):
 def validate_sources(dumps, config):
     from src.utils.probe_common import DELTA_FIELDS, validate_delta
     from src.utils.probe_graph import restore, unsupported_changes
-    from src.utils.typed_delta import typed_delta_from_instances
+    from src.evaluation.future.stages.probe_narratives import frame_truth
     print('GRETEL dependencies loaded; checking graph pairs', flush=True)
     if 'sample_limit' in config and len(dumps) != config['sample_limit']:
         raise ValueError(f'Expected exactly {config["sample_limit"]} source dumps, found {len(dumps)}; select one run/fold')
@@ -83,8 +83,9 @@ def validate_sources(dumps, config):
             flips = record['input_label'] != record['target_label']
             if not flips and record.get('arm') != 'random_subset' or unsupported_changes(original, cf):
                 raise ValueError('Source is not a supported counterfactual')
-            truth = typed_delta_from_instances(original, cf, saved.get('feature_columns'),
-                {column: name for name, column in saved.get('feature_map', {}).items()}, saved.get('atol', 0))
+            # The nodes the counterfactual's edits deleted (protocol v2) are nodes_removed, as the stage wrote them.
+            truth = frame_truth(original, cf, record.get('deleted_nodes', []), saved.get('feature_columns'),
+                                {column: name for name, column in saved.get('feature_map', {}).items()}, saved.get('atol', 0))
             declared = {field: record['truth'].get(field, []) for field in DELTA_FIELDS}
             actual = {field: truth[field] for field in DELTA_FIELDS}
             if validate_delta(declared, original.directed, feature_match='transition') != actual:

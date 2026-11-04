@@ -71,8 +71,11 @@ def delta_nodes(delta):
     return nodes
 
 
-def graph_text(instance, label, feature_map=None, shown=None):
-    """Prompt text of the graph; `shown` limits it to the leading nodes (hidden padding)."""
+def graph_text(instance, label, feature_map=None, shown=None, nodes=None):
+    """Prompt text of the graph; `shown` limits it to the leading nodes (hidden padding, v1), `nodes` to a
+    set of node ids kept with their names (protocol v2: the nodes an edit deleted are left out)."""
+    if nodes is not None:
+        return _subset_text(instance, label, feature_map, sorted(int(n) for n in nodes))
     data = instance.data
     shown = len(data) if shown is None else shown
     if data[shown:].any() or data[:, shown:].any():
@@ -85,6 +88,55 @@ def graph_text(instance, label, feature_map=None, shown=None):
             f'Edge weights: {instance.edge_weights.tolist()}\nEdge features: {instance.edge_features.tolist()}\n'
             f'Graph features: {None if instance.graph_features is None else np.asarray(instance.graph_features).tolist()}\n'
             f'Node features: {instance.node_features[:shown].tolist()}\nOracle predicted class: {label}\n')
+
+
+def _subset_text(instance, label, feature_map, nodes):
+    data = np.asarray(instance.data)
+    kept = set(nodes)
+    coords = [(int(u), int(v)) for u, v in zip(*np.nonzero(data))]
+    if any(u not in kept or v not in kept for u, v in coords):
+        raise ValueError('Edges reach nodes outside the shown ones')
+    edges = [[u, v, float(data[u, v])] for u, v in coords if instance.directed or u <= v]
+    features = {n: np.asarray(instance.node_features[n]).tolist() for n in nodes}
+    return (f'Nodes: {nodes}\nDirected: {instance.directed}\n'
+            f'Edges [u,v,value]: {edges}\nFeature columns: {feature_map or {}}\n'
+            f'Edge attribute order [u,v]: {[list(c) for c in coords]}\n'
+            f'Edge weights: {instance.edge_weights.tolist()}\nEdge features: {instance.edge_features.tolist()}\n'
+            f'Graph features: {None if instance.graph_features is None else np.asarray(instance.graph_features).tolist()}\n'
+            f'Node features (by node id): {features}\nOracle predicted class: {label}\n')
+
+
+def lift(original, cf, mapping):
+    """A counterfactual given in its own node set back in the input's frame (input node ids), from the
+    correspondence input node -> cf node (-1: deleted). Deleted nodes come back isolated, with the input's
+    features. None when the cf has nodes no input node maps to (insertions, a fallback seed)."""
+    mapping = np.asarray(mapping, dtype=int)
+    if len(mapping) != len(original.data):
+        raise ValueError('The correspondence needs one entry per input node')
+    rows = np.nonzero(mapping >= 0)[0]
+    if len(rows) != len(cf.data):
+        return None
+    out = copy.deepcopy(original)
+    data = np.zeros_like(np.asarray(original.data, dtype=float))
+    data[np.ix_(rows, rows)] = np.asarray(cf.data)[np.ix_(mapping[rows], mapping[rows])]
+    attrs = edge_attributes(cf)
+    coords = list(zip(*np.nonzero(data)))
+    out.data = data
+    out.edge_weights = np.asarray([attrs[(int(mapping[u]), int(mapping[v]))][0] for u, v in coords], dtype=np.float32)
+    width = cf.edge_features.shape[1] if np.ndim(cf.edge_features) == 2 else 0
+    out.edge_features = np.asarray([attrs[(int(mapping[u]), int(mapping[v]))][1] for u, v in coords],
+                                   dtype=np.float32).reshape(len(coords), width)
+    features = np.array(original.node_features, dtype=float, copy=True)
+    features[rows] = np.asarray(cf.node_features, dtype=float)[mapping[rows]]
+    out.node_features = features
+    out._nx_repr = None
+    return out
+
+
+def deleted_nodes(original, frame_cf):
+    """Nodes the edits left isolated (isolated in the counterfactual, not in the input)."""
+    from src.utils.isolated import isolated_nodes
+    return sorted(set(isolated_nodes(frame_cf.data).tolist()) - set(isolated_nodes(original.data).tolist()))
 
 
 def edge_attributes(instance):

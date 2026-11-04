@@ -142,6 +142,33 @@ class GraphOperations(unittest.TestCase):
             random_subset(self.g, seed, 3, instance_rng(0, 0, 'random_subset'))
 
 
+class DeletedNodes(unittest.TestCase):
+    """Protocol v2: a counterfactual materialized without the nodes its edits isolated comes back in the
+    input's frame, with those nodes as nodes_removed and out of the prompt text."""
+
+    def test_lift_truth_and_text(self):
+        from src.evaluation.future.stages.probe_narratives import frame_truth
+        from src.utils import probe_graph
+        original = restore({'id': 0, 'label': 0, 'directed': False, 'data': [[0, 1, 0, 0], [1, 0, 1, 0], [0, 1, 0, 1], [0, 0, 1, 0]],
+                            'node_features': [[1.0], [2.0], [3.0], [4.0]], 'edge_features': [[1.0]] * 6,
+                            'edge_weights': [1.0] * 6, 'graph_features': None})
+        materialized = restore({'id': 0, 'label': 1, 'directed': False, 'data': [[0, 1, 1], [1, 0, 1], [1, 1, 0]],
+                                'node_features': [[1.0], [2.0], [9.0]], 'edge_features': [[1.0]] * 6,
+                                'edge_weights': [1.0] * 6, 'graph_features': None})
+        frame = probe_graph.lift(original, materialized, [0, 1, 2, -1])
+        self.assertEqual(frame.data.shape, (4, 4))
+        removed = probe_graph.deleted_nodes(original, frame)
+        self.assertEqual(removed, [3])
+        truth = frame_truth(original, frame, removed, None, None, 0.0)
+        self.assertEqual(truth['nodes_removed'], [3])
+        self.assertEqual(truth['edges_removed'], [[2, 3]])
+        self.assertEqual(truth['edges_added'], [[0, 2]])
+        self.assertEqual([c['node'] for c in truth['features_changed']], [2])
+        text = probe_graph.graph_text(frame, 1, {}, nodes=[0, 1, 2])
+        self.assertIn('Nodes: [0, 1, 2]', text)
+        self.assertIsNone(probe_graph.lift(original, original, [0, 1, -1, -1]))
+
+
 class ArmsAndProbes(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

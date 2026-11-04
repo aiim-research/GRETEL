@@ -29,6 +29,7 @@ from src.LLMexplaneability.prompt_generator import SYSTEM_PROMPT
 from src.utils import probe_graph
 from src.utils.probe_common import OUTPUT_SCHEMA, call_many, generation_outcome, inverse_delta
 from src.utils.typed_delta import typed_delta_from_instances
+from src.utils.isolated import policy_of
 from src.utils.context import clean_cfg
 
 
@@ -57,7 +58,21 @@ EDIT_FIELDS = ('nodes_added', 'nodes_removed', 'edges_added', 'edges_removed', '
 
 
 def delta_size(delta):
-    return sum(len(delta[key]) for key in EDIT_FIELDS)
+    """Elementary edits of a delta: edges added or removed and feature changes. A deleted node is not one
+    more edit: it is the removal of its last edges (protocol v2 isolated-node policy)."""
+    return sum(len(delta[key]) for key in ('edges_added', 'edges_removed', 'features_changed'))
+
+
+def frame_truth(original, cf, removed, columns, names, atol):
+    """Typed delta from the input to a counterfactual in the input's frame, with the nodes the edits left
+    isolated (``removed``, deleted under the policy "delete") as nodes_removed and no feature change on them."""
+    truth = typed_delta_from_instances(original, cf, feature_columns=columns, feature_names=names, atol=atol)
+    if removed:
+        gone = set(removed)
+        truth['nodes_removed'] = sorted(gone)
+        truth['features_changed'] = [c for c in truth['features_changed'] if c['node'] not in gone]
+        truth['size'] = {key: len(truth[key]) for key in EDIT_FIELDS}
+    return truth
 
 
 def instance_rng(sample_seed, instance_id, purpose):
@@ -174,6 +189,7 @@ class ProbeNarratives(Stage):
             columns = None
         names = {v: k for k, v in feature_map.items()}
         original = explanation.input_instance
+        policy = policy_of(explanation.dataset)
         input_label = self._predict(explanation, original)
         shown = probe_graph.shown_nodes(original) if p['hide_padding'] else None
         factual_text = probe_graph.graph_text(original, input_label, feature_map, shown)
@@ -196,15 +212,21 @@ class ProbeNarratives(Stage):
                 record.setdefault('error', 'No counterfactual produced')
                 continue
             target = self._predict(explanation, cf)
+            # Protocol v2: counterfactuals are in the input's frame; the nodes their edits isolated are
+            # deleted under the policy "delete", left out of the prompts and reported as nodes_removed.
+            removed = probe_graph.deleted_nodes(original, cf) if policy == 'delete' else []
+            kept = [i for i in range(len(cf.data)) if i not in set(removed)] if removed else None
             record.update(input=probe_graph.snapshot(original), counterfactual=probe_graph.snapshot(cf),
                           input_label=input_label, target_label=target, graph_text=factual_text,
                           seed=seed_outcome(original, cf, seed, columns, names, p['atol']))
+            if removed:
+                record['deleted_nodes'] = removed
             if shown is not None:
                 record['shown_nodes'] = shown
                 if probe_graph.touches_hidden(original, cf, shown):
                     record.update(status='padding_edit', error='The counterfactual edits padding nodes, which the prompts do not show')
                     continue
-            record['inverse_graph_text'] = probe_graph.graph_text(cf, target, feature_map, shown)
+            record['inverse_graph_text'] = probe_graph.graph_text(cf, target, feature_map, shown, nodes=kept)
             if probe_graph.unsupported_changes(original, cf):
                 record.update(status='unsupported_delta', error='Direction, graph features or existing edge values/attributes changed; TypedDelta does not describe these edits')
                 continue
@@ -216,7 +238,7 @@ class ProbeNarratives(Stage):
             elif target == input_label:
                 record.update(status='not_counterfactual', error='The final graph does not flip the oracle')
                 continue
-            truth = typed_delta_from_instances(original, cf, feature_columns=columns, feature_names=names, atol=p['atol'])
+            truth = frame_truth(original, cf, removed, columns, names, p['atol'])
             record.update(status='success', truth=truth)
             # Give the generator the states and edits; never synthesize its answer afterwards.
             prompt_truth = {key: truth[key] for key in EDIT_FIELDS}
@@ -227,11 +249,13 @@ class ProbeNarratives(Stage):
                 permutation = renaming(n, n if shown is None else shown,
                                        instance_rng(p['sample_seed'], original.id, 'renaming'))
                 renamed, renamed_cf = permute(original, permutation), permute(cf, permutation)
-                renamed_truth = typed_delta_from_instances(renamed, renamed_cf, feature_columns=columns,
-                                                           feature_names=names, atol=p['atol'])
+                renamed_removed = sorted(int(permutation[i]) for i in removed)
+                renamed_kept = [i for i in range(n) if i not in set(renamed_removed)] if removed else None
+                renamed_truth = frame_truth(renamed, renamed_cf, renamed_removed, columns, names, p['atol'])
                 record['renaming'] = {'permutation': permutation.tolist(), 'truth': renamed_truth,
                                       'graph_text': probe_graph.graph_text(renamed, input_label, feature_map, shown),
-                                      'inverse_graph_text': probe_graph.graph_text(renamed_cf, target, feature_map, shown)}
+                                      'inverse_graph_text': probe_graph.graph_text(renamed_cf, target, feature_map, shown,
+                                                                                   nodes=renamed_kept)}
                 requests['renamed'] = (record['renaming']['graph_text'], record['renaming']['inverse_graph_text'],
                                        {key: renamed_truth[key] for key in EDIT_FIELDS})
             for direction in directions:
@@ -275,11 +299,18 @@ class ProbeNarratives(Stage):
         finals = explanation.counterfactual_instances or [None]
         if p['arms'] is None:
             return [(None, cf, {}) for cf in finals]
-        minimized = finals[0]
+        minimized = self._in_frame(original, finals[0], (explanation.info or {}).get('correspondences'))
+        generated = (explanation.info or {}).get('generator_explanation')
+        seed_info = generated.info if generated is not None else {}
+        seed_error = None
+        if seed is not None and seed_info.get('seed_kind') == 'fallback':
+            seed, seed_error = None, 'Fallback seed: the generator candidate has nodes the input lacks (node insertions are not narrated)'
+        else:
+            seed = self._in_frame(original, seed, seed_info.get('correspondences'))
         extra = {}
         if minimized is not None:
-            truth = typed_delta_from_instances(original, minimized, feature_columns=columns, feature_names=names,
-                                               atol=p['atol'])
+            removed = probe_graph.deleted_nodes(original, minimized) if policy_of(explanation.dataset) == 'delete' else []
+            truth = frame_truth(original, minimized, removed, columns, names, p['atol'])
             # Recourse budget K of every arm of the instance: the size of the minimized edit set.
             extra['recourse_budget'] = delta_size(truth)
         result = []
@@ -287,7 +318,7 @@ class ProbeNarratives(Stage):
             if arm == 'minimized':
                 result.append((arm, minimized, dict(extra)))
             elif arm == 'seed':
-                result.append((arm, seed, dict(extra, **({} if seed is not None else {'error': 'No seed kept by the explainer'}))))
+                result.append((arm, seed, dict(extra, **({} if seed is not None else {'error': seed_error or 'No seed kept by the explainer'}))))
             else:
                 if minimized is None or seed is None:
                     result.append((arm, None, dict(extra, error='The random subset needs the seed and the minimized counterfactual')))
@@ -300,6 +331,17 @@ class ProbeNarratives(Stage):
                     continue
                 result.append((arm, graph, dict(extra, subset_size=len(chosen))))
         return result
+
+    @staticmethod
+    def _in_frame(original, cf, correspondences):
+        """The counterfactual in the input's frame: as it is when it has the input's size, lifted through its
+        recorded correspondence when it was materialized without deleted nodes (protocol v2), None when it
+        has nodes the input lacks."""
+        if cf is None or len(cf.data) == len(original.data):
+            return cf
+        if not correspondences:
+            return None
+        return probe_graph.lift(original, cf, correspondences[0])
 
     @staticmethod
     def _predict(explanation, instance):

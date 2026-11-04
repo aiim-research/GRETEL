@@ -94,8 +94,8 @@
         "reasoning_effort": "low"
       },
       "source_filter": [
-        "narr-tcr64_dce_lcls",
-        "narr-bbbp_dce_lcls"
+        "narr-tcr64_dce_lclsf",
+        "narr-bbbp_dce_lclsf"
       ],
       "probes": {
         "recourse": {
@@ -199,8 +199,8 @@
   },
   "self_evaluation": {
     "source_filter": [
-      "narr-tcr64_dce_lcls",
-      "narr-bbbp_dce_lcls"
+      "narr-tcr64_dce_lclsf",
+      "narr-bbbp_dce_lclsf"
     ],
     "probes": {
       "consistency": {
