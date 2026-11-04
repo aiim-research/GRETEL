@@ -172,13 +172,14 @@ lab/output_legacy/
 lab/stats_legacy*
 lab/pickles*
 output/
-# Results are tracked (docs/reproducing-experiments.md, section 4): lab/output/results with
-# the per-instance counterfactual dumps, and the runner logs gzipped (lab/output/queue_logs/**/*.log.gz).
-# Raw *.log files and the rest of lab/output stay local.
+# Results are tracked from the BLS selector onwards (docs/reproducing-experiments.md, section 4): lab/output/results with
+# the per-instance counterfactual dumps, the runner logs gzipped (lab/output/queue_logs/*.log.gz) and the
+# selector monitors. Raw *.log files and the rest of lab/output stay local.
 !lab/output/
 lab/output/*
 !lab/output/results/
 !lab/output/queue_logs/
+!lab/output/selector_logs/
 stats/
 AAAI/
 legacy/config-v2/_papers/
@@ -223,5 +224,7 @@ Miniforge3-*.sh
 !poetry.lock
 *.lck
 
-# generator outputs shared between minimizers (GenerateMinimize generator_cache): regenerable
+# selector study: shared generator outputs and v1 drift anchors (regenerable, machine-specific)
 lab/data/cache/generator_outputs/
+models/*.pt.init
+!models/pretrained/edge_selector_sel-pre_*.pt

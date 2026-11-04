@@ -1,7 +1,7 @@
 #!/bin/bash -l
 # Build the cached objects of configs (dataset and folds, oracle, DCM, ...) on a compute node without
 # running the experiment (tools/warm_caches.py), for the caches too slow to build on a laptop. Bring them
-# back and commit them before any queue that needs them (docs/reproducing-experiments.md, section 4).
+# back and commit them before any queue that needs them (docs/rerun/README.md).
 #
 #   sbatch -p <partition> launchers/slurm_warm.sh <config> [<config> ...]
 #

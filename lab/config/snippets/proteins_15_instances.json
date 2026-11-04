@@ -1,0 +1,97 @@
+{
+  "dataset": "PROTEINS",
+  "fold": 0,
+  "rule": "15 evenly spaced ranks over the upper half of the fold-0 test split sorted by edge count",
+  "instances": [
+    {
+      "id": 282,
+      "nodes": 28,
+      "edges": 57,
+      "label": 0
+    },
+    {
+      "id": 358,
+      "nodes": 27,
+      "edges": 61,
+      "label": 0
+    },
+    {
+      "id": 186,
+      "nodes": 36,
+      "edges": 66,
+      "label": 0
+    },
+    {
+      "id": 270,
+      "nodes": 38,
+      "edges": 70,
+      "label": 0
+    },
+    {
+      "id": 701,
+      "nodes": 40,
+      "edges": 74,
+      "label": 1
+    },
+    {
+      "id": 162,
+      "nodes": 40,
+      "edges": 80,
+      "label": 0
+    },
+    {
+      "id": 504,
+      "nodes": 52,
+      "edges": 86,
+      "label": 0
+    },
+    {
+      "id": 844,
+      "nodes": 52,
+      "edges": 102,
+      "label": 1
+    },
+    {
+      "id": 1075,
+      "nodes": 72,
+      "edges": 109,
+      "label": 1
+    },
+    {
+      "id": 22,
+      "nodes": 67,
+      "edges": 114,
+      "label": 0
+    },
+    {
+      "id": 122,
+      "nodes": 62,
+      "edges": 124,
+      "label": 0
+    },
+    {
+      "id": 564,
+      "nodes": 82,
+      "edges": 143,
+      "label": 0
+    },
+    {
+      "id": 157,
+      "nodes": 82,
+      "edges": 174,
+      "label": 0
+    },
+    {
+      "id": 143,
+      "nodes": 136,
+      "edges": 256,
+      "label": 0
+    },
+    {
+      "id": 20,
+      "nodes": 481,
+      "edges": 1012,
+      "label": 0
+    }
+  ]
+}

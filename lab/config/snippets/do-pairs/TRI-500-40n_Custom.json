@@ -1,0 +1,23 @@
+{
+  "dataset": {
+    "class": "src.dataset.dataset_base.Dataset",
+    "parameters": {
+      "generator": {
+        "class": "src.dataset.generators.triangles.TriangleThreshold",
+        "parameters": {
+          "num_instances": 500,
+          "num_nodes": 40,
+          "edges_per_node": 3,
+          "max_triangles_class0": 62,
+          "min_triangles_class1": 70
+        }
+      }
+    }
+  },
+  "oracle": {
+    "class": "src.oracle.custom.oracle_triangles.TriangleCountOracle",
+    "parameters": {
+      "threshold": 66
+    }
+  }
+}

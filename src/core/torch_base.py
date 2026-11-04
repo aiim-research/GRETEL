@@ -15,6 +15,11 @@ class TorchBase(Trainable):
     def init(self):
         self.epochs = self.local_config['parameters']['epochs']
         self.batch_size = self.local_config['parameters']['batch_size']
+        # Opt-in robust training (read without being written into the config, so the configs without it
+        # keep their hash): {"drop": p, "add": q} removes each undirected edge of every training graph
+        # with probability p and adds q times as many random edges, redrawn at every batch, so the model
+        # learns to ignore a few edits and a counterfactual needs more of them.
+        self.edge_perturbation = self.local_config['parameters'].get('edge_perturbation')
         
         self.model = get_instance_kvargs(self.local_config['parameters']['model']['class'],
                                    self.local_config['parameters']['model']['parameters'])
@@ -73,7 +78,10 @@ class TorchBase(Trainable):
                 edge_index = batch.edge_index.to(self.device)
                 edge_weights = batch.edge_attr.to(self.device)
                 labels = batch.y.to(self.device).long()
-                
+                if self.edge_perturbation:
+                    edge_index, edge_weights = perturb_edges(edge_index, edge_weights, batch.ptr.to(self.device),
+                                                             **self.edge_perturbation)
+
                 self.optimizer.zero_grad()
                 
                 pred = self.model(node_features, edge_index, edge_weights, batch.batch)
@@ -155,3 +163,29 @@ class TorchBase(Trainable):
             for model in self.model:
                 if isinstance(model, torch.nn.Module):
                     model.to(self.device)
+
+
+def perturb_edges(edge_index, edge_weights, ptr, drop=0.0, add=0.0):
+    """Random symmetric edge perturbation of a batch of undirected graphs (each edge stored in both
+    directions): every edge is kept with probability 1 - drop, and round(add * number of edges) random
+    edges are added inside random graphs of the batch, with weight 1."""
+    upper = edge_index[0] < edge_index[1]
+    pairs, weights = edge_index[:, upper], edge_weights[upper]
+    n_edges = pairs.shape[1]
+    if drop > 0:
+        keep = torch.rand(n_edges, device=pairs.device) >= drop
+        pairs, weights = pairs[:, keep], weights[keep]
+    n_add = int(round(add * n_edges))
+    if n_add > 0:
+        n_graphs = ptr.numel() - 1
+        g = torch.randint(0, n_graphs, (n_add,), device=pairs.device)
+        start, size = ptr[g], ptr[g + 1] - ptr[g]
+        u = start + (torch.rand(n_add, device=pairs.device) * size).long()
+        v = start + (torch.rand(n_add, device=pairs.device) * size).long()
+        ok = u != v
+        new = torch.stack([torch.minimum(u, v), torch.maximum(u, v)])[:, ok]
+        pairs = torch.cat([pairs, new], 1)
+        weights = torch.cat([weights, torch.ones(new.shape[1], dtype=weights.dtype, device=weights.device)])
+    pairs, idx = torch.unique(pairs, dim=1, return_inverse=True)
+    w = torch.zeros(pairs.shape[1], dtype=weights.dtype, device=weights.device).scatter_(0, idx, weights)
+    return torch.cat([pairs, pairs.flip(0)], 1), torch.cat([w, w])

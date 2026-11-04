@@ -1,0 +1,288 @@
+{
+ "dataset": "COLORS-3",
+ "fold": 0,
+ "max_oracle_calls": 2000,
+ "rule": "40 instances drawn uniformly without replacement from the fold-0 test split (1050 graphs) with random.Random(2026), split cached on 2026-09-30",
+ "instances": [
+  {
+   "id": 46,
+   "nodes": 200,
+   "edges": 27,
+   "label": 10,
+   "pred": 10
+  },
+  {
+   "id": 188,
+   "nodes": 200,
+   "edges": 38,
+   "label": 8,
+   "pred": 8
+  },
+  {
+   "id": 463,
+   "nodes": 200,
+   "edges": 16,
+   "label": 8,
+   "pred": 8
+  },
+  {
+   "id": 1628,
+   "nodes": 200,
+   "edges": 26,
+   "label": 9,
+   "pred": 9
+  },
+  {
+   "id": 1740,
+   "nodes": 200,
+   "edges": 23,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 2006,
+   "nodes": 200,
+   "edges": 12,
+   "label": 7,
+   "pred": 7
+  },
+  {
+   "id": 2020,
+   "nodes": 200,
+   "edges": 16,
+   "label": 6,
+   "pred": 6
+  },
+  {
+   "id": 2121,
+   "nodes": 200,
+   "edges": 16,
+   "label": 9,
+   "pred": 9
+  },
+  {
+   "id": 2192,
+   "nodes": 200,
+   "edges": 12,
+   "label": 4,
+   "pred": 4
+  },
+  {
+   "id": 2338,
+   "nodes": 200,
+   "edges": 12,
+   "label": 6,
+   "pred": 6
+  },
+  {
+   "id": 2513,
+   "nodes": 200,
+   "edges": 22,
+   "label": 10,
+   "pred": 10
+  },
+  {
+   "id": 2936,
+   "nodes": 200,
+   "edges": 29,
+   "label": 6,
+   "pred": 6
+  },
+  {
+   "id": 4040,
+   "nodes": 200,
+   "edges": 28,
+   "label": 6,
+   "pred": 6
+  },
+  {
+   "id": 4301,
+   "nodes": 200,
+   "edges": 11,
+   "label": 7,
+   "pred": 7
+  },
+  {
+   "id": 4720,
+   "nodes": 200,
+   "edges": 6,
+   "label": 2,
+   "pred": 2
+  },
+  {
+   "id": 4892,
+   "nodes": 200,
+   "edges": 26,
+   "label": 7,
+   "pred": 7
+  },
+  {
+   "id": 5561,
+   "nodes": 200,
+   "edges": 310,
+   "label": 9,
+   "pred": 10
+  },
+  {
+   "id": 5565,
+   "nodes": 200,
+   "edges": 176,
+   "label": 2,
+   "pred": 2
+  },
+  {
+   "id": 5647,
+   "nodes": 200,
+   "edges": 285,
+   "label": 10,
+   "pred": 10
+  },
+  {
+   "id": 5999,
+   "nodes": 200,
+   "edges": 225,
+   "label": 7,
+   "pred": 7
+  },
+  {
+   "id": 6094,
+   "nodes": 200,
+   "edges": 307,
+   "label": 3,
+   "pred": 3
+  },
+  {
+   "id": 6186,
+   "nodes": 200,
+   "edges": 146,
+   "label": 9,
+   "pred": 10
+  },
+  {
+   "id": 6716,
+   "nodes": 200,
+   "edges": 196,
+   "label": 9,
+   "pred": 9
+  },
+  {
+   "id": 6890,
+   "nodes": 200,
+   "edges": 73,
+   "label": 9,
+   "pred": 10
+  },
+  {
+   "id": 7037,
+   "nodes": 200,
+   "edges": 98,
+   "label": 8,
+   "pred": 8
+  },
+  {
+   "id": 7155,
+   "nodes": 200,
+   "edges": 157,
+   "label": 6,
+   "pred": 7
+  },
+  {
+   "id": 7263,
+   "nodes": 200,
+   "edges": 73,
+   "label": 10,
+   "pred": 10
+  },
+  {
+   "id": 7482,
+   "nodes": 200,
+   "edges": 174,
+   "label": 7,
+   "pred": 7
+  },
+  {
+   "id": 7872,
+   "nodes": 200,
+   "edges": 41,
+   "label": 10,
+   "pred": 10
+  },
+  {
+   "id": 7926,
+   "nodes": 200,
+   "edges": 89,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 8623,
+   "nodes": 200,
+   "edges": 43,
+   "label": 5,
+   "pred": 5
+  },
+  {
+   "id": 8665,
+   "nodes": 200,
+   "edges": 100,
+   "label": 4,
+   "pred": 4
+  },
+  {
+   "id": 8936,
+   "nodes": 200,
+   "edges": 97,
+   "label": 8,
+   "pred": 8
+  },
+  {
+   "id": 9117,
+   "nodes": 200,
+   "edges": 272,
+   "label": 10,
+   "pred": 10
+  },
+  {
+   "id": 9259,
+   "nodes": 200,
+   "edges": 123,
+   "label": 8,
+   "pred": 8
+  },
+  {
+   "id": 9382,
+   "nodes": 200,
+   "edges": 195,
+   "label": 10,
+   "pred": 10
+  },
+  {
+   "id": 10069,
+   "nodes": 200,
+   "edges": 201,
+   "label": 5,
+   "pred": 5
+  },
+  {
+   "id": 10071,
+   "nodes": 200,
+   "edges": 206,
+   "label": 6,
+   "pred": 6
+  },
+  {
+   "id": 10227,
+   "nodes": 200,
+   "edges": 291,
+   "label": 7,
+   "pred": 7
+  },
+  {
+   "id": 10466,
+   "nodes": 200,
+   "edges": 204,
+   "label": 4,
+   "pred": 4
+  }
+ ]
+}

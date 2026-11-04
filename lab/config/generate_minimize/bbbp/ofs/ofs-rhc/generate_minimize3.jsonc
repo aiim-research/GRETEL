@@ -61,7 +61,7 @@
                             "patience": 40,
                             "seed": 0
                         }
-                    }
+                    }, "generator_cache": "lab/data/cache/generator_outputs"
                 }
             }
         }

@@ -6,7 +6,7 @@ A config counts as done when ``lab/output/results/<scope>/**/results_<fold>_<run
 its checkbox says, so the list is always computed against what is actually on disk. Used by
 ``launchers/slurm_submit.sh`` to build the Slurm job array.
 
-    python scripts/pending_configs.py <queue.md> > /tmp/pending.list
+    python scripts/pending_configs.py docs/selector/SERVER_PROTEINS_FOLDS.md > /tmp/pending.list
     python scripts/pending_configs.py --where <config>   # "<scope> <fold> <log folder>", for slurm_job.sh
 """
 from __future__ import annotations

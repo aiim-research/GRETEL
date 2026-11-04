@@ -1,0 +1,143 @@
+# Estado de los experimentos del modelo selector (sesión 2026-09-03 a 2026-09-08)
+
+Documento de continuidad. Resume qué se construyó, qué se midió, qué se concluyó y qué queda por hacer, para retomar el trabajo tras clonar la rama `dev-bls-selector` en una máquina nueva. Los resultados numéricos citados están copiados en `lab/selector_experiments/` (JSON de resultados por scope, CSV del monitor, logs comprimidos) porque `lab/output/` está ignorado por git.
+
+## 1. Punto de partida
+
+El selector de la tesis (`src/explainer/future/metaheuristic/Tagging/OnlineSelector.py` + `local_search/local_search_selection_net.py`, "v1") reduce las oracle calls de BLS entre 2 y 10 veces en los experimentos de la tesis. La auditoría de esta sesión encontró:
+
+- La variante con selector cambia también el esqueleto de búsqueda (12 intentos por nivel frente a 64/16 de la base, tope local `k_local`, abandono tras la primera iteración externa sin mejora), así que la reducción de OC no era atribuible solo al modelo.
+- El modelo de adición de v1 casi no entrena (13 a 300 pasos de Adam en los checkpoints de la tesis frente a miles del de eliminación).
+- El muestreador del pool de adición de v1 agota 500 000 intentos por llamada en grafos pequeños (0.45 s por llamada, llamado en cada intento de swap) y solo cubre pares incidentes al foco.
+- Contexto incorrecto en el positivo final de adición, exploración epsilon inexistente en las fases principales, y actualizaciones perdidas si varios procesos comparten el checkpoint.
+- `lab/output/results/<ds>_dce_lcls` (LBS base) contiene números **calibrados** (Synthie: GED x1.128, OC x1.375; BBBP: factor no uniforme). Los originales están en `lab/output/_backup_precalibration/results/`. Toda comparación nueva debe usar el backup sin calibrar.
+- LBS base no respeta `max_oracle_calls` dentro de una iteración externa (en PROTEINS-10 con tope 1500 gastó 12 882 llamadas de minimizador). Hay que corregirlo antes de cualquier comparación a presupuesto igual.
+
+## 2. Código nuevo (todo en la rama, v1 intacta)
+
+- `src/explainer/future/metaheuristic/Tagging/OnlineSelectorV2.py`: selector v2. Características vectorizadas por snapshot (A_t = A XOR S), 14 rasgos nuevos (Adamic-Adar, resource allocation, caminos de longitud 3, cubetas de distancia, cierre de triángulo), enumeración completa de candidatos de adición, ensemble de 4 cabezas con prior aleatorio y Thompson sampling, orden de prueba por Gumbel-top-k con logQ, etiquetas blandas desde `predict_proba`, pooling `sum_bias` / `noisy_and` / `mean`, pérdida listwise con corrección logQ, buffer de repetición reservoir persistido, AdamW, L2 hacia la inicialización, shrink-and-perturb al cargar, reciclado de unidades dormidas, veto opcional, `lr_add` y pasos extra de replay para el modelo de adición. Checkpoints en `models/edge_selector_<tag>_<dataset>.pt` (formato version 2).
+- `src/explainer/future/metaheuristic/local_search/local_search_selection_net_v2.py`: BLS guiado por v2. Mismo esqueleto y orden de estrategias que v1, con todas las variantes v2b..v2g como flags de configuración (ver sección 4). `selector_mode: random` ejecuta el mismo esqueleto con propuestas uniformes (ablación). `BinaryModelV2` usa `predict_proba` (una llamada, igual coste que `predict`).
+- `src/explainer/future/metaheuristic/Tagging/selector_monitor.py`: monitor precuencial sin coste en oracle calls. Línea `[monitor]` cada N llamadas y una fila por instancia en `lab/output/selector_logs/selector_<tag>_<dataset>.csv`: pasos, buffer, tasa de positivos, log-loss, skill frente a tasa base, AUC, intentos por éxito, ventaja de rango, EMAs de pérdidas, normas de gradiente y de actualización, desacuerdo entre cabezas, unidades dormidas, llamadas y éxitos por fase (eliminación / swap / adición), tamaño de bloques aceptados, reintentos, estadísticas por tamaño de bloque, cuotas por fase y éxitos por método de atributos. Ojo: la AUC y la ventaja de rango tienen sesgo de cascada (el aceptado es el último probado); la métrica limpia es intentos por éxito frente a la ablación aleatoria.
+- `scripts/analyze_selector_runs.py`: `compare` (por instancia entre scopes, acepta rutas relativas a `lab/output` para la base sin calibrar), `logs` (curvas dentro del fold desde los logs), `monitor` (tendencias del CSV), `feedback` (tabla por instancia + desglose por fases).
+- `src/evaluation/future/evaluator.py`: parámetro opcional `instance_ids` del evaluador para correr sobre un subconjunto fijo de instancias (protocolo PROTEINS-10).
+- `src/evaluation/future/stages/fed.py`: `float()` en la FED (antes escribía un escalar numpy float32 que jsonpickle serializaba como diccionario).
+- Configs: `lab/config/generate_minimize/{synthie,bbbp}/dce/dce-lcls-net-v2{,b,c,d,e,f,g}{,-random}/` (10 folds, semilla 0) y `lab/config/generate_minimize/proteins10/dce/*` (fold 0, 10 instancias fijas, `max_oracle_calls` 1500). `proteins15/` es el intento previo con 15 instancias y presupuesto completo (descartado por lento). Ids fijos en `lab/config/snippets/proteins_10_instances.json` y `proteins_15_instances.json`.
+- `docs/selector/SELECTOR_V2_EXECUTION_ORDER.md`: cola para `scripts/run_revision_queue.py --list docs/selector/SELECTOR_V2_EXECUTION_ORDER.md --workers 1` (en serie, porque los folds comparten checkpoint).
+- Checkpoints v1 de la tesis apartados como `models/edge_selector_<ds>-<hash>.pt.thesis-bak` para que v1 arranque en frío en las comparaciones.
+
+## 3. Resultados
+
+Todos los métodos arrancan en frío, generador DCE con semilla fija (mismos contrafactuales iniciales para todos), base sin calibrar.
+
+### Synthie, folds 0 y 1 (80 instancias, presupuesto 10 000)
+
+| Variante | GED media | GED máx | OC media | OC mediana | GED vs base (mejor/igual/peor) | OC menores que base |
+|---|---|---|---|---|---|---|
+| LBS base | 2.84 | 44 | 2847 | 753 | | |
+| v1 | 5.84 | 155 | 1607 | 1136 | 9/53/18 | 26/80 |
+| v2 | 2.42 | 16 | 1823 | 1354 | 9/58/13 | 26/80 |
+| **v2b** | **1.95** | 11 | 2014 | 470 | 13/60/7 | 72/80 |
+| v2b-random | 1.99 | 11 | 2188 | 456 | 13/61/6 | 74/80 |
+| v2c | 2.11 | | 2004 | 475 | 14/58/8 | 74/80 |
+| v2e | 13.9 | | 1574 | 755 | 5/55/20 | 40/80 |
+| v2f | 4.83 | | 2098 | 712 | 12/57/11 | 45/80 |
+| v2f-random | 4.94 | | 2100 | 730 | 13/59/8 | 49/80 |
+
+v2b frente a v2b-random: GED igual en 67, 6 a favor de una y 7 de la otra; OC 34 a 31. En Synthie el modelo no aporta nada medible: el 75 % de las eliminaciones sueltas funcionan y el ranking no puede mejorar el azar.
+
+### PROTEINS-10 (fold 0, ids 22, 122, 157, 186, 270, 504, 564, 701, 844, 1075, presupuesto 1500)
+
+| Variante | GED media | OC minimizador (media) | GED vs base (mejor/igual/peor) |
+|---|---|---|---|
+| LBS base | 50.8 | 12 882 (sobrepasa el tope) | |
+| v1 | 40.0 | 728 | 5/4/1 |
+| v2 | 45.2 | 782 | 5/2/3 |
+| v2b | 56.0 | 1351 | 2/3/5 |
+| v2c | 61.8 | 1350 | 2/3/5 |
+| v2d | 61.4 | 1354 | 2/2/6 |
+| **v2e** | **37.1** | 1092 | 6/3/1 |
+| v2e-random | 39.2 | 1226 | 4/4/2 |
+| v2f | 39.2 | 1357 | 5/2/3 |
+| v2f-random | 38.3 | 1357 | 5/3/2 |
+
+Por instancia (GED final; inicial entre paréntesis): id 22 (109): base 18, v1 23, v2 23, v2e 22, v2e-random 18. id 122 (121): 114, 104, 82, 77, 79. id 157 (163): 154, 69, 69, 66, 77. id 186 (59): 5, 5, 59, 5, 5. id 270 (71): 30, 25, 22, 25, 28. id 504 (80): 41, 35, 31, 34, 29. id 564 (110): nadie la reduce. id 701 (87): todos llegan a 1 (v2b en 10 llamadas gracias a bloques de 32). id 844 (94): 22, 15, 19, 19, 30. id 1075 (114): 13, 13, 36, 12, 15.
+
+En PROTEINS el ranker sí aporta, poco pero de forma consistente: 13.4 llamadas por eliminación conseguida (v2e) frente a 17.4 (v2e-random), AUC precuencial 0.74 a 0.80, 1.8 a 2.4 intentos por éxito. La base necesita unas 700 llamadas por mejora. Swap y adición no consiguen ningún éxito en PROTEINS con este presupuesto (0 éxitos en más de 14 000 llamadas acumuladas). Los métodos de atributos productivos son `random_walk_diffusion` (unos 390 de 560 éxitos) e `identity`; los otros cinco casi nunca.
+
+### BBBP
+
+Solo se completó v2 en el fold 0 (204 instancias); v2b quedó en 36/204 al cambiar a PROTEINS. No analizado. La base de BBBP en `results/` también está calibrada (usar el backup).
+
+## 4. Variantes y por qué existen
+
+Todas son flags de `local_search_selection_net_v2.LocalSearch` sobre el mismo código. `model_tag` separa los checkpoints.
+
+- **v2**: rediseño del selector, esqueleto v1. Bien en Synthie y PROTEINS, pero abandona la instancia tras la primera iteración externa sin mejora (deja presupuesto sin usar) y elimina una arista por barrido.
+- **v2b** (`block_removal`, `block_init 8`, `block_random_mix`, `retry_outer`, pooling `noisy_and`, `veto 0`, `swap_record_add false`, `lr_add 2e-3`, `extra_replay_steps_add 3`): escalera descendente de bloques desde 8 (x2 tras éxito), mitad de intentos rankeados y mitad al azar, reintentos mientras quede presupuesto (semántica de la base). Mejor en Synthie. En PROTEINS los bloques casi nunca funcionan y cada escalón fallido cuesta 84 llamadas (12 intentos x 7 métodos de atributos), así que el barrido (-) se come el tope local y swap/adición nunca corren.
+- **v2c** (`block_init 1`, `block_shrink_on_fail`, `phase_budget` 0.5/0.25/0.25 fijas, `block_example_weight 0.5`, pooling `sum_bias`): cuotas fijas por fase. Peor en PROTEINS: gasta el 40 % en swap/adición improductivas y los escalones de bloque siguen costando antes de llegar al tamaño 1.
+- **v2d** (`block_policy bandit` con priors uniformes, `adaptive_phase_budget`, `adaptive_method_order`): el bandit con priors uniformes prueba primero bloques grandes y quema el presupuesto. Peor en PROTEINS. Solo se completó PROTEINS-10.
+- **v2e** (`block_policy unlock`: el tamaño 2k solo se prueba cuando el tamaño k tiene tasa >= 0.5 en >= 6 intentos, `fill_remove_share`, cuotas adaptativas con suelo 0.05, `adaptive_method_order`): mejor en PROTEINS (las cuotas convergen a 0.90/0.05/0.05). Se hunde en Synthie porque en la fase final swap y adición quedan con el 5 % del presupuesto y `fill_remove_share` gasta el 90 % del presupuesto local en barridos de eliminación que fallan.
+- **v2f** (v2e sin `fill_remove_share`, cuota fija de eliminación 0.5 y swap/adición sin tope): empata con v2e en PROTEINS; en Synthie cae por la instancia 199 (232 aristas, ninguna eliminación suelta posible): la regla de desbloqueo excluía para siempre el tamaño 4 tras un primer fracaso, mientras que v2b la dejó en 8 con bloques al azar.
+- **v2g** (`block_policy bandit` con prior Beta(1, tamaño), 6 intentos por escalón de bloque, hasta 2 tamaños de bloque más el tamaño 1 siempre, `bandit_min_value 0.3`, cuotas tipo v2f, `adaptive_method_order`): diseñada para unificar v2b y v2e. **No llegó a correr** (la máquina se apagó con 0/10 en PROTEINS y 5/40 en Synthie; los restos están en `lab/output/discarded/v2g_partial`). Es lo primero a lanzar al retomar.
+
+## 5. Conclusiones de la ronda de calibración
+
+1. El esqueleto de búsqueda explica casi toda la ganancia en OC y GED; el ranker aprendido aporta poco (nada medible en Synthie, un 20 a 25 % menos de llamadas por eliminación en PROTEINS). Para el paper hay que reportarlo así y cualquier propuesta de modelo debe batir a la ablación aleatoria del mismo esqueleto, no a la base.
+2. El reparto del presupuesto entre fases y el tamaño de los bloques de eliminación son dependientes del dataset: PROTEINS solo produce en eliminación de una arista; Synthie necesita bloques grandes en el descenso y cientos de llamadas de adición en la fase final.
+3. Ninguna variante gana en ambos datasets. La candidata para escalar debe igualar a v2b en Synthie y a v2e en PROTEINS; v2g es la propuesta pendiente.
+4. El orden adaptativo de métodos de atributos es una mejora gratuita y debería pasar también a la base.
+5. Con 10 instancias por dataset y una sola corrida las diferencias de 2 a 3 puntos de GED en PROTEINS no son concluyentes; la decisión de escalar debe basarse en las tendencias del monitor (llamadas por éxito, éxitos por fase) además de la GED.
+
+## 6. Siguientes pasos
+
+1. Clonar la rama, recrear el entorno (`environment.yml`, entorno conda `GRTL`), regenerar las cachés de datasets y oráculos (no viajan en git: `lab/data/cache/datasets`, `lab/data/cache/oracles`; los oráculos GCN se reentrenan con la config del snippet do-pair). Sin la misma caché del oráculo los números no serán idénticos a los de aquí.
+2. Lanzar v2g y v2g-random en PROTEINS-10 y Synthie folds 0-1 (configs listas): `python scripts/run_experiments.py --one lab/config/generate_minimize/proteins10/dce/dce-lcls-net-v2g/generate_minimize0.jsonc --run-number 1` y los equivalentes; analizar con `scripts/analyze_selector_runs.py feedback ... --monitor lab/output/selector_logs/selector_v2g_<ds>.csv`.
+3. Corregir la asimetría de presupuesto de LBS base (tope dentro de la iteración) como opción `strict_budget` para no alterar los hashes de las configs del paper.
+4. Si v2g funciona en ambos: escalar con `docs/selector/SELECTOR_V2_EXECUTION_ORDER.md` (añadir tier v2g) contra base sin calibrar y v2g-random, 10 folds de Synthie y BBBP, y PROTEINS con más instancias.
+5. Ideas de modelado pendientes que sí podrían mover la aguja en PROTEINS: usar el ranking para decidir el orden de los métodos de atributos por candidato, pretraining offline del ranker con los logs ya guardados (parejas contexto/arista/etiqueta del buffer), y transferencia del checkpoint entre folds (ya ocurre dentro de un dataset).
+
+## 7. Dónde está cada cosa
+
+- Código: rutas en la sección 2.
+- Resultados en git (actualizado 2026-10-28): todo el estudio del selector está archivado por fases en `lab/selector_experiments/` (`1-calibration` es esta ronda, `2-proteins40` y `3-multi40` la sección 8, `4-final-config` la configuración final), con resultados, logs comprimidos en una carpeta por dataset, generador y minimizador, y CSV del monitor. Su README es el índice. Los scripts de análisis encuentran ahí los scopes y logs sin rutas (`scripts/result_paths.py`). El experimento final de 10 folds escribe en `lab/output/results/proteins-sel_*`, también en git.
+- En la máquina original, además: `lab/output/discarded/` (intentos fallidos de v2b y restos de v2d, v2g), `lab/output/_backup_precalibration/` (base sin calibrar completa), `lab/output/results/` (todo).
+- Memoria de la sesión de Claude: `~/.claude/projects/-home-rodrigo-projects-GRETEL/memory/` (no viaja en git; el contenido relevante está en este documento).
+
+## 8. Sesión 2026-09-29 a 2026-10-01 (máquina nueva): PROTEINS-40, diagnóstico offline, v3 y v3b
+
+Protocolo: 40 instancias aleatorias del test del fold 0 de PROTEINS (`lab/config/snippets/proteins_40_instances.json`), generador DCE, tope de 2000 llamadas del minimizador para todos (LBS base con `strict_budget`), selectores en frío, una corrida a la vez. Cada selector tiene tres brazos: learned, frozen (misma red sin entrenar, misma política) y random (mismo esqueleto, propuestas uniformes). Colas: `PROTEINS40_EXECUTION_ORDER.md`, `PROTEINS40_ROUND2_EXECUTION_ORDER.md`, `MULTI40_EXECUTION_ORDER.md`. Análisis: `scripts/analyze_selector_runs.py stats | training | seeds`.
+
+Resultados principales (Wilcoxon pareado por instancia, Holm):
+
+- v1 y v2g: el entrenamiento no mejora la búsqueda (learned frente a frozen, GED p 0.44 y 0.86, llamadas p 0.75 y 0.07). La reducción de llamadas de v1 frente a LBS viene del esqueleto (v1-frozen ahorra lo mismo).
+- Diagnóstico offline (`scripts/selector_offline_bench.py` sobre `v3-collect`, 72 instancias disjuntas): el ranker de eliminación de v2e sí ordena en instancias no vistas (AUC dentro de la instancia 0.67, lift del 20 % superior 1.63), pero la política Plackett-Luce de v2e prueba un orden casi aleatorio (lift 1.12) porque los logits apenas se separan frente al ruido de Gumbel. Estandarizar las puntuaciones en los barridos con T 0.25 (P0) recupera el lift (1.61). Entrenar sobre el flip duro sube la AUC unos 0.02 (tres semillas). Normalizar la entrada, tronco compartido, prior decreciente y más replay no ayudan (probados encima de P1+P2). El modelo de adición no puede aprender en PROTEINS (0.2 % de flips).
+- v3 (P0 + flip): aplicaba P0 también al swap y a la reducción, que repetían movimientos en caché; ids 148, 454, 159 se quedaban en la GED inicial. v3b confina P0 a los barridos (`sweep_temp` 0.25), muestrea swap y reducción con puntuaciones estandarizadas a `sample_temp` 4 (nivel de aleatoriedad de v2e) y añade memoria tabú.
+- v3b frente a v2e, tres semillas promediadas por instancia: -96 llamadas por instancia (p Holm 0.042, signo negativo en las tres semillas), GED igual (p 0.86). Frente a v2e-random: -207 llamadas (p Holm 0.031). v2e no se distingue de v2e-random.
+- Efecto del entrenamiento en v3b (semilla 0): learned frente a frozen -199 llamadas (p 0.005), -4.3 llamadas por eliminación conseguida (p 0.023), GED igual. v3b-frozen no se distingue de v2e ni de v2e-random: P0 sin ranking entrenado no aporta.
+- Preentrenamiento offline (`scripts/pretrain_selector_v3.py`, AUC 0.756 y skill +0.16 en instancias apartadas): v3b-pre-frozen es la variante más eficiente (10.5 llamadas por eliminación conseguida frente a 14.6 de v2e; -243 llamadas por instancia frente a v2e, p Holm 4e-4; GED 13/17/10 frente a v2e, p 0.89). Seguir aprendiendo en línea después del preentrenamiento no ayuda y empeora algo la GED (v3b-pre frente a v3b-pre-frozen, p 0.045 sin corregir). Solo semilla 0.
+- La GED media varía unos 3 puntos entre semillas de un mismo método por pocas instancias que se resuelven o no por suerte (148, 159). Las conclusiones deben usar varias semillas y la comparación pareada.
+- AIDS y COLORS-3 (40 instancias cada uno, `generator_cache`): ningún selector puede distinguirse. AIDS: 221 llamadas por eliminación conseguida (casi ninguna funciona, todos empatan en GED 37/40). COLORS-3: 1.3 llamadas por eliminación conseguida (casi todas funcionan). El selector solo aporta en un régimen intermedio de éxito de eliminación como el de PROTEINS (14.6).
+
+Infraestructura nueva: `GenerateMinimize.generator_cache` (salida del generador compartida entre minimizadores, con sus llamadas repuestas al contador), `local_search.strict_budget`, modos `frozen` y `collect_examples` del LBS guiado, opciones de arquitectura del selector (todas opt-in), generadores de configs (`gen_selector_sample_configs.py`, `gen_selector_v3_configs.py`, `gen_selector_dataset_configs.py`, `gen_selector_seed_configs.py`) y `list_fold_instances.py`.
+
+Siguiente: v4 en PROTEINS sobre el selector preentrenado y congelado (P0 + flip + tabú), con candidatos: más datos de preentrenamiento, ranker GBM preentrenado (P7), exploración adaptativa para recuperar GED en ids como 419 y 1072, tabú para bloques. Confirmar v3b-pre-frozen y v3b-frozen con semillas 1 y 2.
+
+### 8.1 Rondas 2 y 3: tres semillas por brazo (2026-10-02)
+
+`PROTEINS40_ROUND2_EXECUTION_ORDER.md` y `PROTEINS40_ROUND3_EXECUTION_ORDER.md`. v2e, v2e-random, v3b, v3b-frozen y v3b-pre-frozen con semillas 0, 1 y 2 sobre las mismas 40 instancias. `analyze_selector_runs.py seeds` promedia las semillas por instancia y hace Wilcoxon pareado sobre las 40 medias (Holm sobre 18 tests):
+
+| Método | GED media (mediana) | Llamadas, media |
+|---|---|---|
+| v2e-random | 20.97 (10.7) | 2073 |
+| v2e | 21.48 (11.7) | 1962 |
+| v3b-frozen | 22.98 (13.7) | 2061 |
+| v3b | 22.13 (12.3) | 1866 |
+| v3b-pre-frozen | 23.31 (12.5) | 1784 |
+
+- Efecto del entrenamiento: v3b frente a v3b-frozen -195 llamadas (Holm 0.012; -199, -190, -196 por semilla). Preentrenamiento: v3b-pre-frozen frente a v3b-frozen -277 (Holm 0.001).
+- v3b-pre-frozen frente a v2e -179 llamadas (Holm 0.002) y frente a v2e-random -290 (Holm 0.009), signo negativo en las tres semillas, GED sin diferencia significativa (media +1.8 frente a v2e, en contra en las tres semillas).
+- v3b-frozen tiene peor GED que v2e (Holm 0.009) y que v2e-random (Holm 0.023): la política casi greedy solo sirve sobre un ranking entrenado.
+
+Banco de preentrenamiento (`scripts/selector_pretrain_bench.py`, 4 folds por instancia sobre v3-collect): red de v3b AUC 0.689, red 128x3 0.703, una cabeza 0.695, GBM 0.682, regresión logística 0.698 (lift con la política de v3b 1.56 a 1.68). Curva de la red: 9, 18, 36, 54 instancias de entrenamiento dan 0.572, 0.655, 0.671, 0.689. Con estas características hay un techo de unos 0.70 sea cual sea el modelo; más datos ayudan poco. La ventaja del GBM vista antes venía de mezclar instancias en la validación.
+
+Siguiente (v4): añadir información nueva al ranker en vez de cambiar el modelo, sobre todo evidencia acumulada dentro de la instancia (por arista: veces evaluada, subida media de la probabilidad contrafactual cuando estaba en el movimiento, pertenencia a movimientos con éxito), más exploración adaptativa de los barridos para recuperar GED.

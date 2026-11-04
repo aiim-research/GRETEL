@@ -1,0 +1,511 @@
+{
+ "dataset": "PROTEINS",
+ "fold": 0,
+ "rule": "the fold-0 test instances outside proteins_40_instances.json (disjoint from the evaluation set), used to collect examples for the offline pretraining of selector v3",
+ "instances": [
+  {
+   "id": 41,
+   "nodes": 620,
+   "edges": 25,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 63,
+   "nodes": 620,
+   "edges": 233,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 71,
+   "nodes": 620,
+   "edges": 36,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 75,
+   "nodes": 620,
+   "edges": 11,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 78,
+   "nodes": 620,
+   "edges": 89,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 81,
+   "nodes": 620,
+   "edges": 44,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 91,
+   "nodes": 620,
+   "edges": 340,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 169,
+   "nodes": 620,
+   "edges": 48,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 176,
+   "nodes": 620,
+   "edges": 69,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 179,
+   "nodes": 620,
+   "edges": 483,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 194,
+   "nodes": 620,
+   "edges": 117,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 201,
+   "nodes": 620,
+   "edges": 137,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 206,
+   "nodes": 620,
+   "edges": 77,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 215,
+   "nodes": 620,
+   "edges": 64,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 216,
+   "nodes": 620,
+   "edges": 115,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 229,
+   "nodes": 620,
+   "edges": 37,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 230,
+   "nodes": 620,
+   "edges": 80,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 264,
+   "nodes": 620,
+   "edges": 58,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 284,
+   "nodes": 620,
+   "edges": 131,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 300,
+   "nodes": 620,
+   "edges": 166,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 303,
+   "nodes": 620,
+   "edges": 48,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 315,
+   "nodes": 620,
+   "edges": 20,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 330,
+   "nodes": 620,
+   "edges": 56,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 372,
+   "nodes": 620,
+   "edges": 25,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 374,
+   "nodes": 620,
+   "edges": 214,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 392,
+   "nodes": 620,
+   "edges": 65,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 400,
+   "nodes": 620,
+   "edges": 57,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 414,
+   "nodes": 620,
+   "edges": 39,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 436,
+   "nodes": 620,
+   "edges": 45,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 437,
+   "nodes": 620,
+   "edges": 183,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 444,
+   "nodes": 620,
+   "edges": 38,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 455,
+   "nodes": 620,
+   "edges": 26,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 470,
+   "nodes": 620,
+   "edges": 170,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 490,
+   "nodes": 620,
+   "edges": 72,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 511,
+   "nodes": 620,
+   "edges": 44,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 561,
+   "nodes": 620,
+   "edges": 42,
+   "label": 0,
+   "pred": 1
+  },
+  {
+   "id": 569,
+   "nodes": 620,
+   "edges": 154,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 595,
+   "nodes": 620,
+   "edges": 143,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 601,
+   "nodes": 620,
+   "edges": 23,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 624,
+   "nodes": 620,
+   "edges": 91,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 662,
+   "nodes": 620,
+   "edges": 82,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 669,
+   "nodes": 620,
+   "edges": 27,
+   "label": 1,
+   "pred": 0
+  },
+  {
+   "id": 674,
+   "nodes": 620,
+   "edges": 18,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 726,
+   "nodes": 620,
+   "edges": 9,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 755,
+   "nodes": 620,
+   "edges": 25,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 781,
+   "nodes": 620,
+   "edges": 41,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 808,
+   "nodes": 620,
+   "edges": 46,
+   "label": 1,
+   "pred": 0
+  },
+  {
+   "id": 839,
+   "nodes": 620,
+   "edges": 114,
+   "label": 1,
+   "pred": 0
+  },
+  {
+   "id": 850,
+   "nodes": 620,
+   "edges": 43,
+   "label": 1,
+   "pred": 0
+  },
+  {
+   "id": 867,
+   "nodes": 620,
+   "edges": 11,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 874,
+   "nodes": 620,
+   "edges": 43,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 884,
+   "nodes": 620,
+   "edges": 130,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 896,
+   "nodes": 620,
+   "edges": 15,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 912,
+   "nodes": 620,
+   "edges": 20,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 936,
+   "nodes": 620,
+   "edges": 129,
+   "label": 1,
+   "pred": 0
+  },
+  {
+   "id": 938,
+   "nodes": 620,
+   "edges": 31,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 960,
+   "nodes": 620,
+   "edges": 17,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 961,
+   "nodes": 620,
+   "edges": 25,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 964,
+   "nodes": 620,
+   "edges": 9,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 971,
+   "nodes": 620,
+   "edges": 32,
+   "label": 1,
+   "pred": 0
+  },
+  {
+   "id": 979,
+   "nodes": 620,
+   "edges": 59,
+   "label": 1,
+   "pred": 0
+  },
+  {
+   "id": 999,
+   "nodes": 620,
+   "edges": 27,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1001,
+   "nodes": 620,
+   "edges": 48,
+   "label": 1,
+   "pred": 0
+  },
+  {
+   "id": 1002,
+   "nodes": 620,
+   "edges": 9,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1008,
+   "nodes": 620,
+   "edges": 94,
+   "label": 1,
+   "pred": 0
+  },
+  {
+   "id": 1018,
+   "nodes": 620,
+   "edges": 66,
+   "label": 1,
+   "pred": 0
+  },
+  {
+   "id": 1020,
+   "nodes": 620,
+   "edges": 87,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1032,
+   "nodes": 620,
+   "edges": 37,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1059,
+   "nodes": 620,
+   "edges": 41,
+   "label": 1,
+   "pred": 0
+  },
+  {
+   "id": 1065,
+   "nodes": 620,
+   "edges": 86,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1086,
+   "nodes": 620,
+   "edges": 41,
+   "label": 1,
+   "pred": 0
+  },
+  {
+   "id": 1108,
+   "nodes": 620,
+   "edges": 9,
+   "label": 1,
+   "pred": 1
+  }
+ ]
+}

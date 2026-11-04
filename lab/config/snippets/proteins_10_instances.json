@@ -1,0 +1,68 @@
+{
+  "dataset": "PROTEINS",
+  "fold": 0,
+  "max_oracle_calls": 1500,
+  "rule": "from the 15-instance set: keep the 3 known reducible (22, 122, 157), drop the 3 brittle ones where no edit keeps the counterfactual (20, 143, 162) and the two smallest untested (282, 358)",
+  "instances": [
+    {
+      "id": 186,
+      "nodes": 36,
+      "edges": 66,
+      "label": 0
+    },
+    {
+      "id": 270,
+      "nodes": 38,
+      "edges": 70,
+      "label": 0
+    },
+    {
+      "id": 701,
+      "nodes": 40,
+      "edges": 74,
+      "label": 1
+    },
+    {
+      "id": 504,
+      "nodes": 52,
+      "edges": 86,
+      "label": 0
+    },
+    {
+      "id": 844,
+      "nodes": 52,
+      "edges": 102,
+      "label": 1
+    },
+    {
+      "id": 1075,
+      "nodes": 72,
+      "edges": 109,
+      "label": 1
+    },
+    {
+      "id": 22,
+      "nodes": 67,
+      "edges": 114,
+      "label": 0
+    },
+    {
+      "id": 122,
+      "nodes": 62,
+      "edges": 124,
+      "label": 0
+    },
+    {
+      "id": 564,
+      "nodes": 82,
+      "edges": 143,
+      "label": 0
+    },
+    {
+      "id": 157,
+      "nodes": 82,
+      "edges": 174,
+      "label": 0
+    }
+  ]
+}

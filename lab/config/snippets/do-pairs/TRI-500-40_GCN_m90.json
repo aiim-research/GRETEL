@@ -1,0 +1,53 @@
+{
+    "dataset": {
+        "class": "src.dataset.dataset_base.Dataset",
+        "parameters": {
+            "generator": {
+                "class": "src.dataset.generators.triangles.TriangleThreshold",
+                "parameters": {
+                    "num_instances": 500,
+                    "num_nodes": 40,
+                    "edges_per_node": 3,
+                    "max_triangles_class0": 55,
+                    "min_triangles_class1": 78
+                }
+            }
+        }
+    },
+    "oracle": {
+        "class": "src.oracle.margin.MarginOracle",
+        "parameters": {
+            "margin": 0.9,
+            "base_oracle": {
+                "class": "src.oracle.nn.torch.OracleTorch",
+                "parameters": {
+                    "epochs": 200,
+                    "batch_size": 32,
+                    "optimizer": {
+                        "class": "torch.optim.Adam",
+                        "parameters": {
+                            "lr": 0.001
+                        }
+                    },
+                    "loss_fn": {
+                        "class": "torch.nn.CrossEntropyLoss",
+                        "parameters": {
+                            "reduction": "mean"
+                        }
+                    },
+                    "model": {
+                        "class": "src.oracle.nn.gcn.DownstreamGCN",
+                        "parameters": {
+                            "num_conv_layers": 3,
+                            "num_dense_layers": 1,
+                            "conv_booster": 2,
+                            "linear_decay": 1.8
+                        }
+                    },
+                    "fold_id": -1,
+                    "retrain": false
+                }
+            }
+        }
+    }
+}

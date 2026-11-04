@@ -1,0 +1,288 @@
+{
+ "dataset": "AIDS",
+ "fold": 0,
+ "max_oracle_calls": 2000,
+ "rule": "40 instances drawn uniformly without replacement from the fold-0 test split (200 graphs) with random.Random(2026), split cached on 2026-09-30",
+ "instances": [
+  {
+   "id": 3,
+   "nodes": 95,
+   "edges": 10,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 19,
+   "nodes": 95,
+   "edges": 11,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 176,
+   "nodes": 95,
+   "edges": 8,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 181,
+   "nodes": 95,
+   "edges": 13,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 184,
+   "nodes": 95,
+   "edges": 32,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 210,
+   "nodes": 95,
+   "edges": 10,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 224,
+   "nodes": 95,
+   "edges": 11,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 247,
+   "nodes": 95,
+   "edges": 7,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 266,
+   "nodes": 95,
+   "edges": 53,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 462,
+   "nodes": 95,
+   "edges": 6,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 506,
+   "nodes": 95,
+   "edges": 10,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 555,
+   "nodes": 95,
+   "edges": 24,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 569,
+   "nodes": 95,
+   "edges": 12,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 640,
+   "nodes": 95,
+   "edges": 8,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 747,
+   "nodes": 95,
+   "edges": 11,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 748,
+   "nodes": 95,
+   "edges": 11,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 802,
+   "nodes": 95,
+   "edges": 10,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 823,
+   "nodes": 95,
+   "edges": 13,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 848,
+   "nodes": 95,
+   "edges": 61,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 880,
+   "nodes": 95,
+   "edges": 10,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 931,
+   "nodes": 95,
+   "edges": 13,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 958,
+   "nodes": 95,
+   "edges": 10,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1013,
+   "nodes": 95,
+   "edges": 9,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1034,
+   "nodes": 95,
+   "edges": 7,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1156,
+   "nodes": 95,
+   "edges": 7,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1184,
+   "nodes": 95,
+   "edges": 12,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1221,
+   "nodes": 95,
+   "edges": 9,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1349,
+   "nodes": 95,
+   "edges": 10,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1366,
+   "nodes": 95,
+   "edges": 73,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 1419,
+   "nodes": 95,
+   "edges": 11,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1442,
+   "nodes": 95,
+   "edges": 10,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1520,
+   "nodes": 95,
+   "edges": 13,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1583,
+   "nodes": 95,
+   "edges": 61,
+   "label": 0,
+   "pred": 0
+  },
+  {
+   "id": 1600,
+   "nodes": 95,
+   "edges": 10,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1658,
+   "nodes": 95,
+   "edges": 11,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1663,
+   "nodes": 95,
+   "edges": 11,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1728,
+   "nodes": 95,
+   "edges": 12,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1874,
+   "nodes": 95,
+   "edges": 10,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1911,
+   "nodes": 95,
+   "edges": 11,
+   "label": 1,
+   "pred": 1
+  },
+  {
+   "id": 1971,
+   "nodes": 95,
+   "edges": 11,
+   "label": 1,
+   "pred": 1
+  }
+ ]
+}

@@ -1,0 +1,5 @@
+{
+    "manipulators": [
+        { "class": "src.dataset.manipulators.triangles.NodeTriangles", "parameters": {} }
+    ]
+}
