@@ -7,6 +7,8 @@ from src.utils.cfg_utils import init_dflts_to_of
 from src.utils.samplers.abstract_sampler import Sampler
 
 class EAGER(PerClassExplainer):
+    requires_fixed_size = True   # its GAN has a fixed number of nodes
+
 
     def init(self):
         super().init()

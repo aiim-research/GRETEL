@@ -18,7 +18,11 @@ from src.future.explanation.local.graph_counterfactual import LocalGraphCounterf
 from src.explainer.future.ensemble.aggregators.filters.base import ExplanationFilter
 
 
+from src.core.explainer_base import check_fixed_size
+
+
 class ExplanationMinimizer(Trainable):
+    requires_fixed_size = False   # see src/core/explainer_base.check_fixed_size
 
     def check_configuration(self):
         super().check_configuration()
@@ -28,6 +32,7 @@ class ExplanationMinimizer(Trainable):
         self.logger = self.context.logger
         self.dataset: Dataset = retake_dataset(self.local_config)
         self.oracle: Oracle = retake_oracle(self.local_config)
+        check_fixed_size(self, self.dataset)
 
         super().init()
 

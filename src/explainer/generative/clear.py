@@ -17,6 +17,8 @@ from src.utils.utils import pad_adj_matrix
 
 
 class CLEARExplainer(Trainable, Explainer):
+    requires_fixed_size = True   # its VAE heads have the size of the largest graph
+
 
     def init(self):
         super().init()        

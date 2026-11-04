@@ -9,6 +9,8 @@ from src.core.oracle_base import Oracle
 
 
 class CF2Explainer(Trainable, Explainer):
+    requires_fixed_size = True   # its edge mask has a fixed size
+
 
     def init(self):
         self.n_nodes = self.local_config['parameters']['n_nodes']

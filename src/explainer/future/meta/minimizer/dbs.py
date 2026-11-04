@@ -25,6 +25,8 @@ from src.explainer.future.utils.data_driven_priors import (
 
 
 class DBS(ExplanationMinimizer):
+    requires_fixed_size = True   # its priors are per node index, from the graphs of one size
+
     """Data-driven Backward Search minimizer."""
 
     def check_configuration(self):

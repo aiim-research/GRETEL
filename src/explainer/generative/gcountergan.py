@@ -6,6 +6,8 @@ from src.utils.samplers.abstract_sampler import Sampler
 from src.utils.cfg_utils import init_dflts_to_of
 
 class GCounteRGAN(PerClassExplainer):
+    requires_fixed_size = True   # its GAN works on fixed-size adjacency images
+
     """
     GCounteRGAN: Generative Counterfactual Explanations using GANs
 

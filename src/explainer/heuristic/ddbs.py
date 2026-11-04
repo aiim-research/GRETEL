@@ -15,6 +15,8 @@ from src.utils.cfg_utils import get_dflts_to_of, init_dflts_to_of, inject_datase
 
 
 class DataDrivenBidirectionalSearchExplainer(Explainer):
+    requires_fixed_size = True   # it sums the adjacency matrices of the dataset
+
     """
     An implementation of the Counterfactual Explainer proposed in the paper "Abrate, Carlo, and Francesco Bonchi. 
     "Counterfactual Graphs for Explainable Classification of Brain Networks." 

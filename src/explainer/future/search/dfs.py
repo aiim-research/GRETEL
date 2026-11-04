@@ -22,6 +22,8 @@ from src.explainer.future.utils.data_driven_priors import (
 
 
 class DFS(Explainer):
+    requires_fixed_size = True   # its priors are per node index, from the graphs of one size
+
     """Data-driven Forward Search.
 
     Replaces the uniform random pick() of OFS with a weighted pick() that favours:
