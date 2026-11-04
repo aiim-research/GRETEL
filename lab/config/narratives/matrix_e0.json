@@ -25,7 +25,8 @@
     "time": "1-00:00:00",
     "mem": "96G",
     "min_free_mb": 70000,
-    "max_wait": 21600
+    "max_wait": 21600,
+    "env": "GRTL-llm"
   },
   "generators": [
     {

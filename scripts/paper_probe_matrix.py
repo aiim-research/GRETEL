@@ -298,7 +298,8 @@ def submit(run, dry_run=False, include_generators=True, only=None, after=None):
         cmd = ['sbatch', '--parsable', '--chdir=' + str(ROOT),
                '--time=' + settings['time'], '--mem=' + settings['mem'],
                '--job-name=pm-' + role[:3] + '-' + entry['id'],
-               f'--export=ALL,MIN_FREE_MB={settings["min_free_mb"]},MAX_WAIT={settings["max_wait"]},HF_HUB_OFFLINE=1,TRANSFORMERS_OFFLINE=1']
+               f'--export=ALL,MIN_FREE_MB={settings["min_free_mb"]},MAX_WAIT={settings["max_wait"]},HF_HUB_OFFLINE=1,TRANSFORMERS_OFFLINE=1'
+               + (f',GRETEL_ENV={settings["env"]}' if 'env' in settings else '')]
         for option in ('partition', 'gres'):
             if option in settings:
                 cmd.append(f'--{option}=' + settings[option])
