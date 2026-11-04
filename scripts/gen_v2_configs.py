@@ -27,9 +27,9 @@ with ``compose`` whose value is a file, also inside ``propagate`` blocks):
 
 Sources, regenerated from their current v1 definitions every time this runs:
 
-* ``paper1``: the cells of ``scripts/gen_rerun_queues.py`` (thesis and paper revision), without RSGG, and
-  with DFS and DBS only on the fixed-size datasets (their priors are per node index, meaningful only when
-  index i is the same node in every graph);
+* ``paper1``: the cells of ``scripts/gen_rerun_queues.py`` (thesis and paper revision), without RSGG and DBS,
+  and with DFS only on the fixed-size datasets (its prior is per node index, meaningful only when index i is
+  the same node in every graph; DBS, which shares that prior, waits for an adapted one);
 * ``selector``: every config of the selector paper's batches (``docs/selector/PAPER_B*.md``).
 
 Configs that use a fixed-size explainer are skipped and listed. The run order is decided later; this only
@@ -139,7 +139,9 @@ def paper1_configs() -> list[str]:
     for ds, gen, var in sorted(cells()):
         if gen.startswith("rsgg"):
             continue
-        if (gen == "dfs" or var.endswith("-dbs")) and ds not in FIXED_SIZE_DATASETS:
+        if var.endswith("-dbs"):
+            continue   # DBS stays out of v2 for now (decided 2026-11-04): its prior is to be adapted first
+        if gen == "dfs" and ds not in FIXED_SIZE_DATASETS:
             continue
         out += sorted(str(p.relative_to(REPO)) for p in (REPO / TREE / ds / gen / var).glob("generate_minimize*.jsonc"))
     return out
