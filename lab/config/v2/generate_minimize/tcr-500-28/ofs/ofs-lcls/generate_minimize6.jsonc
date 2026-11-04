@@ -27,7 +27,7 @@
                         "doe-triplets/dataset"
                     ],
                     "params": {
-                        "compose_man": "lab/config/v2/snippets/datasets/empty.json"
+                        "compose_man": "lab/config/v2/snippets/datasets/empty-delete-isolated.json"
                     }
                 }
             ],

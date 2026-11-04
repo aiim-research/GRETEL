@@ -24,10 +24,6 @@
                     "parameters": {}
                 },
                 {
-                    "class": "src.evaluation.future.stages.fed.FeatureEditDistance",
-                    "parameters": {}
-                },
-                {
                     "class": "src.evaluation.future.stages.correctness.Correctness",
                     "parameters": {}
                 },

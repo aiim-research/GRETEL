@@ -1,0 +1,8 @@
+{
+    "manipulators": [
+        {
+            "class": "src.dataset.manipulators.isolated.DeleteIsolatedNodes",
+            "parameters": {}
+        }
+    ]
+}

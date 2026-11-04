@@ -50,7 +50,8 @@
                         "class": "src.explainer.future.search.dcm.DCM",
                         "parameters": {
                             "epochs": 500,
-                            "projection": "index"
+                            "projection": "assignment",
+                            "classify_with": "oracle"
                         }
                     },
                     "minimizer": {

@@ -27,7 +27,7 @@
                         "doe-triplets/dataset"
                     ],
                     "params": {
-                        "compose_man": "lab/config/v2/snippets/datasets/padding.json"
+                        "compose_man": "lab/config/v2/snippets/datasets/padding-delete-isolated.json"
                     }
                 }
             ],
@@ -49,7 +49,7 @@
                     "generator": {
                         "class": "src.explainer.future.search.dces.DCESExplainer",
                         "parameters": {
-                            "projection": "index"
+                            "projection": "assignment"
                         }
                     },
                     "minimizer": {

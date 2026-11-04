@@ -11,19 +11,26 @@ The transformation, applied to a config and, recursively, to every snippet it co
 with ``compose`` whose value is a file, also inside ``propagate`` blocks):
 
 * AdjacencyMatrixPadder leaves every ``manipulators`` list;
+* the isolated-node policy (src/utils/isolated.py): every dataset but COLORS-3, Synthie and ASD
+  (``KEEP_ISOLATED``) gets DeleteIsolatedNodes first in its manipulators (a copy of the manipulator snippet
+  named ``*-delete-isolated``), so the isolated nodes it has when it loads go and a node an edit leaves
+  isolated is deleted;
 * DownstreamGCN gets ``exact_conv_layers``, so it builds the convolutions its config asks for (v1 builds
   two whenever more are asked; the oracles are retrained in v2 anyway);
 * every pipeline gets the edit cost under the node correspondence (``edit_distance.EditDistance``,
   ``StructuralEditDistance`` and ``MatchedFeatureDistance``) right after the cell-wise GED stage, which
-  stays for comparison with v1;
-* the DCE and DCM generators get ``projection: "index"``, the generator contract of v2: the nearest
-  candidate whose projection onto the input's nodes is a counterfactual (implemented in step 3 of the plan;
-  until then the v2 configs with DCE or DCM do not run);
+  stays for comparison with v1, and loses the cell-wise FED stage (it needs equal sizes; MatchedFeatureDistance,
+  the feature distance under the same correspondence, replaces it);
+* the DCE and DCM generators get ``projection: "assignment"``, the generator contract of v2 (the full
+  projection of the nearest candidate the oracle accepts, decided by the generator alone, so generation
+  stays decoupled from minimization), and DCM classifies its medoids with the oracle;
 * the experiment scope and the selector's ``model_tag`` get the prefix ``v2-``, and its checkpoints and
   collections (``init_checkpoint``, ``collect_examples``) move to a ``v2/`` subfolder, so v2 never reads or
   overwrites a v1 artefact;
 * a composed snippet is written to ``lab/config/v2/<its path under lab/config>`` (``lab/config/v2/<its path>``
-  for the few outside it, the legacy snippets) and the reference points there.
+  for the few outside it, the legacy snippets) and the reference points there;
+* every plain BLS cell of the first paper with DCE or DCM also gets a BLS-F arm (``<gen>-lclsf``,
+  local_search_features: edge edits and node-feature substitutions towards the seed).
 
 Sources, regenerated from their current v1 definitions every time this runs:
 
@@ -55,6 +62,15 @@ PREFIX = "v2-"
 PADDER = "src.dataset.manipulators.padding.AdjacencyMatrixPadder"
 GCN = "src.oracle.nn.gcn.DownstreamGCN"
 GED_STAGE = "src.evaluation.future.stages.ged.GraphEditDistance"
+FED_STAGE = "src.evaluation.future.stages.fed.FeatureEditDistance"
+ISOLATED = {"class": "src.dataset.manipulators.isolated.DeleteIsolatedNodes", "parameters": {}}
+# Isolated-node policy "keep" (task 0, decided 2026-11-04): datasets where isolated nodes are part of the data
+# (COLORS-3 64 % of graphs, Synthie 98 %) and fixed-node ones (ASD). Every other dataset deletes a node an
+# edit leaves isolated, and loses the isolated nodes it has when it loads (salt ions in molecules).
+KEEP_ISOLATED = ("colors-3", "synthie", "asd")
+DCM = "src.explainer.future.search.dcm.DCM"
+BLS = "src.explainer.future.metaheuristic.local_search.local_search.LocalSearch"
+BLSF = "src.explainer.future.metaheuristic.local_search.local_search_features.LocalSearch"
 EDIT_STAGES = [f"src.evaluation.future.stages.edit_distance.{name}"
                for name in ("EditDistance", "StructuralEditDistance", "MatchedFeatureDistance")]
 PROJECTED = ("src.explainer.future.search.dces.DCESExplainer", "src.explainer.future.search.dcm.DCM")
@@ -86,14 +102,15 @@ def moved(path: str) -> str:
 
 class Transformer:
     def __init__(self):
-        self.snippets: dict[str, str] = {}      # v1 snippet path -> v2 snippet path, written once each
+        self.snippets: dict[str, str] = {}      # (v1 snippet path, policy) -> v2 snippet path, written once each
+        self.policy = "keep"                    # isolated-node policy of the config being transformed
 
     def node(self, value):
         if isinstance(value, list):
             out = []
             for v in value:
-                if isinstance(v, dict) and v.get("class") == PADDER:
-                    continue
+                if isinstance(v, dict) and v.get("class") in (PADDER, FED_STAGE):
+                    continue   # no padding; the cell-wise FED needs equal sizes, MatchedFeatureDistance replaces it
                 out.append(self.node(v))
                 if isinstance(v, dict) and v.get("class") == GED_STAGE:
                     out += [{"class": cls, "parameters": {}} for cls in EDIT_STAGES]
@@ -103,7 +120,7 @@ class Transformer:
         out = {}
         for key, item in value.items():
             if key.startswith("compose") and isinstance(item, str) and item.endswith((".json", ".jsonc")):
-                out[key] = self.snippet(item)
+                out[key] = self.snippet(item, isolated=key == "compose_man" and self.policy == "delete")
             elif key == "model_tag" and isinstance(item, str):
                 out[key] = PREFIX + item
             elif key in MOVED and isinstance(item, str):
@@ -114,24 +131,50 @@ class Transformer:
         if cls == GCN:
             out.setdefault("parameters", {})["exact_conv_layers"] = True
         elif cls in PROJECTED:
-            out.setdefault("parameters", {})["projection"] = "index"
+            out.setdefault("parameters", {})["projection"] = "assignment"
+            if cls == DCM:
+                out["parameters"]["classify_with"] = "oracle"
         return out
 
-    def snippet(self, rel: str) -> str:
-        if rel not in self.snippets:
+    def snippet(self, rel: str, isolated: bool = False) -> str:
+        """The v2 copy of a snippet; a manipulator snippet of a dataset with the policy "delete" gets its own
+        copy (name suffix -delete-isolated) with DeleteIsolatedNodes first."""
+        key = (rel, isolated)
+        if key not in self.snippets:
             target = v2_path(rel)
-            self.snippets[rel] = target
+            if isolated:
+                target = re.sub(r"\.(jsonc?)$", r"-delete-isolated.\1", target)
+            self.snippets[key] = target
             source = REPO / rel.removeprefix("./")
             data = self.node(read_jsonc(source))
+            if isolated:
+                data["manipulators"] = [dict(ISOLATED)] + data.get("manipulators", [])
             out = REPO / target.removeprefix("./")
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(json.dumps(data, indent=4) + "\n")
-        return self.snippets[rel]
+        return self.snippets[key]
 
-    def config(self, rel: str) -> tuple[str, dict]:
+    def config(self, rel: str, cell: str) -> tuple[str, dict]:
+        self.policy = "keep" if cell.startswith(KEEP_ISOLATED) else "delete"
         data = self.node(read_jsonc(REPO / rel))
         data["experiment"]["scope"] = PREFIX + data["experiment"]["scope"]
+        if self.policy == "delete" and "compose_man" not in json.dumps(data):
+            raise ValueError(f"{rel}: no manipulator snippet to carry the isolated-node policy")
         return v2_path(rel), data
+
+
+def bls_f(rel: str, data: dict) -> tuple[str, dict]:
+    """The BLS-F arm of a BLS config: same cell, minimizer local_search_features (edge edits and node-feature
+    substitutions towards the seed), variant <gen>-lclsf, scope suffix lclsf."""
+    data = json.loads(json.dumps(data))
+    minimizer = data["doe-triplets"][0]["explainer"]["parameters"]["minimizer"]
+    assert minimizer["class"] == BLS, rel
+    minimizer["class"] = BLSF
+    minimizer["parameters"]["attributed"] = False
+    data["experiment"]["scope"] = re.sub(r"_lcls$", "_lclsf", data["experiment"]["scope"])
+    parts = Path(rel).parts
+    variant = parts[-2]
+    return str(Path(*parts[:-2], variant.replace("-lcls", "-lclsf"), parts[-1])), data
 
 
 def paper1_configs() -> list[str]:
@@ -166,7 +209,8 @@ def main() -> int:
             if FIXED_SIZE.search(raw):
                 skipped[family] += 1
                 continue
-            target, data = transformer.config(rel)
+            cell = Path(rel).parts[3]
+            target, data = transformer.config(rel, cell)
             if target in written:
                 continue
             out = REPO / target
@@ -176,6 +220,16 @@ def main() -> int:
             written[target] = family
             parts = Path(target).parts
             rows.append((family, parts[4], parts[5], parts[6]))
+            # BLS-F next to every plain BLS cell of the first paper with DCE or DCM (2026-11-04)
+            if family == "paper1" and re.search(r"/(dce|dcm)/(dce|dcm)-lcls/", rel):
+                f_target, f_data = bls_f(target, data)
+                f_out = REPO / f_target
+                f_out.parent.mkdir(parents=True, exist_ok=True)
+                f_out.write_text(f"// Protocol v2 BLS-F arm, generated by scripts/gen_v2_configs.py from {rel}: do not edit.\n"
+                                 + json.dumps(f_data, indent=4) + "\n")
+                written[f_target] = family
+                fp = Path(f_target).parts
+                rows.append((family, fp[4], fp[5], fp[6]))
     index = Counter(rows)
     lines = ["# Protocol v2 configs", "",
              "Generated by `scripts/gen_v2_configs.py` (its docstring gives the transformation). Do not edit the files "

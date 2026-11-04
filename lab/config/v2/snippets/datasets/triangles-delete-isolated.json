@@ -1,6 +1,10 @@
 {
     "manipulators": [
         {
+            "class": "src.dataset.manipulators.isolated.DeleteIsolatedNodes",
+            "parameters": {}
+        },
+        {
             "class": "src.dataset.manipulators.triangles.NodeTriangles",
             "parameters": {}
         }
