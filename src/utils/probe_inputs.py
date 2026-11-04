@@ -6,7 +6,7 @@ from src.utils.probe_graph import restore
 from src.utils.probe_common import counts, check_judge, saved_generation_outcomes, validate_delta
 
 NARRATIVES_STAGE = 'src.evaluation.future.stages.probe_narratives.ProbeNarratives'
-PROBE_PROTOCOL_VERSION = 8  # Recourse prompt names ORIGINAL EDITS and states K; no template placeholders.
+PROBE_PROTOCOL_VERSION = 9  # Consistency prompt refined; narrator asks for the causes the edits support.
 PROBES = ('reconstruction', 'reversal', 'recourse', 'consistency')
 SECOND_DIRECTION = {'inversion': 'inverse', 'renaming': 'renamed', 'identity': 'identity'}
 

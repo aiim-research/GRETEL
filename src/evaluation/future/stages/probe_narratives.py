@@ -53,6 +53,19 @@ def seed_outcome(original, cf, seed, feature_columns=None, feature_names=None, a
 
 
 ARMS = ('minimized', 'seed', 'random_subset')
+# The narrator's rules are the explanation pipeline's (prompt_generator.SYSTEM_PROMPT), with one change for the
+# probes: its "top 3-5 root causes" asks a one-edit counterfactual for three causes, which invites invented
+# ones and would bias the minimality factor (small minimized edit sets against large seeds).
+NARRATOR_CAUSES = ('- Prioritize the top 3-5 root causes, ordered by estimated impact.',
+                   '- Give the root causes the modifications support, at most 5, ordered by estimated impact; '
+                   'one is enough when the modifications are few.')
+
+
+def narrator_system(domain):
+    rules = SYSTEM_PROMPT.split('OUTPUT FORMAT:')[0]
+    if NARRATOR_CAUSES[0] not in rules:
+        raise ValueError('The narrator rules changed: review NARRATOR_CAUSES')
+    return rules.replace(*NARRATOR_CAUSES) + '\n' + OUTPUT_SCHEMA + '\n' + domain
 DIRECTIONS = ('direct', 'inverse', 'renamed', 'identity')
 EDIT_FIELDS = ('nodes_added', 'nodes_removed', 'edges_added', 'edges_removed', 'features_changed')
 
@@ -195,7 +208,7 @@ class ProbeNarratives(Stage):
         factual_text = probe_graph.graph_text(original, input_label, feature_map, shown)
         generated = (explanation.info or {}).get('generator_explanation')
         seed = generated.counterfactual_instances[0] if generated is not None and generated.counterfactual_instances else None
-        system = SYSTEM_PROMPT.split('OUTPUT FORMAT:')[0] + '\n' + OUTPUT_SCHEMA + '\n' + explanation.dataset.domain
+        system = narrator_system(explanation.dataset.domain)
         records, prompts, owners = [], [], []
         # Do not silently lose failed counterfactual generation from the denominator.
         for arm, cf, extra in self._arms(explanation, original, seed, columns, names):

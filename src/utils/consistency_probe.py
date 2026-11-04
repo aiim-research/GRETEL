@@ -23,27 +23,30 @@ TESTS = ('inversion', 'renaming', 'identity')
 VERDICTS = ('compatible', 'incompatible', 'no_mechanism')
 
 SYSTEM_PROMPT = """You compare two explanations, A and B, of graph counterfactuals: changes to a graph that change the class a model predicts for it.
-The MECHANISM of an explanation is its stated reason why the change makes the model predict the new class (for example, which structure or property is created or destroyed). The list of edits alone is not a mechanism.
+The MECHANISM of an explanation is its stated reason why the change makes the model predict the new class (for example, which structure or property the change creates or destroys, and why that matters for the class). A list of the edits, or a restatement that the class changed, is not a mechanism.
 
 TASK:
-1. Write the mechanism of A in one sentence, or null if A states none.
-2. Write the mechanism of B in one sentence, or null if B states none.
-3. Decide, with the relation given in RELATION, whether the two mechanisms are compatible: whether both could be true of the same model and the same change. Different wording, detail or emphasis does not make mechanisms incompatible; contradictory reasons do.
+1. Summarize the mechanism of A in one sentence (all its causes together), or null if A states none.
+2. Summarize the mechanism of B in one sentence, or null if B states none.
+3. Decide, under the relation given in RELATION, whether the two mechanisms are compatible: whether both could be true of the same model and the same change.
+   - Different wording, detail, emphasis or number of causes does not make mechanisms incompatible.
+   - Contradictory reasons do: one attributes the change of class to something the other denies, reverses or rules out.
+   - Judge only the agreement between A and B, not whether either is true of the domain.
 
-Return ONLY a JSON object, no Markdown, with exactly these fields:
+Return ONLY a JSON object, no Markdown and no other text, with exactly these three fields:
 {"mechanism_a": "..." or null, "mechanism_b": "..." or null, "verdict": "compatible" | "incompatible" | "no_mechanism"}
-Use "no_mechanism" when A or B states no mechanism."""
+Use "no_mechanism" when, and only when, A or B states no mechanism (its field is then null)."""
 
 RELATIONS = {
     'inversion': ('A explains the change from an input graph to a counterfactual graph. B explains the reverse change, '
-                  'from that counterfactual back to the input, so its classes are swapped. B is compatible with A when '
-                  'its mechanism is the negation of A\'s: what A says causes the new class, B says its removal or '
-                  'reversal restores the original class.'),
+                  'from that counterfactual back to the input: its edits are the inverse of A\'s and its two classes '
+                  'are swapped, which is expected. B is compatible with A when its mechanism is the negation of A\'s: '
+                  'what A says brings about the new class, B says undoing it brings back the original class.'),
     'renaming': ('A and B explain the same change, but in B the nodes have other identifiers. NODE MAPPING gives, for '
                  'every node of A, its identifier in B. B is compatible with A when, with the identifiers mapped, '
-                 'its mechanism is the same as A\'s.'),
+                 'its mechanism is compatible with A\'s; a node named differently is the same node.'),
     'identity': ('A and B explain exactly the same change, written twice by the same author. B is compatible with A '
-                 'when its mechanism is the same as A\'s.'),
+                 'when its mechanism is compatible with A\'s.'),
 }
 
 

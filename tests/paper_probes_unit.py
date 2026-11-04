@@ -638,7 +638,7 @@ class TwoPassIntegration(unittest.TestCase):
                 output, errors = execute(ScriptedLLM(context, llm('judge')), dumps, options, context,
                                          list(options['probes']), Path(root) / 'results')
                 self.assertTrue(errors)
-                self.assertEqual(json.loads((output / 'manifest.json').read_text())['protocol_version'], 8)
+                self.assertEqual(json.loads((output / 'manifest.json').read_text())['protocol_version'], 9)
                 for name in options['probes']:
                     path = next((output / name / 'ctx-off_mode-dict').glob('*.json'))
                     result = json.loads(path.read_text())['counterfactuals'][0]
