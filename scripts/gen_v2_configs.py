@@ -13,6 +13,9 @@ with ``compose`` whose value is a file, also inside ``propagate`` blocks):
 * AdjacencyMatrixPadder leaves every ``manipulators`` list;
 * DownstreamGCN gets ``exact_conv_layers``, so it builds the convolutions its config asks for (v1 builds
   two whenever more are asked; the oracles are retrained in v2 anyway);
+* every pipeline gets the edit cost under the node correspondence (``edit_distance.EditDistance``,
+  ``StructuralEditDistance`` and ``MatchedFeatureDistance``) right after the cell-wise GED stage, which
+  stays for comparison with v1;
 * the DCE and DCM generators get ``projection: "index"``, the generator contract of v2: the nearest
   candidate whose projection onto the input's nodes is a counterfactual (implemented in step 3 of the plan;
   until then the v2 configs with DCE or DCM do not run);
@@ -51,6 +54,9 @@ V2 = REPO / "lab/config/v2"
 PREFIX = "v2-"
 PADDER = "src.dataset.manipulators.padding.AdjacencyMatrixPadder"
 GCN = "src.oracle.nn.gcn.DownstreamGCN"
+GED_STAGE = "src.evaluation.future.stages.ged.GraphEditDistance"
+EDIT_STAGES = [f"src.evaluation.future.stages.edit_distance.{name}"
+               for name in ("EditDistance", "StructuralEditDistance", "MatchedFeatureDistance")]
 PROJECTED = ("src.explainer.future.search.dces.DCESExplainer", "src.explainer.future.search.dcm.DCM")
 FIXED_SIZE_DATASETS = {"asd", "tcr-500-28", "tcr-tco-300"}
 # Explainers that need every graph of a dataset at one size: v1 only (task 0, section 4.5).
@@ -84,8 +90,14 @@ class Transformer:
 
     def node(self, value):
         if isinstance(value, list):
-            return [self.node(v) for v in value
-                    if not (isinstance(v, dict) and v.get("class") == PADDER)]
+            out = []
+            for v in value:
+                if isinstance(v, dict) and v.get("class") == PADDER:
+                    continue
+                out.append(self.node(v))
+                if isinstance(v, dict) and v.get("class") == GED_STAGE:
+                    out += [{"class": cls, "parameters": {}} for cls in EDIT_STAGES]
+            return out
         if not isinstance(value, dict):
             return value
         out = {}

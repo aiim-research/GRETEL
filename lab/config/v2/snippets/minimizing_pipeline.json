@@ -12,6 +12,18 @@
                     "parameters": {}
                 },
                 {
+                    "class": "src.evaluation.future.stages.edit_distance.EditDistance",
+                    "parameters": {}
+                },
+                {
+                    "class": "src.evaluation.future.stages.edit_distance.StructuralEditDistance",
+                    "parameters": {}
+                },
+                {
+                    "class": "src.evaluation.future.stages.edit_distance.MatchedFeatureDistance",
+                    "parameters": {}
+                },
+                {
                     "class": "src.evaluation.future.stages.fed.FeatureEditDistance",
                     "parameters": {}
                 },

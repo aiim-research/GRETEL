@@ -1,0 +1,130 @@
+{
+  "experiment": {
+    "scope": "v2-smoke-bbbp_ofs_lcls",
+    "parameters": {
+      "lock_release_tout": 120,
+      "propagate": [
+        {
+          "in_sections": [
+            "doe-triplets/explainer"
+          ],
+          "params": {
+            "fold_id": 0
+          }
+        },
+        {
+          "in_sections": [
+            "doe-triplets/oracle"
+          ],
+          "params": {
+            "fold_id": -1,
+            "retrain": false
+          }
+        },
+        {
+          "in_sections": [
+            "doe-triplets/dataset"
+          ],
+          "params": {
+            "compose_man": "lab/config/v2/snippets/datasets/padding.json"
+          }
+        }
+      ],
+      "expand": {
+        "folds": [
+          "doe-triplets/explainer"
+        ],
+        "triplets": true
+      }
+    }
+  },
+  "doe-triplets": [
+    {
+      "compose_do": "./lab/config/v2/snippets/do-pairs/BBBP_GCN.json",
+      "explainer": {
+        "class": "src.explainer.future.meta.generate_minimize.GenerateMinimize",
+        "parameters": {
+          "fold_id": 1,
+          "generator": {
+            "class": "src.explainer.future.search.ofs.OFS",
+            "parameters": {
+              "epochs": 500,
+              "seed": 0
+            }
+          },
+          "minimizer": {
+            "class": "src.explainer.future.metaheuristic.local_search.local_search.LocalSearch",
+            "parameters": {
+              "stop_after_failed_iteration": true,
+              "attribute_methods": [
+                "identity",
+                "average_smoothing",
+                "weighted_smoothing",
+                "laplacian_regularization",
+                "feature_aggregation",
+                "heat_kernel_diffusion",
+                "random_walk_diffusion"
+              ],
+              "neigh_factor": 4,
+              "runtime_factor": 4,
+              "max_runtime": 20,
+              "max_neigh": 20,
+              "attributed": true,
+              "seed": 0
+            }
+          },
+          "generator_cache": "lab/data/cache/generator_outputs"
+        }
+      }
+    }
+  ],
+  "evaluator": {
+    "class": "src.evaluation.future.evaluator.Evaluator",
+    "parameters": {
+      "compose_pip": "./lab/config/v2/snippets/minimizing_pipeline.json",
+      "instance_ids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39
+      ]
+    }
+  },
+  "compose_strs": "./lab/config/v2/snippets/default_store_paths.json"
+}
