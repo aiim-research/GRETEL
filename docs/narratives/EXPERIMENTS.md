@@ -153,3 +153,13 @@ Decisions taken:
 Still open: D5 (all four CTX x MODE conditions are run, so it only changes which one the tables lead with), D6 (runs use `transition`, as the pilots), D7 (C8 not written). Also open: the Tree-Cycles domain text (`dataset_infos/tcr.json`) states the classification mechanism to the narrator, which may explain part of the saturation of the pilots.
 
 Code: C1 (`src/utils/consistency_probe.py`), C2 and C3 (`directions` of `ProbeNarratives`), C4 (Reversal stays in the code, no paper config uses it), C5 and C6 (`arms`), C7 (`budget` of the Recourse conditions), C10 for the HuggingFace backend (per-prompt seeds, sampling saved per answer) and C11 (`self_evaluation`) are written and tested (`tests/narrative_arms_unit.py`). Not written: C8, C9 runs and C12 (offline, after the runs), and API backends with per-call seeds (OpenRouter refuses per-prompt seeds for now). The runs, their batches and the server steps are in `RUNS.md`.
+
+## 9. Update of 4 November 2026: protocol v2
+
+The padding turned out to be a framework-wide problem (task 0 of the research plan, `docs/v2/README.md`): the GCN oracles read the amount of padding, and the minimizers edited padding rows (a quarter of the BBBP minimized arm in the first smoke). The pairs pass now runs on protocol v2, which replaces D3:
+
+- **No padding.** Every graph at its own size, the oracles retrained without padding (and with the GCN layers their configs ask for). OracleView and FeatureNames stay. Nothing is hidden from the prompts any more.
+- **Isolated nodes deleted.** A node an edit leaves without edges is deleted; salt ions are removed at load. Deleted atoms are reported as `nodes_removed` and left out of the counterfactual's text.
+- **Seed arm.** DCE's nearest molecule of the other class, matched atom to atom by assignment and written as edits on the input (bond edits, atom substitutions, deleted atoms). It is always a counterfactual. With the assignment, the seed is far more readable than in v1 (BBBP: about 18 bond edits and 45 feature changes, against about 115 index-matched edits).
+- **Minimized arm.** BLS-F, the bounded local search over bond edits and atom substitutions towards the seed (`local_search_features`), not the first paper's edge-only BLS: with seeds that change atoms, the edge-only BLS often cannot improve and returns the seed, which would erase the minimality contrast. The paper should name it as the LBS variant with feature substitutions. BBBP: about 2.3 bond edits and 7.5 atom substitutions.
+- **Smokes.** BBBP 100 of 100 and AIDS 98 of 98 instances with the three arms valid, Tree-Cycles 64 all valid, and an E0 matrix prepares from these pairs. The configs and the tutorial (`RUNS.md`) are updated; the scopes are `narr-<dataset>_dce_lclsf`.
