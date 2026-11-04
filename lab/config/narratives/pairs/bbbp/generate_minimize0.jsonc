@@ -1,0 +1,65 @@
+// Narrative paper, pairs pass for BBBP, with the setup of Gianrico's BBBP DCE pilot (the thesis setup as
+// packaged in bbbp-no-attr/dce/dce-lcls): padding, DCE + LBS editing bonds only, the BBBP_GCN oracle
+// architecture trained on the other folds. The probes hide the trailing padding nodes from every prompt
+// and leave out counterfactuals that edit them (status padding_edit); OracleView drops what the GCN never
+// reads (bond features, SMILES). Twenty stratified splits without shuffle: fold 0 holds about 100
+// molecules. No LLM: the pairs are frozen for the narrators (lab/config/narratives/matrix.json).
+{
+  "experiment": {"scope": "narr-bbbp_dce_lcls", "parameters": {"lock_release_tout": 120}},
+  "doe-triplets": [
+    {
+      "dataset": {
+        "class": "src.dataset.dataset_base.Dataset",
+        "parameters": {
+          "generator": {
+            "class": "src.dataset.generators.mol_gen.MolGenerator",
+            "parameters": {"data_dir": "data/datasets/bbbp/", "data_file_name": "BBBP.csv", "data_label_name": "p_np", "seed": 0}
+          },
+          "n_splits": 20,
+          "shuffle": false,
+          "manipulators": [
+            {"class": "src.dataset.manipulators.padding.AdjacencyMatrixPadder", "parameters": {}},
+            {"class": "src.dataset.manipulators.oracle_view.OracleView", "parameters": {}}
+          ]
+        }
+      },
+      "oracle": {
+        "class": "src.oracle.nn.torch.OracleTorch",
+        "parameters": {
+          "fold_id": 0, "retrain": false, "epochs": 1000, "batch_size": 64,
+          "optimizer": {"class": "torch.optim.RMSprop", "parameters": {"lr": 0.001, "momentum": 0.5}},
+          "loss_fn": {"class": "torch.nn.CrossEntropyLoss", "parameters": {"reduction": "mean"}},
+          "model": {"class": "src.oracle.nn.gcn.DownstreamGCN",
+                    "parameters": {"num_conv_layers": 2, "num_dense_layers": 1, "conv_booster": 2, "linear_decay": 1.8}}
+        }
+      },
+      "compose_dataset_info": "lab/config/snippets/dataset_infos/bbbp.json",
+      "explainer": {
+        "class": "src.explainer.future.meta.generate_minimize.GenerateMinimize",
+        "parameters": {
+          "fold_id": 0,
+          "generator": {"class": "src.explainer.future.search.dces.DCESExplainer", "parameters": {}},
+          "minimizer": {
+            "class": "src.explainer.future.metaheuristic.local_search.local_search.LocalSearch",
+            "parameters": {"neigh_factor": 4, "runtime_factor": 4, "max_runtime": 20, "max_neigh": 20, "attributed": false, "seed": 0}
+          }
+        }
+      }
+    }
+  ],
+  "evaluator": {
+    "class": "src.evaluation.future.evaluator.Evaluator",
+    "parameters": {"pipeline": {"class": "src.evaluation.future.stages.main_pipeline.MainPipeline", "parameters": {"stages": [
+          {"class": "src.evaluation.future.stages.runtime.Runtime", "parameters": {}},
+          {"class": "src.evaluation.future.stages.correctness.Correctness", "parameters": {}},
+          {"class": "src.evaluation.future.stages.ged.GraphEditDistance", "parameters": {}},
+          {"class": "src.evaluation.future.stages.oracle_calls.OracleCalls", "parameters": {}},
+          {"class": "src.evaluation.future.stages.probe_narratives.ProbeNarratives", "parameters": {
+            "node_matching": "position", "freeze_only": true, "hide_padding": true,
+            "arms": ["minimized", "seed", "random_subset"], "directions": ["direct", "inverse", "renamed", "identity"],
+            "identity_seed_offset": 1, "sample_seed": 0}},
+          {"class": "src.evaluation.future.stages.probe_dump.ProbeDump", "parameters": {}}
+    ]}}}
+  },
+  "compose_strs": "lab/config/snippets/default_store_paths.json"
+}

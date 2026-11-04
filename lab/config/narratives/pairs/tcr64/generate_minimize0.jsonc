@@ -1,0 +1,53 @@
+// Narrative paper, pairs pass for Tree-Cycles (D2: 500 graphs of 64 nodes, 40% of the nodes in cycles,
+// rule oracle, so the mechanism is known). No LLM: ProbeNarratives freezes, per instance, the minimized
+// (LBS), seed (DCE) and random-subset pairs with every generation prompt (direct, inverse, renamed,
+// identity); the narrators run later on these pairs (lab/config/narratives/matrix.json). Five stratified
+// splits without shuffle: fold 0 holds the 100 test instances. DCE + LBS with the parameters of the LBS
+// paper's tcr dce-lcls.
+{
+  "experiment": {"scope": "narr-tcr64_dce_lcls", "parameters": {"lock_release_tout": 120}},
+  "doe-triplets": [
+    {
+      "dataset": {
+        "class": "src.dataset.dataset_base.Dataset",
+        "parameters": {
+          "generator": {
+            "class": "src.dataset.generators.treecycles_rand.TreeCyclesRand",
+            "parameters": {"num_instances": 500, "num_nodes_per_instance": 64, "ratio_nodes_in_cycles": 0.4, "seed": 0}
+          },
+          "n_splits": 5,
+          "shuffle": false,
+          "compose_man": "lab/config/snippets/datasets/empty.json"
+        }
+      },
+      "oracle": {"class": "src.oracle.custom.oracle_tree_cycles.TreeCyclesOracle", "parameters": {"fold_id": -1, "retrain": false}},
+      "compose_dataset_info": "lab/config/snippets/dataset_infos/tcr.json",
+      "explainer": {
+        "class": "src.explainer.future.meta.generate_minimize.GenerateMinimize",
+        "parameters": {
+          "fold_id": 0,
+          "generator": {"class": "src.explainer.future.search.dces.DCESExplainer", "parameters": {}},
+          "minimizer": {
+            "class": "src.explainer.future.metaheuristic.local_search.local_search.LocalSearch",
+            "parameters": {"neigh_factor": 4, "runtime_factor": 4, "max_runtime": 20, "max_neigh": 20, "recompute_features": false, "seed": 0}
+          }
+        }
+      }
+    }
+  ],
+  "evaluator": {
+    "class": "src.evaluation.future.evaluator.Evaluator",
+    "parameters": {"pipeline": {"class": "src.evaluation.future.stages.main_pipeline.MainPipeline", "parameters": {"stages": [
+          {"class": "src.evaluation.future.stages.runtime.Runtime", "parameters": {}},
+          {"class": "src.evaluation.future.stages.correctness.Correctness", "parameters": {}},
+          {"class": "src.evaluation.future.stages.ged.GraphEditDistance", "parameters": {}},
+          {"class": "src.evaluation.future.stages.oracle_calls.OracleCalls", "parameters": {}},
+          {"class": "src.evaluation.future.stages.probe_narratives.ProbeNarratives", "parameters": {
+            "node_matching": "position", "freeze_only": true, "hide_padding": false,
+            "arms": ["minimized", "seed", "random_subset"], "directions": ["direct", "inverse", "renamed", "identity"],
+            "identity_seed_offset": 1, "sample_seed": 0}},
+          {"class": "src.evaluation.future.stages.probe_dump.ProbeDump", "parameters": {}}
+    ]}}}
+  },
+  "compose_strs": "lab/config/snippets/default_store_paths.json"
+}

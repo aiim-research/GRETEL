@@ -1,0 +1,64 @@
+// AIDS with the BBBP pilot's setup: padding, DCE + LocalSearch editing bonds
+// only (the thesis aids/dce/dce-lcls uses attributed: true, which smooths node
+// features into arbitrary decimals), the AIDS_GCN oracle architecture trained
+// on the other folds, padding hidden from the prompts. OracleView drops the
+// bond valences the GCN never reads. FeatureNames names the 42 columns as in
+// the TU README (Node attributes: chem, charge, x, y; then the one-hot of the
+// 38 symbols in label order 0 = C ... 37 = Tb), checked on the first molecule
+// on the cluster. 40 stratified splits without shuffle: fold 0 holds 50
+// molecules (class 0 = active, class 1 = inactive).
+{
+  "experiment": {"scope": "paper-probes-aids-dce", "parameters": {"lock_release_tout": 120}},
+  "doe-triplets": [
+    {
+      "dataset": {
+        "class": "src.dataset.dataset_base.Dataset",
+        "parameters": {
+          "generator": {"class": "src.dataset.generators.TUDataset.TUDataset", "parameters": {"alias": "AIDS"}},
+          "n_splits": 40,
+          "shuffle": false,
+          "manipulators": [
+            {"class": "src.dataset.manipulators.padding.AdjacencyMatrixPadder", "parameters": {}},
+            {"class": "src.dataset.manipulators.oracle_view.OracleView", "parameters": {}},
+            {"class": "src.dataset.manipulators.feature_names.FeatureNames", "parameters": {"names": ["chem", "charge", "x", "y", "C", "O", "N", "Cl", "F", "S", "Se", "P", "Na", "I", "Co", "Br", "Li", "Si", "Mg", "Cu", "As", "B", "Pt", "Ru", "K", "Pd", "Au", "Te", "W", "Rh", "Zn", "Bi", "Pb", "Ge", "Sb", "Sn", "Ga", "Hg", "Ho", "Tl", "Ni", "Tb"]}}
+          ]
+        }
+      },
+      "oracle": {
+        "class": "src.oracle.nn.torch.OracleTorch",
+        "parameters": {
+          "fold_id": 0, "retrain": false, "epochs": 400, "batch_size": 32,
+          "optimizer": {"class": "torch.optim.RMSprop", "parameters": {"lr": 0.01}},
+          "loss_fn": {"class": "torch.nn.CrossEntropyLoss", "parameters": {"reduction": "mean"}},
+          "model": {"class": "src.oracle.nn.gcn.DownstreamGCN",
+                    "parameters": {"num_conv_layers": 3, "num_dense_layers": 1, "conv_booster": 2, "linear_decay": 1.8}}
+        }
+      },
+      "compose_dataset_info": "lab/config/snippets/dataset_infos/aids.json",
+      "explainer": {
+        "class": "src.explainer.future.meta.generate_minimize.GenerateMinimize",
+        "parameters": {
+          "fold_id": 0,
+          "generator": {"class": "src.explainer.future.search.dces.DCESExplainer", "parameters": {}},
+          "minimizer": {
+            "class": "src.explainer.future.metaheuristic.local_search.local_search.LocalSearch",
+            "parameters": {"neigh_factor": 4, "runtime_factor": 4, "max_runtime": 20, "max_neigh": 20,
+                           "attributed": false, "seed": 0}
+          }
+        }
+      }
+    }
+  ],
+  "evaluator": {
+    "class": "src.evaluation.future.evaluator.Evaluator",
+    "parameters": {"pipeline": {"class": "src.evaluation.future.stages.main_pipeline.MainPipeline", "parameters": {"stages": [
+          {"class": "src.evaluation.future.stages.runtime.Runtime", "parameters": {}},
+          {"class": "src.evaluation.future.stages.correctness.Correctness", "parameters": {}},
+          {"class": "src.evaluation.future.stages.ged.GraphEditDistance", "parameters": {}},
+          {"class": "src.evaluation.future.stages.oracle_calls.OracleCalls", "parameters": {}},
+          {"class": "src.evaluation.future.stages.probe_narratives.ProbeNarratives", "parameters": {"node_matching": "position", "generator_family": "qwen", "generator": {"class": "src.LLMexplaneability.huggingface.HuggingFaceLLM", "parameters": {"model": "Qwen/Qwen3-8B", "engine": "vllm", "temperature": 0.0, "seed": 0, "max_new_tokens": 2048, "enable_thinking": false, "gpu_memory_utilization": 0.3, "max_model_len": 16384}}, "hide_padding": true}},
+          {"class": "src.evaluation.future.stages.probe_dump.ProbeDump", "parameters": {}}
+    ]}}}
+  },
+  "compose_strs": "lab/config/snippets/default_store_paths.json"
+}
