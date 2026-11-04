@@ -11,19 +11,17 @@ The dataset caches, the oracles (retrained without padding, with the GCN layers 
 
 Rule: on the server only Slurm jobs compute. Everything below only syncs git, submits, or reads logs.
 
-**Step 0. Once: the clone of `dev`** (the selector's clone is never switched):
+**Step 0. Once: the `dev` branch on the server's clone.** Switch only when no job of the clone is queued or running: a task that starts after the switch runs the new branch's code. The TU raw data the clone already has (`data/working`) stays.
 
 ```bash
-cd ~/projects/GRETEL && git fetch
-git worktree add --track -b dev ../GRETEL-dev origin/dev
-cd ../GRETEL-dev
-mkdir -p data/working && cp -r ../GRETEL/data/working/{AIDS,BZR,COLORS-3,ENZYMES,PROTEINS,Synthie} data/working/   # TU raw data: compute nodes need no network
+cd ~/projects/GRETEL && squeue -u $USER                 # empty before switching
+git fetch && git switch dev && launchers/server_sync.sh
 ```
 
 **Step 1. The sondeo**, both phases in one submission (B starts when A has ended):
 
 ```bash
-cd ~/projects/GRETEL-dev && launchers/server_sync.sh && conda activate GRTL
+cd ~/projects/GRETEL && launchers/server_sync.sh && conda activate GRTL
 launchers/slurm_submit.sh -p normal -m 10 -c docs/v2/SONDEO_A.md docs/v2/SONDEO_B.md
 squeue -u $USER                                                    # empty: the sondeo is over
 grep -lE "exit status [1-9]|Traceback" output/logs/*/*/fold0_*.out   # failed configs, if any
@@ -34,8 +32,8 @@ A phase that ends with failures is submitted again as it is: finished configs ar
 **Step 2. Back home**, on the local machine:
 
 ```bash
-rsync -av kalifano:projects/GRETEL-dev/lab/output/results/v2-* lab/output/results/
-rsync -av kalifano:projects/GRETEL-dev/output/logs/ lab/output/server_logs/ && python scripts/collect_logs.py lab/output/server_logs
+rsync -av kalifano:projects/GRETEL/lab/output/results/v2-* lab/output/results/
+rsync -av kalifano:projects/GRETEL/output/logs/ lab/output/server_logs/ && python scripts/collect_logs.py lab/output/server_logs
 git add lab/output/results/v2-* lab/output/queue_logs && git commit -m "Protocol v2 sondeo: fold 0 of the first paper's cells" && git push
 ```
 

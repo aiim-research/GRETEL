@@ -19,15 +19,13 @@ Probes per narrator and pair (primary judge): Reconstruction under CTX on/off x 
 
 The estimates come from the call counts and an assumed vLLM throughput on one large GPU, not from measurements: B01 measures them (step 3). Not in any batch yet: E5 with the API judges and the Gemini narrator; E7, E8 and the analyses run offline on the local machine.
 
-Rules: on the server only Slurm jobs compute. `launchers/slurm_submit.sh` and `python scripts/paper_probe_matrix.py submit` only list configs or read the run's JSON and call `sbatch`; `prepare`, which imports the framework, runs as a CPU job (`scripts/slurm_matrix_prepare.sh`). The work lives in the clone of the `dev` branch (shared with the protocol v2 sondeo, `docs/v2/RUNS.md`), so the selector's clone is never switched. Each GPU job first waits until its GPU has `min_free_mb` (70 GB) free, for up to 6 hours (`max_wait`), and fails with exit status 3 if it never does.
+Rules: on the server only Slurm jobs compute. `launchers/slurm_submit.sh` and `python scripts/paper_probe_matrix.py submit` only list configs or read the run's JSON and call `sbatch`; `prepare`, which imports the framework, runs as a CPU job (`scripts/slurm_matrix_prepare.sh`). The server's clone works on the `dev` branch (shared with the protocol v2 sondeo, `docs/v2/RUNS.md`). Each GPU job first waits until its GPU has `min_free_mb` (70 GB) free, for up to 6 hours (`max_wait`), and fails with exit status 3 if it never does.
 
-**Step 0. Once: the clone of `dev` and the GPUs** (git, a file copy, environment checks and a one-second Slurm job; skip the first three lines if the v2 sondeo already made the clone):
+**Step 0. Once: the `dev` branch on the server's clone and the GPUs** (git, environment checks and a one-second Slurm job). Switch only when no job of the clone is queued or running: a task that starts after the switch runs the new branch's code.
 
 ```bash
-cd ~/projects/GRETEL && git fetch
-git worktree add --track -b dev ../GRETEL-dev origin/dev
-cd ../GRETEL-dev
-mkdir -p data/working && cp -r ../GRETEL/data/working/AIDS data/working/   # AIDS raw data: the compute nodes need no network
+cd ~/projects/GRETEL && squeue -u $USER                 # empty before switching
+git fetch && git switch dev && launchers/server_sync.sh
 conda activate GRTL && conda list vllm        # the GPU jobs need vLLM in this environment (another one: export GRETEL_ENV=<env>)
 srun -p cuda --gres=gpu:fast:1 -c 1 --mem=1G nvidia-smi --query-gpu=name,memory.total --format=csv
 ```
@@ -39,7 +37,7 @@ Llama-3.1-8B is gated: accept its license on huggingface.co with the account of 
 **Step 1. Batch 00** (CPU, under 3 hours), the pairs and the weights in parallel:
 
 ```bash
-cd ~/projects/GRETEL-dev && launchers/server_sync.sh && conda activate GRTL
+cd ~/projects/GRETEL && launchers/server_sync.sh && conda activate GRTL
 launchers/slurm_submit.sh -p normal -m 3 docs/narratives/NARR_B00.md
 sbatch -p normal scripts/slurm_hf_download.sh lab/config/narratives/matrix.json
 squeue -u $USER                                            # empty: the batch is over
@@ -87,8 +85,8 @@ A batch can also be queued before the previous one ends with `--after <job>` (th
 **Step 6. Back home**, after every batch, on the local machine:
 
 ```bash
-rsync -av kalifano:projects/GRETEL-dev/lab/output/results/narr-* lab/output/results/
-rsync -av kalifano:projects/GRETEL-dev/output/logs/ lab/output/server_logs/ && python scripts/collect_logs.py lab/output/server_logs
+rsync -av kalifano:projects/GRETEL/lab/output/results/narr-* lab/output/results/
+rsync -av kalifano:projects/GRETEL/output/logs/ lab/output/server_logs/ && python scripts/collect_logs.py lab/output/server_logs
 git add lab/output/results/narr-* lab/output/queue_logs && git commit -m "Narrative paper: batch <n>" && git push
 ```
 
