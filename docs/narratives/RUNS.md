@@ -21,18 +21,43 @@ The estimates come from the call counts and an assumed vLLM throughput on one la
 
 Rules: on the server only Slurm jobs compute. `launchers/slurm_submit.sh` and `python scripts/paper_probe_matrix.py submit` only list configs or read the run's JSON and call `sbatch`; `prepare`, which imports the framework, runs as a CPU job (`scripts/slurm_matrix_prepare.sh`). The server's clone works on the `dev` branch (shared with the protocol v2 sondeo, `docs/v2/RUNS.md`). Each GPU job first waits until its GPU has `min_free_mb` (70 GB) free, for up to 6 hours (`max_wait`), and fails with exit status 3 if it never does.
 
-**Step 0. Once: the `dev` branch on the server's clone and the GPUs** (git, environment checks and a one-second Slurm job). Switch only when no job of the clone is queued or running: a task that starts after the switch runs the new branch's code.
+**Step 0. Once: the GPUs, the GPU environment, the Hugging Face account and the disk.** The server's clone is already on `dev` (`docs/v2/RUNS.md`, step 0); bring it up to date first with `launchers/server_sync.sh`.
+
+0a. What the `fast` cards are (a one-second Slurm job):
 
 ```bash
-cd ~/projects/GRETEL && squeue -u $USER                 # empty before switching
-git fetch && git switch dev && launchers/server_sync.sh
-conda activate GRTL && conda list vllm        # the GPU jobs need vLLM in this environment (another one: export GRETEL_ENV=<env>)
-srun -p cuda --gres=gpu:fast:1 -c 1 --mem=1G nvidia-smi --query-gpu=name,memory.total --format=csv
+cd ~/projects/GRETEL && launchers/server_sync.sh
+srun -p cuda --gres=gpu:fast:1 -c 1 --mem=1G nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv
 ```
 
-If the `fast` cards have less than about 100 GB, Qwen2.5-32B and GPT-OSS-120B do not fit at `gpu_memory_utilization` 0.75: say so before B02, and their entries in `matrix.json` get 0.9 or two GPUs (`tensor_parallel_size` 2, `gres` `gpu:fast:2`).
+Two things to read. The **driver**: the environment of 0b gets the latest vLLM (0.33.0 on 4 November), built on torch 2.14 for CUDA 13, which needs a driver 580 or newer; with an older driver, build the environment with a vLLM for CUDA 12 (`VLLM_VERSION=<version>` in 0b; send me the driver version and I give the exact one). The **memory**: Qwen2.5-32B and GPT-OSS-120B need about 65 to 70 GB; with cards under about 100 GB their entries in `matrix.json` get `gpu_memory_utilization` 0.9 or two GPUs (`tensor_parallel_size` 2, `gres` `gpu:fast:2`). Send me both lines before 0b.
 
-Llama-3.1-8B is gated: accept its license on huggingface.co with the account of the token, then `huggingface-cli login` once (or `export HF_TOKEN=...` before the download job).
+0b. The GPU environment `GRTL-llm` (Python 3.12, vLLM, torch_geometric, RDKit), apart from `GRTL`, which keeps running the CPU experiments with its own versions. A CPU job, it needs network on the compute node; about half an hour and 15 GB in `~/miniconda3/envs` and `~/.cache/pip`:
+
+```bash
+sbatch -p normal scripts/slurm_setup_llm_env.sh
+squeue -u $USER
+tail -3 lab/output/logs/llm_env_<job>.out      # import check failed: none / environment GRTL-llm ready
+```
+
+The job ends with an import of every GRETEL module the GPU jobs load and writes the exact versions to `lab/output/logs/llm_env_freeze_<job>.txt`. If it fails for lack of network on the compute nodes, say so before installing anywhere else. The GPU jobs activate it by themselves (`"env": "GRTL-llm"` in the matrix configs).
+
+0c. The Hugging Face account. Llama-3.1-8B-Instruct is gated: open https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct with the account you will use, accept the license and wait for the approval e-mail (minutes to hours). Then create a read token (huggingface.co, Settings, Access Tokens, type Read) and store it once on the server (only a file write, no computation):
+
+```bash
+conda activate GRTL-llm && hf auth login      # paste the token; answer n to "add as git credential"
+hf auth whoami                                 # your user name
+```
+
+The other models (Qwen2.5, GPT-OSS, GLM-4.7-Flash) are public; the token is only needed for Llama.
+
+0d. The disk. The weights go to `~/hf_cache`: about 260 GB for every model of `matrix.json` (Qwen2.5 3B 6 GB, 7B 15 GB, 14B 30 GB, 32B 65 GB, Llama-3.1-8B 16 GB, GPT-OSS-120B 65 GB, GLM-4.7-Flash 60 GB). Check the room in the home file system before 1:
+
+```bash
+df -h ~ ; quota -s 2>/dev/null
+```
+
+If the home cannot hold them, point `HF_HOME` to a larger disk in both the download (`--export=ALL,HF_HOME=<dir>`) and the GPU jobs (`export HF_HOME=<dir>` before every `submit`).
 
 **Step 1. Batch 00** (CPU, under 3 hours), the pairs and the weights in parallel:
 
@@ -45,7 +70,7 @@ grep -lE "exit status [1-9]|Traceback" output/logs/narr-*/*/*.out   # failed pai
 tail -1 lab/output/logs/hf_download_<job>.out              # failed: none
 ```
 
-If the download fails for lack of network on the compute nodes, say so before downloading anywhere else.
+The download fetches each model at the exact revision of the config (skipping what is already there) and the GPU jobs then load them offline (`HF_HUB_OFFLINE=1`). A model listed under `failed` is usually Llama without the license accepted or without the token of 0c.
 
 **Step 2. Batch 01, the pilot E0** (1 to 2 hours): freeze its pairs on a CPU node, then queue its three chained GPU jobs:
 
