@@ -20,6 +20,12 @@ class DCESExplainer(Explainer):
         #Check if the distance metric exist or build with its defaults:
         init_dflts_to_of(self.local_config, 'distance_metric', dst_metric)
 
+        # Protocol v2 (opt-in, read without being written into the config): return the nearest candidate of
+        # another class whose projection onto the input's nodes is a counterfactual, ranked by the
+        # structural edit cost under the correspondence "index" or "assignment"
+        # (src/explainer/future/utils/projection.py). Without it, DCE behaves as always.
+        self.projection = self.local_config['parameters'].get('projection')
+
 
     def init(self):
         super().init()
@@ -29,6 +35,14 @@ class DCESExplainer(Explainer):
 
     def explain(self, instance):
         input_label = self.oracle.predict(instance)
+
+        if self.projection:
+            from src.explainer.future.utils.projection import nearest_valid_projection
+            candidates = [c for c in self.dataset.instances if self.oracle.predict(c) != input_label]
+            projected, _ = nearest_valid_projection(instance, candidates, self.oracle, self.projection, input_label)
+            result = copy.deepcopy(instance) if projected is None else projected
+            result.id = instance.id
+            return result
 
         # if the method does not find a counterfactual example returns the original graph
         min_ctf = instance

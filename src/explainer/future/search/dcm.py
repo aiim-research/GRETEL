@@ -54,6 +54,10 @@ class DCM(Explainer, Trainable):
         params['classify_with'] = params.get('classify_with', 'label')
         # RNG seed for reproducible candidate subsampling when proportion < 1.0
         params['random_seed'] = params.get('random_seed', 0)
+        # Protocol v2 (opt-in, read without being written into the config): return the nearest medoid of
+        # another class whose projection onto the input's nodes is a counterfactual
+        # (src/explainer/future/utils/projection.py). Without it, DCM behaves as always.
+        self.projection = params.get('projection')
 
     def init(self):
         self.device = "cpu"
@@ -163,6 +167,16 @@ class DCM(Explainer, Trainable):
     def explain(self, instance):
         category = int(self.oracle.predict(instance))
         instances = self.dataset.instances
+
+        if self.projection:
+            from src.explainer.future.utils.projection import nearest_valid_projection
+            medoids = [instances[i] for c, i in self.model.items() if c != category]
+            projected, _ = nearest_valid_projection(instance, medoids, self.oracle, self.projection, category)
+            cf_instance = projected if projected is not None else GraphInstance(
+                id=instance.id, label=instance.label, data=instance.data, node_features=instance.node_features)
+            return LocalGraphCounterfactualExplanation(context=self.context, dataset=self.dataset, oracle=self.oracle,
+                                                       explainer=self, input_instance=instance,
+                                                       counterfactual_instances=[cf_instance])
 
         best_d = float('inf')
         best_medoid = None
