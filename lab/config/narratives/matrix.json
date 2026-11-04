@@ -21,10 +21,10 @@
   "slurm": {
     "partition": "cuda",
     "gres": "gpu:fast:1",
-    "node": "compute-2-3",
+    "parallel": true,
     "time": "1-00:00:00",
     "mem": "96G",
-    "min_free_mb": 115000,
+    "min_free_mb": 70000,
     "max_wait": 21600
   },
   "generators": [
@@ -131,6 +131,65 @@
               "context": "off",
               "mode": "dict",
               "budget": 8
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "glm-4.7-flash",
+      "family": "glm",
+      "parameters": {
+        "model": "zai-org/GLM-4.7-Flash",
+        "revision": "7dd20894a642a0aa287e9827cb1a1f7f91386b67",
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "max_new_tokens": 4096
+      },
+      "probes": {
+        "reconstruction": {
+          "feature_match": "transition",
+          "conditions": [
+            {
+              "context": "off",
+              "mode": "dict"
+            }
+          ]
+        },
+        "consistency": {
+          "arms": [
+            "seed",
+            "minimized"
+          ],
+          "conditions": [
+            {
+              "test": "inversion",
+              "mode": "dict"
+            },
+            {
+              "test": "renaming",
+              "mode": "dict"
+            },
+            {
+              "test": "identity",
+              "mode": "dict"
+            }
+          ]
+        },
+        "recourse": {
+          "arms": [
+            "seed",
+            "minimized"
+          ],
+          "control": true,
+          "success": "target",
+          "preprocess": true,
+          "feature_match": "transition",
+          "conditions": [
+            {
+              "context": "off",
+              "mode": "dict",
+              "budget": "record"
             }
           ]
         }

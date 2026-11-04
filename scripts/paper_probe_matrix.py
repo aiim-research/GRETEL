@@ -4,7 +4,9 @@
 Run from the GRETEL root. prepare makes an immutable copy of the pairs (the
 dumps of one or more first passes, --source per pass) and writes one config
 per model. submit queues one Slurm job per model, chained so that one model
-uses the GPU at a time: the generators, then the judges, each loading once and
+uses the GPU at a time (or, with "parallel" in the slurm settings, side by side, one GPU each; then submit
+the generators, the judges and the self jobs as separate batches, since the judges read every generator's
+outputs): the generators, then the judges, each loading once and
 evaluating every generator's outputs, then the self-evaluation jobs (each
 generator judging its own Consistency inversion test, when the configuration
 has a self_evaluation block). --only queues a subset of those jobs into an
@@ -293,14 +295,20 @@ def submit(run, dry_run=False, include_generators=True, only=None, after=None):
     (ROOT / 'lab/output/logs').mkdir(parents=True, exist_ok=True)
     previous = after
     for role, entry in selected:
-        cmd = ['sbatch', '--parsable', '--chdir=' + str(ROOT), '--nodelist=' + settings['node'],
+        cmd = ['sbatch', '--parsable', '--chdir=' + str(ROOT),
                '--time=' + settings['time'], '--mem=' + settings['mem'],
                '--job-name=pm-' + role[:3] + '-' + entry['id'],
                f'--export=ALL,MIN_FREE_MB={settings["min_free_mb"]},MAX_WAIT={settings["max_wait"]},HF_HUB_OFFLINE=1,TRANSFORMERS_OFFLINE=1']
         for option in ('partition', 'gres'):
             if option in settings:
                 cmd.append(f'--{option}=' + settings[option])
-        if previous:
+        if 'node' in settings:
+            cmd.append('--nodelist=' + settings['node'])
+        if settings.get('parallel') and after:
+            cmd.append('--dependency=afterany:' + after)
+        elif settings.get('parallel'):
+            pass   # each job asks for its own GPU; the jobs of one submission run side by side
+        elif previous:
             # A failed model does not block the other models. One model occupies
             # the assigned GPU at a time, including across generator/judge roles.
             cmd.append('--dependency=afterany:' + previous)

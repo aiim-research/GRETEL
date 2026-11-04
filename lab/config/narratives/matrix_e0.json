@@ -21,10 +21,10 @@
   "slurm": {
     "partition": "cuda",
     "gres": "gpu:fast:1",
-    "node": "compute-2-3",
+    "parallel": false,
     "time": "1-00:00:00",
     "mem": "96G",
-    "min_free_mb": 115000,
+    "min_free_mb": 70000,
     "max_wait": 21600
   },
   "generators": [
