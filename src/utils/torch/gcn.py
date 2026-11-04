@@ -6,7 +6,8 @@ from src.core.factory_base import build_w_params_string
 
 class GCN(nn.Module):
    
-    def __init__(self, node_features, num_conv_layers=2, conv_booster=1, pooling=MeanAggregation):
+    def __init__(self, node_features, num_conv_layers=2, conv_booster=1, pooling=MeanAggregation,
+                 exact_conv_layers=False):
         super(GCN, self).__init__()
         
         self.in_channels = node_features
@@ -15,7 +16,12 @@ class GCN(nn.Module):
         self.pooling =  build_w_params_string(pooling)
  
         
-        if num_conv_layers>1:
+        # The original expression repeats the tuple instead of the list, so any num_conv_layers >= 2 builds
+        # two convolutions. exact_conv_layers (opt-in, so the configs and cached oracles without it keep
+        # their architecture) builds the num_conv_layers convolutions the config asks for.
+        if num_conv_layers > 1 and exact_conv_layers:
+            self.num_conv_layers = [(self.in_channels, self.out_channels)] + [(self.out_channels, self.out_channels)] * (num_conv_layers - 1)
+        elif num_conv_layers>1:
             self.num_conv_layers = [(self.in_channels, self.out_channels)] + [(self.out_channels, self.out_channels) * (num_conv_layers - 1)]
         else:
             self.num_conv_layers = [(self.in_channels, self.out_channels)]
