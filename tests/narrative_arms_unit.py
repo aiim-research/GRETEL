@@ -255,6 +255,10 @@ class ArmsAndProbes(unittest.TestCase):
         original = restore(g['input'])
         system, prompt = recourse_probe.build_prompt('graph', 'edits', 'domain', 'narrative', 1, budget=2)
         self.assertIn('BUDGET: at most 2 elementary edits', prompt)
+        self.assertIn('at most K = 2 elementary edits', system)
+        for text in (system, recourse_probe.build_prompt('graph', 'edits', 'domain', None, 1)[0]):
+            self.assertNotIn('{{', text)
+            self.assertNotIn("G'", text)
         n = len(original.data)
         free = [[u, v] for u in range(n) for v in range(u + 1, n) if not original.data[u, v]]
         known = {tuple(e) for e in g['truth']['edges_added']}

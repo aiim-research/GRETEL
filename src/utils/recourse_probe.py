@@ -28,8 +28,18 @@ def build_prompt(graph_text, modifications_text, domain, narrative, target_label
     system, prompt = original.flip_rate_prompt()
     # Keep the task/requirements; replace the old labeled full-vector format.
     system = system.split('**Requested output format')[0].split('6. Output')[0]
+    # The original prompt names the counterfactual G' and leaves the budget as a template placeholder; this
+    # prompt shows the edits as ORIGINAL EDITS and states the budget K, so both are named as the judge sees them.
+    system = system.replace('ONE alternative counterfactual edit sets (K={{K}}) that are',
+                            'ONE alternative counterfactual edit set' + ('' if budget is None else f' (at most K = {budget} elementary edits)')
+                            + ' that is')
+    system = system.replace("**different from the edits in G'**", '**different from the ORIGINAL EDITS**')
+    system = system.replace("in the same direction** as G'", 'in the same direction** as the original counterfactual')
+    system = system.replace("the exact edge or feature changes used in G'", 'the exact edge or feature changes listed in ORIGINAL EDITS')
+    if '{{' in system or "G'" in system:
+        raise ValueError('Unfilled placeholder or unnamed graph left in the Recourse prompt')
     if narrative is None:
-        system = system.replace('*for the same underlying reasons stated in the explanation*', '')
+        system = system.replace(' *for the same underlying reasons stated in the explanation*', '')
         system = system.replace('1. Your edits must operationalize the causal mechanisms described in the Explanation not just arbitrary perturbations.',
                                 '1. Propose edits using the factual graph and domain information.')
     system += ('\nFor this experiment return ONLY JSON with edges_added, edges_removed, '
