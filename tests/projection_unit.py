@@ -57,20 +57,30 @@ def test_projection_keeps_the_input_nodes_and_copies_structure():
     assert len(p.edge_weights) == np.count_nonzero(p.data) == p.edge_features.shape[0]
 
 
-def test_edge_attributes_kept_or_taken_from_the_candidate():
+def test_edge_attributes_come_from_the_candidate():
+    # The projection must be the candidate itself on the mapped nodes, edge attributes included.
     g = graph(3, [(0, 1)])
     g.edge_weights[:] = 7.0
     c = graph(3, [(0, 1), (1, 2)])
     p = project(g, c, correspondence(g, c, 'index'))
-    weights = {tuple(map(int, e)): w for e, w in zip(zip(*np.nonzero(p.data)), p.edge_weights)}
-    assert weights[(0, 1)] == 7.0 and weights[(1, 2)] == 2.0
+    assert set(p.edge_weights.tolist()) == {2.0} and len(p.edge_weights) == 4
 
 
-def test_unmapped_input_nodes_keep_their_edges():
-    g = graph(4, [(2, 3)])
+def test_unmapped_input_nodes_lose_their_edges():
+    g = graph(4, [(2, 3), (0, 2)])
     c = graph(2, [(0, 1)])
     p = project(g, c, correspondence(g, c, 'index'))
-    assert p.data[0, 1] == 1 and p.data[2, 3] == 1
+    assert p.data[0, 1] == 1 and not p.data[2].any() and not p.data[3].any()
+
+
+def test_full_projection_of_a_smaller_candidate_is_the_candidate():
+    from src.utils.isolated import materialize
+    g = graph(5, [(0, 1), (1, 2), (2, 3), (3, 4)], features=[[1], [2], [3], [4], [5]])
+    c = graph(3, [(0, 1), (1, 2), (0, 2)], features=[[7], [8], [9]])
+    mapping = correspondence(g, c, 'assignment')
+    p, kept = materialize(project(g, c, mapping, features=True), 'delete')
+    assert p.data.shape == (3, 3) and np.count_nonzero(np.triu(p.data)) == 3
+    assert sorted(p.node_features.ravel()) == [7.0, 8.0, 9.0]
 
 
 def test_assignment_matches_equal_features():
@@ -85,21 +95,24 @@ def test_nearest_valid_projection_skips_invalid_candidates():
     near_tree = graph(4, [(0, 1), (1, 2)], gid=2)                                     # invalid, distance 1
     near_cycle = graph(4, [(0, 1), (1, 2), (2, 3), (0, 3)], gid=3)                   # valid, distance 1
     oracle = CycleOracle()
-    projected, chosen = nearest_valid_projection(tree, [far_cycle, near_tree, near_cycle], oracle, 'index')
+    projected, chosen, _ = nearest_valid_projection(tree, [far_cycle, near_tree, near_cycle],
+                                                    lambda g: oracle.predict(g) == 1, 'index')
     assert chosen.id == 3 and oracle.predict(projected) == 1
 
 
 def test_no_valid_projection():
     tree = graph(3, [(0, 1), (1, 2)])
     other_tree = graph(3, [(0, 2), (1, 2)])
-    assert nearest_valid_projection(tree, [other_tree], CycleOracle(), 'index') == (None, None)
+    oracle = CycleOracle()
+    assert nearest_valid_projection(tree, [other_tree], lambda g: oracle.predict(g) == 1, 'index') == (None, None, None)
 
 
 def test_a_bigger_candidate_is_cut_to_the_input():
     # The candidate's cycle sits on nodes the input does not have: the projection is no counterfactual.
     tree = graph(3, [(0, 1), (1, 2)])
     bigger = graph(6, [(0, 1), (1, 2), (3, 4), (4, 5), (3, 5)])
-    assert nearest_valid_projection(tree, [bigger], CycleOracle(), 'index') == (None, None)
+    oracle = CycleOracle()
+    assert nearest_valid_projection(tree, [bigger], lambda g: oracle.predict(g) == 1, 'index') == (None, None, None)
 
 
 if __name__ == '__main__':

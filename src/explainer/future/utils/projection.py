@@ -3,11 +3,12 @@
 Generators that return another graph of the dataset (DCE, DCM) give the minimizer a seed with other nodes
 than the input. In v1 the padding hid that: the seed's extra nodes landed on the input's padding rows and
 the minimizer edited them as if they existed. In v2 the seed is first projected onto the input: a
-correspondence pi maps input nodes to candidate nodes, and every pair of mapped input nodes takes the
-candidate's adjacency value between their images. The projection keeps the input's nodes and node features
-(what the minimizers keep and evaluate, without attribute manipulation), edges present in the input keep
-their attributes, and new edges take the candidate's. The generator returns the nearest candidate whose
-projection is a counterfactual, so the minimizer always starts from a valid seed inside its domain.
+correspondence pi maps input nodes to candidate nodes, every pair of mapped input nodes takes the
+candidate's adjacency between their images, and input nodes without an image lose their edges (under the
+isolated-node policy "delete" they are then deleted: with a candidate no larger than the input, the full
+projection is the candidate itself). The generator returns the nearest candidate whose projection the
+minimizer accepts as a counterfactual, so the minimizer always starts from a valid seed inside its domain;
+when there is none it falls back to the nearest candidate itself, which the minimizer cannot shrink.
 
 Correspondences (``correspondence``):
 
@@ -55,29 +56,35 @@ def _edge_attributes(graph):
             for i, coord in enumerate(zip(*np.nonzero(graph.data)))}
 
 
-def project(instance, candidate, mapping):
-    """The input's nodes and features with the candidate's structure among the mapped nodes."""
+def project(instance, candidate, mapping, features: bool = False):
+    """The candidate transported onto the input's nodes, in the input's frame (same node indices).
+
+    Mapped pairs take the candidate's adjacency and the candidate's edge attributes; input nodes without
+    an image lose all their edges (under the policy "delete" they are then deleted, so with every candidate
+    node mapped the result is the candidate itself, up to node names). Node features stay the input's
+    (``features=False``, what the edge-only minimizers keep) or become the candidate's on mapped nodes
+    (``features=True``, the full projection)."""
     mapping = np.asarray(mapping, dtype=int)
     rows = np.nonzero(mapping >= 0)[0]
-    data = np.array(instance.data, copy=True)
+    data = np.zeros_like(np.asarray(instance.data, dtype=float))
     data[np.ix_(rows, rows)] = np.asarray(candidate.data)[np.ix_(mapping[rows], mapping[rows])]
-    own, theirs = _edge_attributes(instance), _edge_attributes(candidate)
+    theirs = _edge_attributes(candidate)
     width = instance.edge_features.shape[1] if np.ndim(instance.edge_features) == 2 else 0
-    weights, features = [], []
+    weights, edge_features = [], []
     for u, v in zip(*np.nonzero(data)):
-        key = (int(u), int(v))
-        if key in own:
-            weight, attrs = own[key]
-        elif (int(mapping[u]), int(mapping[v])) in theirs:
-            weight, attrs = theirs[(int(mapping[u]), int(mapping[v]))]
-        else:
-            weight, attrs = 1.0, np.ones(width)
+        weight, attrs = theirs[(int(mapping[u]), int(mapping[v]))]
         weights.append(weight)
-        features.append(np.asarray(attrs, dtype=float).reshape(-1)[:width] if width else np.zeros(0))
+        edge_features.append(np.asarray(attrs, dtype=float).reshape(-1)[:width] if width else np.zeros(0))
     projected = copy.deepcopy(instance)
     projected.data = data
     projected.edge_weights = np.asarray(weights, dtype=np.float32)
-    projected.edge_features = np.asarray(features, dtype=np.float32).reshape(len(weights), width)
+    projected.edge_features = np.asarray(edge_features, dtype=np.float32).reshape(len(weights), width)
+    if features:
+        x = np.array(instance.node_features, dtype=float, copy=True)
+        y = np.asarray(candidate.node_features, dtype=float)
+        if x.shape[1:] == y.shape[1:]:
+            x[rows] = y[mapping[rows]]
+        projected.node_features = x
     projected._nx_repr = None
     return projected
 
@@ -88,21 +95,25 @@ def structural_distance(instance, candidate, mapping) -> float:
                      directed=instance.directed and candidate.directed)["structure"]
 
 
-def nearest_valid_projection(instance, candidates, oracle, kind: str, input_label=None):
-    """Project the candidates onto the input in order of structural distance under the correspondence and
-    return (projection, candidate) for the first projection the oracle classifies differently from the
-    input, or (None, None). Every check is one oracle call, counted as the generator's."""
-    if input_label is None:
-        input_label = oracle.predict(instance)
+def ranked_candidates(instance, candidates, kind: str):
+    """[(structural distance under the correspondence, order, candidate, correspondence)], nearest first."""
     ranked = []
     for candidate in candidates:
         mapping = correspondence(instance, candidate, kind)
         ranked.append((structural_distance(instance, candidate, mapping), len(ranked), candidate, mapping))
     ranked.sort(key=lambda item: (item[0], item[1]))
-    for _, _, candidate, mapping in ranked:
-        projected = project(instance, candidate, mapping)
-        if np.array_equal(projected.data, instance.data):
-            continue   # nothing of the candidate's structure lands on the input's nodes
-        if oracle.predict(projected) != input_label:
-            return projected, candidate
-    return None, None
+    return ranked
+
+
+def nearest_valid_projection(instance, candidates, is_valid, kind: str, features: bool = False):
+    """(projection, candidate, correspondence) for the nearest candidate whose projection ``is_valid``
+    accepts, or (None, None, None). ``is_valid(graph)`` is the minimizer's own test (the oracle, plus its
+    attribute methods when it uses them); each test spends oracle calls, counted as the generator's."""
+    for _, _, candidate, mapping in ranked_candidates(instance, candidates, kind):
+        projected = project(instance, candidate, mapping, features)
+        if np.array_equal(projected.data, instance.data) and (
+                not features or np.array_equal(projected.node_features, instance.node_features)):
+            continue   # nothing of the candidate lands on the input's nodes
+        if is_valid(projected):
+            return projected, candidate, mapping
+    return None, None, None

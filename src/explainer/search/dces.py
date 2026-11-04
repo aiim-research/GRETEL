@@ -37,12 +37,7 @@ class DCESExplainer(Explainer):
         input_label = self.oracle.predict(instance)
 
         if self.projection:
-            from src.explainer.future.utils.projection import nearest_valid_projection
-            candidates = [c for c in self.dataset.instances if self.oracle.predict(c) != input_label]
-            projected, _ = nearest_valid_projection(instance, candidates, self.oracle, self.projection, input_label)
-            result = copy.deepcopy(instance) if projected is None else projected
-            result.id = instance.id
-            return result
+            return self.explain_projected(instance, input_label).counterfactual_instances[0]
 
         # if the method does not find a counterfactual example returns the original graph
         min_ctf = instance
@@ -64,3 +59,42 @@ class DCESExplainer(Explainer):
         result.id = instance.id
 
         return result
+
+    def explain_projected(self, instance, input_label):
+        """Protocol v2 generator contract (src/explainer/future/utils/projection.py), decided by the generator
+        alone (decoupled protocol): the full projection onto the input's nodes (the candidate's edges, node
+        features and edge attributes) of the nearest dataset graph of another class whose projection the
+        oracle classifies differently from the input, candidates ranked by the structural edit cost under
+        the correspondence. Under the isolated-node policy "delete" a candidate no larger than the input
+        always qualifies (its projection is the candidate itself). When none does, the nearest candidate
+        itself (seed_kind "fallback", with its correspondence), a counterfactual by construction. Returns
+        an explanation whose info carries seed_kind, correspondences and candidate_id."""
+        from src.explainer.future.utils.projection import project, ranked_candidates
+        from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
+        from src.utils.isolated import materialize, policy_of
+        candidates = [c for c in self.dataset.instances if self.oracle.predict(c) != input_label]
+        ranked = ranked_candidates(instance, candidates, self.projection)
+        info = {}
+        seed = None
+        for _, _, candidate, mapping in ranked:
+            projected = project(instance, candidate, mapping, features=True)
+            if self.oracle.predict(projected) != input_label:
+                seed = projected
+                # The seed in the input's frame; as a counterfactual on its own it is materialized by the
+                # caller (GenerateMinimize) or measured with this correspondence.
+                info = {"seed_kind": "projection", "candidate_id": candidate.id,
+                        "correspondences": [materialize(projected, policy_of(self.dataset))[1]]}
+                break
+        if seed is None and ranked:
+            _, _, candidate, mapping = ranked[0]
+            seed = copy.deepcopy(candidate)
+            info = {"seed_kind": "fallback", "candidate_id": candidate.id, "correspondences": [mapping]}
+        if seed is None:
+            seed = copy.deepcopy(instance)
+            info = {"seed_kind": "none"}
+        seed.id = instance.id
+        explanation = LocalGraphCounterfactualExplanation(context=self.context, dataset=self.dataset,
+                                                          oracle=self.oracle, explainer=self,
+                                                          input_instance=instance, counterfactual_instances=[seed])
+        explanation._info.update(info)
+        return explanation

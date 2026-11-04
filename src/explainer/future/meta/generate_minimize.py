@@ -9,6 +9,7 @@ from src.utils.cfg_utils import  inject_dataset, inject_oracle
 import src.utils.explanations.functions as exp_tools
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.dataset.instances.graph import GraphInstance
+from src.utils.isolated import materialize, policy_of
 
 
 class GenerateMinimize(Explainer):
@@ -65,7 +66,7 @@ class GenerateMinimize(Explainer):
         
         # Using the generator to obtain an initial explanation
         start_time = time.time()
-        initial_explanation = self._generate(instance)
+        initial_explanation = self._generate(instance, initial_label)
         
         initial_cf  = initial_explanation.counterfactual_instances[0]
         # initial_cf  = initial_explanation.counterfactual_instances[0]
@@ -86,10 +87,30 @@ class GenerateMinimize(Explainer):
         # else:
         #     self.logger.info(f'The generator generated a counterfactual for instance with id {str(instance.id)}')
         
+        # Protocol v2: a fallback seed (the generator's candidate itself, outside the input's nodes) cannot
+        # be shrunk by any minimizer, which all edit the input's frame, so it is returned as it is, with the
+        # node correspondence the generator recorded. The decision depends on the seed alone.
+        if initial_explanation._info.get('seed_kind') == 'fallback':
+            minimal_explanation = LocalGraphCounterfactualExplanation(context=self.context, dataset=self.dataset,
+                                                                      oracle=self.oracle, explainer=self,
+                                                                      input_instance=instance,
+                                                                      counterfactual_instances=[initial_cf])
+            minimal_explanation._info['correspondences'] = initial_explanation._info.get('correspondences')
+            minimal_explanation._info['generator_explanation'] = initial_explanation
+            return minimal_explanation
+
         # Try to minimize the distance between the counterfactual example and the original instance
         minimum_cf = self.explanation_minimizer.minimize(initial_explanation)
         
         # print("minimized ctf -> " + str(self.oracle.predict(minimum_cf)))
+
+        # Protocol v2: under the isolated-node policy "delete" the counterfactual is materialized without the
+        # nodes its edits left isolated, and the correspondence records them as deleted.
+        policy = policy_of(self.dataset)
+        correspondences = None
+        if policy == 'delete' and len(minimum_cf.data) == len(instance.data):
+            minimum_cf, mapping = materialize(minimum_cf, policy)
+            correspondences = [mapping]
 
         minimal_explanation = LocalGraphCounterfactualExplanation(context=self.context,
                                                                     dataset=self.dataset,
@@ -97,6 +118,8 @@ class GenerateMinimize(Explainer):
                                                                     explainer=self,
                                                                     input_instance=instance,
                                                                     counterfactual_instances=[minimum_cf])
+        if correspondences is not None:
+            minimal_explanation._info['correspondences'] = correspondences
         
         minimal_explanation._info['generator_explanation'] = initial_explanation
         
@@ -108,10 +131,20 @@ class GenerateMinimize(Explainer):
                             str(self.explanation_generator.name), f"fold{self.local_config['parameters']['fold_id']}",
                             f"{instance.id}.pkl")
 
-    def _generate(self, instance):
+    def _run_generator(self, instance, input_label):
+        """The generator's explanation, independent of the minimizer (decoupled protocol: one seed per
+        instance and fold, shared by every minimizer). A projecting generator (protocol v2) picks it alone."""
+        generator = self.explanation_generator
+        if getattr(generator, 'projection', None) and hasattr(generator, 'explain_projected'):
+            return generator.explain_projected(instance, input_label)
+        return generator.explain(instance)
+
+    def _generate(self, instance, input_label=None):
         """Run the generator, or replay its stored counterfactual when ``generator_cache`` is set."""
+        if input_label is None:
+            input_label = self.oracle.predict(instance)
         if not self.generator_cache:
-            return self.explanation_generator.explain(instance)
+            return self._run_generator(instance, input_label)
         path = self._generator_cache_path(instance)
         if os.path.exists(path):
             with open(path, "rb") as f:
@@ -122,16 +155,21 @@ class GenerateMinimize(Explainer):
             self.oracle._call_counter += rec["oracle_calls"]   # the calls the generator made the first time
             self.logger.info(f"Generator output for instance {instance.id} replayed from cache "
                              f"({rec['oracle_calls']} generator oracle calls added back)")
-            return LocalGraphCounterfactualExplanation(context=self.context, dataset=self.dataset, oracle=self.oracle,
-                                                       explainer=self.explanation_generator, input_instance=instance,
-                                                       counterfactual_instances=[cf])
+            explanation = LocalGraphCounterfactualExplanation(context=self.context, dataset=self.dataset, oracle=self.oracle,
+                                                              explainer=self.explanation_generator, input_instance=instance,
+                                                              counterfactual_instances=[cf])
+            explanation._info.update(rec.get("info", {}))
+            return explanation
         before = self.oracle.get_calls_count()
-        explanation = self.explanation_generator.explain(instance)
+        explanation = self._run_generator(instance, input_label)
         cf = explanation.counterfactual_instances[0]
         rec = {"id": cf.id, "label": cf.label, "data": cf.data, "node_features": cf.node_features,
                "edge_features": cf.edge_features, "edge_weights": cf.edge_weights,
                "graph_features": cf.graph_features, "directed": cf.directed,
-               "oracle_calls": self.oracle.get_calls_count() - before}
+               "oracle_calls": self.oracle.get_calls_count() - before,
+               # protocol v2 (projecting generators): seed kind, node correspondence, chosen candidate
+               "info": {k: explanation._info[k] for k in ("seed_kind", "correspondences", "candidate_id")
+                        if k in explanation._info}}
         os.makedirs(os.path.dirname(path), exist_ok=True)
         tmp = f"{path}.{os.getpid()}.tmp"
         with open(tmp, "wb") as f:
