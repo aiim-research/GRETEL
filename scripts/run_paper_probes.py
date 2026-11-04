@@ -35,9 +35,31 @@ def load_dumps(root, limit=None):
     return dumps
 
 
+PROBES = ('reconstruction', 'reversal', 'recourse', 'consistency')
+TESTS = ('inversion', 'renaming', 'identity')
+
+
+def condition_values(condition):
+    """(context, mode, test, budget) of a condition, with the defaults."""
+    return (condition.get('context', 'off'), condition.get('mode', 'dict'),
+            condition.get('test'), condition.get('budget'))
+
+
+def condition_tag(condition):
+    ctx, mode, test, budget = condition_values(condition)
+    tag = f'ctx-{ctx}_mode-{mode}'
+    if test is not None:
+        tag += f'_test-{test}'
+    if budget is not None:
+        tag += f'_k-{budget}'
+    return tag
+
+
 def validate_configuration(configuration, selected):
+    if configuration.get('self_evaluation') is True and set(selected) != {'consistency'}:
+        raise ValueError('self_evaluation is only defined for the consistency probe')
     for name in selected:
-        if name not in ('reconstruction', 'reversal', 'recourse') or name not in configuration['probes']:
+        if name not in PROBES or name not in configuration['probes']:
             raise ValueError('Unknown or unconfigured probe: ' + name)
         options = configuration['probes'][name]
         if not isinstance(options, dict):
@@ -48,6 +70,10 @@ def validate_configuration(configuration, selected):
             raise ValueError('Invalid Recourse success criterion')
         if any(type(options.get(key, True)) is not bool for key in ('control', 'preprocess')):
             raise ValueError('control and preprocess must be booleans')
+        arms = options.get('arms')
+        if arms is not None and (not isinstance(arms, list) or not arms
+                                 or set(arms) - {'minimized', 'seed', 'random_subset'}):
+            raise ValueError('arms must list minimized, seed and/or random_subset')
         conditions = options.get('conditions', [{'context': 'off', 'mode': 'dict'}])
         seen = set()
         if not isinstance(conditions, list) or not conditions:
@@ -55,12 +81,17 @@ def validate_configuration(configuration, selected):
         for condition in conditions:
             if not isinstance(condition, dict):
                 raise ValueError('A condition must be an object')
-            ctx, mode = condition.get('context', 'off'), condition.get('mode', 'dict')
+            ctx, mode, test, budget = condition_values(condition)
             if ctx not in ('on', 'off') or mode not in ('full', 'dict'):
                 raise ValueError('Invalid context or mode')
-            if (ctx, mode) in seen or name == 'recourse' and ctx != 'off':
-                raise ValueError('Duplicate condition or CTX-on used as a Recourse control')
-            seen.add((ctx, mode))
+            if (test is not None) != (name == 'consistency') or test is not None and test not in TESTS:
+                raise ValueError('Consistency conditions need a test among ' + ', '.join(TESTS) + ', and only they')
+            if budget is not None and (name != 'recourse' or budget != 'record'
+                                       and (type(budget) is not int or budget < 1)):
+                raise ValueError('budget is a positive integer or "record", and only for Recourse')
+            if (ctx, mode, test, budget) in seen or name in ('recourse', 'consistency') and ctx != 'off':
+                raise ValueError('Duplicate condition, or CTX-on for Recourse or Consistency')
+            seen.add((ctx, mode, test, budget))
 
 
 def execute(judge, dumps, configuration, context, selected, output_root):
@@ -85,8 +116,8 @@ def execute(judge, dumps, configuration, context, selected, output_root):
         options = effective['probes'][name]
         conditions = options.get('conditions', [{'context': 'off', 'mode': 'dict'}])
         for condition in conditions:
-            ctx, mode = condition.get('context', 'off'), condition.get('mode', 'dict')
-            tag = f'ctx-{ctx}_mode-{mode}'
+            ctx, mode, test, budget = condition_values(condition)
+            tag = condition_tag(condition)
             all_records = []
             for path, payload, digest in dumps:
                 saved = payload.get('data')
@@ -95,7 +126,8 @@ def execute(judge, dumps, configuration, context, selected, output_root):
                 if saved is None:
                     records = [{'status': 'input_error', 'error': payload.get('input_error', 'Missing first-pass data')}]
                 else:
-                    check_judge(effective['judge'], saved, effective.get('judge_family'))
+                    if effective.get('self_evaluation') is not True:
+                        check_judge(effective['judge'], saved, effective.get('judge_family'))
                     if name == 'recourse':
                         try:
                             from src.dataset.dataset_factory import DatasetFactory
@@ -117,11 +149,13 @@ def execute(judge, dumps, configuration, context, selected, output_root):
                             records = probe_inputs.run_saved(name, judge, saved, ctx, mode,
                                                              options.get('feature_match', 'transition'),
                                                              options.get('control', True), predictor, dataset,
-                                                             options.get('success', 'target'), options.get('edge_defaults'), preprocess)
+                                                             options.get('success', 'target'), options.get('edge_defaults'), preprocess,
+                                                             test, budget, options.get('arms'),
+                                                             effective.get('self_evaluation') is True)
                         except (ValueError, KeyError, TypeError) as exc:
                             records = [{'status': 'input_error', 'error': f'{type(exc).__name__}: {exc}'}
                                        for _ in saved.get('counterfactuals') or [None]]
-                had_errors |= any(record['status'] != 'success' for record in records)
+                had_errors |= any(record['status'] not in ('success', 'not_applicable') for record in records)
                 all_records.extend(records)
                 # Source digest + path keep sample IDs/folds/configurations distinct.
                 source_id = hashlib.sha256(str(path.resolve()).encode()).hexdigest()[:20]
@@ -142,7 +176,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', required=True)
     parser.add_argument('--results', required=True)
-    parser.add_argument('--probe', choices=('reconstruction', 'reversal', 'recourse'))
+    parser.add_argument('--probe', choices=PROBES)
     parser.add_argument('--limit', type=int)
     parser.add_argument('--output', help='Default: <results>/probes')
     parser.add_argument('--fail-on-error', action='store_true', help='Exit 2 after saving results if any attempt has an error')
@@ -154,7 +188,7 @@ def main(argv=None):
     context = Context.get_context(args.config)
     configuration = context.conf
     selected = [args.probe] if args.probe else list(configuration['probes'])
-    if not selected or any(name not in ('reconstruction', 'reversal', 'recourse') for name in selected):
+    if not selected or any(name not in PROBES for name in selected):
         parser.error('Configure at least one supported probe')
     for name in selected:
         if name not in configuration['probes']:

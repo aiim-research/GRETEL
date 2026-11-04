@@ -41,16 +41,17 @@ _THINK_BLOCK = re.compile(r'<think>.*?</think>\s*', re.DOTALL)
 class _LLMAnswer(str):
     """Keep the text API while carrying decoding diagnostics to probe records."""
 
-    def __new__(cls, text, raw, finish_reason=None, stop_reason=None, token_count=None):
+    def __new__(cls, text, raw, finish_reason=None, stop_reason=None, token_count=None, sampling=None):
         answer = super().__new__(cls, text)
         answer.llm_metadata = {'judge_raw_output': raw, 'finish_reason': finish_reason,
-                               'stop_reason': stop_reason, 'output_token_count': token_count}
+                               'stop_reason': stop_reason, 'output_token_count': token_count,
+                               'sampling': sampling}
         return answer
 
     def __reduce_ex__(self, protocol):
         m = self.llm_metadata
         return type(self), (str(self), m['judge_raw_output'], m['finish_reason'],
-                           m['stop_reason'], m['output_token_count'])
+                           m['stop_reason'], m['output_token_count'], m.get('sampling'))
 
 
 class HuggingFaceLLM(LLM):
@@ -127,11 +128,15 @@ class HuggingFaceLLM(LLM):
                               gpu_memory_utilization=p['gpu_memory_utilization'],
                               max_model_len=p['max_model_len'],
                               seed=self.seed, **extra)
-        self.sampling = SamplingParams(temperature=self.temperature, top_p=self.top_p,
-                                       max_tokens=self.max_new_tokens, seed=self.seed,
-                                       skip_special_tokens=p.get('skip_special_tokens',
-                                           'muse-glimmer' not in self.model_id.lower()),
-                                       spaces_between_special_tokens=False)
+        self._sampling_params = SamplingParams
+        self._skip_special_tokens = p.get('skip_special_tokens', 'muse-glimmer' not in self.model_id.lower())
+        self.sampling = self._vllm_sampling(self.seed)
+
+    def _vllm_sampling(self, seed):
+        return self._sampling_params(temperature=self.temperature, top_p=self.top_p,
+                                     max_tokens=self.max_new_tokens, seed=seed,
+                                     skip_special_tokens=self._skip_special_tokens,
+                                     spaces_between_special_tokens=False)
 
     def _init_transformers(self, p):
         import torch
@@ -213,29 +218,47 @@ class HuggingFaceLLM(LLM):
     def explain_counterfactual(self, system, prompt):
         return self.explain_many([(system, prompt)])[0]
 
-    def explain_many(self, pairs):
-        """Answer a list of (system, prompt) pairs; batched under vllm."""
+    def explain_many(self, pairs, seeds=None):
+        """Answer a list of (system, prompt) pairs; batched under vllm.
+
+        ``seeds`` gives one sampling seed per prompt (default: the configured
+        seed for all), so the same prompt can be sampled again with another
+        seed, as the identity test of Consistency needs. The seed and the
+        sampling settings of each answer are kept in its metadata."""
+        base = getattr(self, 'seed', None)
+        if seeds is None:
+            seeds, sampling = [base] * len(pairs), getattr(self, 'sampling', None)
+        else:
+            seeds = [base if x is None else x for x in seeds]
+            if len(seeds) != len(pairs):
+                raise ValueError('One seed per prompt')
+            sampling = [self.sampling if seed == base else self._vllm_sampling(seed) for seed in seeds]
         messages = [self._messages(s, p) for s, p in pairs]
         if self.engine == 'vllm':
-            outputs = self.llm.chat(messages, self.sampling, use_tqdm=False,
+            outputs = self.llm.chat(messages, sampling, use_tqdm=False,
                                     chat_template_kwargs=self.chat_kwargs)
             answers = []
-            for output in outputs:
+            for output, seed in zip(outputs, seeds):
                 completion = output.outputs[0]
                 raw = completion.text
                 tokens = getattr(completion, 'token_ids', None)
                 answers.append(_LLMAnswer(self._clean(raw), raw,
                     getattr(completion, 'finish_reason', None),
                     getattr(completion, 'stop_reason', None),
-                    len(tokens) if tokens is not None else None))
+                    len(tokens) if tokens is not None else None, self._sampling_record(seed)))
             return answers
-        return [self._generate_one(m) for m in messages]
+        return [self._generate_one(m, seed) for m, seed in zip(messages, seeds)]
 
-    def _generate_one(self, messages):
+    def _sampling_record(self, seed):
+        return {'seed': seed, 'temperature': getattr(self, 'temperature', None), 'top_p': getattr(self, 'top_p', None),
+                'max_new_tokens': getattr(self, 'max_new_tokens', None)}
+
+    def _generate_one(self, messages, seed=None):
+        seed = self.seed if seed is None else seed
         text = self.tokenizer.apply_chat_template(messages, tokenize=False,
                                                   add_generation_prompt=True, **self.chat_kwargs)
         inputs = self.tokenizer(text, return_tensors='pt').to(self.model.device)
-        self.torch.manual_seed(self.seed)
+        self.torch.manual_seed(seed)
         generate_kwargs = {'max_new_tokens': self.max_new_tokens,
                            'pad_token_id': self.tokenizer.pad_token_id,
                            'do_sample': self.temperature > 0}
@@ -246,4 +269,4 @@ class HuggingFaceLLM(LLM):
         generated = output[0][inputs['input_ids'].shape[1]:]
         # Preserve channel markers so analysis and final remain distinguishable.
         raw = self.tokenizer.decode(generated, skip_special_tokens=False)
-        return _LLMAnswer(self._clean(raw), raw, token_count=len(generated))
+        return _LLMAnswer(self._clean(raw), raw, token_count=len(generated), sampling=self._sampling_record(seed))

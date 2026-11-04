@@ -9,10 +9,15 @@
 #SBATCH -o lab/output/logs/slurm_%j.out
 set -euo pipefail
 
-pass=${1:?usage: generate CONFIG | probe CONFIG RESULTS [PROBE] | matrix-generator/ matrix-judge RUN_ROOT MODEL_ID}
+pass=${1:?usage: generate CONFIG | probe CONFIG RESULTS [PROBE] | matrix-generator/ matrix-judge/ matrix-self RUN_ROOT MODEL_ID}
 config=${2:?missing config}
-source ~/miniforge3/etc/profile.d/conda.sh
-conda activate GRTL
+# Conda: the first installation found, environment GRETEL_ENV (default GRTL).
+for base in "${CONDA_EXE:+$(dirname "$(dirname "$CONDA_EXE")")}" "$HOME/miniforge3" "$HOME/miniconda3" "$HOME/anaconda3"; do
+  if [ -n "$base" ] && [ -f "$base/etc/profile.d/conda.sh" ]; then
+    source "$base/etc/profile.d/conda.sh"
+    conda activate "${GRETEL_ENV:-GRTL}" && break
+  fi
+done
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-8}
 export OPENBLAS_NUM_THREADS=1
 export MKL_NUM_THREADS=1
@@ -57,6 +62,9 @@ case "$pass" in
     ;;
   matrix-judge)
     srun python scripts/paper_probe_matrix.py run-judge --run-root "$config" --judge "${3:?missing judge ID}"
+    ;;
+  matrix-self)
+    srun python scripts/paper_probe_matrix.py run-self --run-root "$config" --generator "${3:?missing generator ID}"
     ;;
   *) echo "unknown pass: $pass"; exit 2 ;;
 esac

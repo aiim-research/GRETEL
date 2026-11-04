@@ -1,23 +1,35 @@
 """The same saved-record interface for in-pipeline and offline probes."""
 import json
 
-from src.utils import reconstruction_probe, reversal_probe, recourse_probe
+from src.utils import consistency_probe, reconstruction_probe, reversal_probe, recourse_probe
 from src.utils.probe_graph import restore
 from src.utils.probe_common import counts, check_judge, saved_generation_outcomes, validate_delta
 
 NARRATIVES_STAGE = 'src.evaluation.future.stages.probe_narratives.ProbeNarratives'
-PROBE_PROTOCOL_VERSION = 6  # Quoted node indices ("22") parse as integers.
+PROBE_PROTOCOL_VERSION = 7  # Consistency, arms, Recourse budget K.
+PROBES = ('reconstruction', 'reversal', 'recourse', 'consistency')
+SECOND_DIRECTION = {'inversion': 'inverse', 'renaming': 'renamed', 'identity': 'identity'}
 
 
 def run_saved(name, judge, saved, context='off', mode='dict', feature_match='transition',
-              control=True, predictor=None, dataset=None, success='target', edge_defaults=None, preprocess=None):
-    if name not in ('reconstruction', 'reversal', 'recourse') or context not in ('on', 'off'):
+              control=True, predictor=None, dataset=None, success='target', edge_defaults=None, preprocess=None,
+              test=None, budget=None, arms=None, self_evaluation=False):
+    """One record per first-pass record. ``arms`` limits the probe to records of
+    those arms (the others are ``not_applicable``); ``test`` is the Consistency
+    test; ``budget`` is Recourse's K, an integer or "record" (the instance's
+    minimized edit count); ``self_evaluation`` lets the narrator judge itself."""
+    if name not in PROBES or context not in ('on', 'off'):
         raise ValueError('Invalid probe or context')
+    if name == 'consistency' and test not in SECOND_DIRECTION:
+        raise ValueError('Consistency needs a test: ' + ', '.join(SECOND_DIRECTION))
+    if self_evaluation and name != 'consistency':
+        raise ValueError('Self-evaluation is only defined for Consistency')
     if mode not in ('full', 'dict') or feature_match not in ('identity', 'transition'):
         raise ValueError('Invalid mode or feature matching')
     if saved.get('schema_version') != 1 or saved.get('node_matching') != 'position':
         raise ValueError('Unknown first-pass schema or node-matching contract')
-    check_judge(getattr(judge, 'local_config', {}), saved)
+    if not self_evaluation:
+        check_judge(getattr(judge, 'local_config', {}), saved)
     if name == 'recourse' and (predictor is None or context != 'off'):
         raise ValueError('Recourse needs an oracle; CTX is not its no-explanation control')
     source = saved['counterfactuals']
@@ -29,6 +41,9 @@ def run_saved(name, judge, saved, context='off', mode='dict', feature_match='tra
         if not isinstance(item, dict):
             records[index] = {'status': 'input_error', 'error': 'A first-pass record must be an object'}
             continue
+        if arms is not None and 'arm' in item and item['arm'] not in arms:
+            records[index] = {'status': 'not_applicable', 'arm': item['arm']}
+            continue
         input_status = item.get('input_status', item.get('status'))
         if input_status != 'success':
             records[index] = {'status': 'input_error', 'input_status': input_status, 'error': item.get('error'),
@@ -39,7 +54,8 @@ def run_saved(name, judge, saved, context='off', mode='dict', feature_match='tra
             if type(directed) is not bool:
                 raise ValueError('Invalid saved graph direction')
             outcomes = saved_generation_outcomes(item)
-            required = ('direct', 'inverse') if name == 'reversal' else ('direct',)
+            required = (('direct', 'inverse') if name == 'reversal' else
+                        ('direct', SECOND_DIRECTION[test]) if name == 'consistency' else ('direct',))
             failed = [d for d in required if outcomes[d]['status'] != 'success']
             if failed:
                 records[index] = {
@@ -50,13 +66,17 @@ def run_saved(name, judge, saved, context='off', mode='dict', feature_match='tra
                 }
                 continue
             truth = None
-            if name != 'reversal':
+            if name not in ('reversal', 'consistency'):
                 truth = validate_delta({k: v for k, v in item['truth'].items() if k != 'size'},
                                        directed, feature_match='transition')
             if name == 'reconstruction':
                 inputs = (item['direct_output'], item['graph_text'], truth, directed)
             elif name == 'reversal':
                 inputs = (item['direct_output'], item['inverse_output'], item['graph_text'], item['inverse_graph_text'], directed)
+            elif name == 'consistency':
+                inputs = {'output_a': item['direct_output'], 'output_b': item[SECOND_DIRECTION[test] + '_output'],
+                          'directed': directed,
+                          'mapping': item['renaming']['permutation'] if test == 'renaming' else None}
             else:
                 original = restore(item['input'], dataset)
                 cf = restore(item['counterfactual'], dataset)
@@ -73,7 +93,8 @@ def run_saved(name, judge, saved, context='off', mode='dict', feature_match='tra
                           'graph_text': item['graph_text'], 'modifications_text': 'ORIGINAL EDITS:\n' + json.dumps(truth),
                           'domain': saved['domain'], 'feature_map': saved['feature_map'],
                           'feature_columns': saved.get('feature_columns'), 'atol': saved.get('atol', 0.0),
-                          'shown_nodes': item.get('shown_nodes')}
+                          'shown_nodes': item.get('shown_nodes'),
+                          'budget': item['recourse_budget'] if budget == 'record' else budget}
         except Exception as exc:
             records[index] = {'status': 'input_error', 'error': f'{type(exc).__name__}: {exc}'}
             continue
@@ -83,6 +104,8 @@ def run_saved(name, judge, saved, context='off', mode='dict', feature_match='tra
         evaluated = reconstruction_probe.run(judge, items, context == 'on', mode, feature_match, True)
     elif name == 'reversal':
         evaluated = reversal_probe.run(judge, items, context == 'on', mode, feature_match, True)
+    elif name == 'consistency':
+        evaluated = consistency_probe.run(judge, items, test, mode, True)
     else:
         evaluated = recourse_probe.run(judge, items, predictor, mode, control, True, success, edge_defaults, preprocess)
     if len(evaluated) != len(pending):
@@ -97,15 +120,29 @@ def run_saved(name, judge, saved, context='off', mode='dict', feature_match='tra
             record.setdefault('input_status', item.get('input_status', item.get('status')))
             record.setdefault('generation_outcomes', saved_generation_outcomes(item))
             record.setdefault('seed', item.get('seed'))
+            if 'arm' in item:
+                record['arm'] = item['arm']
     return records
 
 
 def summarize(name, records):
+    records = [r for r in records if r['status'] != 'not_applicable']
     result = counts(records)
+    directions = sorted({d for r in records for d in r.get('generation_outcomes', {})})
     result['generation_status_counts'] = {
-        direction: counts([r['generation_outcomes'][direction] for r in records if 'generation_outcomes' in r])['status_counts']
-        for direction in ('direct', 'inverse')
+        direction: counts([r['generation_outcomes'][direction] for r in records
+                           if direction in r.get('generation_outcomes', {})])['status_counts']
+        for direction in directions
     }
+    arms = sorted({r['arm'] for r in records if 'arm' in r})
+    if arms:
+        result['arm_counts'] = {arm: counts([r for r in records if r.get('arm') == arm])['status_counts'] for arm in arms}
+    if name == 'consistency':
+        valid = [r for r in records if r['status'] == 'success']
+        result['n_valid'] = len(valid)
+        result['verdict_counts'] = {v: sum(r['verdict'] == v for r in valid) for v in consistency_probe.VERDICTS}
+        result['consistent_rate_valid'] = sum(r['consistent'] for r in valid) / len(valid) if valid else None
+        return result
     n = len(records)
     field = 'scores' if name == 'reconstruction' else 'structural_scores'
     if name in ('reconstruction', 'reversal'):

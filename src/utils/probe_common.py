@@ -170,13 +170,22 @@ def select_text(raw, mode='full', require_structured=False, directed=False):
     return raw if mode == 'full' else narrative
 
 
-def call_many(model, prompts):
-    """Exactly one record per prompt, including call and cardinality errors."""
+def call_many(model, prompts, seeds=None):
+    """Exactly one record per prompt, including call and cardinality errors.
+
+    ``seeds`` (one per prompt, or None for the model's own seed) needs a
+    backend whose explain_many accepts them; the others refuse it rather than
+    silently sampling every prompt with the same seed."""
     if not prompts:
         return []
+    if seeds is not None and any(seed is not None for seed in seeds):
+        if not hasattr(model, 'explain_many'):
+            raise ValueError('Per-prompt seeds need a backend with explain_many(pairs, seeds)')
+    else:
+        seeds = None
     if hasattr(model, 'explain_many'):
         try:
-            answers = model.explain_many(prompts)
+            answers = model.explain_many(prompts) if seeds is None else model.explain_many(prompts, seeds=seeds)
             if not isinstance(answers, (list, tuple)) or len(answers) != len(prompts):
                 raise ValueError('Backend returned a different number of answers than prompts')
             return [dict(_answer_record(answer), judge_request={'system': system, 'prompt': prompt})
@@ -214,7 +223,7 @@ def saved_generation_outcomes(item):
     graph = item.get('input')
     directed = graph.get('directed', False) if isinstance(graph, dict) else False
     input_status = item.get('input_status', item.get('status'))
-    for direction in ('direct', 'inverse'):
+    for direction in item.get('directions', ('direct', 'inverse')):
         saved = item.get(direction + '_generation')
         if saved is None:
             answer = {'status': 'success' if input_status == 'success' else 'not_attempted'}
