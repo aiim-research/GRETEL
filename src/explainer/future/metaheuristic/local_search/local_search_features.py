@@ -84,6 +84,8 @@ class LocalSearch(bls.LocalSearch):
     def add_random(self, solution, i):
         available = (set(range(1, self.EPlus)) | set(self.feature_targets)) - set(solution)
         if len(available) < i:
-            raise ValueError("Not enough available numbers to add.")
+            # a graph with fewer free pairs than the level asks for (small graphs without padding,
+            # protocol v2): add them all instead of failing; unreachable on padded datasets
+            i = len(available)
         solution.update(random.sample(sorted(available), i))
         return solution

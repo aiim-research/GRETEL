@@ -290,7 +290,9 @@ class LocalSearch(ExplanationMinimizer):
     def add_random(self, solution: set[int], i: int):
         available_numbers = set(range(1, self.EPlus)) - solution
         if len(available_numbers) < i:
-            raise ValueError("Not enough available numbers to add.")
+            # a graph with fewer free pairs than the level asks for (small graphs without padding,
+            # protocol v2): add them all instead of failing; unreachable on padded datasets
+            i = len(available_numbers)
         numbers_to_add = random.sample(list(available_numbers), i)
         solution.update(set(numbers_to_add))
         return solution
