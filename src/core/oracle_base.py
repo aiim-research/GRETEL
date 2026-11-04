@@ -23,7 +23,7 @@ class Oracle(Trainable,metaclass=ABCMeta):
         """
         self._call_counter += 1
 
-        return self._real_predict(data_instance)
+        return self._real_predict(self._as_seen(data_instance))
 
     @final
     def predict_proba(self, data_instance):
@@ -37,7 +37,15 @@ class Oracle(Trainable,metaclass=ABCMeta):
         """
         self._call_counter += 1
 
-        return self._real_predict_proba(data_instance)
+        return self._real_predict_proba(self._as_seen(data_instance))
+
+    def _as_seen(self, data_instance):
+        """The instance without the nodes an edit left isolated, when the dataset declares that policy
+        (protocol v2, src/utils/isolated.py); the instance itself otherwise (every v1 dataset)."""
+        if getattr(getattr(self, 'dataset', None), 'isolated_nodes', 'keep') != 'delete' or not hasattr(data_instance, 'data'):
+            return data_instance
+        from src.utils.isolated import drop_isolated
+        return drop_isolated(data_instance)[0]
 
     @final
     def get_calls_count(self):
