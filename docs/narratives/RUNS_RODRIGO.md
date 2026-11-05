@@ -57,18 +57,17 @@ squeue -u $USER
 tail -qn1 lab/output/logs/matrix_prepare_*.out                          # Matrix: .../narr-matrix/<dataset>-r, three times
 ```
 
-**Step 4. Launch everything** and come back in about two days:
+**Step 4. The batches, one per dataset**, each launched when the previous one is over (`squeue -u $USER` empty):
 
 ```bash
-python scripts/paper_probe_matrix.py fleet --max 2 \
-    --run-root lab/output/results/narr-matrix/tcr64-r \
-    --run-root lab/output/results/narr-matrix/bbbp-r \
-    --run-root lab/output/results/narr-matrix/aids-r
+python scripts/paper_probe_matrix.py fleet --max 2 --run-root lab/output/results/narr-matrix/tcr64-r    # B1, Tree-Cycles
+python scripts/paper_probe_matrix.py fleet --max 2 --run-root lab/output/results/narr-matrix/bbbp-r     # B2, BBBP
+python scripts/paper_probe_matrix.py fleet --max 2 --run-root lab/output/results/narr-matrix/aids-r     # B3, AIDS
 ```
 
-Tree-Cycles is narrated first, then BBBP, then AIDS; the judges of a dataset start when its narrators end. `--max 2` keeps at most two tasks of each array running (there are five `fast` GPUs and Gianrico's account uses them too).
+`fleet` is to the model matrix what `slurm_submit.sh` is to the GRETEL configs: per run, one array of narrators and one of judges and self-evaluation that starts when the narrators' array has ended, at most `--max` tasks of each running at a time. B1 gives the real times; if it is much shorter than two days, B2 and B3 go together in one command (`--run-root .../bbbp-r --run-root .../aids-r`, chained in that order). `--max 2`: five `fast` GPUs shared with Gianrico's account.
 
-**Step 5. While it runs:**
+**Step 5. While a batch runs:**
 
 ```bash
 squeue -u $USER
