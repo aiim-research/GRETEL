@@ -1,6 +1,6 @@
 # Narrative paper, Rodrigo's account
 
-The pairs pass for both accounts, then the narrators Qwen2.5-32B and Llama-3.1-8B with every judge. Overview and models: `RUNS.md`. Gianrico runs the other narrators in parallel (`RUNS_GIANRICO.md`) once the pairs are in `dev` (step 3).
+The pairs pass for both accounts, then the narrators Qwen2.5-32B and Llama-3.1-8B with every judge. Overview and models: `RUNS.md`. Gianrico runs the other narrators in parallel (`RUNS_GIANRICO.md`) once the pairs are in `dev` (end of step 2).
 
 **Step 0. Once: GPUs, environment, Hugging Face, disk.** The clone is on `dev`.
 
@@ -23,6 +23,8 @@ conda activate GRTL-llm && hf auth login && hf auth whoami      # answer n to "a
 df -h ~ ; quota -s                                               # about 220 GB of weights go to ~/hf_cache
 ```
 
+**What the pairs are.** For each fold-0 instance of a dataset (an input graph), the counterfactuals the narrators will explain, in three arms: the DCE seed, its BLS-F minimization, and a random subset of the seed's edits of the minimized size (the size control). One GRETEL run per dataset (DCE + BLS-F, no LLM, `lab/config/narratives/pairs/<dataset>/`) writes one JSON per instance under `lab/output/results/narr-<dataset>_dce_lclsf/.../probe_inputs/`, with both graphs of every arm, the oracle's classes, the true typed edit set (the ground truth of the probes), the renaming permutation, the Recourse budget K, and the exact prompts every narrator will receive (direct, inverse, renamed, identity). `prepare` copies them into each run of the matrix with their hashes, so both accounts narrate and judge exactly the same inputs.
+
 **Step 1. CPU: the pairs and the weights** (a few hours):
 
 ```bash
@@ -32,6 +34,7 @@ sbatch -p normal scripts/slurm_hf_download.sh lab/config/narratives/matrix_r.jso
 squeue -u $USER
 grep -lE "exit status [1-9]|Traceback" output/logs/narr-*/*/*.out      # failed pairs runs, if any
 tail -1 lab/output/logs/hf_download_<job>.out                         # failed: none
+for d in tcr64 bbbp aids; do echo $d $(find lab/output/results/narr-${d}_dce_lclsf -name 'cf_*.json' | wc -l); done   # about 100 each
 ```
 
 The protocol v2 sondeo (`docs/v2/RUNS.md`) can run in the same CPU window.
@@ -43,7 +46,7 @@ rsync -av kalifano:projects/GRETEL/lab/output/results/narr-{tcr64,bbbp,aids}_dce
 git add lab/output/results/narr-*_dce_lclsf && git commit -m "Narrative paper: the pairs of Tree-Cycles 64, BBBP and AIDS" && git push
 ```
 
-Then tell Gianrico the pairs are in `dev`.
+> **MARK: tell Gianrico now that the pairs are in `dev` and he can start his step 2.**
 
 **Step 3. Freeze the three runs** (CPU jobs, minutes each):
 
