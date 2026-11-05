@@ -35,17 +35,19 @@ export PYTHONUNBUFFERED=1
 export VLLM_WORKER_MULTIPROC_METHOD=${VLLM_WORKER_MULTIPROC_METHOD:-spawn}
 export VLLM_USE_FLASHINFER_SAMPLER=${VLLM_USE_FLASHINFER_SAMPLER:-0}
 
-gpu=${CUDA_VISIBLE_DEVICES:-0}
-gpu=${gpu%%,*}
-waited=0
-while true; do
-  free_mb=$(nvidia-smi -i "$gpu" --query-gpu=memory.free --format=csv,noheader,nounits | tr -d ' ')
-  echo "GPU $gpu: $free_mb MiB free"
-  [ "$free_mb" -ge "${MIN_FREE_MB:-30000}" ] && break
-  [ "$waited" -lt "${MAX_WAIT:-21600}" ] || exit 3
-  sleep "${WAIT_STEP:-300}"
-  waited=$((waited + ${WAIT_STEP:-300}))
-done
+if [ "${SKIP_GPU_WAIT:-0}" != 1 ]; then
+  gpu=${CUDA_VISIBLE_DEVICES:-0}
+  gpu=${gpu%%,*}
+  waited=0
+  while true; do
+    free_mb=$(nvidia-smi -i "$gpu" --query-gpu=memory.free --format=csv,noheader,nounits | tr -d ' ')
+    echo "GPU $gpu: $free_mb MiB free"
+    [ "$free_mb" -ge "${MIN_FREE_MB:-30000}" ] && break
+    [ "$waited" -lt "${MAX_WAIT:-21600}" ] || exit 3
+    sleep "${WAIT_STEP:-300}"
+    waited=$((waited + ${WAIT_STEP:-300}))
+  done
+fi
 
 case "$pass" in
   generate) srun python main.py "$config" "${RUN_ID:-1}" ;;

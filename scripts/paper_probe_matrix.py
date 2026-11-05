@@ -102,7 +102,7 @@ def model_config(config, entry, role):
     parameters = {**config['model_defaults'], **entry['parameters']}
     result = {'experiment': {'scope': config['scope']},
               'compose_strs': 'lab/config/snippets/default_store_paths.json',
-              role: {'class': 'src.LLMexplaneability.huggingface.HuggingFaceLLM', 'parameters': parameters},
+              role: {'class': entry.get('class', 'src.LLMexplaneability.huggingface.HuggingFaceLLM'), 'parameters': parameters},
               role + '_family': entry['family']}
     if role == 'judge':
         result['probes'] = copy.deepcopy(entry.get('probes', config['probes']))
@@ -163,6 +163,9 @@ def prepare(config_path, source, destination=None):
             write_json(run / 'configs' / ('self-' + entry['id'] + '.json'), self_config(config, entry))
     manifest = {'configuration': config, 'sources': sources,
                 'source_fingerprint': hashlib.sha256(json.dumps(sources, sort_keys=True).encode()).hexdigest(),
+                # The pairs themselves, independent of paths: equal in two runs (two accounts, two halves of the
+                # narrators) prepared from the same first passes, so their results can be merged.
+                'content_fingerprint': hashlib.sha256(json.dumps(sorted(s['sha256'] for s in sources)).encode()).hexdigest(),
                 'code_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()}
     write_json(run / 'matrix.json', manifest)
     print('Matrix:', run, flush=True)
@@ -300,10 +303,15 @@ def submit(run, dry_run=False, include_generators=True, only=None, after=None):
                '--job-name=pm-' + role[:3] + '-' + entry['id'],
                f'--export=ALL,MIN_FREE_MB={settings["min_free_mb"]},MAX_WAIT={settings["max_wait"]},HF_HUB_OFFLINE=1,TRANSFORMERS_OFFLINE=1'
                + (f',GRETEL_ENV={settings["env"]}' if 'env' in settings else '')]
-        for option in ('partition', 'gres'):
-            if option in settings:
-                cmd.append(f'--{option}=' + settings[option])
-        if 'node' in settings:
+        if entry.get('cpu'):
+            # A model that needs no GPU (the synthetic narrators of V0): a CPU node, no GPU wait.
+            cmd[-1] += ',SKIP_GPU_WAIT=1'
+            cmd += ['--partition=' + settings.get('cpu_partition', 'normal'), '--gres=none']
+        else:
+            for option in ('partition', 'gres'):
+                if option in settings:
+                    cmd.append(f'--{option}=' + settings[option])
+        if 'node' in settings and not entry.get('cpu'):
             cmd.append('--nodelist=' + settings['node'])
         if settings.get('parallel') and after:
             cmd.append('--dependency=afterany:' + after)

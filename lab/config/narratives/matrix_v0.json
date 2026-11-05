@@ -1,0 +1,204 @@
+{
+  "scope": "narr-v0",
+  "arms": [
+    "minimized",
+    "seed",
+    "random_subset"
+  ],
+  "sample_per_source": 20,
+  "model_defaults": {
+    "engine": "vllm",
+    "dtype": "bfloat16",
+    "temperature": 0.7,
+    "top_p": 0.95,
+    "seed": 0,
+    "max_new_tokens": 1024,
+    "enable_thinking": false,
+    "gpu_memory_utilization": 0.75,
+    "max_model_len": 32768,
+    "max_num_seqs": 64,
+    "local_files_only": true
+  },
+  "slurm": {
+    "partition": "cuda",
+    "gres": "gpu:fast:1",
+    "parallel": true,
+    "time": "1-00:00:00",
+    "mem": "96G",
+    "min_free_mb": 70000,
+    "max_wait": 21600,
+    "env": "GRTL-llm"
+  },
+  "generators": [
+    {
+      "id": "synthetic-exact",
+      "family": "synthetic",
+      "cpu": true,
+      "class": "src.LLMexplaneability.synthetic.SyntheticNarrator",
+      "parameters": {
+        "model": "synthetic/exact",
+        "variant": "exact"
+      }
+    },
+    {
+      "id": "synthetic-omit",
+      "family": "synthetic",
+      "cpu": true,
+      "class": "src.LLMexplaneability.synthetic.SyntheticNarrator",
+      "parameters": {
+        "model": "synthetic/omit",
+        "variant": "omit"
+      }
+    },
+    {
+      "id": "synthetic-spurious",
+      "family": "synthetic",
+      "cpu": true,
+      "class": "src.LLMexplaneability.synthetic.SyntheticNarrator",
+      "parameters": {
+        "model": "synthetic/spurious",
+        "variant": "spurious"
+      }
+    },
+    {
+      "id": "synthetic-vague",
+      "family": "synthetic",
+      "cpu": true,
+      "class": "src.LLMexplaneability.synthetic.SyntheticNarrator",
+      "parameters": {
+        "model": "synthetic/vague",
+        "variant": "vague"
+      }
+    },
+    {
+      "id": "synthetic-no-mechanism",
+      "family": "synthetic",
+      "cpu": true,
+      "class": "src.LLMexplaneability.synthetic.SyntheticNarrator",
+      "parameters": {
+        "model": "synthetic/no_mechanism",
+        "variant": "no_mechanism"
+      }
+    },
+    {
+      "id": "synthetic-contradict",
+      "family": "synthetic",
+      "cpu": true,
+      "class": "src.LLMexplaneability.synthetic.SyntheticNarrator",
+      "parameters": {
+        "model": "synthetic/contradict",
+        "variant": "contradict"
+      }
+    },
+    {
+      "id": "synthetic-static",
+      "family": "synthetic",
+      "cpu": true,
+      "class": "src.LLMexplaneability.synthetic.SyntheticNarrator",
+      "parameters": {
+        "model": "synthetic/static",
+        "variant": "static"
+      }
+    },
+    {
+      "id": "synthetic-false-mechanism",
+      "family": "synthetic",
+      "cpu": true,
+      "class": "src.LLMexplaneability.synthetic.SyntheticNarrator",
+      "parameters": {
+        "model": "synthetic/false_mechanism",
+        "variant": "false_mechanism"
+      }
+    }
+  ],
+  "judges": [
+    {
+      "id": "gpt-oss-120b",
+      "family": "gpt-oss",
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "revision": "b5c939de8f754692c1647ca79fbf85e8c1e70f8a",
+        "temperature": 1.0,
+        "top_p": 1.0,
+        "max_new_tokens": 4096,
+        "reasoning_effort": "low"
+      }
+    },
+    {
+      "id": "glm-4.7-flash",
+      "family": "glm",
+      "parameters": {
+        "model": "zai-org/GLM-4.7-Flash",
+        "revision": "7dd20894a642a0aa287e9827cb1a1f7f91386b67",
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "max_new_tokens": 4096
+      }
+    },
+    {
+      "id": "gpt-oss-20b",
+      "family": "gpt-oss",
+      "parameters": {
+        "model": "openai/gpt-oss-20b",
+        "revision": "6cee5e81ee83917806bbde320786a8fb61efebee",
+        "temperature": 1.0,
+        "top_p": 1.0,
+        "max_new_tokens": 4096,
+        "reasoning_effort": "low"
+      }
+    }
+  ],
+  "probes": {
+    "reconstruction": {
+      "feature_match": "transition",
+      "arms": [
+        "minimized"
+      ],
+      "conditions": [
+        {
+          "context": "off",
+          "mode": "dict"
+        },
+        {
+          "context": "on",
+          "mode": "dict"
+        }
+      ]
+    },
+    "consistency": {
+      "arms": [
+        "minimized"
+      ],
+      "conditions": [
+        {
+          "test": "inversion",
+          "mode": "dict"
+        },
+        {
+          "test": "renaming",
+          "mode": "dict"
+        },
+        {
+          "test": "identity",
+          "mode": "dict"
+        }
+      ]
+    },
+    "recourse": {
+      "arms": [
+        "minimized"
+      ],
+      "control": true,
+      "success": "target",
+      "preprocess": true,
+      "feature_match": "transition",
+      "conditions": [
+        {
+          "context": "off",
+          "mode": "dict",
+          "budget": "record"
+        }
+      ]
+    }
+  }
+}

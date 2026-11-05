@@ -28,6 +28,8 @@ from huggingface_hub import snapshot_download
 config = json.load(open(sys.argv[1]))
 failed = []
 for entry in config['generators'] + config['judges']:
+    if entry.get('class') or entry.get('cpu'):
+        continue   # not a Hugging Face model (the synthetic narrators of V0)
     model, revision = entry['parameters']['model'], entry['parameters'].get('revision')
     try:
         path = snapshot_download(model, revision=revision, allow_patterns=['*.json', '*.safetensors', '*.model', '*.txt', '*.jinja', '*.py'],
