@@ -49,6 +49,14 @@ if [ "${SKIP_GPU_WAIT:-0}" != 1 ]; then
   done
 fi
 
+if [ "$pass" = array ]; then
+  # one line of a fleet list (scripts/paper_probe_matrix.py fleet): role, run root, model id
+  read -r role run_root model_id < <(sed -n "$((SLURM_ARRAY_TASK_ID + 1))p" "$config")
+  pass=matrix-$role
+  config=$run_root
+  set -- "$pass" "$config" "$model_id"
+fi
+
 case "$pass" in
   generate) srun python main.py "$config" "${RUN_ID:-1}" ;;
   probe)
