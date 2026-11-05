@@ -9,7 +9,9 @@ cd ~/projects/GRETEL && launchers/server_sync.sh
 srun -p cuda --gres=gpu:fast:1 -c 1 --mem=1G nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv
 ```
 
-vLLM 0.33.0 needs a driver 580 or newer; with an older driver or cards under about 100 GB, stop here and adjust the configs first. Then the GPU environment `GRTL-llm`, the same version Gianrico builds (a CPU job with network, about half an hour, 15 GB):
+vLLM 0.33.0 needs a driver 580 or newer; with an older driver or cards under about 100 GB, stop here and adjust the configs first.
+
+**Step 0b. Create the GPU environment `GRTL-llm`.** The narrators and judges run with vLLM, which `GRTL` does not have and cannot get without changing its versions, so the GPU jobs use a second conda environment. `scripts/slurm_setup_llm_env.sh` creates it inside a CPU job (it needs network on the node; about half an hour, 15 GB): `conda create -n GRTL-llm python=3.12` from conda-forge, then `pip install vllm==0.33.0` (which brings its own torch for CUDA 13) plus torch_geometric, RDKit and the rest of what GRETEL needs, then an import of every module the GPU jobs load, and the exact versions in `lab/output/logs/llm_env_freeze_<job>.txt`. Gianrico builds his with the same `VLLM_VERSION`. The matrix configs name it (`"env": "GRTL-llm"`), so the GPU jobs activate it by themselves.
 
 ```bash
 sbatch -p normal --export=ALL,VLLM_VERSION=0.33.0 scripts/slurm_setup_llm_env.sh

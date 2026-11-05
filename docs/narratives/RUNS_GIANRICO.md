@@ -14,7 +14,7 @@ srun -p cuda --gres=gpu:fast:1 -c 1 --mem=1G nvidia-smi --query-gpu=name,memory.
 
 If you already have a clone, `git fetch origin && git switch -c dev origin/dev` in it works too. The driver must be 580 or newer for vLLM 0.33.0; if not, tell Rodrigo before going on.
 
-The GPU environment `GRTL-llm`, apart from your `GRTL` (Python 3.12, vLLM 0.33.0, the same version as Rodrigo's, so the two halves are comparable). A CPU job with network, about half an hour and 15 GB:
+**Create the GPU environment `GRTL-llm`**, apart from your `GRTL`: the narrators and judges need vLLM, which `GRTL` cannot get without changing its versions. `scripts/slurm_setup_llm_env.sh` creates it inside a CPU job (it needs network on the node; about half an hour, 15 GB): `conda create -n GRTL-llm python=3.12` from conda-forge, then `pip install vllm==0.33.0` (the same version as Rodrigo's, so the two halves are comparable) plus torch_geometric, RDKit and the rest of what GRETEL needs, then an import of every module the GPU jobs load. The matrix configs name it, so the GPU jobs activate it by themselves.
 
 ```bash
 sbatch -p normal --export=ALL,VLLM_VERSION=0.33.0 scripts/slurm_setup_llm_env.sh
