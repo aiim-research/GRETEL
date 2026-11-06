@@ -37,7 +37,7 @@ launchers/slurm_selector_arm.sh -p normal -m 5 docs/v2/SONDEO_SEL_A.md docs/v2/S
 
 The second command chains the three selector stages by Slurm dependencies, so nothing else is needed until everything ends. The pretraining job writes the checkpoints to `models/pretrained/v2/` of this clone, where selector_v1 reads them.
 
-**Step 2-F. The arms with substitutions** (they can go while phase 0 runs, after `launchers/server_sync.sh` has brought this page's commit):
+**Step 2-F. The arms with substitutions. ON HOLD, do not launch:** on 2026-11-06 DCEM was proposed as the base generator from phase 1 on, so the F arms (built here on DCE) are rebuilt after phase 0 ends. The command, for reference:
 
 ```bash
 launchers/slurm_selector_arm.sh -p normal -m 5 docs/v2/SONDEO_SEL_F_A.md docs/v2/SONDEO_SEL_F_B.md --v2 --features \
