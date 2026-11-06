@@ -9,6 +9,9 @@ next to it. Idempotent: run it after every collection. The first sondeo's checkp
 (``edge_selector_sel-pre_*``, from the ``_collect-f`` collections) are not touched.
 
     python scripts/pretrain_selector_checkpoints.py [--datasets bbbp-m70 tri-40 ...]
+
+``--v2``: protocol v2 (no padding, ``lab/config/v2``): collections in ``lab/output/selector_pretrain/v2/``,
+checkpoints in ``models/pretrained/v2/``, settings from the v2 selector_v1 configs (scripts/gen_v2_configs.py).
 """
 from __future__ import annotations
 
@@ -25,18 +28,22 @@ from gen_selector_paper_matrix import CKPT_PREFIX, COLLECT_FOLDS, COLLECT_NAME, 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--datasets", nargs="+", default=cells())
+    ap.add_argument("--v2", action="store_true", help="protocol v2 collections, checkpoints and configs")
     args = ap.parse_args()
+    sub = "v2/" if args.v2 else ""
+    tree = "lab/config/v2/generate_minimize" if args.v2 else "lab/config/generate_minimize"
     built, waiting = 0, []
     for ds in args.datasets:
         for c in COLLECT_FOLDS:
-            examples = REPO / f"lab/output/selector_pretrain/{ds}_{COLLECT_NAME}-f{c}.pt"
-            out = REPO / f"models/pretrained/{CKPT_PREFIX}_{ds}-f{c}.pt"
+            examples = REPO / f"lab/output/selector_pretrain/{sub}{ds}_{COLLECT_NAME}-f{c}.pt"
+            out = REPO / f"models/pretrained/{sub}{CKPT_PREFIX}_{ds}-f{c}.pt"
             if out.exists():
                 continue
             if not examples.exists():
                 waiting.append(f"{ds} fold {c}")
                 continue
-            config = REPO / f"lab/config/generate_minimize/{ds}-sel/dce/{SEL1}/generate_minimize0.jsonc"
+            config = REPO / f"{tree}/{ds}-sel/dce/{SEL1}/generate_minimize0.jsonc"
+            out.parent.mkdir(parents=True, exist_ok=True)
             print(f"== {ds}, collection of fold {c} -> {out.relative_to(REPO)}")
             subprocess.run([sys.executable, str(REPO / "scripts/pretrain_selector_v3.py"), "--examples", str(examples),
                             "--config", str(config), "--out", str(out), "--report", str(out.with_suffix(".json"))],

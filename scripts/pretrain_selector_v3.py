@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import math
 import random
 import sys
@@ -77,7 +78,8 @@ def main() -> int:
     args = ap.parse_args()
 
     rows = [r for f in args.examples for r in torch.load(f, weights_only=False)]
-    conf = json.load(open(args.config))
+    # jsonc: the protocol v2 configs start with a comment line
+    conf = json.loads(re.sub(r'(?m)^\s*//.*$', '', open(args.config).read()))
     par = conf["doe-triplets"][0]["explainer"]["parameters"]["minimizer"]["parameters"]
     kw = dict(par.get("selector", {}))
     kw.setdefault("seed", par.get("seed"))

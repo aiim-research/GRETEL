@@ -38,7 +38,7 @@ Sources, regenerated from their current v1 definitions every time this runs:
 * ``paper1``: the cells of ``scripts/gen_rerun_queues.py`` (thesis and paper revision), without RSGG and DBS,
   and with DFS only on the fixed-size datasets (its prior is per node index, meaningful only when index i is
   the same node in every graph; DBS, which shares that prior, waits for an adapted one);
-* ``selector``: every config of the selector paper's batches (``docs/selector/PAPER_B*.md``).
+* ``selector``: every config of the selector paper's arms in every cell of its matrix (the v1 tree).
 
 Configs that use a fixed-size explainer are skipped and listed. The run order is decided later; this only
 writes the configs and ``docs/v2/CONFIGS.md``, the index.
@@ -199,10 +199,15 @@ def paper1_configs() -> list[str]:
 
 
 def selector_configs() -> list[str]:
+    """Every config of the selector paper's arms in every cell of its matrix, from the v1 tree. Not from its batches
+    (docs/selector/PAPER_B*.md): those leave out what already had v1 results, which v2 has to run too."""
+    from gen_selector_paper_matrix import cells as selector_cells
+    arms = ("dce-lcls-v0", "dce-lcls-v1", "dce-lcls-sel-v1", "dce-lcls-sel-v1-untrained", "dce-lcls-collect2")
     out = []
-    for queue in sorted((REPO / "docs/selector").glob("PAPER_B*.md")):
-        out += [m.group(1) for m in re.finditer(r"^- \[[ x]\] (\S+)$", queue.read_text(), re.MULTILINE)]
-    return sorted(set(out))
+    for cell in selector_cells():
+        for arm in arms:
+            out += sorted(str(p.relative_to(REPO)) for p in (REPO / TREE / f"{cell}-sel" / "dce" / arm).glob("generate_minimize*.jsonc"))
+    return out
 
 
 def main() -> int:
