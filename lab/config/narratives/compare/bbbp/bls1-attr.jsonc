@@ -1,0 +1,196 @@
+// Minimizer comparison on the narrative pairs of bbbp: the blsf.jsonc config with the selector paper's bls_v1 minimizer (protocol v2 parameters, selector_mode random), as in the v2 fleet (attribute methods).
+{
+  "experiment": {
+    "scope": "cmp-bbbp_dce_bls1-attr",
+    "parameters": {
+      "lock_release_tout": 120
+    }
+  },
+  "doe-triplets": [
+    {
+      "dataset": {
+        "class": "src.dataset.dataset_base.Dataset",
+        "parameters": {
+          "generator": {
+            "class": "src.dataset.generators.mol_gen.MolGenerator",
+            "parameters": {
+              "data_dir": "data/datasets/bbbp/",
+              "data_file_name": "BBBP.csv",
+              "data_label_name": "p_np",
+              "seed": 0
+            }
+          },
+          "n_splits": 20,
+          "shuffle": false,
+          "manipulators": [
+            {
+              "class": "src.dataset.manipulators.isolated.DeleteIsolatedNodes",
+              "parameters": {}
+            },
+            {
+              "class": "src.dataset.manipulators.oracle_view.OracleView",
+              "parameters": {}
+            }
+          ]
+        }
+      },
+      "oracle": {
+        "class": "src.oracle.nn.torch.OracleTorch",
+        "parameters": {
+          "fold_id": 0,
+          "retrain": false,
+          "epochs": 1000,
+          "batch_size": 64,
+          "optimizer": {
+            "class": "torch.optim.RMSprop",
+            "parameters": {
+              "lr": 0.001,
+              "momentum": 0.5
+            }
+          },
+          "loss_fn": {
+            "class": "torch.nn.CrossEntropyLoss",
+            "parameters": {
+              "reduction": "mean"
+            }
+          },
+          "model": {
+            "class": "src.oracle.nn.gcn.DownstreamGCN",
+            "parameters": {
+              "num_conv_layers": 2,
+              "num_dense_layers": 1,
+              "conv_booster": 2,
+              "linear_decay": 1.8,
+              "exact_conv_layers": true
+            }
+          }
+        }
+      },
+      "compose_dataset_info": "lab/config/snippets/dataset_infos/bbbp.json",
+      "explainer": {
+        "class": "src.explainer.future.meta.generate_minimize.GenerateMinimize",
+        "parameters": {
+          "fold_id": 0,
+          "generator": {
+            "class": "src.explainer.future.search.dces.DCESExplainer",
+            "parameters": {
+              "projection": "assignment"
+            }
+          },
+          "minimizer": {
+            "class": "src.explainer.future.metaheuristic.local_search.local_search_selection_net_v2.LocalSearch",
+            "parameters": {
+              "neigh_factor": 4,
+              "runtime_factor": 4,
+              "max_runtime": 20,
+              "max_neigh": 20,
+              "attributed": true,
+              "max_oracle_calls": 10000,
+              "seed": 0,
+              "selector_mode": "random",
+              "dense_reward": true,
+              "adaptive_trials": true,
+              "lock_whole_minimize": true,
+              "model_tag": "cmp-v1-bbbp",
+              "selector": {
+                "hidden_dim": 64,
+                "num_hidden_layers": 2,
+                "n_heads": 4,
+                "prior_scale": 1.0,
+                "lr": 0.001,
+                "weight_decay": 0.0001,
+                "l2_init": 0.01,
+                "exploration_prob": 0.05,
+                "acquisition": "thompson",
+                "pooling": "sum_bias",
+                "logq_correction": true,
+                "replay_capacity": 2000,
+                "replay_batch": 32,
+                "veto_threshold": 0.0,
+                "veto_min_examples": 500,
+                "shrink": 0.97,
+                "perturb_std": 0.003,
+                "lr_add": 0.002,
+                "extra_replay_steps_add": 3
+              },
+              "block_removal": false,
+              "block_init": 1,
+              "swap_record_add": false,
+              "swap_record_remove": true,
+              "flush_every_add": 4,
+              "retry_outer": false,
+              "block_random_mix": true,
+              "monitor_log_every": 100,
+              "block_shrink_on_fail": true,
+              "block_example_weight": 0.5,
+              "local_budget_frac": 0.2,
+              "phase_budget": {
+                "remove": 0.5,
+                "swap": 0.25,
+                "add": 0.25
+              },
+              "block_policy": "unlock",
+              "bandit_max_rungs": 3,
+              "adaptive_phase_budget": true,
+              "phase_share_floor": 0.05,
+              "adaptive_method_order": true,
+              "unlock_min_trials": 6,
+              "unlock_rate": 0.5,
+              "fill_remove_share": true,
+              "overshoot": true,
+              "overshoot_sizes": "geometric",
+              "overshoot_ratio": 0.7,
+              "overshoot_trials": 12,
+              "overshoot_fallback": true,
+              "overshoot_budget_frac": 1.0,
+              "stuck_swap_add": true,
+              "near_miss": true
+            }
+          },
+          "generator_cache": "lab/data/cache/generator_outputs"
+        }
+      }
+    }
+  ],
+  "evaluator": {
+    "class": "src.evaluation.future.evaluator.Evaluator",
+    "parameters": {
+      "pipeline": {
+        "class": "src.evaluation.future.stages.main_pipeline.MainPipeline",
+        "parameters": {
+          "stages": [
+            {
+              "class": "src.evaluation.future.stages.runtime.Runtime",
+              "parameters": {}
+            },
+            {
+              "class": "src.evaluation.future.stages.correctness.Correctness",
+              "parameters": {}
+            },
+            {
+              "class": "src.evaluation.future.stages.ged.GraphEditDistance",
+              "parameters": {}
+            },
+            {
+              "class": "src.evaluation.future.stages.edit_distance.EditDistance",
+              "parameters": {}
+            },
+            {
+              "class": "src.evaluation.future.stages.edit_distance.StructuralEditDistance",
+              "parameters": {}
+            },
+            {
+              "class": "src.evaluation.future.stages.edit_distance.MatchedFeatureDistance",
+              "parameters": {}
+            },
+            {
+              "class": "src.evaluation.future.stages.oracle_calls.OracleCalls",
+              "parameters": {}
+            }
+          ]
+        }
+      }
+    }
+  },
+  "compose_strs": "lab/config/snippets/default_store_paths.json"
+}

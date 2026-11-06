@@ -25,6 +25,8 @@ BLS-F against each arm, paired by instance (both correct): lower / equal / highe
 | BLS, edges only | 102 | 1.00 | 10.17 (3.0) | 8.73 (0.0) | 2880 (median) | 0.8 (median) |
 | BLS-F | 102 | 1.00 | 3.19 (1.0) | 5.45 (3.3) | 2415 (median) | 2.5 (median) |
 | OBS | 102 | 1.00 | 17.20 (12.0) | 25.30 (25.9) | 6046 (median) | 4.1 (median) |
+| bls_v1, attribute methods (selector skeleton) | 102 | 1.00 | 7.15 (2.5) | 52.92 (37.9) | 2940 (median) | 1.6 (median) |
+| bls_v1-F (selector skeleton, substitutions) | 102 | 1.00 | 3.17 (1.0) | 6.14 (4.5) | 2140 (median) | 0.2 (median) |
 
 BLS-F against each arm, paired by instance (both correct): lower / equal / higher.
 
@@ -33,6 +35,17 @@ BLS-F against each arm, paired by instance (both correct): lower / equal / highe
 | BLS, attribute methods (first paper) (102) | 66 / 21 / 15 | 77 / 9 / 16 |
 | BLS, edges only (102) | 81 / 19 / 2 | 25 / 21 / 56 |
 | OBS (102) | 93 / 9 / 0 | 73 / 10 / 19 |
+| bls_v1, attribute methods (selector skeleton) (102) | 71 / 19 / 12 | 91 / 3 / 8 |
+| bls_v1-F (selector skeleton, substitutions) (102) | 33 / 38 / 31 | 40 / 26 / 36 |
+
+bls_v1-F (selector skeleton, substitutions) against each arm, paired by instance (both correct): lower / equal / higher.
+
+| Against | Structure | Features |
+|---|---|---|
+| BLS, attribute methods (first paper) (102) | 61 / 29 / 12 | 77 / 6 / 19 |
+| BLS, edges only (102) | 82 / 18 / 2 | 25 / 15 / 62 |
+| OBS (102) | 94 / 7 / 1 | 73 / 10 / 19 |
+| bls_v1, attribute methods (selector skeleton) (102) | 68 / 24 / 10 | 91 / 3 / 8 |
 
 ## aids
 
@@ -42,6 +55,8 @@ BLS-F against each arm, paired by instance (both correct): lower / equal / highe
 | BLS, edges only | 100 | 1.00 | 14.00 (8.0) | 11.79 (13.0) | 3605 (median) | 2.2 (median) |
 | BLS-F | 100 | 1.00 | 8.40 (3.0) | 7.56 (5.5) | 2830 (median) | 3.2 (median) |
 | OBS | 100 | 1.00 | 15.66 (10.0) | 16.03 (16.3) | 6007 (median) | 5.3 (median) |
+| bls_v1, attribute methods (selector skeleton) | 100 | 1.00 | 13.12 (8.0) | 20.43 (16.7) | 4012 (median) | 4.7 (median) |
+| bls_v1-F (selector skeleton, substitutions) | 100 | 1.00 | 8.85 (3.0) | 8.40 (5.9) | 2169 (median) | 0.4 (median) |
 
 BLS-F against each arm, paired by instance (both correct): lower / equal / higher.
 
@@ -50,9 +65,22 @@ BLS-F against each arm, paired by instance (both correct): lower / equal / highe
 | BLS, attribute methods (first paper) (100) | 74 / 11 / 15 | 90 / 3 / 7 |
 | BLS, edges only (100) | 88 / 9 / 3 | 60 / 11 / 29 |
 | OBS (100) | 94 / 5 / 1 | 83 / 8 / 9 |
+| bls_v1, attribute methods (selector skeleton) (100) | 84 / 7 / 9 | 93 / 3 / 4 |
+| bls_v1-F (selector skeleton, substitutions) (100) | 39 / 37 / 24 | 45 / 27 / 28 |
+
+bls_v1-F (selector skeleton, substitutions) against each arm, paired by instance (both correct): lower / equal / higher.
+
+| Against | Structure | Features |
+|---|---|---|
+| BLS, attribute methods (first paper) (100) | 77 / 6 / 17 | 89 / 2 / 9 |
+| BLS, edges only (100) | 88 / 5 / 7 | 58 / 9 / 33 |
+| OBS (100) | 96 / 2 / 2 | 81 / 8 / 11 |
+| bls_v1, attribute methods (selector skeleton) (100) | 81 / 6 / 13 | 90 / 2 / 8 |
+
 ## Reading
 
 - **Tree-Cycles has no node features**, so BLS-F is BLS on edges there and the two give the same counterfactuals; OBS reaches them too, with about seven times the oracle calls.
 - **On the molecules BLS-F has the smallest edit cost on both components.** Against the first paper's BLS (attribute methods): structure lower in 66 of 102 BBBP instances and 74 of 100 AIDS ones, features lower in 77 and 90, with fewer oracle calls (2 415 against 3 910 on BBBP, 2 830 against 11 696 on AIDS, medians). The first paper's BLS gets few bond edits by rewriting the features of every atom with its global methods (feature distance 52 on BBBP against 5.5 for BLS-F).
 - **BLS on edges only often cannot leave the seed:** DCE's seed is another molecule (bond edits and atom substitutions), and without atom edits there is frequently no counterfactual on the input's own atoms, so it returns the seed. It does so in 25 of 102 BBBP instances and 61 of 100 AIDS ones (the instances with a non-zero feature distance), hence its high mean structure. This is why the narrative paper's minimized arm uses BLS-F.
 - OBS only reverts the seed's edits and stays far from the others (structure 17.2 and 15.7).
+- **bls_v1-F, the selector paper's skeleton with BLS-F's substitutions (2026-11-06), matches BLS-F at lower cost:** structure 3.17 and features 6.14 on BBBP (BLS-F 3.19 and 5.45), 8.85 and 8.40 on AIDS (8.40 and 7.56), paired lower / equal / higher against BLS-F 31 / 38 / 33 and 24 / 37 / 39 on structure, with 11 and 23 % fewer oracle calls (medians 2 140 and 2 169) and a tenth of the runtime. The same skeleton with the attribute methods (bls_v1 as in the v2 fleet) behaves like the first paper's BLS (feature distance 52.9 and 20.4). Hence the selector paper's F arms (`docs/v2/RUNS.md`).

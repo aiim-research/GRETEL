@@ -22,6 +22,13 @@ the selector is fed and queried (see ``Tagging/OnlineSelectorV2.py``):
   keeps the skeleton fixed); ``init_checkpoint`` starts the selector from an offline-pretrained checkpoint; and
   ``collect_examples`` dumps every scored (context, move, label) example to a file so a selector can
   be pretrained offline on instances disjoint from the evaluation ones.
+* ``feature_substitutions`` (opt-in, protocol v2) adds BLS-F's node-feature substitutions to the search
+  space: every node whose features differ in the seed contributes one edit "node i takes the seed's
+  feature vector" (ids from ``EPlus``), next to the edge edits, each counting one. The selector keeps
+  scoring edges only: substitutions enter every proposal (removal and addition sweeps, swaps, reductions,
+  overshoot) uniformly at random, at the rate of their share of the joint pool, and never reach the
+  selector's examples, so with ``selector_mode: "random"`` the search is BLS-F's on this skeleton. No
+  global attribute methods (``attributed`` is ignored).
 """
 
 from __future__ import annotations
@@ -114,7 +121,9 @@ class LocalSearch(ExplanationMinimizer):
         self.runtime_factor = p['runtime_factor']
         self.max_runtime = p['max_runtime']
         self.max_neigh = p['max_neigh']
-        self.attributed = p['attributed']
+        self.feature_subs = bool(p.get('feature_substitutions', False))
+        self.attributed = p['attributed'] and not self.feature_subs
+        self.feature_targets = {}                                       # substitution id -> (node, value)
         self.max_oracle_calls = p['max_oracle_calls']
         self.recompute_features = p.get('recompute_features', True)
         self.seed = p.get('seed', None)
@@ -266,10 +275,23 @@ class LocalSearch(ExplanationMinimizer):
         k = total_features.shape[1]
 
         min_ctf = explaination.counterfactual_instances[0]
+        self.feature_targets = {}
+        if self.feature_subs and len(min_ctf.data) != len(instance.data):
+            self.logger.info("Seed not in the input's frame, returned as it is")
+            return min_ctf
         _, diff_matrix = get_edge_differences(self.G, min_ctf)
         coords = np.where(diff_matrix == 1)
         filtered = [c for c in zip(coords[0], coords[1]) if c[0] < c[1]]
         actual = self.uv_to_id(filtered)
+        if self.feature_subs:
+            # one substitution per node whose features differ in the seed, numbered after the edge pairs
+            x = np.asarray(instance.node_features, dtype=float).reshape(self.N, -1)
+            y = np.asarray(min_ctf.node_features, dtype=float).reshape(self.N, -1)
+            changed = np.nonzero(np.abs(x - y).sum(1) > 0)[0] if x.shape == y.shape else []
+            seed_f = np.asarray(min_ctf.node_features)
+            self.feature_targets = {self.EPlus + int(i): (int(i), np.copy(seed_f[i])) for i in changed}
+            self.logger.info(f"Initial solution: {len(actual)} edge edits, {len(self.feature_targets)} substitutions")
+            actual = set(actual) | set(self.feature_targets)
         if len(actual) == 0:
             self.logger.info("Initial solution size is 0")
             return min_ctf
@@ -719,8 +741,12 @@ class LocalSearch(ExplanationMinimizer):
                 if removed is not None or uniform:
                     removed = removed or set(random.sample(sol, size))
                 elif self.overshoot_compose == "ranked" and self.use_model:
-                    order, _, _ = self.selector.get_trial_order("remove", sol_uv, seed=random.randrange(1 << 31))
-                    removed = self.uv_to_id(order[:size])
+                    order, acq_o, lq_o = self.selector.get_trial_order("remove", sol_uv, seed=random.randrange(1 << 31))
+                    if self.feature_targets:
+                        ids, _, _ = self._mix([self.label_to_id[e] for e in order], acq_o, lq_o, self._subs_in(best))
+                        removed = set(ids[:size])
+                    else:
+                        removed = self.uv_to_id(order[:size])
                 else:
                     removed = set(random.sample(sol, size))
                 s = best.difference(removed)
@@ -742,6 +768,8 @@ class LocalSearch(ExplanationMinimizer):
 
     def _keep_neg(self, neg_moves: list, neg_logqs: list, move_uv, lq) -> None:
         """Keep the first negatives, then reservoir-sample the rest (cap max_listwise_negs)."""
+        if not move_uv:
+            return      # a substitution-only move: nothing the selector scores
         if len(neg_moves) < self.max_listwise_negs:
             neg_moves.append(move_uv)
             neg_logqs.append(lq)
@@ -792,7 +820,7 @@ class LocalSearch(ExplanationMinimizer):
             self.phase_calls[self.phase] += 1
             self.phase_calls_iter[self.phase] += 1
             new_g = GraphInstance(id=self.G.id, label=0, data=new_data,
-                                  directed=self.G.directed, node_features=self.G.node_features)
+                                  directed=self.G.directed, node_features=self._features_for(solution))
             if self.recompute_features:
                 self.dataset.manipulate(new_g)
             flipped, p_cf = self.M.classify(new_g)
@@ -801,8 +829,21 @@ class LocalSearch(ExplanationMinimizer):
                 return True, new_g, 1.0
         return False, None, y_best
 
+    def _features_for(self, solution):
+        """The input's node features with the substitutions of ``solution`` applied."""
+        subs = [i for i in solution if i >= self.EPlus] if self.feature_targets else []
+        if not subs:
+            return self.G.node_features
+        features = np.array(self.G.node_features, copy=True)
+        for i in subs:
+            node, value = self.feature_targets[i]
+            features[node] = value
+        return features
+
     def disturb(self, data, directed, solution: set[int]):
         for i in solution:
+            if i >= self.EPlus:
+                continue                # a node-feature substitution, applied by evaluate
             (n1, n2) = self.labels[i]
             data[n1, n2] = (data[n1, n2] + 1) % 2
             if not directed:
@@ -905,15 +946,20 @@ class LocalSearch(ExplanationMinimizer):
     def reduce_random(self, solution: set[int], i: int) -> set[int]:
         if len(solution) < i:
             raise ValueError("The set does not have enough elements.")
+        if self.feature_targets:
+            removed, _ = self._propose_ids("remove", solution, i)
+            return solution.difference(removed)
         removed = self.selector.propose_removals(self.id_to_uv(solution), i)
         return solution.difference(self.uv_to_id(removed))
 
     def edge_remove(self, solution: set[int]):
         uv_solution = self.id_to_uv(solution)
-        ceiling = len(uv_solution)
+        ceiling = len(solution) if self.feature_targets else len(uv_solution)
         if ceiling == 0:
             return
         order, acq, logq = self.selector.get_trial_order("remove", uv_solution, seed=random.randrange(1 << 31), sweep=True)
+        if self.feature_targets:
+            order, acq, logq = self._mix([self.label_to_id[e] for e in order], acq, logq, self._subs_in(solution))
         m = len(order)
         if m == 0:
             return
@@ -939,7 +985,11 @@ class LocalSearch(ExplanationMinimizer):
                 lq = float(np.mean(logq[idx])) if len(idx) else 0.0
                 pred = float(np.mean(acq[idx])) if len(idx) else 0.0
                 rank = int((acq > pred).sum())
-                removed_set = self.uv_to_id(removed)
+                if self.feature_targets:
+                    removed_set = set(removed)
+                    removed = self.id_to_uv(removed)
+                else:
+                    removed_set = self.uv_to_id(removed)
                 self.selector.note_tried("remove", uv_solution, removed)
                 yield [solution.difference(removed_set), removed_set, [], solution, lq, pred, rank, m]
 
@@ -948,6 +998,9 @@ class LocalSearch(ExplanationMinimizer):
         ceiling = (len(best) - len(solution)) + 1
         step = int(ceiling / self.max_neigh) + 1
         order, acq, logq = self.selector.get_trial_order("add", uv_solution, seed=random.randrange(1 << 31), sweep=True)
+        if self.feature_targets:
+            order, acq, logq = self._mix([self.label_to_id[e] for e in order], acq, logq,
+                                         sorted(set(self.feature_targets) - set(solution)))
         m = len(order)
         if m == 0:
             return
@@ -960,7 +1013,11 @@ class LocalSearch(ExplanationMinimizer):
                 lq = float(np.mean(logq[idx])) if len(idx) else 0.0
                 pred = float(np.mean(acq[idx])) if len(idx) else 0.0
                 rank = int((acq > pred).sum())
-                added_set = self.uv_to_id(added)
+                if self.feature_targets:
+                    added_set = set(added)
+                    added = self.id_to_uv(added)
+                else:
+                    added_set = self.uv_to_id(added)
                 self.selector.note_tried("add", uv_solution, added)
                 yield [solution.union(added_set), [], added_set, solution, lq, pred, rank, m]
 
@@ -970,6 +1027,15 @@ class LocalSearch(ExplanationMinimizer):
         for i in range(1, ceiling, step):
             for _ in range(self.neigh_factor * 3):
                 near = self._near_sample(sorted(solution), i) if self.near_miss else None
+                if self.feature_targets:
+                    if near is not None:
+                        removed_set, pred_r = set(near), 0.0
+                    else:
+                        removed_set, pred_r = self._propose_ids("remove", solution, i)
+                    temp_solution = solution.difference(removed_set)
+                    added_set, pred_a = self._propose_ids("add", temp_solution, i)
+                    yield [temp_solution.union(added_set), removed_set, added_set, solution, temp_solution, pred_r, pred_a]
+                    continue
                 if near is not None:
                     removed, pred_r = self.id_to_uv(near), 0.0
                 else:
@@ -983,7 +1049,47 @@ class LocalSearch(ExplanationMinimizer):
     # ------------------------------------------------------------------ helpers
 
     def id_to_uv(self, ids) -> list[tuple[int, int]]:
-        return [self.labels[i] for i in ids]
+        # substitution ids (>= EPlus) are not pairs: the selector only ever sees edge edits
+        return [self.labels[i] for i in ids if i < self.EPlus]
+
+    def _subs_in(self, solution) -> list[int]:
+        return sorted(i for i in solution if i >= self.EPlus)
+
+    def _mix(self, order_ids: list[int], acq, logq, extra):
+        """Insert the substitution ids ``extra`` at uniformly random positions of a ranked edge order. They
+        take the order's mean acquisition and log-probability (the selector scores edges only)."""
+        acq = np.asarray(acq, dtype=np.float32)
+        logq = np.asarray(logq, dtype=np.float32)
+        if not extra:
+            return list(order_ids), acq, logq
+        n = len(order_ids) + len(extra)
+        pos = set(random.sample(range(n), len(extra)))
+        extra = random.sample(sorted(extra), len(extra))
+        a0 = float(acq.mean()) if len(acq) else 0.0
+        l0 = float(logq.mean()) if len(logq) else 0.0
+        ids, A, L = [], [], []
+        jo = je = 0
+        for p in range(n):
+            if p in pos:
+                ids.append(extra[je]); A.append(a0); L.append(l0); je += 1
+            else:
+                ids.append(order_ids[jo]); A.append(acq[jo]); L.append(logq[jo]); jo += 1
+        return ids, np.asarray(A, dtype=np.float32), np.asarray(L, dtype=np.float32)
+
+    def _propose_ids(self, mode: str, solution: set[int], X: int):
+        """X edits to remove from (or add to) ``solution``, uniformly split between edges and substitutions
+        by their share of the joint pool; the edges come from the selector. Returns (ids, prediction)."""
+        n_edges = sum(1 for i in solution if i < self.EPlus)
+        if mode == "remove":
+            f_pool, e_pool = self._subs_in(solution), n_edges
+        else:
+            f_pool, e_pool = sorted(set(self.feature_targets) - set(solution)), self.EPlus - n_edges
+        n_f = 0
+        if f_pool and X > 0:
+            tot = e_pool + len(f_pool)
+            n_f = sum(1 for j in random.sample(range(tot), min(X, tot)) if j < len(f_pool))
+        uv, pred = self.selector.propose_scored(mode, self.id_to_uv(solution), X - n_f)
+        return self.uv_to_id(uv) | set(random.sample(f_pool, n_f)), pred
 
     def uv_to_id(self, uv) -> set[int]:
         return {self.label_to_id[(i, j) if i < j else (j, i)] for (i, j) in uv if i != j}

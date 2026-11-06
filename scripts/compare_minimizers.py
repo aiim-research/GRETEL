@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Minimizers compared on the narrative pairs (lab/config/narratives/compare): same instances, oracle and DCE seed.
 
-For every dataset and arm (BLS with attribute methods, BLS on edges only, BLS-F, OBS) the mean and median of the
+For every dataset and arm (BLS with attribute methods, BLS on edges only, BLS-F, OBS, and the selector paper's
+bls_v1 skeleton with attribute methods and with BLS-F's substitutions) the mean and median of the
 edit cost under the node correspondence (structure: node and edge edits; features: distance of the mapped nodes'
 feature vectors), the oracle calls and the correctness, from the per-instance dumps of the cmp-<dataset>_dce_<arm>
-scopes; then, paired by instance, how often BLS-F has a lower, equal or higher structural cost and feature distance
+scopes; then, paired by instance, how often BLS-F (and bls_v1-F) has a lower, equal or higher structural cost and feature distance
 than each other arm. Reads JSON only.
 
     python scripts/compare_minimizers.py [--out docs/narratives/MINIMIZERS.md]
@@ -16,8 +17,11 @@ from pathlib import Path
 import statistics as st
 
 REPO = Path(__file__).resolve().parent.parent
-ARMS = ('bls-attr', 'bls-edges', 'blsf', 'obs')
-NAMES = {'bls-attr': 'BLS, attribute methods (first paper)', 'bls-edges': 'BLS, edges only', 'blsf': 'BLS-F', 'obs': 'OBS'}
+ARMS = ('bls-attr', 'bls-edges', 'blsf', 'obs', 'bls1-attr', 'bls1f')
+NAMES = {'bls-attr': 'BLS, attribute methods (first paper)', 'bls-edges': 'BLS, edges only', 'blsf': 'BLS-F', 'obs': 'OBS',
+         'bls1-attr': 'bls_v1, attribute methods (selector skeleton)', 'bls1f': 'bls_v1-F (selector skeleton, substitutions)'}
+# paired tallies: the reference arm against every other arm present
+REFS = ('blsf', 'bls1f')
 KEYS = {'structure': 'StructuralEditDistance', 'features': 'MatchedFeatureDistance', 'calls': 'OracleCalls',
         'correct': 'Correctness', 'runtime': 'Runtime'}
 
@@ -51,15 +55,15 @@ def main(argv=None):
             lines.append(f"| {NAMES[arm]} | {len(r)} | {sum(bool(m['correct']) for m in r.values()) / len(r):.2f} | "
                          f"{f('structure')} | {f('features')} | {st.median(m['calls'] for m in r.values()):.0f} (median) | "
                          f"{st.median(m['runtime'] for m in r.values()):.1f} (median) |")
-        if 'blsf' in runs:
-            lines += ['', 'BLS-F against each arm, paired by instance (both correct): lower / equal / higher.', '',
+        for ref in (x for x in REFS if x in runs):
+            lines += ['', f'{NAMES[ref]} against each arm, paired by instance (both correct): lower / equal / higher.', '',
                       '| Against | Structure | Features |', '|---|---|---|']
             for arm, r in runs.items():
-                if arm == 'blsf':
+                if arm == ref or (ref != 'blsf' and arm in REFS[:REFS.index(ref)]):
                     continue
-                common = [i for i in runs['blsf'] if i in r and runs['blsf'][i]['correct'] and r[i]['correct']]
+                common = [i for i in runs[ref] if i in r and runs[ref][i]['correct'] and r[i]['correct']]
                 def tally(k):
-                    a = [(runs['blsf'][i][k], r[i][k]) for i in common]
+                    a = [(runs[ref][i][k], r[i][k]) for i in common]
                     return f"{sum(x < y - 1e-9 for x, y in a)} / {sum(abs(x - y) <= 1e-9 for x, y in a)} / {sum(x > y + 1e-9 for x, y in a)}"
                 lines.append(f"| {NAMES[arm]} ({len(common)}) | {tally('structure')} | {tally('features')} |")
         lines.append('')
