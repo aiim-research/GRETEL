@@ -14,7 +14,7 @@
     "max_new_tokens": 1024,
     "enable_thinking": false,
     "gpu_memory_utilization": 0.75,
-    "max_model_len": 32768,
+    "max_model_len": 40960,
     "max_num_seqs": 64,
     "local_files_only": true
   },
@@ -30,43 +30,63 @@
   },
   "generators": [
     {
-      "id": "qwen2.5-3b",
+      "id": "qwen3.5-2b",
       "family": "qwen",
       "parameters": {
-        "model": "Qwen/Qwen2.5-3B-Instruct",
-        "revision": "aa8e72537993ba99e69dfaafa59ed015b17504d1"
+        "model": "Qwen/Qwen3.5-2B",
+        "revision": "15852e8c16360a2fea060d615a32b45270f8a8fc",
+        "limit_mm_per_prompt": {
+          "image": 0,
+          "video": 0
+        }
       }
     },
     {
-      "id": "qwen2.5-7b",
+      "id": "qwen3.5-4b",
       "family": "qwen",
       "parameters": {
-        "model": "Qwen/Qwen2.5-7B-Instruct",
-        "revision": "a09a35458c702b33eeacc393d103063234e8bc28"
+        "model": "Qwen/Qwen3.5-4B",
+        "revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+        "limit_mm_per_prompt": {
+          "image": 0,
+          "video": 0
+        }
       }
     },
     {
-      "id": "qwen2.5-14b",
+      "id": "qwen3.5-9b",
       "family": "qwen",
       "parameters": {
-        "model": "Qwen/Qwen2.5-14B-Instruct",
-        "revision": "cf98f3b3bbb457ad9e2bb7baf9a0125b6b88caa8"
+        "model": "Qwen/Qwen3.5-9B",
+        "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+        "limit_mm_per_prompt": {
+          "image": 0,
+          "video": 0
+        }
       }
     },
     {
-      "id": "qwen2.5-32b",
+      "id": "qwen3.5-27b",
       "family": "qwen",
       "parameters": {
-        "model": "Qwen/Qwen2.5-32B-Instruct",
-        "revision": "5ede1c97bbab6ce5cda5812749b4c0bdf79b18dd"
+        "model": "Qwen/Qwen3.5-27B",
+        "revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+        "limit_mm_per_prompt": {
+          "image": 0,
+          "video": 0
+        }
       }
     },
     {
-      "id": "llama3.1-8b",
-      "family": "llama",
+      "id": "gemma-4-31b-it",
+      "family": "gemma",
       "parameters": {
-        "model": "meta-llama/Llama-3.1-8B-Instruct",
-        "revision": "0e9e39f249a16976918f6564b8830bc894c89659"
+        "model": "google/gemma-4-31B-it",
+        "revision": "842da3794eaa0b77d5f08bae87a17459d91ff475",
+        "limit_mm_per_prompt": {
+          "image": 0,
+          "video": 0
+        }
       }
     }
   ],

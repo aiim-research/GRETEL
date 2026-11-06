@@ -15,7 +15,7 @@
     "max_new_tokens": 1024,
     "enable_thinking": false,
     "gpu_memory_utilization": 0.75,
-    "max_model_len": 32768,
+    "max_model_len": 40960,
     "max_num_seqs": 64,
     "local_files_only": true
   },
