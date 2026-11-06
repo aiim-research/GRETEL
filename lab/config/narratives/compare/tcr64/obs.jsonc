@@ -1,0 +1,107 @@
+// Minimizer comparison on the narrative pairs of tcr64 (protocol v2): the pairs config with minimizer 'obs' and the
+// edit-cost stages instead of the narrative stages. Same dataset, oracle and DCE seed (shared generator cache) for every arm.
+{
+  "experiment": {
+    "scope": "cmp-tcr64_dce_obs",
+    "parameters": {
+      "lock_release_tout": 120
+    }
+  },
+  "doe-triplets": [
+    {
+      "dataset": {
+        "class": "src.dataset.dataset_base.Dataset",
+        "parameters": {
+          "generator": {
+            "class": "src.dataset.generators.treecycles_rand.TreeCyclesRand",
+            "parameters": {
+              "num_instances": 500,
+              "num_nodes_per_instance": 64,
+              "ratio_nodes_in_cycles": 0.4,
+              "seed": 0
+            }
+          },
+          "n_splits": 5,
+          "shuffle": false,
+          "manipulators": [
+            {
+              "class": "src.dataset.manipulators.isolated.DeleteIsolatedNodes",
+              "parameters": {}
+            }
+          ]
+        }
+      },
+      "oracle": {
+        "class": "src.oracle.custom.oracle_tree_cycles.TreeCyclesOracle",
+        "parameters": {
+          "fold_id": -1,
+          "retrain": false
+        }
+      },
+      "compose_dataset_info": "lab/config/snippets/dataset_infos/tcr.json",
+      "explainer": {
+        "class": "src.explainer.future.meta.generate_minimize.GenerateMinimize",
+        "parameters": {
+          "fold_id": 0,
+          "generator": {
+            "class": "src.explainer.future.search.dces.DCESExplainer",
+            "parameters": {
+              "projection": "assignment"
+            }
+          },
+          "minimizer": {
+            "class": "src.explainer.future.meta.minimizer.obs.OBS",
+            "parameters": {
+              "max_oc": 4000,
+              "changes_batch_size": 5,
+              "seed": 0,
+              "recompute_features": false
+            }
+          },
+          "generator_cache": "lab/data/cache/generator_outputs"
+        }
+      }
+    }
+  ],
+  "evaluator": {
+    "class": "src.evaluation.future.evaluator.Evaluator",
+    "parameters": {
+      "pipeline": {
+        "class": "src.evaluation.future.stages.main_pipeline.MainPipeline",
+        "parameters": {
+          "stages": [
+            {
+              "class": "src.evaluation.future.stages.runtime.Runtime",
+              "parameters": {}
+            },
+            {
+              "class": "src.evaluation.future.stages.correctness.Correctness",
+              "parameters": {}
+            },
+            {
+              "class": "src.evaluation.future.stages.ged.GraphEditDistance",
+              "parameters": {}
+            },
+            {
+              "class": "src.evaluation.future.stages.edit_distance.EditDistance",
+              "parameters": {}
+            },
+            {
+              "class": "src.evaluation.future.stages.edit_distance.StructuralEditDistance",
+              "parameters": {}
+            },
+            {
+              "class": "src.evaluation.future.stages.edit_distance.MatchedFeatureDistance",
+              "parameters": {}
+            },
+            {
+              "class": "src.evaluation.future.stages.oracle_calls.OracleCalls",
+              "parameters": {}
+            }
+          ]
+        }
+      }
+    }
+  },
+  "compose_strs": "lab/config/snippets/default_store_paths.json"
+}
