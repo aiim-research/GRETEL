@@ -1,114 +1,97 @@
 # Protocol v2 on the server: the CPU experiments
 
-Everything the selector paper needs, and the first paper's and thesis' comparisons, rerun on protocol v2 (no padding, `docs/v2/README.md`), so the two can be compared on equal terms. Three phases on the `normal` partition; this page gives the first, and the next two are generated from its hours.
+Everything the selector paper needs, on protocol v2 (no padding, `docs/v2/README.md`), with DCEM as the only generator (decision of 8 November). The paper shows, on DCEM seeds, other methods (OBS, RHC) < bls_v0 (paper 1's BLS) < bls_v1 (the selector skeleton with BLS-F's feature substitutions) < selector_v1 (the trained selector on bls_v1), with the selector's ablation (the untrained control on bls_v1) and its statistics at 10 folds. Paper 1's main table (DCEM alone, DCEM with BLS, DCEM with OBS on Synthie, BBBP, ENZYMES, BZR, AIDS, PROTEINS) is a subset of the same runs; its ablations and DCE are not rerun.
 
-| Phase | What | Configs |
+| Arm | Config variant | Role |
 |---|---|---|
-| 0, sondeo (this page) | Fold 0 of every first-paper cell (`SONDEO_A`, `SONDEO_B`) and of every selector cell (`SONDEO_SEL_A`, pretraining, `SONDEO_SEL_B`) | 25 + 127 + 92 + 23, one pretraining job |
-| 0-F, sondeo of the F arms (this page) | The same selector stages with BLS-F's substitutions (`SONDEO_SEL_F_A`, pretraining `--features`, `SONDEO_SEL_F_B`) | 92 + 23, one pretraining job |
-| 1, selector fleet | The selector arms with substitutions at 10 folds (BLS-F, bls_v1-F, selector_v1-F, the untrained control-F, the collections-F of folds 1 and 2) and bls_v0, minus phases 0 and 0-F. The edge and attribute arms (bls_v1, selector_v1, control) stay at fold 0 as an ablation | to be counted from the hours |
-| 2, first paper and thesis (generated, below) | Level B, the main tables at 10 folds: DCE, DCEM (with `fallback_scan`) and OFS with the generator alone, BLS, OBS, RHC (moved from level C on 2026-11-06: the selector paper compares against OBS and hill climbing too) and BLS-F. Level C (revision and ablations: PI4 budgets, PI5, var-1 to var-4, LBS seeds, DFS): fold 0 only, already in phase 0; their other folds run later | about 940 |
+| DCEM alone | `dcm-dummy` | the seeds, and paper 1's generator row |
+| OBS, RHC | `dcm-obs`, `dcm-rhc` | other minimizers |
+| bls_v0 | `dcm-lcls-v0` | paper 1's BLS (its configuration with the common strict budget of 10 000 calls) |
+| bls_v1 | `dcm-lcls-v1-f` | the improved BLS: the skeleton with BLS-F's substitutions, random proposals |
+| control | `dcm-lcls-sel-v1-untrained-f` | the selector without training on bls_v1 (ablation) |
+| selector_v1 | `dcm-lcls-sel-v1-f` | the trained selector on bls_v1 |
+| collections | `dcm-lcls-collect2-f` (folds 1 and 2) | the selector's training data: checkpoint `-f1` serves folds 0 and 2 to 9, `-f2` serves fold 1 |
 
-Decisions of 6 November: the selector's bls_v0 and the first paper's BLS (`dce-lcls`) both run, although they are almost the same search on seven datasets (different budgets); BLS-F's place in the selector paper waits for the local comparison on the narrative pairs (`docs/narratives/MINIMIZERS.md`). Decision of the same day, after that comparison: BLS-F's substitutions enter the selector's skeleton (`feature_substitutions`, `<arm>-f`): proposed uniformly, the selector still scoring edges only, with their own collections (`collect2f`) and checkpoints (`sel2f-pre`). Phase 0 ends as it is; its edge and attribute arms become the ablation.
+Cells: the 21 selector cells but COLORS-3 (`docs/v2/FLEET_CELLS.txt`): PROTEINS, Synthie, BBBP, AIDS, BZR, ENZYMES, each also with the margin oracle (`-m70`), and the nine triangle cells. COLORS-3 runs last (below).
 
-The dataset caches, the oracles (retrained without padding and re-saved with CPU tensors) and the DCEM medoids come committed, so no warm job is needed. The generator outputs are built on the server (shared per fold, one seed for every minimizer).
+DCEM uses the fallback scan (`fallback_scan`: with no medoid projecting to a counterfactual, DCE's candidates before falling back), which on fold 0 cut its fallback seeds to DCE's level (AIDS 42 to 0 of 200, ASD 7 to 1 of 11, BZR 2 to 0 of 41).
 
-Rule: on the server only Slurm jobs compute. Everything below only syncs git, submits, or reads logs.
+Rule: on the server only Slurm jobs compute. Everything below only syncs git, submits, cancels, deletes or reads logs.
 
-## Phase 0, the sondeo
+## Step 0. Cancel everything that runs (start clean)
 
-**Step 1. Sync.**
-
-```bash
-cd ~/projects/GRETEL && squeue -u $USER && launchers/server_sync.sh && conda activate GRTL
-```
-
-**Step 2. Submit both halves at once** (about 10 jobs at a time in total):
-
-```bash
-# first paper: the generators alone, then every minimizer from their seeds (B starts when A has ended)
-launchers/slurm_submit.sh -p normal -m 5 -c docs/v2/SONDEO_A.md docs/v2/SONDEO_B.md
-
-# selector: bls_v0, bls_v1, control on fold 0 and the collections of fold 1, then the pretraining of the -f1 checkpoints, then selector_v1 on fold 0
-launchers/slurm_selector_arm.sh -p normal -m 5 docs/v2/SONDEO_SEL_A.md docs/v2/SONDEO_SEL_B.md --v2 \
-    proteins proteins-m70 synthie synthie-m70 bbbp bbbp-m70 aids aids-m70 colors-3-s20 colors-3-m70-s20 bzr bzr-m70 \
-    enzymes enzymes-m70 tri-40 tri-40-gcn tri-40-gcn-m70 tri-40n tri-40n-gcn tri-40n-gcn-m70 tri-80 tri-80-gcn tri-80-gcn-m70
-```
-
-The second command chains the three selector stages by Slurm dependencies, so nothing else is needed until everything ends. The pretraining job writes the checkpoints to `models/pretrained/v2/` of this clone, where selector_v1 reads them.
-
-**Step 2-F. The arms with substitutions. ON HOLD, do not launch:** on 2026-11-06 DCEM was proposed as the base generator from phase 1 on, so the F arms (built here on DCE) are rebuilt after phase 0 ends. The command, for reference:
-
-```bash
-launchers/slurm_selector_arm.sh -p normal -m 5 docs/v2/SONDEO_SEL_F_A.md docs/v2/SONDEO_SEL_F_B.md --v2 --features \
-    proteins proteins-m70 synthie synthie-m70 bbbp bbbp-m70 aids aids-m70 colors-3-s20 colors-3-m70-s20 bzr bzr-m70 \
-    enzymes enzymes-m70 tri-40 tri-40-gcn tri-40-gcn-m70 tri-40n tri-40n-gcn tri-40n-gcn-m70 tri-80 tri-80-gcn tri-80-gcn-m70
-```
-
-Same chain: BLS-F, bls_v1-F and the control-F on fold 0 with the collections-F of fold 1, then the `sel2f-pre` checkpoints, then selector_v1-F on fold 0.
-
-**Step 3. While it runs:**
+The phase-2 queues of 7 November (DCE and the first paper's ablations) and any selector job left are dropped. Only jobs of this account are touched (the narrative runs live in Gianrico's account).
 
 ```bash
 squeue -u $USER
-grep -lE "exit status [1-9]|Traceback" output/logs/v2-*/*/fold*_*.out     # failed configs, if any
-tail -1 output/slurm/pretrain_<job>.out     # built 23 checkpoint(s); collections still missing: the fold-2 ones (expected), for each of the two pretraining jobs
+scancel -u $USER -n gretel
+scancel -u $USER -n pretrain
+scancel -u $USER -n warm
+squeue -u $USER                                # must be empty
 ```
 
-A queue that ends with failures is submitted again as it is (`launchers/slurm_submit.sh -p normal -m 5 docs/v2/<queue>.md`): finished configs are skipped.
+Nothing has to be deleted: the fleet writes to new scopes (`v2-<cell>-sel_dcm_*`). The results of phase 0 and of the cancelled queues stay as they are (they are not used). The DCEM seeds already cached with the fallback scan are reused.
 
-**Step 4. Back home**, on the local machine, when `squeue -u $USER` is empty:
+## Step 1. Sync
+
+```bash
+cd ~/projects/GRETEL && launchers/server_sync.sh && conda activate GRTL
+```
+
+## Step 2. Train the DCEM medoids that do not exist yet (one warm job per cell)
+
+The six main cells have them (committed, the same as paper 1's cells). The `-m70` cells (another oracle) and the triangle cells do not, and building them inside the fleet would train the same medoids in parallel jobs. One job per cell, all 21 (a cell whose medoids exist ends in a minute).
+
+```bash
+JW=""
+for c in $(cat docs/v2/FLEET_CELLS.txt); do
+    J=$(sbatch --parsable -p normal launchers/slurm_warm.sh lab/config/v2/generate_minimize/$c-sel/dcm/dcm-dummy/generate_minimize0.jsonc)
+    JW="${JW:+$JW:}$J"
+done
+echo "warm jobs: $JW"
+```
+
+## Step 3. Submit the fleet as one chain
+
+```bash
+JA=$(launchers/slurm_submit.sh -p normal -m 10 -a $JW docs/v2/FLEET_A.md | sed -n 's/^JOBS //p')
+echo "fleet A: $JA"
+launchers/slurm_selector_arm.sh -p normal -m 10 -a $JA docs/v2/FLEET_B.md docs/v2/FLEET_C.md --v2 --features --dcem $(cat docs/v2/FLEET_CELLS.txt)
+```
+
+| Stage | What | Configs | Estimate at `-m 10` |
+|---|---|---|---|
+| warm | DCEM medoids (new for 15 cells) | 21 jobs | up to several hours (the largest datasets) |
+| `FLEET_A` | DCEM alone, folds 0 to 9 | 210 | about 2 h |
+| `FLEET_B` | collections-F (folds 1, 2), OBS, RHC, bls_v0, bls_v1-F, control-F, folds 0 to 9 | 1092 | about 30 h |
+| pretraining | the `sel2fm-pre` checkpoints, 2 per cell | 1 job | about 1 h |
+| `FLEET_C` | selector_v1-F, folds 0 to 9 | 210 | about 6 h |
+
+The queues go fold by fold, so fold 0 of every arm comes first and can be checked while the rest runs: about an hour after `FLEET_B` starts, look for failed configs (step 4) before letting it go on. The estimates come from the phase-0 hours with DCE seeds.
+
+## Step 4. While it runs
+
+```bash
+squeue -u $USER
+tail -3 output/slurm/warm_*.out                                              # each warm job ends with exit status 0
+grep -lE "exit status [1-9]|Traceback" output/logs/v2-*-sel/dcm-*/fold*_*.out  # failed configs
+tail -1 output/slurm/pretrain_<job>.out                                      # built 42 checkpoint(s)
+```
+
+A queue that ends with failures is submitted again as it is (`launchers/slurm_submit.sh -p normal -m 10 docs/v2/<queue>.md`): finished configs are skipped. If the pretraining fails, run it again by hand before resubmitting `FLEET_C`: `sbatch -p normal launchers/slurm_pretrain.sh --v2 --features --dcem $(cat docs/v2/FLEET_CELLS.txt)` (it skips the checkpoints that exist).
+
+## Step 5. Back home
 
 ```bash
 make server-import
-git add lab/output/results/v2-* lab/output/queue_logs lab/output/selector_logs models/pretrained/v2
-git commit -m "Protocol v2 sondeo: fold 0 of the first paper's and the selector's cells" && git push
 ```
 
-Then the analysis (Claude): the first paper's conclusions on fold 0 without padding, the selector checks of the 3 November decisions (bls_v1 at least as good as bls_v0 on bbbp and aids with margin, selector_v1 winning again on tri-80-gcn, selector_v1 against the untrained control), the same checks on the F arms (bls_v1-F against BLS-F, selector_v1-F against bls_v1-F and the control-F), and the hours per config, from which the batches of phases 1 and 2 are generated (`scripts/gen_v2_queues.py`).
+Then the analysis (Claude): the ladder per cell, paper 1's table on DCEM against the published one, the selector's statistics (control, AUC, stuck share), and whatever has to be rerun.
 
-## Phase 2, the first paper's cells at 10 folds
+## Last: COLORS-3
 
-Generated on 7 November after the phase-0 analysis (`scripts/v2_tables.py --pairs`). It does not depend on the selector, so it runs next to the selector stages of phase 0. Every DCEM config now carries `fallback_scan` (`scripts/gen_v2_configs.py`): with no medoid projecting to a counterfactual, DCEM goes on with DCE's candidates before falling back. On fold 0 it cut the fallback seeds from 42 to 0 of 200 on AIDS, 7 to 1 of 11 on ASD (as DCE) and 2 to 0 of 41 on BZR. Its new seeds go to their own cache path (suffix `-scan`), but its fold-0 results share their scope with the old ones, so those are deleted first (step 2).
+Its v2 oracle (`OracleTorch-840f1238`) is at chance level (9.8 percent on fold 0): every COLORS-3 cell, the selector's included, has correctness 0. Its oracle is retrained first, then the fleet of `colors-3-s20` and `colors-3-m70-s20` runs after everything else (its configs exist; its queues are generated then).
 
-| Queue | What | Configs | Estimate at `-m 5` |
-|---|---|---|---|
-| `PHASE2_A` | Level B, the generators alone (DCE, DCEM, OFS), folds 0 to 9 | 210 (196 pending after step 2) | a few hours |
-| `PHASE2_B` | Level B, every minimizer (BLS, BLS-F, OBS, RHC) from the cached seeds, folds 0 to 9 | 690 | about 26 h with A |
-| `PHASE2_C` | Level C, the first paper's ablations (var-1 to var-4, LBS seeds, Synthie budgets, no-attribute datasets, DFS), folds 0 to 9 | 540 (486 pending) | about 11 h |
+## Phase 0 (done, for the record)
 
-Level C only serves the thesis (paper 1 is published); it goes last and can be cancelled without touching anything else. COLORS-3 is left out of every queue (below).
-
-**Step 1. Sync** (as in phase 0).
-
-**Step 2. Delete DCEM's fold-0 results**, once no DCEM config of phase 0 is running (the BBBP ones of array 543255 were resubmitted without the scan, so cancel them if they still run):
-
-```bash
-squeue -u $USER                                # 543255_0 and 543255_1 are bbbp/dcm-lcls and bbbp/dcm-obs (check: sed -n 1,2p output/slurm/543255.list)
-scancel 543255_0 543255_1                      # only if they are still there
-ls -d lab/output/results/v2-*_dcm_* | grep -v smoke                  # 32 folders, or 30 if the two BBBP ones never wrote
-ls -d lab/output/results/v2-*_dcm_* | grep -v smoke | xargs rm -rf
-```
-
-**Step 3. Submit the three queues as a chain** (B starts when A has ended, C when B has ended):
-
-```bash
-launchers/slurm_submit.sh -p normal -m 5 -c docs/v2/PHASE2_A.md docs/v2/PHASE2_B.md docs/v2/PHASE2_C.md
-```
-
-**Step 4. While it runs and when it ends**: as steps 3 and 4 of phase 0 (failed configs, resubmitting the same command, `make server-import` at home). The results of the selector stages of phase 0 come in the same import.
-
-## Phase 0, rest of the selector stages: not run
-
-The pretraining job 543260 built 8 checkpoints and stopped at BZR (`KeyError: 'feats'`, fixed in `scripts/pretrain_selector_v3.py`), so selector_v1 (edges only) has no results on the 13 cells from BZR on. They are not completed: the edge-only selector arms are not part of the selector paper (decision of 8 November, below), and the 8 complete cells stay as an ablation.
-
-## Phase 1, the selector fleet
-
-Design fixed on 8 November: the selector paper compares, on DCEM seeds, other methods (OBS, RHC) < bls_v0 (paper 1's BLS, `-lcls-v0`) < bls_v1 (the skeleton with BLS-F's substitutions, `-lcls-v1-f`) < selector_v1 (the trained selector on bls_v1, `-lcls-sel-v1-f`). No selector on bls_v0, and no edge-only selector arm. To be generated: the DCEM twins of those arms in every selector cell (and the collections-F of folds 1 and 2 with their checkpoints), DCEM medoids for the tri-* and -m70 cells, then a fold-0 sondeo of that chain before the 10 folds, in batches of about two days: collections first, the pretraining of every checkpoint, selector_v1 last. The selector runs with DCEM only.
-
-## Last: COLORS-3 and RHC everywhere
-
-Decided on 7 November: RHC on every DCE cell that lacks it (about 60 configs, today it exists on ASD, BBBP, Synthie and TCR-TCO-300 only) is generated and launched together with COLORS-3, after everything else.
-
-
-Decision of 7 November: its v2 oracle (`OracleTorch-840f1238`) is at chance level (9.8 percent on fold 0), so every colors-3 cell of phase 0 has correctness 0. Its oracle is retrained first, then its cells of every phase (fold 0 included) run after everything else. The selector's COLORS-3 cells (`colors-3-s20`, `colors-3-m70-s20`) use the same oracle and also have correctness 0: they go last too.
+Fold 0 of the first paper's cells with DCE, DCEM and OFS (`SONDEO_A`, `SONDEO_B`) and of the selector's edge-only arms with DCE (`SONDEO_SEL_A`, `SONDEO_SEL_B`, 8 of 23 cells complete). Findings: `scripts/v2_tables.py --pairs`. Paper 1's BLS stalls when the seed is a counterfactual through its node features (ENZYMES, BBBP), BLS-F does not; DCEM with BLS-F matches DCE at a fraction of the calls; the edge-only selector predicts well (removal AUC 0.85 to 0.97) but does not lower the cost, which is why the fleet uses the F arms.

@@ -14,6 +14,8 @@ next to it. Idempotent: run it after every collection. The first sondeo's checkp
 checkpoints in ``models/pretrained/v2/``, settings from the v2 selector_v1 configs (scripts/gen_v2_configs.py).
 ``--features`` (with ``--v2``): the arms with BLS-F substitutions, collections ``<cell>_collect2f-f<c>.pt`` and
 checkpoints ``edge_selector_sel2f-pre_<cell>-f<c>.pt``, settings from the ``dce-lcls-sel-v1-f`` configs.
+``--dcem`` (with ``--features``): the same arms on DCEM seeds (phase 1, 2026-11-08), collections
+``<cell>_collect2fm-f<c>.pt``, checkpoints ``edge_selector_sel2fm-pre_<cell>-f<c>.pt``, settings from ``dcm-lcls-sel-v1-f``.
 """
 from __future__ import annotations
 
@@ -32,12 +34,18 @@ def main() -> int:
     ap.add_argument("--datasets", nargs="+", default=cells())
     ap.add_argument("--v2", action="store_true", help="protocol v2 collections, checkpoints and configs")
     ap.add_argument("--features", action="store_true", help="the arms with BLS-F substitutions (protocol v2 only)")
+    ap.add_argument("--dcem", action="store_true", help="the BLS-F arms on DCEM seeds (needs --features)")
     args = ap.parse_args()
     if args.features and not args.v2:
         ap.error("--features needs --v2")
-    collect_name, ckpt_prefix, sel1 = COLLECT_NAME, CKPT_PREFIX, SEL1
+    if args.dcem and not args.features:
+        ap.error("--dcem needs --features")
+    collect_name, ckpt_prefix, sel1, gen = COLLECT_NAME, CKPT_PREFIX, SEL1, "dce"
     if args.features:
         collect_name, ckpt_prefix, sel1 = COLLECT_NAME + "f", CKPT_PREFIX.replace("sel2-pre", "sel2f-pre"), SEL1 + "-f"
+    if args.dcem:
+        collect_name, ckpt_prefix, sel1, gen = COLLECT_NAME + "fm", CKPT_PREFIX.replace("sel2-pre", "sel2fm-pre"), \
+            SEL1.replace("dce-", "dcm-", 1) + "-f", "dcm"
     sub = "v2/" if args.v2 else ""
     tree = "lab/config/v2/generate_minimize" if args.v2 else "lab/config/generate_minimize"
     built, waiting = 0, []
@@ -50,7 +58,7 @@ def main() -> int:
             if not examples.exists():
                 waiting.append(f"{ds} fold {c}")
                 continue
-            config = REPO / f"{tree}/{ds}-sel/dce/{sel1}/generate_minimize0.jsonc"
+            config = REPO / f"{tree}/{ds}-sel/{gen}/{sel1}/generate_minimize0.jsonc"
             out.parent.mkdir(parents=True, exist_ok=True)
             print(f"== {ds}, collection of fold {c} -> {out.relative_to(REPO)}")
             subprocess.run([sys.executable, str(REPO / "scripts/pretrain_selector_v3.py"), "--examples", str(examples),

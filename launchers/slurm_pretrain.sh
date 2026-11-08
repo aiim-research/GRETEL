@@ -27,6 +27,7 @@ echo "# job ${SLURM_JOB_ID:-?} on $(hostname), started $(date '+%Y-%m-%d %H:%M:%
 V2=""; FEAT=""
 if [ "${1:-}" = "--v2" ]; then V2="--v2"; shift; fi
 if [ "${1:-}" = "--features" ]; then FEAT="--features"; shift; fi
+if [ "${1:-}" = "--dcem" ]; then FEAT="$FEAT --dcem"; shift; fi
 CUDA_VISIBLE_DEVICES="" python scripts/pretrain_selector_checkpoints.py $V2 $FEAT --datasets "$@"
 STATUS=$?
 echo "# finished $(date '+%Y-%m-%d %H:%M:%S') with exit status $STATUS"
