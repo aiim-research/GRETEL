@@ -100,8 +100,11 @@ launchers/slurm_submit.sh -p normal -m 5 -c docs/v2/PHASE2_A.md docs/v2/PHASE2_B
 
 ## Phase 1, the selector fleet
 
-To be generated after the analysis of the selector stages of phase 0 (now running: arrays 543259, pretraining 543260, 543266), around DCEM as the base generator: DCEM twins of the selector arms (with and without BLS-F substitutions), DCEM medoids for the tri-* and -m70 cells, then a fold-0 sondeo of the F chain on DCEM (the old step 2-F) before the 10 folds, in batches of about two days: collections first, the pretraining of every checkpoint, selector_v1 last. Pending decisions: RHC on every DCE cell (about 60 configs more), and whether the selector also runs with DCE on a subset.
+To be generated after the analysis of the selector stages of phase 0 (now running: arrays 543259, pretraining 543260, 543266), around DCEM as the base generator: DCEM twins of the selector arms (with and without BLS-F substitutions), DCEM medoids for the tri-* and -m70 cells, then a fold-0 sondeo of the F chain on DCEM (the old step 2-F) before the 10 folds, in batches of about two days: collections first, the pretraining of every checkpoint, selector_v1 last. Decided on 7 November: the selector runs with DCEM only (no DCE subset); its phase-0 DCE arms stay as they are.
 
-## COLORS-3, last
+## Last: COLORS-3 and RHC everywhere
+
+Decided on 7 November: RHC on every DCE cell that lacks it (about 60 configs, today it exists on ASD, BBBP, Synthie and TCR-TCO-300 only) is generated and launched together with COLORS-3, after everything else.
+
 
 Decision of 7 November: its v2 oracle (`OracleTorch-840f1238`) is at chance level (9.8 percent on fold 0), so every colors-3 cell of phase 0 has correctness 0. Its oracle is retrained first, then its cells of every phase (fold 0 included) run after everything else. The selector's COLORS-3 cells (`colors-3-s20`, `colors-3-m70-s20`) use another dataset and oracle and are not affected.
