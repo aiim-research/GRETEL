@@ -75,7 +75,8 @@
                             "attributed": false
                         }
                     },
-                    "generator_cache": "lab/data/cache/generator_outputs"
+                    "generator_cache": "lab/data/cache/generator_outputs",
+                    "fallback_scan": true
                 }
             }
         }

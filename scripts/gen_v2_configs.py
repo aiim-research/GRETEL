@@ -172,6 +172,12 @@ class Transformer:
         self.cell = cell
         data = self.node(read_jsonc(REPO / rel))
         data["experiment"]["scope"] = PREFIX + data["experiment"]["scope"]
+        # DCEM's fallback scan (2026-11-07): with no medoid projecting to a counterfactual, DCE's candidates
+        # before falling back (generate_minimize.py, dcm.py); its fold-0 sondeo cut the fallbacks to DCE's.
+        for triplet in data.get("doe-triplets", []):
+            explainer = triplet.get("explainer", {})
+            if explainer.get("parameters", {}).get("generator", {}).get("class") == DCM:
+                explainer["parameters"]["fallback_scan"] = True
         if self.policy == "delete" and "compose_man" not in json.dumps(data):
             raise ValueError(f"{rel}: no manipulator snippet to carry the isolated-node policy")
         return v2_path(rel), data
