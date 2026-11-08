@@ -40,12 +40,17 @@ cd ~/projects/GRETEL && launchers/server_sync.sh && conda activate GRTL
 
 ## Step 2. Train the DCEM medoids that do not exist yet (one warm job per cell)
 
-The six main cells have them (committed, the same as paper 1's cells). The `-m70` cells (another oracle) and the triangle cells do not, and building them inside the fleet would train the same medoids in parallel jobs. One job per cell, all 21 (a cell whose medoids exist ends in a minute).
+The six main cells have them (committed, the same as paper 1's cells). The `-m70` cells (another oracle) and the triangle cells do not, and building them inside the fleet would train the same medoids in parallel jobs. A cell whose medoids exist ends in a minute.
+
+At most 10 jobs at a time on the server: the 21 cells go as 10 jobs (two or three cells each, run one after the other inside the job), and the fleet waits for all of them.
 
 ```bash
+T=lab/config/v2/generate_minimize
 JW=""
-for c in $(cat docs/v2/FLEET_CELLS.txt); do
-    J=$(sbatch --parsable -p normal launchers/slurm_warm.sh lab/config/v2/generate_minimize/$c-sel/dcm/dcm-dummy/generate_minimize0.jsonc)
+for group in "aids aids-m70 bbbp" "bbbp-m70 bzr bzr-m70" "enzymes enzymes-m70" "proteins proteins-m70" "synthie synthie-m70" \
+             "tri-40 tri-40-gcn" "tri-40-gcn-m70 tri-40n" "tri-40n-gcn tri-40n-gcn-m70" "tri-80 tri-80-gcn" "tri-80-gcn-m70"; do
+    cfgs=""; for c in $group; do cfgs="$cfgs $T/$c-sel/dcm/dcm-dummy/generate_minimize0.jsonc"; done
+    J=$(sbatch --parsable -p normal launchers/slurm_warm.sh $cfgs)
     JW="${JW:+$JW:}$J"
 done
 echo "warm jobs: $JW"
@@ -61,7 +66,7 @@ launchers/slurm_selector_arm.sh -p normal -m 10 -a $JA docs/v2/FLEET_B.md docs/v
 
 | Stage | What | Configs | Estimate at `-m 10` |
 |---|---|---|---|
-| warm | DCEM medoids (new for 15 cells) | 21 jobs | up to several hours (the largest datasets) |
+| warm | DCEM medoids (new for 15 cells) | 10 jobs | up to several hours (the largest datasets) |
 | `FLEET_A` | DCEM alone, folds 0 to 9 | 210 | about 2 h |
 | `FLEET_B` | collections-F (folds 1, 2), OBS, RHC, bls_v0, bls_v1-F, control-F, folds 0 to 9 | 1092 | about 30 h |
 | pretraining | the `sel2fm-pre` checkpoints, 2 per cell | 1 job | about 1 h |
