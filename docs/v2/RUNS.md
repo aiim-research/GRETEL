@@ -98,6 +98,18 @@ launchers/slurm_submit.sh -p normal -m 5 -c docs/v2/PHASE2_A.md docs/v2/PHASE2_B
 
 **Step 4. While it runs and when it ends**: as steps 3 and 4 of phase 0 (failed configs, resubmitting the same command, `make server-import` at home). The results of the selector stages of phase 0 come in the same import.
 
+## Phase 0, rest of the selector stages
+
+The pretraining job 543260 built 8 checkpoints and stopped at BZR (`KeyError: 'feats'`: a collection whose first row is a per-instance summary row; fixed in `scripts/pretrain_selector_v3.py`, the checkpoints already built do not change), so selector_v1 has no results on the 13 cells from BZR on. After syncing:
+
+```bash
+JP=$(sbatch --parsable -p normal launchers/slurm_pretrain.sh --v2 bzr bzr-m70 enzymes enzymes-m70 \
+     tri-40 tri-40-gcn tri-40-gcn-m70 tri-40n tri-40n-gcn tri-40n-gcn-m70 tri-80 tri-80-gcn tri-80-gcn-m70)
+launchers/slurm_submit.sh -p normal -m 5 -a $JP docs/v2/SONDEO_SEL_B.md
+```
+
+The pretraining skips the checkpoints that exist; the queue skips the 10 cells with results (the two COLORS-3 ones included, with correctness 0).
+
 ## Phase 1, the selector fleet
 
 To be generated after the analysis of the selector stages of phase 0 (now running: arrays 543259, pretraining 543260, 543266), around DCEM as the base generator: DCEM twins of the selector arms (with and without BLS-F substitutions), DCEM medoids for the tri-* and -m70 cells, then a fold-0 sondeo of the F chain on DCEM (the old step 2-F) before the 10 folds, in batches of about two days: collections first, the pretraining of every checkpoint, selector_v1 last. Decided on 7 November: the selector runs with DCEM only (no DCE subset); its phase-0 DCE arms stay as they are.
@@ -107,4 +119,4 @@ To be generated after the analysis of the selector stages of phase 0 (now runnin
 Decided on 7 November: RHC on every DCE cell that lacks it (about 60 configs, today it exists on ASD, BBBP, Synthie and TCR-TCO-300 only) is generated and launched together with COLORS-3, after everything else.
 
 
-Decision of 7 November: its v2 oracle (`OracleTorch-840f1238`) is at chance level (9.8 percent on fold 0), so every colors-3 cell of phase 0 has correctness 0. Its oracle is retrained first, then its cells of every phase (fold 0 included) run after everything else. The selector's COLORS-3 cells (`colors-3-s20`, `colors-3-m70-s20`) use another dataset and oracle and are not affected.
+Decision of 7 November: its v2 oracle (`OracleTorch-840f1238`) is at chance level (9.8 percent on fold 0), so every colors-3 cell of phase 0 has correctness 0. Its oracle is retrained first, then its cells of every phase (fold 0 included) run after everything else. The selector's COLORS-3 cells (`colors-3-s20`, `colors-3-m70-s20`) use the same oracle and also have correctness 0: they go last too.

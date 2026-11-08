@@ -88,7 +88,8 @@ def main() -> int:
         rows = [r for r in rows if "evid" in r]
         for r in rows:
             r["feats"] = torch.cat([r["feats"], r["evid"].to(r["feats"].dtype)], dim=1)
-    input_dim = rows[0]["feats"].shape[1]
+    # the collections also hold one summary row per instance (no "feats"); they are skipped by mode below
+    input_dim = next(r for r in rows if "feats" in r)["feats"].shape[1]
     extra = OnlineNNEdgeSelectorV2.EVID_DIM if kw.get("evidence_features") else 0
     k = (input_dim - 4 - OnlineNNEdgeSelectorV2.STRUCT_DIM - extra) // 4
     with torch.random.fork_rng(devices=[]):          # same initialisation as a cold learned run
