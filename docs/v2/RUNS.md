@@ -32,6 +32,12 @@ squeue -u $USER                                # must be empty
 
 Nothing has to be deleted: the fleet writes to new scopes (`v2-<cell>-sel_dcm_*`). The results of phase 0 and of the cancelled queues stay as they are (they are not used). The DCEM seeds already cached with the fallback scan are reused.
 
+**Stale locks.** A job cancelled while it builds a cache (DCEM medoids, an oracle) leaves its lock behind (`lab/data/cache/explainers/<dataset>/DCM-<hash>.lck` and its claim files), and every later job that needs that cache waits for it to expire: 120 hours (found on 8 November: five warm jobs idle for 4.5 hours, `sstat` AveCPU of seconds). With no job of this account running, delete them before submitting again:
+
+```bash
+find lab/data/cache -name "*.lck*" -delete
+```
+
 ## Step 1. Sync
 
 ```bash
