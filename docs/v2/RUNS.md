@@ -98,21 +98,13 @@ launchers/slurm_submit.sh -p normal -m 5 -c docs/v2/PHASE2_A.md docs/v2/PHASE2_B
 
 **Step 4. While it runs and when it ends**: as steps 3 and 4 of phase 0 (failed configs, resubmitting the same command, `make server-import` at home). The results of the selector stages of phase 0 come in the same import.
 
-## Phase 0, rest of the selector stages
+## Phase 0, rest of the selector stages: not run
 
-The pretraining job 543260 built 8 checkpoints and stopped at BZR (`KeyError: 'feats'`: a collection whose first row is a per-instance summary row; fixed in `scripts/pretrain_selector_v3.py`, the checkpoints already built do not change), so selector_v1 has no results on the 13 cells from BZR on. After syncing:
-
-```bash
-JP=$(sbatch --parsable -p normal launchers/slurm_pretrain.sh --v2 bzr bzr-m70 enzymes enzymes-m70 \
-     tri-40 tri-40-gcn tri-40-gcn-m70 tri-40n tri-40n-gcn tri-40n-gcn-m70 tri-80 tri-80-gcn tri-80-gcn-m70)
-launchers/slurm_submit.sh -p normal -m 5 -a $JP docs/v2/SONDEO_SEL_B.md
-```
-
-The pretraining skips the checkpoints that exist; the queue skips the 10 cells with results (the two COLORS-3 ones included, with correctness 0).
+The pretraining job 543260 built 8 checkpoints and stopped at BZR (`KeyError: 'feats'`, fixed in `scripts/pretrain_selector_v3.py`), so selector_v1 (edges only) has no results on the 13 cells from BZR on. They are not completed: the edge-only selector arms are not part of the selector paper (decision of 8 November, below), and the 8 complete cells stay as an ablation.
 
 ## Phase 1, the selector fleet
 
-To be generated after the analysis of the selector stages of phase 0 (now running: arrays 543259, pretraining 543260, 543266), around DCEM as the base generator: DCEM twins of the selector arms (with and without BLS-F substitutions), DCEM medoids for the tri-* and -m70 cells, then a fold-0 sondeo of the F chain on DCEM (the old step 2-F) before the 10 folds, in batches of about two days: collections first, the pretraining of every checkpoint, selector_v1 last. Decided on 7 November: the selector runs with DCEM only (no DCE subset); its phase-0 DCE arms stay as they are.
+Design fixed on 8 November: the selector paper compares, on DCEM seeds, other methods (OBS, RHC) < bls_v0 (paper 1's BLS, `-lcls-v0`) < bls_v1 (the skeleton with BLS-F's substitutions, `-lcls-v1-f`) < selector_v1 (the trained selector on bls_v1, `-lcls-sel-v1-f`). No selector on bls_v0, and no edge-only selector arm. To be generated: the DCEM twins of those arms in every selector cell (and the collections-F of folds 1 and 2 with their checkpoints), DCEM medoids for the tri-* and -m70 cells, then a fold-0 sondeo of that chain before the 10 folds, in batches of about two days: collections first, the pretraining of every checkpoint, selector_v1 last. The selector runs with DCEM only.
 
 ## Last: COLORS-3 and RHC everywhere
 
