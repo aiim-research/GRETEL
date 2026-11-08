@@ -57,6 +57,13 @@ class GenerateMinimize(Explainer):
         # to the oracle's counter on a hit, so the OracleCalls metric keeps its meaning; the Runtime
         # metric of a hit no longer includes the generator.
         self.generator_cache = self.local_config['parameters'].get('generator_cache')
+        # Protocol v2, opt-in (read with .get, so configs without it keep their hash): when the generator's
+        # own candidates leave only a fallback seed, a generator that supports it (DCM) goes on with DCE's
+        # candidates (every dataset graph the oracle classifies differently, nearest first) before falling
+        # back. It changes the generator's output, so the generator cache keeps it apart ("-scan").
+        self.fallback_scan = bool(self.local_config['parameters'].get('fallback_scan', False))
+        if self.fallback_scan:
+            self.explanation_generator.fallback_scan = True
 
 
     def explain(self, instance):
@@ -128,7 +135,7 @@ class GenerateMinimize(Explainer):
 
     def _generator_cache_path(self, instance) -> str:
         return os.path.join(self.generator_cache, str(self.dataset.name), str(self.oracle.name),
-                            str(self.explanation_generator.name), f"fold{self.local_config['parameters']['fold_id']}",
+                            str(self.explanation_generator.name) + ("-scan" if self.fallback_scan else ""), f"fold{self.local_config['parameters']['fold_id']}",
                             f"{instance.id}.pkl")
 
     def _run_generator(self, instance, input_label):

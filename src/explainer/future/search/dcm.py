@@ -261,6 +261,22 @@ class DCM(Explainer, Trainable):
                 info = {"seed_kind": "projection", "candidate_id": candidate.id,
                         "correspondences": [materialize(projected, policy_of(self.dataset))[1]]}
                 break
+        if seed is None and getattr(self, "fallback_scan", False):
+            # Opt-in (GenerateMinimize's fallback_scan): no medoid projects to a counterfactual, so go on with
+            # DCE's candidates, every dataset graph the oracle classifies differently from the input (the
+            # medoids already tried left out), nearest first; the fallback is then the nearest of all.
+            tried = {id(c) for c in candidates}
+            pool = [c for c in instances if id(c) not in tried and self.oracle.predict(c) != input_label]
+            scanned = ranked_candidates(instance, pool, self.projection)
+            for _, _, candidate, mapping in scanned:
+                projected = project(instance, candidate, mapping, features=True)
+                if self.oracle.predict(projected) != input_label:
+                    seed = projected
+                    info = {"seed_kind": "projection", "candidate_id": candidate.id, "scan": True,
+                            "correspondences": [materialize(projected, policy_of(self.dataset))[1]]}
+                    break
+            if seed is None and scanned and (not ranked or scanned[0][0] < ranked[0][0]):
+                ranked = scanned[:1]
         if seed is None and ranked:
             _, _, candidate, mapping = ranked[0]
             seed = copy.deepcopy(candidate)

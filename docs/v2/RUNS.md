@@ -69,4 +69,6 @@ Then the analysis (Claude): the first paper's conclusions on fold 0 without padd
 
 ## Phases 1 and 2
 
+COLORS-3 runs last (decision of 7 November): its v2 oracle (`OracleTorch-840f1238`) is at chance level (9.8 percent on fold 0), so every colors-3 cell of phase 0 has correctness 0. Its oracle is retrained first, then its cells of every phase (fold 0 included) run after everything else. The selector's COLORS-3 cells (`colors-3-s20`, `colors-3-m70-s20`) use another dataset and oracle and are not affected.
+
 To be generated after phases 0 and 0-F, in batches of about two days each, in the order of the v1 fleet: the collections-F of folds 1 and 2 first, the pretraining of every checkpoint, and selector_v1-F last. Pending for later: the other nine folds of level C, and those of the selector's edge and attribute arms if the paper keeps them beyond the fold-0 ablation.
