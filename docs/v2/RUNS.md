@@ -99,7 +99,15 @@ make server-import
 
 Then the analysis (Claude): the ladder per cell, paper 1's table on DCEM against the published one, the selector's statistics (control, AUC, stuck share), and whatever has to be rerun.
 
-## Last: COLORS-3
+## Last: RHC at equal budget, then COLORS-3
+
+After the fleet, for the expansion of the paper: RHC capped at bls_v1-F's oracle calls in each cell (`dcm-rhc-b`, budgets in `docs/v2/RHC_BUDGET.json`, from the fleet's folds 0 to 8), 210 configs that reuse the cached DCEM seeds:
+
+```bash
+launchers/slurm_submit.sh -p normal -m 10 docs/v2/LAST_RHC_B.md
+```
+
+### COLORS-3
 
 Its v2 oracle (`OracleTorch-840f1238`) is at chance level (9.8 percent on fold 0): every COLORS-3 cell, the selector's included, has correctness 0. Its oracle is retrained first, then the fleet of `colors-3-s20` and `colors-3-m70-s20` runs after everything else (its configs exist; its queues are generated then).
 

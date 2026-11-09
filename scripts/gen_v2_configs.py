@@ -229,7 +229,9 @@ DUMMY_MIN = {"class": "src.explainer.future.meta.minimizer.dummy.Dummy",
 # Phase 1 (2026-11-08): the selector paper's ladder on DCEM seeds, others < bls_v0 < bls_v1-F < selector_v1-F,
 # with the selector's ablation (untrained control-F) and the collections-F it is pretrained from.
 DCEM_FROM_F = ("dce-lcls-v1-f", "dce-lcls-sel-v1-f", "dce-lcls-sel-v1-untrained-f", "dce-lcls-collect2-f")
-DCEM_FROM_V0 = {"dce-lcls-v0": None, "dcm-dummy": DUMMY_MIN, "dcm-obs": OBS_MIN, "dcm-rhc": RHC_MIN}
+DCEM_FROM_V0 = {"dce-lcls-v0": None, "dcm-dummy": DUMMY_MIN, "dcm-obs": OBS_MIN, "dcm-rhc": RHC_MIN, "dcm-rhc-b": RHC_MIN}
+# RHC at bls_v1-F's budget (2026-11-09, run last): per cell, bls_v1-F's mean minimizer calls on the fleet.
+RHC_BUDGET = {k: v for k, v in json.loads((REPO / "docs/v2/RHC_BUDGET.json").read_text()).items() if not k.startswith("_")}
 
 
 def dcem_twin(rel: str, data: dict, minimizer: dict | None = None, variant: str | None = None) -> tuple[str, dict]:
@@ -327,6 +329,12 @@ def main() -> int:
             # phase 1: the DCEM twins of the selector paper's ladder (2026-11-08)
             if family == "selector" and Path(target).parts[-2] in DCEM_FROM_V0:
                 for variant, mini in DCEM_FROM_V0.items():
+                    if variant == "dcm-rhc-b":
+                        cell = Path(target).parts[4].removesuffix("-sel")
+                        if cell not in RHC_BUDGET:
+                            continue
+                        mini = json.loads(json.dumps(mini))
+                        mini["parameters"]["max_oracle_calls"] = RHC_BUDGET[cell]
                     d_target, d_data = dcem_twin(target, data, mini, None if mini is None else variant)
                     if d_target in written:
                         continue
