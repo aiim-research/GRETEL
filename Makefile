@@ -70,14 +70,19 @@ SERVER_SINCE=2026-10-29
 PYTHON=$(shell command -v python || command -v python3)
 
 .PHONY: server-import
+# The selector's training collections (lab/output/selector_pretrain, several GB of .pt files, rewritten whole while
+# a collection runs) are only needed on the server, where the pretraining job reads them; bring them home on demand.
+server-import-collections:
+	ssh -O check $(SERVER) 2>/dev/null || ssh -fN $(SERVER)
+	rsync -a --partial --info=progress2 $(SERVER):$(SERVER_REPO)/lab/output/selector_pretrain/ lab/output/selector_pretrain/
+
 server-import:
 	ssh -O check $(SERVER) 2>/dev/null || ssh -fN $(SERVER)
-	rsync -av $(SERVER):$(SERVER_REPO)/lab/output/results/       lab/output/results/
-	rsync -av $(SERVER):$(SERVER_REPO)/lab/output/selector_logs/ lab/output/selector_logs/
-	rsync -av $(SERVER):$(SERVER_REPO)/lab/output/selector_pretrain/ lab/output/selector_pretrain/
+	rsync -a --partial --info=stats1 $(SERVER):$(SERVER_REPO)/lab/output/results/       lab/output/results/
+	rsync -a --partial --info=stats1 $(SERVER):$(SERVER_REPO)/lab/output/selector_logs/ lab/output/selector_logs/
 	rsync -av --ignore-existing $(SERVER):$(SERVER_REPO)/models/pretrained/ models/pretrained/
-	rsync -av $(SERVER):$(SERVER_REPO)/output/logs/              lab/output/server_logs/
-	rsync -av $(SERVER):$(SERVER_REPO)/output/slurm/             lab/output/server_slurm/
+	rsync -a --partial --info=stats1 $(SERVER):$(SERVER_REPO)/output/logs/              lab/output/server_logs/
+	rsync -a --partial --info=stats1 $(SERVER):$(SERVER_REPO)/output/slurm/             lab/output/server_slurm/
 	@if running=$$(ssh $(SERVER) 'squeue -h -u $$USER -n warm') && [ -z "$$running" ]; then \
 	    ssh $(SERVER) "cd $(SERVER_REPO) && find data -name 'GAN-*' -newermt $(SERVER_SINCE); \
 	        find lab/data/cache/datasets lab/data/cache/oracles lab/data/cache/explainers -type f \
