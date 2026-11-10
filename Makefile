@@ -78,11 +78,17 @@ server-import-collections:
 
 server-import:
 	ssh -O check $(SERVER) 2>/dev/null || ssh -fN $(SERVER)
-	rsync -a --partial --info=stats1 $(SERVER):$(SERVER_REPO)/lab/output/results/       lab/output/results/
-	rsync -a --partial --info=stats1 $(SERVER):$(SERVER_REPO)/lab/output/selector_logs/ lab/output/selector_logs/
-	rsync -av --ignore-existing $(SERVER):$(SERVER_REPO)/models/pretrained/ models/pretrained/
-	rsync -a --partial --info=stats1 $(SERVER):$(SERVER_REPO)/output/logs/              lab/output/server_logs/
-	rsync -a --partial --info=stats1 $(SERVER):$(SERVER_REPO)/output/slurm/             lab/output/server_slurm/
+	@echo "== 1/6 results (the longest: about 150 000 small files; the counter shows files checked and copied)"
+	rsync -a --partial --info=progress2,stats1 $(SERVER):$(SERVER_REPO)/lab/output/results/       lab/output/results/
+	@echo "== 2/6 selector monitors"
+	rsync -a --partial --info=progress2,stats1 $(SERVER):$(SERVER_REPO)/lab/output/selector_logs/ lab/output/selector_logs/
+	@echo "== 3/6 checkpoints"
+	rsync -a --ignore-existing --info=progress2,stats1 $(SERVER):$(SERVER_REPO)/models/pretrained/ models/pretrained/
+	@echo "== 4/6 run logs"
+	rsync -a --partial --info=progress2,stats1 $(SERVER):$(SERVER_REPO)/output/logs/              lab/output/server_logs/
+	@echo "== 5/6 slurm logs"
+	rsync -a --partial --info=progress2,stats1 $(SERVER):$(SERVER_REPO)/output/slurm/             lab/output/server_slurm/
+	@echo "== 6/6 new caches"
 	@if running=$$(ssh $(SERVER) 'squeue -h -u $$USER -n warm') && [ -z "$$running" ]; then \
 	    ssh $(SERVER) "cd $(SERVER_REPO) && find data -name 'GAN-*' -newermt $(SERVER_SINCE); \
 	        find lab/data/cache/datasets lab/data/cache/oracles lab/data/cache/explainers -type f \
