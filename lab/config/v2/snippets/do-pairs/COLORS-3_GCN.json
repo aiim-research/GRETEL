@@ -34,7 +34,8 @@
                     "num_dense_layers": 1,
                     "conv_booster": 2,
                     "linear_decay": 1.8,
-                    "exact_conv_layers": true
+                    "exact_conv_layers": true,
+                    "pooling": "torch_geometric.nn.aggr.SumAggregation"
                 }
             }
         }

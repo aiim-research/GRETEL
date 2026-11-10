@@ -99,17 +99,47 @@ make server-import
 
 Then the analysis (Claude): the ladder per cell, paper 1's table on DCEM against the published one, the selector's statistics (control, AUC, stuck share), and whatever has to be rerun.
 
-## Last: RHC at equal budget, then COLORS-3
+## Arm D (10 November): what the paper still needs
 
-After the fleet, for the expansion of the paper: RHC capped at bls_v1-F's oracle calls in each cell (`dcm-rhc-b`, budgets in `docs/v2/RHC_BUDGET.json`, from the fleet's folds 0 to 8), 210 configs that reuse the cached DCEM seeds:
+The fleet ended on 10 November (`make server-import`, analysis with `scripts/v2_fleet.py`). The nine triangle cells leave the selector paper (decided 10 November: a study of their own, the starting point of the task-arithmetic line); the paper keeps the 12 classic cells (PROTEINS, Synthie, BBBP, AIDS, BZR, ENZYMES, each also with `-m70`). Arm D, on those 12 cells, folds 0 to 9:
+
+| Queue | What | Configs |
+|---|---|---|
+| `D.md`, first part | the traced twins of bls_v1-F, control-F and selector_v1-F (`<arm>-t`): the same runs (same seed; checked on BZR fold 0, 41 of 41 instances identical) that also write `lab/output/selector_logs/trace_<tag>_<dataset>_f<fold>.jsonl`, the best solution's edge edits, substitutions and feature cost after every accepted move. It explains why a selector that scores edges only lowers the feature cost, and gives the convergence curves (cost against oracle calls) | 360 |
+| `D.md`, second part | RHC at bls_v1-F's budget per cell (`dcm-rhc-b`, `docs/v2/RHC_BUDGET.json`) | 120 |
+| warm, then `D_COLORS_A/B/C.md` | COLORS-3 (`colors-3-s20`, `colors-3-m70-s20`) with its oracle fixed: its label is a count of green nodes, which the mean pooling saw only through the padding; v2 pools with a sum (`scripts/gen_v2_configs.py`, `sum_pooling`) | 1 job, then 20, 104 and 20 |
+
+### D1. Submit D and the COLORS-3 warm job (10 jobs at most: 9 + 1)
 
 ```bash
-launchers/slurm_submit.sh -p normal -m 10 docs/v2/LAST_RHC_B.md
+cd ~/projects/GRETEL && launchers/server_sync.sh && conda activate GRTL
+squeue -u $USER                                # nothing of this account should be running
+T=lab/config/v2/generate_minimize
+JW=$(sbatch --parsable -p normal launchers/slurm_warm.sh $T/colors-3-s20-sel/dcm/dcm-dummy/generate_minimize0.jsonc $T/colors-3-m70-s20-sel/dcm/dcm-dummy/generate_minimize0.jsonc)
+JD=$(launchers/slurm_submit.sh -p normal -m 9 docs/v2/D.md | sed -n 's/^JOBS //p')
+echo "warm $JW   D $JD"
 ```
 
-### COLORS-3
+### D2. Check the COLORS-3 oracle when the warm job ends
 
-Its v2 oracle (`OracleTorch-840f1238`) is at chance level (9.8 percent on fold 0): every COLORS-3 cell, the selector's included, has correctness 0. Its oracle is retrained first, then the fleet of `colors-3-s20` and `colors-3-m70-s20` runs after everything else (its configs exist; its queues are generated then).
+```bash
+tail -20 output/slurm/warm_$JW.out          # both configs "ok", and a line "Test accuracy = ..."
+```
+
+The old oracle was at 0.098 (chance, 11 classes). Go on only with an accuracy clearly above it (paper-level oracles are above 0.9; anything under about 0.5 means the fix is not enough: stop and report it).
+
+### D3. The COLORS-3 fleet, after D (it waits for D's array, so the 10-job limit holds)
+
+```bash
+JA=$(launchers/slurm_submit.sh -p normal -m 10 -a $JD docs/v2/D_COLORS_A.md | sed -n 's/^JOBS //p')
+launchers/slurm_selector_arm.sh -p normal -m 10 -a $JA docs/v2/D_COLORS_B.md docs/v2/D_COLORS_C.md --v2 --features --dcem $(cat docs/v2/D_COLORS_CELLS.txt)
+```
+
+If D has already ended and left the queue, drop `-a $JD`. RHC at equal budget on COLORS-3 needs its bls_v1-F calls first: it is generated after this fleet (add its cells to `docs/v2/RHC_BUDGET.json`).
+
+### D4. Home
+
+`make server-import` brings the results and the traces (they live with the selector monitors).
 
 ## Phase 0 (done, for the record)
 

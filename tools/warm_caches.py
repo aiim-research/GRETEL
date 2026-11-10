@@ -86,6 +86,10 @@ def main() -> int:
         r = json.loads(line[len(MARK):])
         failed += r["status"] not in ("ok", "missing")
         print(f"{cfg}: {r['status']}")
+        # an oracle trained here reports its test accuracy (src/oracle/nn/torch.py): show it
+        for l in (out.stdout + out.stderr).splitlines():
+            if "Test accuracy" in l:
+                print("    " + l.strip())
         for o in r["objects"]:
             state = "present" if o["existed"] else ("MISSING" if args.check else "created")
             print(f"    {state:<8} {o['kind']:<10} {o['path']}")

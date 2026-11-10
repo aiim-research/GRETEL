@@ -240,6 +240,10 @@ class LocalSearch(ExplanationMinimizer):
         self.monitor_log_every = int(p.get('monitor_log_every', 200))
         self.monitor_dir = p.get('monitor_dir', 'lab/output/selector_logs')
         self.monitor = None
+        # trace (opt-in, 2026-11-10): one JSON line per instance in <monitor_dir>/trace_<model_tag>_<dataset>_f<fold>.jsonl
+        # with the best solution's edge edits, substitutions and feature cost after every accepted move, and the
+        # edges and substitutions proposed per mode. Consumes no randomness: a traced run is the untraced one.
+        self.trace = bool(p.get('trace', False))
         self.node_metrics = p.get('node_metrics', [
             "degree", "local_clustering", "triangle_count", "coreness",
             "avg_neighbor_degree", "ego_density", "pagerank",
@@ -278,6 +282,7 @@ class LocalSearch(ExplanationMinimizer):
         self.feature_targets = {}
         if self.feature_subs and len(min_ctf.data) != len(instance.data):
             self.logger.info("Seed not in the input's frame, returned as it is")
+            self._write_trace({"status": "out_of_frame"})
             return min_ctf
         _, diff_matrix = get_edge_differences(self.G, min_ctf)
         coords = np.where(diff_matrix == 1)
@@ -290,10 +295,13 @@ class LocalSearch(ExplanationMinimizer):
             changed = np.nonzero(np.abs(x - y).sum(1) > 0)[0] if x.shape == y.shape else []
             seed_f = np.asarray(min_ctf.node_features)
             self.feature_targets = {self.EPlus + int(i): (int(i), np.copy(seed_f[i])) for i in changed}
+            # a substitution's share of MatchedFeatureDistance (identity correspondence in the input's frame)
+            self.sub_cost = {self.EPlus + int(i): float(np.linalg.norm(x[i] - y[i])) for i in changed}
             self.logger.info(f"Initial solution: {len(actual)} edge edits, {len(self.feature_targets)} substitutions")
             actual = set(actual) | set(self.feature_targets)
         if len(actual) == 0:
             self.logger.info("Initial solution size is 0")
+            self._write_trace({"status": "empty"})
             return min_ctf
 
         path, lock_path = self.model_paths(self.dataset.name)
@@ -442,6 +450,9 @@ class LocalSearch(ExplanationMinimizer):
             self.rung_stats = {}
         self.overshoot_calls = 0
         self.overshoot_succ = []
+        self._trace_rows = []
+        self._proposed = {"remove": [0, 0], "add": [0, 0]}     # mode -> [edges, substitutions] proposed
+        self._trace_best(initial_solution)
 
         while n > 0:
             n -= 1
@@ -503,6 +514,7 @@ class LocalSearch(ExplanationMinimizer):
                     best = s
                     actual = s
                     result = inst
+                    self._trace_best(best)
                     self._note_success("remove", len(removed))
                     n = min(self.max_runtime, self.runtime_factor * len(actual))
                     break
@@ -520,6 +532,7 @@ class LocalSearch(ExplanationMinimizer):
                     best = s_o
                     actual = s_o
                     result = inst_o
+                    self._trace_best(best)
                     self._note_success("remove", len(removed_o))
                     n = min(self.max_runtime, self.runtime_factor * len(actual))
                     self.logger.info("============> (-o) Found solution with size: " + str(len(actual)) + ", calls: " + str(self.k))
@@ -579,6 +592,7 @@ class LocalSearch(ExplanationMinimizer):
                         best = s
                         actual = s
                         result = inst
+                        self._trace_best(best)
                         self._note_success("remove", len(removed))
                         self.phase_success["swap"] -= 1   # counted once for the swap, not twice
                         self._note_success("add", len(added))
@@ -623,6 +637,7 @@ class LocalSearch(ExplanationMinimizer):
                         best = s
                         actual = s
                         result = inst
+                        self._trace_best(best)
                         self._note_success("add", len(added))
                         n = min(self.max_runtime, self.runtime_factor * len(actual))
                         break
@@ -649,6 +664,7 @@ class LocalSearch(ExplanationMinimizer):
             self.logger.info("ERROR, returning non ctf")
 
         self._final_size = len(best)
+        self._write_trace({"status": "ok", "calls": self.k, "proposed": self._proposed, "trace": self._trace_rows})
         removed_edges = initial_solution - best
         added_edges = best - initial_solution
         self.logger.info(f"original: {len(initial_solution)}, final: {len(best)}, "
@@ -1089,7 +1105,27 @@ class LocalSearch(ExplanationMinimizer):
             tot = e_pool + len(f_pool)
             n_f = sum(1 for j in random.sample(range(tot), min(X, tot)) if j < len(f_pool))
         uv, pred = self.selector.propose_scored(mode, self.id_to_uv(solution), X - n_f)
+        if self.trace and mode in self._proposed:
+            self._proposed[mode][0] += len(uv)
+            self._proposed[mode][1] += n_f
         return self.uv_to_id(uv) | set(random.sample(f_pool, n_f)), pred
+
+    def _trace_best(self, best) -> None:
+        """[oracle calls so far, edge edits, substitutions, feature cost] of the best solution."""
+        if not self.trace:
+            return
+        subs = [i for i in best if i >= self.EPlus]
+        self._trace_rows.append([int(self.k), len(best) - len(subs), len(subs),
+                                 round(sum(getattr(self, "sub_cost", {}).get(i, 0.0) for i in subs), 4)])
+
+    def _write_trace(self, row: dict) -> None:
+        if not self.trace:
+            return
+        fold = self.local_config['parameters'].get('fold_id', -1)
+        os.makedirs(self.monitor_dir, exist_ok=True)
+        path = os.path.join(self.monitor_dir, f"trace_{self.model_tag}_{self.dataset.name}_f{fold}.jsonl")
+        with open(path, "a") as f:
+            f.write(json.dumps({"fold": fold, "instance_id": int(getattr(self.G, 'id', -1)), **row}) + "\n")
 
     def uv_to_id(self, uv) -> set[int]:
         return {self.label_to_id[(i, j) if i < j else (j, i)] for (i, j) in uv if i != j}
