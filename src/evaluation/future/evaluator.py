@@ -176,7 +176,7 @@ class Evaluator(Configurable):
             edges = [[int(i), int(j)] for i, j in zip(nz[0], nz[1]) if int(i) < int(j)]
 
         nf = getattr(instance, "node_features", None)
-        if nf is not None and hasattr(nf, "shape") and nf.shape[1] > 1:
+        if nf is not None and hasattr(nf, "shape") and (nf.shape[1] > 1 or np.any(nf)):
             node_features = nf.tolist()
         else:
             node_features = None
@@ -213,12 +213,23 @@ class Evaluator(Configurable):
             "fold_id": int(fold_id),
             "input": self._instance_to_dict(explanation.input_instance),
             "counterfactual": self._instance_to_dict(ctfs[0]) if ctfs else None,
+            # protocol v2: node correspondence from the input to the counterfactual (-1 = deleted node), so any
+            # later measure (line B1) can be computed on these dumps without running the explainer again
+            "correspondence": self._correspondence_of(explanation),
             "metrics": metrics,
         }
 
         path = os.path.join(output_dir, f"cf_{explanation.input_instance.id}.json")
         with open(path, "w") as f:
             json.dump(payload, f, default=self._json_default)
+
+    @staticmethod
+    def _correspondence_of(explanation):
+        """The first counterfactual's node correspondence the explainer recorded, or None (identity)."""
+        maps = (explanation.info or {}).get('correspondences') if hasattr(explanation, 'info') else None
+        if not maps or maps[0] is None:
+            return None
+        return [int(v) for v in np.asarray(maps[0]).ravel()]
 
     @staticmethod
     def _json_default(o):
