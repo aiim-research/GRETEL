@@ -29,7 +29,8 @@ REPO = Path(__file__).resolve().parent.parent
 DATASETS = ["aids", "bbbp", "bzr", "enzymes", "proteins", "synthie"]
 CELLS = DATASETS + [d + "-m70" for d in DATASETS]
 ARMS = [("DCEM", "dummy"), ("OBS", "obs"), ("RHC", "rhc"), ("bls_v0", "lcls-v0"), ("bls_v1-F", "lcls-v1-f"),
-        ("control-F", "lcls-sel-v1-untrained-f"), ("selector_v1-F", "lcls-sel-v1-f")]
+        ("control-F", "lcls-sel-v1-untrained-f"), ("selector_v1-F", "lcls-sel-v1-f"),
+        ("RHC-B", "rhc-b")]
 KEYS = {"ok": "Correctness", "struct": "StructuralEditDistance", "feat": "MatchedFeatureDistance",
         "ged": "GraphEditDistance", "calls": "OracleCalls", "runtime": "Runtime", "sparsity": "Sparsity"}
 PAPER1 = {"synthie": (201.41, 2.16, 185.22), "bbbp": (18.98, 3.20, 14.43), "enzymes": (58.46, 2.55, 14.46),
@@ -40,7 +41,9 @@ PAIRS = [("bls_v0", "OBS", ["struct", "ged", "calls"]), ("bls_v0", "RHC", ["stru
          ("selector_v1-F", "bls_v1-F", ["struct", "feat", "total", "calls"]),
          ("control-F", "bls_v1-F", ["struct", "feat", "total", "calls"]),
          ("selector_v1-F", "control-F", ["struct", "feat", "total", "calls"]),
-         ("selector_v1-F", "RHC", ["struct", "feat", "total", "calls"])]
+         ("selector_v1-F", "RHC", ["struct", "feat", "total", "calls"]),
+         ("RHC-B", "bls_v1-F", ["struct", "feat", "total", "calls"]),
+         ("RHC-B", "selector_v1-F", ["struct", "feat", "total", "calls"])]
 
 
 def load(results: Path, scope: str) -> dict:
@@ -115,6 +118,15 @@ def main(argv=None):
             cells = [f"{m:.2f} ± {s:.2f}" for m, s in (fold_stats(d, k) for k in ("struct", "feat", "total", "ged"))]
             cm, cs = fold_stats(d, "calls")
             md.append(f"| {c} | {name} | {len(d)} | {ok:.3f} | " + " | ".join(cells) + f" | {cm:.0f} ± {cs:.0f} |")
+    md += ["", "### Cuantiles del total (instancias correctas)", "",
+           "Mediana, percentil 75 y percentil 90 del total S + F sobre todas las instancias de la celda. Separa los "
+           "brazos de cola pesada (RHC, RHC-B) de los que fallan poco.", "",
+           "| Celda | Brazo | mediana | p75 | p90 | máximo |", "|---|---|---|---|---|---|"]
+    for c in CELLS:
+        for name, _ in ARMS:
+            x = np.array([v["total"] for v in data[c][name].values() if v.get("ok", 0) >= 1])
+            if len(x):
+                md.append(f"| {c} | {name} | " + " | ".join(f"{q:.2f}" for q in np.percentile(x, [50, 75, 90, 100])) + " |")
     md += ["", "## 2. Comparaciones pareadas", "",
            "Diferencia relativa de las medias (A/B - 1), intervalo bootstrap al 95 % entre corchetes, y `*` si el Wilcoxon "
            "pareado sigue por debajo de 0,05 tras Holm sobre las 12 celdas. Instancias correctas en los dos brazos.", ""]
