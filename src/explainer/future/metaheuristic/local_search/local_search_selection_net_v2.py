@@ -55,7 +55,7 @@ from src.explainer.future.metaheuristic.manipulation.methods import (
 )
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.comparison import get_edge_differences
-from src.utils.seeding import set_seed
+from src.utils.seeding import set_deterministic, set_seed
 
 
 class BinaryModelV2:
@@ -128,6 +128,11 @@ class LocalSearch(ExplanationMinimizer):
         self.recompute_features = p.get('recompute_features', True)
         self.seed = p.get('seed', None)
         set_seed(self.seed)
+        # Opt-in (read with .get, so the fleet's configs keep their hash): deterministic PyTorch on one CPU thread,
+        # to test whether the three folds of arm D that did not reproduce come from multithreaded float sums
+        # (arm E, docs/v2/RUNS.md).
+        if p.get('deterministic', False):
+            set_deterministic()
 
         # v2 knobs
         self.selector_mode = p.get('selector_mode', 'learned')          # learned | frozen | random

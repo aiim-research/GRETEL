@@ -28,9 +28,13 @@ from scipy.stats import wilcoxon
 REPO = Path(__file__).resolve().parent.parent
 DATASETS = ["aids", "bbbp", "bzr", "enzymes", "proteins", "synthie"]
 CELLS = DATASETS + [d + "-m70" for d in DATASETS]
-ARMS = [("DCEM", "dummy"), ("OBS", "obs"), ("RHC", "rhc"), ("bls_v0", "lcls-v0"), ("bls_v1-F", "lcls-v1-f"),
-        ("control-F", "lcls-sel-v1-untrained-f"), ("selector_v1-F", "lcls-sel-v1-f"),
-        ("RHC-B", "rhc-b")]
+# (name, scope after "v2-<cell>-sel_"). Arm E (2026-11-15): DBS on the DCEM seeds, and two end-to-end explainers of
+# Abrate et al., OFS with obs and DDBS (DFS with DBS), whose correctness is below 1 (their seeds are their own).
+ARMS = [("DCEM", "dcm_dummy"), ("OBS", "dcm_obs"), ("RHC", "dcm_rhc"), ("bls_v0", "dcm_lcls-v0"), ("bls_v1-F", "dcm_lcls-v1-f"),
+        ("control-F", "dcm_lcls-sel-v1-untrained-f"), ("selector_v1-F", "dcm_lcls-sel-v1-f"),
+        ("RHC-B", "dcm_rhc-b"), ("DBS", "dcm_dbs"), ("OFS+obs", "ofs_obs"), ("DDBS", "dfs_dbs")]
+# The stability table (arm E, optional): bls_v1-F and selector_v1-F with seeds 1 and 2 next to seed 0.
+SEEDS = [("bls_v1-F", "dcm_lcls-v1-f"), ("selector_v1-F", "dcm_lcls-sel-v1-f")]
 KEYS = {"ok": "Correctness", "struct": "StructuralEditDistance", "feat": "MatchedFeatureDistance",
         "ged": "GraphEditDistance", "calls": "OracleCalls", "runtime": "Runtime", "sparsity": "Sparsity"}
 PAPER1 = {"synthie": (201.41, 2.16, 185.22), "bbbp": (18.98, 3.20, 14.43), "enzymes": (58.46, 2.55, 14.46),
@@ -43,7 +47,10 @@ PAIRS = [("bls_v0", "OBS", ["struct", "ged", "calls"]), ("bls_v0", "RHC", ["stru
          ("selector_v1-F", "control-F", ["struct", "feat", "total", "calls"]),
          ("selector_v1-F", "RHC", ["struct", "feat", "total", "calls"]),
          ("RHC-B", "bls_v1-F", ["struct", "feat", "total", "calls"]),
-         ("RHC-B", "selector_v1-F", ["struct", "feat", "total", "calls"])]
+         ("RHC-B", "selector_v1-F", ["struct", "feat", "total", "calls"]),
+         ("bls_v0", "DBS", ["struct", "ged", "calls"]), ("DBS", "OBS", ["struct", "ged", "calls"]),
+         ("selector_v1-F", "OFS+obs", ["struct", "feat", "total", "calls"]),
+         ("selector_v1-F", "DDBS", ["struct", "feat", "total", "calls"])]
 
 
 def load(results: Path, scope: str) -> dict:
@@ -93,14 +100,15 @@ def main(argv=None):
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
     results = Path(args.results)
     rng = np.random.default_rng(0)
-    data = {c: {n: load(results, f"v2-{c}-sel_dcm_{s}") for n, s in ARMS} for c in CELLS}
+    data = {c: {n: load(results, f"v2-{c}-sel_{s}") for n, s in ARMS} for c in CELLS}
+    present = [n for n, _ in ARMS if any(data[c][n] for c in CELLS)]      # arms with results (arm E arrives later)
 
     cols = ["cell", "dataset", "oracle", "arm", "fold", "instance_id", "ok", "struct", "feat", "total", "ged", "calls",
             "runtime", "sparsity"]
     with open(out / "por_instancia.csv", "w", newline="") as f:
         w = csv.writer(f); w.writerow(cols)
         for c in CELLS:
-            for name, _ in ARMS:
+            for name in present:
                 for (fold, iid), v in sorted(data[c][name].items(), key=lambda t: (t[0][0], int(t[0][1]))):
                     w.writerow([c, c.removesuffix("-m70"), "margin 0.7" if c.endswith("-m70") else "base", name, fold, iid]
                                + [round(v.get(k, float("nan")), 6) for k in cols[6:]])
@@ -112,8 +120,10 @@ def main(argv=None):
     md += ["## 1. Media por celda y brazo", "",
            "| Celda | Brazo | n | correctas | S | F | total | GED | llamadas |", "|---|---|---|---|---|---|---|---|---|"]
     for c in CELLS:
-        for name, _ in ARMS:
+        for name in present:
             d = data[c][name]
+            if not d:
+                continue
             ok = np.mean([v.get("ok", 0) >= 1 for v in d.values()])
             cells = [f"{m:.2f} ± {s:.2f}" for m, s in (fold_stats(d, k) for k in ("struct", "feat", "total", "ged"))]
             cm, cs = fold_stats(d, "calls")
@@ -123,7 +133,7 @@ def main(argv=None):
            "brazos de cola pesada (RHC, RHC-B) de los que fallan poco.", "",
            "| Celda | Brazo | mediana | p75 | p90 | máximo |", "|---|---|---|---|---|---|"]
     for c in CELLS:
-        for name, _ in ARMS:
+        for name in present:
             x = np.array([v["total"] for v in data[c][name].values() if v.get("ok", 0) >= 1])
             if len(x):
                 md.append(f"| {c} | {name} | " + " | ".join(f"{q:.2f}" for q in np.percentile(x, [50, 75, 90, 100])) + " |")
@@ -131,6 +141,8 @@ def main(argv=None):
            "Diferencia relativa de las medias (A/B - 1), intervalo bootstrap al 95 % entre corchetes, y `*` si el Wilcoxon "
            "pareado sigue por debajo de 0,05 tras Holm sobre las 12 celdas. Instancias correctas en los dos brazos.", ""]
     for a, b, keys in PAIRS:
+        if not all(data[c][a] and data[c][b] for c in CELLS):
+            continue                     # an arm without results in some cell (arm E not imported yet)
         res = {k: {c: pair(data[c][a], data[c][b], k, rng) for c in CELLS} for k in keys}
         for k in keys:
             adj = holm([res[k][c]["p"] for c in CELLS])
@@ -173,6 +185,25 @@ def main(argv=None):
                 row += [f"{v.get('base_rate', float('nan')):.3f}", f"{fin.get('auc_flip', float('nan')):.3f}",
                         f"{fin.get('skill', float('nan')):+.3f}"]
             md.append("| " + " | ".join(row) + " |")
+    seeds = {(n, k): {c: load(results, f"v2-{c}-sel_{sc}" + (f"-s{k}" if k else "")) for c in CELLS}
+             for n, sc in SEEDS for k in (0, 1, 2)}
+    if any(seeds[(n, 1)][c] for n, _ in SEEDS for c in CELLS):
+        md += ["", "## 5. Estabilidad frente a la semilla del minimizador (semillas 0, 1 y 2)", "",
+               "Total S + F medio por semilla (instancias correctas, los diez folds) y su media ± desviación entre "
+               "semillas. Diferencia relativa del selector frente a bls_v1-F con cada semilla.", "",
+               "| Celda | Brazo | semilla 0 | semilla 1 | semilla 2 | media ± desv. |", "|---|---|---|---|---|---|"]
+        for c in CELLS:
+            for n, _ in SEEDS:
+                m = [np.mean([v["total"] for v in seeds[(n, k)][c].values() if v.get("ok", 0) >= 1]) if seeds[(n, k)][c]
+                     else float("nan") for k in (0, 1, 2)]
+                md.append(f"| {c} | {n} | " + " | ".join(f"{x:.2f}" for x in m) + f" | {np.nanmean(m):.2f} ± {np.nanstd(m):.2f} |")
+        md += ["", "| Celda | selector frente a bls_v1-F, semilla 0 | semilla 1 | semilla 2 |", "|---|---|---|---|"]
+        for c in CELLS:
+            row = []
+            for k in (0, 1, 2):
+                a, b = seeds[("selector_v1-F", k)][c], seeds[("bls_v1-F", k)][c]
+                row.append(f"{pair(a, b, 'total', rng)['rel']:+.1%}" if a and b else "")
+            md.append(f"| {c} | " + " | ".join(row) + " |")
     (out / "tablas.md").write_text("\n".join(md) + "\n")
     print(f"wrote {out / 'por_instancia.csv'} and {out / 'tablas.md'}")
 

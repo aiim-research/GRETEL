@@ -89,6 +89,17 @@ def main(argv=None):
             md.append(f"| {c} | " + " | ".join(row) + " |")
     else:
         md.append("(sin resultados `-t` en --results)")
+    # Arm E: the AIDS control-F fold 9 (the one that did not reproduce) twice with deterministic PyTorch on one thread
+    det = {k: load(results, f"v2-aids-sel_dcm_lcls-sel-v1-untrained-f{k}") for k in ("", "-t", "-d1", "-d2")}
+    if det["-d1"] and det["-d2"]:
+        same = lambda a, b: (sum(all(abs(a[k].get(m, 0) - b[k].get(m, 0)) <= 1e-6 for m in ("struct", "feat", "calls"))
+                                 for k in set(a) & set(b) if k[0] == 9), len([k for k in set(a) & set(b) if k[0] == 9]))
+        md += ["", "Repeticiones deterministas (brazo E): control-F en AIDS, fold 9, con los algoritmos deterministas de "
+               "PyTorch y un solo hilo. Instancias idénticas en S, F y llamadas.", "",
+               "| Par | idénticas |", "|---|---|"]
+        for a, b in (("-d1", "-d2"), ("-d1", ""), ("-d1", "-t"), ("", "-t")):
+            n, m = same(det[a], det[b])
+            md.append(f"| {a or 'original'} frente a {b or 'original'} | {n}/{m} |")
 
     md += ["", "## 1. Composición de la mejor solución", "",
            "Medias por instancia. F/Sub = coste de features por sustitución que queda al final. Rendimiento = "

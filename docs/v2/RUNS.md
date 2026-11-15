@@ -141,6 +141,82 @@ If D has already ended and left the queue, drop `-a $JD`. RHC at equal budget on
 
 `make server-import` brings the results and the traces (they live with the selector monitors).
 
+## Arm E (15 November): what the paper still needs
+
+The selector paper is written (`~/projects/phd/3-2026-11-*/article-es/`). Arm E runs every experiment its TODOs still ask for, on the 12 classic cells and on COLORS-3, folds 0 to 9.
+
+| Queue | What | Configs |
+|---|---|---|
+| `E.md`, first two lines | the AIDS control-F fold 9 (the arm-D fold that did not reproduce) twice with deterministic PyTorch on one CPU thread (`dcm-lcls-sel-v1-untrained-f-d1`, `-d2`, parameter `deterministic`): if the two coincide, the three folds of arm D differed because of multithreaded float sums (the article's note "determinismo") | 2 |
+| `E.md` | DBS on the DCEM seeds (`dcm/dcm-dbs`), OFS with obs (`ofs/ofs-obs`, the coupled explainer of Abrate et al., for the global comparison) and DDBS (`dfs/dfs-dbs`, their data-driven explainer), 12 classic cells | 360 |
+| `E_COLORS.md` | the same three arms on the two COLORS-3 cells (DBS needs the DCEM seeds of `D_COLORS_A`) | 60 |
+| `E_STAB.md` (optional) | bls_v1-F and selector_v1-F with seeds 1 and 2 (`-s1`, `-s2`), the stability table the article still has to decide on | 480 |
+| later | RHC at bls_v1-F's budget on COLORS-3, once its fleet is home (its budget comes from those runs) | 20 |
+
+**DBS and DFS without padding.** Their prior counted edges by node index (Abrate and Bonchi's, meaningful only when node i is the same node in every graph, as in ASD), so v2 left them out. Arm E runs them with the type-pair prior (`prior: "type_pair"`, `src/explainer/future/utils/data_driven_priors.py`): the edges of the fold's training graphs counted by the types of their endpoints, per class and divided by the number of graphs of each side. The node type per dataset is `NODE_TYPES` in `scripts/gen_v2_configs.py`: the one-hot label of the TU datasets (atom in AIDS and BZR, secondary-structure element in ENZYMES and PROTEINS), the atomic number in BBBP, the five binary columns in COLORS-3, and 10 k-means clusters of the features in Synthie. With the node index as the type and no normalisation it is exactly the index prior (`tests/data_driven_priors_unit.py`). DBS keeps the fleet's obs settings (`max_oc` 4000, batches of 5), DFS OFS's (`max_oc` 2000, batches of 5).
+
+**OFS.** The `ofs-obs` configs of the selector cells are byte for byte paper 1's (`<dataset>/ofs/ofs-obs`) but for the scope (`v2-<cell>-sel_ofs_obs`), so the OFS seeds already cached on the server (fold 0 of the phase-0 sondeo on AIDS, BBBP, BZR, ENZYMES, Synthie) replay. `E.md` replaces the `E_OFS.md` of the morning (dropped): the same runs under the selector scopes, in all 12 cells.
+
+**Cost.** DCEM costs about 3 calls per seed; OFS and DFS search the oracle per instance (up to 2000 calls, about 3600 with obs on BBBP in the sondeo), and DBS, like obs, spends its 4000 calls whenever an edit cannot be undone. Expect `E.md` to take about a day at 9 jobs, the big datasets (AIDS, BBBP, PROTEINS) and the margin oracle the longest. The two deterministic runs use one thread and take a few hours.
+
+### E0. On the laptop: publish the code
+
+The configs, the type-pair prior and the queues are on `dev` once pushed (`git push origin dev`); the server only syncs.
+
+### E1. Sync and look at what is there
+
+```bash
+cd ~/projects/GRETEL && launchers/server_sync.sh && conda activate GRTL
+squeue -u $USER                                     # nothing of this account should be running
+ls lab/output/results | grep -c "^v2-colors-3.*-sel_dcm_"    # COLORS-3 fleet of arm D: 0 if it never ran
+find lab/data/cache -name "*.lck*"                  # stale locks: with nothing running, delete them (step 0)
+```
+
+If arm D's COLORS-3 fleet (D1 to D3) is already done or queued, skip the COLORS-3 lines below (warm job, D2, `D_COLORS_*`) and chain `E_COLORS.md` after `E.md` directly.
+
+### E2. Submit E and the COLORS-3 warm job (10 jobs at most: 9 + 1)
+
+```bash
+T=lab/config/v2/generate_minimize
+JE=$(launchers/slurm_submit.sh -p normal -m 9 docs/v2/E.md | sed -n 's/^JOBS //p')
+JW=$(sbatch --parsable -p normal launchers/slurm_warm.sh $T/colors-3-s20-sel/dcm/dcm-dummy/generate_minimize0.jsonc $T/colors-3-m70-s20-sel/dcm/dcm-dummy/generate_minimize0.jsonc)
+echo "E $JE   warm $JW"
+```
+
+About an hour later, check fold 0 (the queue goes fold by fold) before letting it run on:
+
+```bash
+grep -lE "exit status [1-9]|Traceback" output/logs/v2-*-sel/{dcm-dbs,ofs-obs,dfs-dbs}/fold*_*.out 2>/dev/null   # failed configs
+grep -h "DBS: " output/logs/v2-aids-sel/dcm-dbs/fold0_*.out | head      # "reduced counterfactual (a -> b)" lines
+```
+
+### E3. The COLORS-3 oracle, when the warm job ends
+
+As D2: `tail -20 output/slurm/warm_$JW.out`, both configs "ok" and a test accuracy clearly above chance (0.098). Under about 0.5, stop the COLORS-3 part and report it; the rest of arm E does not need it.
+
+### E4. COLORS-3, after E (it waits for E's array, so the 10-job limit holds)
+
+```bash
+JA=$(launchers/slurm_submit.sh -p normal -m 10 -a $JE docs/v2/D_COLORS_A.md | sed -n 's/^JOBS //p')
+JC=$(launchers/slurm_selector_arm.sh -p normal -m 10 -a $JA docs/v2/D_COLORS_B.md docs/v2/D_COLORS_C.md --v2 --features --dcem $(cat docs/v2/D_COLORS_CELLS.txt) | sed -n 's/^JOBS //p')
+JEC=$(launchers/slurm_submit.sh -p normal -m 10 -a $JC docs/v2/E_COLORS.md | sed -n 's/^JOBS //p')
+echo "D_COLORS_A $JA   D_COLORS_C $JC   E_COLORS $JEC"
+```
+
+If E has already left the queue, drop `-a $JE`. If the COLORS-3 fleet ran before, only the last line, with `-a $JE`.
+
+### E5. The stability table (only if decided)
+
+```bash
+launchers/slurm_submit.sh -p normal -m 10 -a ${JEC:-$JE} docs/v2/E_STAB.md
+```
+
+### E6. Home
+
+`make server-import`, then (Claude) `scripts/v2_paper_tables.py` (DBS, OFS+obs and DDBS as arms, the seeds as section 5) and `scripts/v2_traces.py` (the deterministic repetitions in section 0). For RHC-B on COLORS-3: bls_v1-F's mean minimizer calls of its two cells go into `docs/v2/RHC_BUDGET.json`, then `scripts/gen_v2_configs.py`, `scripts/gen_v2_queues.py` and a short queue of its 20 configs.
+
+**What to check when it arrives.** OFS and DFS are not correct on every instance (0.833 on BBBP fold 0 for OFS): the paper compares costs on the instances every explainer gets right and reports correctness as a row. DBS starts from the same DCEM seeds as obs and edits only edges, like obs, so it sits with the other methods and is compared in structure (paper 1's metric).
+
 ## Phase 0 (done, for the record)
 
 Fold 0 of the first paper's cells with DCE, DCEM and OFS (`SONDEO_A`, `SONDEO_B`) and of the selector's edge-only arms with DCE (`SONDEO_SEL_A`, `SONDEO_SEL_B`, 8 of 23 cells complete). Findings: `scripts/v2_tables.py --pairs`. Paper 1's BLS stalls when the seed is a counterfactual through its node features (ENZYMES, BBBP), BLS-F does not; DCEM with BLS-F matches DCE at a fraction of the calls; the edge-only selector predicts well (removal AUC 0.85 to 0.97) but does not lower the cost, which is why the fleet uses the F arms.

@@ -43,8 +43,15 @@ Sources, regenerated from their current v1 definitions every time this runs:
 
 * ``paper1``: the cells of ``scripts/gen_rerun_queues.py`` (thesis and paper revision), without RSGG and DBS,
   and with DFS only on the fixed-size datasets (its prior is per node index, meaningful only when index i is
-  the same node in every graph; DBS, which shares that prior, waits for an adapted one);
+  the same node in every graph);
 * ``selector``: every config of the selector paper's arms in every cell of its matrix (the v1 tree).
+
+Arm E of the selector paper (2026-11-15), on its 12 classic cells and the two COLORS-3 cells (``E_DATASETS``):
+DBS on the DCEM seeds (``dcm-dbs``), OFS with obs (``ofs/ofs-obs``, the coupled explainer of Abrate et al.) and
+DDBS (``dfs/dfs-dbs``, their data-driven one). DFS and DBS use the type-pair prior (edges counted by the types of
+their endpoints over the fold's training graphs, ``NODE_TYPES``), which runs on graphs of any size; the index
+prior stays for the fixed-size datasets of v1. Also the deterministic twins of the AIDS control-F fold 9 (``-d1``,
+``-d2``) and the seed twins of bls_v1-F and selector_v1-F (``-s1``, ``-s2``, the stability table).
 
 Configs that use a fixed-size explainer are skipped and listed. The run order is decided later; this only
 writes the configs and ``docs/v2/CONFIGS.md``, the index.
@@ -240,6 +247,32 @@ def selector_f(rel: str, data: dict) -> tuple[str, dict]:
 
 
 OBS_MIN = {"class": "src.explainer.future.meta.minimizer.obs.OBS", "parameters": {"max_oc": 4000, "changes_batch_size": 5, "seed": 0}}
+DBS_CLASS = "src.explainer.future.meta.minimizer.dbs.DBS"
+OFS_GEN = {"class": "src.explainer.future.search.ofs.OFS", "parameters": {"epochs": 500, "seed": 0}}   # = paper 1's ofs-obs
+DFS_CLASS = "src.explainer.future.search.dfs.DFS"
+# Arm E (2026-11-15). The node type of the type-pair prior per dataset. The TU datasets store a node's features as
+# [continuous attributes | one-hot label], and the type is the label: atom (AIDS, BZR), secondary-structure element
+# (ENZYMES, PROTEINS); BBBP's is the atomic number (column 1, after Idx); COLORS-3 has only its 5 binary columns,
+# all of them; Synthie only continuous attributes, clustered (k-means, 10 types, on the fold's training nodes).
+NODE_TYPES = {"aids": {"kind": "columns", "columns": [4, 42]}, "bzr": {"kind": "columns", "columns": [3, 56]},
+              "enzymes": {"kind": "columns", "columns": [18, 21]}, "proteins": {"kind": "columns", "columns": [1, 4]},
+              "bbbp": {"kind": "columns", "columns": [1, 2]}, "colors-3": {"kind": "columns", "columns": [0, 5]},
+              "synthie": {"kind": "kmeans", "k": 10, "seed": 0}}
+E_DATASETS = tuple(NODE_TYPES)
+
+
+def node_type(cell: str) -> dict:
+    return NODE_TYPES[next(d for d in NODE_TYPES if cell == d or cell.startswith(d + "-"))]
+
+
+def dbs_min(cell: str) -> dict:
+    return {"class": DBS_CLASS, "parameters": {"max_oc": 4000, "changes_batch_size": 5, "random_seed": 0,
+                                               "prior": "type_pair", "node_type": node_type(cell), "normalize": True}}
+
+
+def dfs_gen(cell: str) -> dict:
+    return {"class": DFS_CLASS, "parameters": {"max_oc": 2000, "changes_batch_size": 5, "random_seed": 0,
+                                               "prior": "type_pair", "node_type": node_type(cell), "normalize": True}}
 RHC_MIN = {"class": "src.explainer.future.metaheuristic.local_search.random_hill_climbing.RandomHillClimbing",
            "parameters": {"manip_attr": False, "max_oracle_calls": 10000, "patience": 40, "seed": 0}}
 DUMMY_MIN = {"class": "src.explainer.future.meta.minimizer.dummy.Dummy",
@@ -268,7 +301,7 @@ def dcem_twin(rel: str, data: dict, minimizer: dict | None = None, variant: str 
     if minimizer is not None:
         attributed = par.get("attributed", False)
         new = json.loads(json.dumps(minimizer))
-        if new["class"] != OBS_MIN["class"]:
+        if new["class"] not in (OBS_MIN["class"], DBS_CLASS):
             new["parameters"]["attributed"] = attributed
         explainer["parameters"]["minimizer"] = new
     else:
@@ -300,6 +333,38 @@ def traced(rel: str, data: dict) -> tuple[str, dict]:
     data["experiment"]["scope"] = data["experiment"]["scope"] + "-t"
     parts = Path(rel).parts
     return str(Path(*parts[:-2], parts[-2] + "-t", parts[-1])), data
+
+
+def generator_twin(rel: str, data: dict, gen: dict, minimizer: dict, gen_dir: str, variant: str) -> tuple[str, dict]:
+    """Arm E: an end-to-end explainer in a selector cell (generator and minimizer of their own, no DCEM), from the
+    cell's bls_v0 config: path <cell>-sel/<gen_dir>/<variant>/, scope <head>_<gen_dir>_<variant without gen_dir->."""
+    data = json.loads(json.dumps(data))
+    explainer = data["doe-triplets"][0]["explainer"]
+    explainer["parameters"]["generator"] = json.loads(json.dumps(gen))
+    explainer["parameters"]["minimizer"] = json.loads(json.dumps(minimizer))
+    explainer["parameters"].pop("fallback_scan", None)            # DCM only
+    head = data["experiment"]["scope"].split("_dce_")[0]
+    data["experiment"]["scope"] = f"{head}_{gen_dir}_{variant.removeprefix(gen_dir + '-')}"
+    parts = Path(rel).parts
+    return str(Path(*parts[:-3], gen_dir, variant, parts[-1])), data
+
+
+def suffix_twin(rel: str, data: dict, suffix: str, **params) -> tuple[str, dict]:
+    """A twin of a DCEM selector-arm config with variant, scope and model tag suffixed and some minimizer parameters
+    changed: the deterministic repetitions (``deterministic``) and the seed twins (``seed``) of arm E."""
+    data = json.loads(json.dumps(data))
+    par = data["doe-triplets"][0]["explainer"]["parameters"]["minimizer"]["parameters"]
+    par.update(params)
+    par["model_tag"] = par["model_tag"] + suffix
+    data["experiment"]["scope"] = data["experiment"]["scope"] + suffix
+    parts = Path(rel).parts
+    return str(Path(*parts[:-2], parts[-2] + suffix, parts[-1])), data
+
+
+# Arm E: the fold of arm D whose control-F run did not reproduce (AIDS, fold 9), twice with deterministic PyTorch on
+# one thread; and bls_v1-F and selector_v1-F with seeds 1 and 2 on the 12 classic cells (the stability table).
+DETERMINISTIC = ("aids", "dcm-lcls-sel-v1-untrained-f", 9)
+SEED_TWINS = ("dcm-lcls-v1-f", "dcm-lcls-sel-v1-f")
 
 
 def paper1_configs() -> list[str]:
@@ -379,6 +444,19 @@ def main() -> int:
                     written[d_target] = family
                     dp = Path(d_target).parts
                     rows.append((family, dp[4], dp[5], dp[6]))
+                # arm E (2026-11-15): DBS on the DCEM seeds, OFS with obs and DDBS, with the type-pair prior
+                e_cell = Path(target).parts[4].removesuffix("-sel")
+                if Path(target).parts[-2] == "dce-lcls-v0" and e_cell.startswith(E_DATASETS):
+                    for e_target, e_data in (dcem_twin(target, data, dbs_min(e_cell), "dcm-dbs"),
+                                             generator_twin(target, data, OFS_GEN, OBS_MIN, "ofs", "ofs-obs"),
+                                             generator_twin(target, data, dfs_gen(e_cell), dbs_min(e_cell), "dfs", "dfs-dbs")):
+                        e_out = REPO / e_target
+                        e_out.parent.mkdir(parents=True, exist_ok=True)
+                        e_out.write_text(f"// Protocol v2 arm E of the selector paper, generated by scripts/gen_v2_configs.py "
+                                         f"from {rel}: do not edit.\n" + json.dumps(e_data, indent=4) + "\n")
+                        written[e_target] = family
+                        ep = Path(e_target).parts
+                        rows.append((family, ep[4], ep[5], ep[6]))
             # the BLS-F twin of every selector arm (2026-11-06)
             if family == "selector":
                 f_target, f_data = selector_f(target, data)
@@ -398,6 +476,22 @@ def main() -> int:
                     written[d_target] = family
                     dp = Path(d_target).parts
                     rows.append((family, dp[4], dp[5], dp[6]))
+                    twins = []
+                    d_cell, d_var = Path(d_target).parts[4].removesuffix("-sel"), Path(d_target).parts[-2]
+                    d_fold = int(Path(d_target).stem.removeprefix("generate_minimize"))
+                    if (d_cell, d_var, d_fold) == DETERMINISTIC:
+                        twins += [suffix_twin(d_target, d_data, f"-d{k}", deterministic=True) for k in (1, 2)]
+                    if d_var in SEED_TWINS and not d_cell.startswith(("tri-", "colors-3")):
+                        twins += [suffix_twin(d_target, d_data, f"-s{k}", seed=k) for k in (1, 2)]
+                    for x_target, x_data in twins:
+                        x_out = REPO / x_target
+                        x_out.parent.mkdir(parents=True, exist_ok=True)
+                        x_out.write_text(f"// Protocol v2 arm E twin of the selector paper, generated by "
+                                         f"scripts/gen_v2_configs.py from {rel}: do not edit.\n"
+                                         + json.dumps(x_data, indent=4) + "\n")
+                        written[x_target] = family
+                        xp = Path(x_target).parts
+                        rows.append((family, xp[4], xp[5], xp[6]))
                     if Path(d_target).parts[-2] in TRACED:
                         t_target, t_data = traced(d_target, d_data)
                         t_out = REPO / t_target

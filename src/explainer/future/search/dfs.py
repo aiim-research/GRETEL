@@ -13,24 +13,23 @@ from src.core.factory_base import get_instance_kvargs
 from src.utils.cfg_utils import init_dflts_to_of
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.dataset.instances.graph import GraphInstance
-from src.explainer.future.utils.data_driven_priors import (
-    compute_class_counts,
-    edge_weight_matrix,
-    candidate_edge_indices,
-    weighted_pick,
-)
+from src.explainer.future.utils.data_driven_priors import candidate_edge_indices, prior_weights, weighted_pick
 
 
 class DFS(Explainer):
-    requires_fixed_size = True   # its priors are per node index, from the graphs of one size
-
     """Data-driven Forward Search.
 
     Replaces the uniform random pick() of OFS with a weighted pick() that favours:
       - removing edges strongly characteristic of the original class
       - adding edges strongly characteristic of the opposite class
-    Weights are computed from the dataset's class-conditional edge frequencies.
+    Weights are computed from the dataset's class-conditional edge frequencies: by node index (``prior``
+    "index", the default, one graph size only) or by pair of node types (``prior`` "type_pair", protocol v2;
+    see the DBS minimizer and src/explainer/future/utils/data_driven_priors.py).
     """
+
+    @property
+    def requires_fixed_size(self):   # the index prior is per node index, from the graphs of one size
+        return self.local_config['parameters'].get('prior', 'index') == 'index'
 
     def check_configuration(self):
         super().check_configuration()
@@ -77,10 +76,8 @@ class DFS(Explainer):
         f_E = int(self.oracle.predict(instance))
         n = int(instance.data.shape[0])
 
-        D_plus, D_minus = compute_class_counts(
-            self.dataset, f_E, exclude_instance_id=instance.id
-        )
-        weights = edge_weight_matrix(instance.data, D_plus, D_minus)
+        params = self.local_config['parameters']
+        weights = prior_weights(self.dataset, instance, f_E, params, params.get('fold_id', -1))
 
         directed = bool(getattr(instance, 'is_directed', False))
         all_positions = list(candidate_edge_indices(n, directed))

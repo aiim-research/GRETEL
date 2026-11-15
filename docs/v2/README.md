@@ -15,7 +15,7 @@ v1 stays as it is. The same code runs both protocols, and nothing of v1 changes:
 
 ## What is v1 only
 
-The explainers that need every graph at one size declare `requires_fixed_size` and stop with a clear error on a dataset of several sizes: RSGG, GCounteRGAN, EAGER, CLEAR, CF2, DDBS, and DFS and DBS (their priors are per node index). They keep running on padded datasets and on fixed-size ones (ASD, Tree-Cycles). DBS is out of the v2 configs until its prior is adapted.
+The explainers that need every graph at one size declare `requires_fixed_size` and stop with a clear error on a dataset of several sizes: RSGG, GCounteRGAN, EAGER, CLEAR, CF2, DDBS, and DFS and DBS (their priors are per node index). They keep running on padded datasets and on fixed-size ones (ASD, Tree-Cycles). DFS and DBS also run without padding with the type-pair prior (`prior: "type_pair"`, edges counted by the types of their endpoints; arm E of `RUNS.md`), which needs no common size: the flag applies to their index prior only.
 
 ## Where things are
 

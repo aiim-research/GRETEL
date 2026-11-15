@@ -17,17 +17,20 @@ from src.dataset.instances.graph import GraphInstance
 from src.future.explanation.local.graph_counterfactual import LocalGraphCounterfactualExplanation
 from src.utils.metrics.ged import GraphEditDistanceMetric
 from src.utils.comparison import get_all_edge_differences
-from src.explainer.future.utils.data_driven_priors import (
-    compute_class_counts,
-    edge_weight_matrix,
-    weighted_pick,
-)
+from src.explainer.future.utils.data_driven_priors import prior_weights, weighted_pick
 
 
 class DBS(ExplanationMinimizer):
-    requires_fixed_size = True   # its priors are per node index, from the graphs of one size
+    """Data-driven Backward Search minimizer.
 
-    """Data-driven Backward Search minimizer."""
+    ``prior`` (read with .get, so the v1 configs keep their hash): "index", the default, is Abrate and Bonchi's
+    prior by node index, which needs every graph at one size; "type_pair" (protocol v2) counts edges by the
+    types of their endpoints (``node_type``, ``normalize``; src/explainer/future/utils/data_driven_priors.py)
+    over the training graphs of the fold, and runs on graphs of any size."""
+
+    @property
+    def requires_fixed_size(self):   # the index prior is per node index, from the graphs of one size
+        return self.local_config['parameters'].get('prior', 'index') == 'index'
 
     def check_configuration(self):
         super().check_configuration()
@@ -72,14 +75,12 @@ class DBS(ExplanationMinimizer):
         if not changed_edges:
             return cf_instance
 
-        D_plus, D_minus = compute_class_counts(
-            self.dataset, f_E, exclude_instance_id=instance.id
-        )
         # Weights are computed using the *original* instance E (so positions where
         # E has an edge get D⁺-D⁻ and positions where E has no edge get D⁻-D⁺).
         # See §4.2 of the paper: the weight formula for DBS is the same as DFS
         # restricted to e ∈ E Δ E_c.
-        weights = edge_weight_matrix(instance.data, D_plus, D_minus)
+        params = self.local_config['parameters']
+        weights = prior_weights(self.dataset, instance, f_E, params, params.get('fold_id', -1))
 
         return self._data_driven_backward_search(
             instance, cf_instance, changed_edges, weights, f_E,

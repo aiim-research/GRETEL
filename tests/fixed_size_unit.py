@@ -47,7 +47,10 @@ def test_the_flags():
     from src.explainer.future.search.dfs import DFS
     from src.explainer.future.search.ofs import OFS
     from src.explainer.future.metaheuristic.local_search.local_search import LocalSearch
-    assert DBS.requires_fixed_size and DFS.requires_fixed_size
+    for cls in (DBS, DFS):   # with the index prior (the default); the type-pair prior runs on any size
+        obj = object.__new__(cls)
+        obj.local_config = {'parameters': {}}
+        assert obj.requires_fixed_size
     assert not OFS.requires_fixed_size and not LocalSearch.requires_fixed_size
 
 

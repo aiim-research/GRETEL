@@ -30,3 +30,18 @@ def set_seed(seed):
     torch.manual_seed(s)
     if hasattr(torch, "cuda") and torch.cuda.is_available():
         torch.cuda.manual_seed_all(s)
+
+
+def set_deterministic(threads: int = 1):
+    """Deterministic PyTorch kernels and ``threads`` intra-op CPU threads for the rest of the process.
+
+    A float sum split across threads can change in the last bit from one run to the next, enough to swap two
+    nearly tied scores; one thread and the deterministic algorithms remove that source of variation (warn_only:
+    an operation with no deterministic version warns instead of failing).
+    """
+    try:
+        import torch
+    except ImportError:
+        return
+    torch.use_deterministic_algorithms(True, warn_only=True)
+    torch.set_num_threads(int(threads))
