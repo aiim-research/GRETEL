@@ -13,13 +13,20 @@ Parameters (all hashed into the component name):
 - model: HF repo id, e.g. "Qwen/Qwen3-8B"
 - engine: "transformers" | "vllm"
 - dtype: "bfloat16" | "float16" | "auto"
-- quantization: None, or for vllm "awq" | "gptq" | "fp8"; for transformers
-  "4bit" | "8bit" (bitsandbytes). MXFP4 checkpoints (gpt-oss) load as-is.
+- quantization: None, or for vllm a checkpoint's method ("awq" | "gptq" | "fp8") or an online one, which
+  quantizes bf16 weights layer by layer while loading, so the GPU never holds the full-precision model
+  ("fp8_per_channel": FP8 weights per output channel with dynamic per-token activations, the FP8_DYNAMIC
+  recipe; also "fp8_per_tensor", "fp8_per_block"); for transformers "4bit" | "8bit" (bitsandbytes).
+  MXFP4 checkpoints (gpt-oss) load as-is.
 - temperature, top_p, seed, max_new_tokens: sampling controls
 - enable_thinking: chat-template switch for hybrid models (Qwen3); False
   keeps the output to the answer only
 - reasoning_effort: chat-template switch for gpt-oss ("low"|"medium"|"high")
-- tensor_parallel_size, gpu_memory_utilization, max_model_len: vllm only
+- tensor_parallel_size, gpu_memory_utilization, max_model_len: vllm only. gpu_memory_utilization is a
+  fraction of the whole card that must be free when the engine starts. On a shared GPU the environment
+  variable GRETEL_GPU_MEMORY_GB gives the engine's budget in GiB instead (weights, activations and KV
+  cache; the matrix sets it per model from "gpu_memory_gb"), turned into the fraction of the card the
+  job got. It is not a parameter: it does not change the answers nor the component's name.
 - max_num_seqs, limit_mm_per_prompt: optional vllm concurrency/modality limits
 - revision: checkpoint commit or ref; local_files_only uses its cached snapshot
 - system_prefix: model-specific system instruction, e.g. Muse reasoning strength
@@ -29,6 +36,7 @@ Weights are cached under HF_HOME; point it at a large disk.
 """
 import re
 import os
+import subprocess
 from pathlib import Path
 
 from src.core.llm_base import LLM
@@ -52,6 +60,25 @@ class _LLMAnswer(str):
         m = self.llm_metadata
         return type(self), (str(self), m['judge_raw_output'], m['finish_reason'],
                            m['stop_reason'], m['output_token_count'], m.get('sampling'))
+
+
+def gpu_total_mib():
+    """Total memory of the first visible GPU, asked to nvidia-smi so that CUDA is not initialized here."""
+    gpu = os.environ.get('CUDA_VISIBLE_DEVICES', '0').split(',')[0] or '0'
+    answer = subprocess.run(['nvidia-smi', '-i', gpu, '--query-gpu=memory.total', '--format=csv,noheader,nounits'],
+                            text=True, capture_output=True, check=True)
+    return float(answer.stdout.split()[0])
+
+
+def memory_fraction(default):
+    """vLLM's gpu_memory_utilization: the fraction of the card that GRETEL_GPU_MEMORY_GB GiB are, or the default."""
+    budget = os.environ.get('GRETEL_GPU_MEMORY_GB')
+    if not budget:
+        return default
+    total = gpu_total_mib()
+    fraction = min(float(budget) * 1024 / total, 0.98)
+    GLogger.getLogger().info(f'LLM - GPU budget {budget} GiB of {total / 1024:.1f} GiB (gpu_memory_utilization {fraction:.4f})')
+    return fraction
 
 
 class HuggingFaceLLM(LLM):
@@ -125,9 +152,12 @@ class HuggingFaceLLM(LLM):
                               dtype=p['dtype'],
                               quantization=p['quantization'],
                               tensor_parallel_size=p['tensor_parallel_size'],
-                              gpu_memory_utilization=p['gpu_memory_utilization'],
+                              gpu_memory_utilization=memory_fraction(p['gpu_memory_utilization']),
                               max_model_len=p['max_model_len'],
                               seed=self.seed, **extra)
+        # The job's Slurm script holds a lock on the GPU while the model loads; the memory is now taken.
+        if os.environ.get('GRETEL_GPU_READY'):
+            Path(os.environ['GRETEL_GPU_READY']).touch()
         self._sampling_params = SamplingParams
         self._skip_special_tokens = p.get('skip_special_tokens', 'muse-glimmer' not in self.model_id.lower())
         self.sampling = self._vllm_sampling(self.seed)

@@ -8,7 +8,9 @@ them. Run from the repository root:
 
     python tests/narrative_arms_unit.py
 """
+import copy
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -356,6 +358,179 @@ class PaperMatrix(unittest.TestCase):
             self.assertEqual(commands[1][-3:], ['matrix-self', str(run), 'gen-a'])
             with self.assertRaises(ValueError):
                 matrix.submit(run, only=['judge:sweep'])
+
+    def test_fleet_chains_tiers_and_idempotence(self):
+        """Shared GPUs: one model loaded once over several runs, memory classes, and tasks that only do what is missing."""
+        import contextlib
+        import io
+        from scripts import paper_probe_matrix as matrix
+        with tempfile.TemporaryDirectory(prefix='gretel-narr-') as root:
+            context, *_ = frozen_pairs(Path(root) / 'fixture', samples=2, dump=True)
+            model = lambda name, family, tier, gb, shared=None: {
+                'id': name, 'family': family, 'tier': tier, 'gpu_memory_gb': gb, 'parameters': {'model': 'scripted-' + (shared or name)}}
+            probes = {'reconstruction': {'conditions': [{'context': 'off', 'mode': 'dict'}]}}
+            config = {'scope': 'narr-test', 'arms': ['minimized', 'seed', 'random_subset'], 'model_defaults': {},
+                      'slurm': {'time': '1:00:00', 'mem': '1G', 'min_free_mb': 7, 'max_wait': 1, 'tiers': ['s', 'm']},
+                      'generators': [model('gen-a', 'qwen', 's', 12), model('gen-b', 'llama', 'm', 40)],
+                      # The sweep shares the judge's model: one engine serves both.
+                      'judges': [model('judge', 'gpt-oss', 's', 24),
+                                 {**model('sweep', 'gpt-oss', 's', 24, shared='judge'),
+                                  'probes': {'recourse': {'arms': ['minimized'], 'conditions': [{'budget': 1}]}}},
+                                 model('big-judge', 'glm', 'm', 72.5)],
+                      'probes': probes,
+                      'self_evaluation': {'probes': {'consistency': {'arms': ['seed', 'minimized'], 'conditions': [{'test': 'inversion'}]}}}}
+            path = Path(root) / 'matrix-config.json'
+            path.write_text(json.dumps(config))
+            with self.assertRaises(ValueError):
+                matrix.validate_resources({**config, 'generators': [model('gen-a', 'qwen', 'xl', 12)]})
+            runs = []
+            with patch.object(matrix.subprocess, 'check_output', return_value='0' * 40 + '\n'):
+                for name in ('first', 'second'):
+                    runs.append(matrix.prepare(path, [Path(root) / 'fixture/output'], Path(root) / name))
+            for run in runs:
+                for config_path in (run / 'configs').glob('*.json'):
+                    settings = json.loads(config_path.read_text())
+                    settings.pop('compose_strs')
+                    settings['store_paths'] = context.conf['store_paths']
+                    config_path.write_text(json.dumps(settings))
+            factory, loaded = get_instance_kvargs, []
+
+            def scripted(class_name, kwargs):
+                if class_name != 'src.LLMexplaneability.huggingface.HuggingFaceLLM':
+                    return factory(class_name, kwargs)
+                name = kwargs['local_config']['parameters']['model']
+                loaded.append(name)
+                role = 'generator' if name.startswith('scripted-gen') else 'judge'
+                cls = PaperGenerator if role == 'generator' else PaperJudge
+                return cls(kwargs['context'], {'class': 'probes_fixtures.ScriptedLLM', 'parameters': {'role': role, 'model': name}})
+
+            def dry(tier, **options):
+                stream = io.StringIO()
+                with contextlib.redirect_stdout(stream):
+                    matrix.fleet(runs, 2, dry_run=True, tier=tier, **options)
+                return stream.getvalue().splitlines()
+
+            both = f'{runs[0]} {runs[1]}'
+            lines = dry('s')
+            # The small class: its narrator, then its judges (the two ids of one model in one task) and self-evaluation.
+            self.assertEqual([line.strip() for line in lines if line.startswith('    ')],
+                             [f'generator 12 {12 * 1024 + 1024} gen-a {both}', f'self 12 {12 * 1024 + 1024} gen-a {both}',
+                              f'judge 24 {24 * 1024 + 1024} judge,sweep {both}'])
+            commands = [line for line in lines if line.startswith('sbatch')]
+            self.assertEqual(len(commands), 2)
+            self.assertIn('--array=0-0%2', commands[0])
+            self.assertIn('--job-name=pm-gen-s', commands[0])
+            self.assertIn('--array=0-1%2', commands[1])
+            self.assertIn('--dependency=afterany:<pm-gen-s>', commands[1])
+            self.assertNotIn('MIN_FREE_MB', commands[1])   # each task waits for its own model's memory
+            lines = dry('m', memory={'big-judge': 80}, node='gpu-node')
+            # The larger class also queues the smaller judges, which only evaluate what is missing.
+            self.assertEqual([line.split()[:4] for line in lines if line.startswith('    ')],
+                             [['generator', '40', str(40 * 1024 + 1024), 'gen-b'], ['judge', '24', str(24 * 1024 + 1024), 'judge,sweep'],
+                              ['self', '40', str(40 * 1024 + 1024), 'gen-b'], ['judge', '80', str(80 * 1024 + 1024), 'big-judge']])
+            self.assertTrue(all('--nodelist=gpu-node' in line for line in lines if line.startswith('sbatch')))
+            with self.assertRaises(ValueError):
+                matrix.fleet(runs, 2, dry_run=True, tier='s', memory={'big-judge': 80})
+            with patch('src.core.factory_base.get_instance_kvargs', side_effect=scripted):
+                # A judge before any narrator: nothing to do, no model loaded, no error cell.
+                self.assertEqual(matrix.pending('judge', ['judge', 'sweep'], runs, ready=True), [])
+                Context._Context__global = None
+                self.assertEqual(matrix.run_chain('judge', ['judge', 'sweep'], runs), 0)
+                self.assertEqual(loaded, [])
+                self.assertFalse(list(Path(root).glob('*/probes/*/*/error.json')))
+                # A running job holds the first run's narrator: the chain leaves it and narrates the second run.
+                held = runs[0] / 'generated/gen-a/claim.json'
+                held.parent.mkdir(parents=True)
+                held.write_text(json.dumps({'job': None, 'host': matrix.socket.gethostname(), 'pid': os.getppid()}))
+                Context._Context__global = None
+                self.assertEqual(matrix.run_chain('generator', ['gen-a'], runs), 0)
+                self.assertFalse((runs[0] / 'generated/gen-a/generation.json').exists())
+                self.assertTrue((runs[1] / 'generated/gen-a/generation.json').exists())
+                matrix.clear_stale_claims(runs)
+                self.assertTrue(held.exists())
+                # A claim of another node cannot be checked without the scheduler: its holder keeps it.
+                with patch.object(matrix.subprocess, 'run', side_effect=FileNotFoundError('squeue')):
+                    self.assertTrue(matrix._alive({'job': '5', 'host': 'another-node', 'pid': 1}))
+                # The holder died: launching a fleet again removes its claim.
+                held.write_text(json.dumps({'job': None, 'host': matrix.socket.gethostname(), 'pid': 2 ** 22 + 12345}))
+                matrix.clear_stale_claims(runs)
+                self.assertFalse(held.exists())
+                # The holder died: its claim is taken over. One load serves both runs and the done run is skipped.
+                held.write_text(json.dumps({'job': None, 'host': matrix.socket.gethostname(), 'pid': 2 ** 22 + 12345}))
+                del loaded[:]
+                Context._Context__global = None
+                self.assertEqual(matrix.run_chain('generator', ['gen-a'], runs), 0)
+                self.assertEqual(loaded, ['scripted-gen-a'])
+                self.assertTrue((runs[0] / 'generated/gen-a/generation.json').exists())
+                self.assertFalse(held.exists())
+                # The judge and its sweep over both runs with one load: gen-a's cells, gen-b's wait without an error.
+                del loaded[:]
+                Context._Context__global = None
+                self.assertEqual(matrix.run_chain('judge', ['judge', 'sweep'], runs), 0)
+                self.assertEqual(loaded, ['scripted-judge'])
+                for run in runs:
+                    states = {(c['generator'], c['judge']): c['status'] for c in matrix.collect(run)[1]}
+                    self.assertEqual({states['gen-a', 'judge'], states['gen-a', 'sweep']}, {'complete'})
+                    self.assertEqual({states['gen-b', 'judge'], states['gen-b', 'sweep'], states['gen-a', 'self']}, {'pending'})
+                self.assertEqual(len(matrix.pending('judge', ['judge', 'sweep'], runs)), 4)
+                self.assertEqual(matrix.pending('judge', ['judge', 'sweep'], runs, ready=True), [])
+                # Again: every cell that can run is complete, so nothing is loaded.
+                del loaded[:]
+                Context._Context__global = None
+                self.assertEqual(matrix.run_chain('judge', ['judge', 'sweep'], runs), 0)
+                self.assertEqual(loaded, [])
+                # The larger class, then the same judge chain again: only the new narrator's cells.
+                for role, ids in (('generator', ['gen-b']), ('judge', ['judge', 'sweep']), ('judge', ['big-judge']),
+                                  ('self', ['gen-a']), ('self', ['gen-b'])):
+                    Context._Context__global = None
+                    self.assertEqual(matrix.run_chain(role, ids, runs), 0)
+            self.assertEqual(loaded, ['scripted-gen-b', 'scripted-judge', 'scripted-big-judge', 'scripted-gen-a', 'scripted-gen-b'])
+            for run in runs:
+                rows, cells = matrix.collect(run)
+                self.assertTrue(all(cell['status'] == 'complete' for cell in cells), cells)
+                self.assertFalse(list(run.glob('**/claim.json')))
+            self.assertEqual(matrix.fleet_tasks(runs), [])
+            self.assertEqual(dry('m'), ['Nothing left to queue in tier m: every narrator and cell is done'])
+            # A new narrator joins the prepared runs: the frozen part stays, its cells are pending for every judge.
+            extended = copy.deepcopy(config)
+            extended['generators'].append(model('gen-c', 'gemma', 'm', 30))
+            extended['generators'][0]['gpu_memory_gb'] = 14
+            path.write_text(json.dumps(extended))
+            before = [json.loads((run / 'matrix.json').read_text()) for run in runs]
+            with patch.object(matrix.subprocess, 'check_output', return_value='1' * 40 + '\n'):
+                for run in runs:
+                    self.assertEqual([entry['id'] for _, entry in matrix.extend(run, path)], ['gen-c'])
+            after = json.loads((runs[0] / 'matrix.json').read_text())
+            self.assertEqual((after['sources'], after['source_fingerprint']), (before[0]['sources'], before[0]['source_fingerprint']))
+            self.assertEqual(after['configuration']['generators'][0]['gpu_memory_gb'], 14)
+            self.assertTrue((runs[0] / 'configs/generator-gen-c.json').exists() and (runs[0] / 'configs/self-gen-c.json').exists())
+            self.assertEqual([line.split()[:4] for line in dry('m') if line.startswith('    ')],
+                             [['generator', '30', str(30 * 1024 + 1024), 'gen-c'], ['judge', '24', str(24 * 1024 + 1024), 'judge,sweep'],
+                              ['self', '30', str(30 * 1024 + 1024), 'gen-c'], ['judge', '72.5', str(int(72.5 * 1024) + 1024), 'big-judge']])
+            changed = copy.deepcopy(extended)
+            changed['generators'][1]['parameters']['model'] = 'scripted-other'
+            path.write_text(json.dumps(changed))
+            with self.assertRaisesRegex(ValueError, 'new id'):
+                matrix.extend(runs[0], path)
+            changed = copy.deepcopy(extended)
+            changed['judges'].append(model('own-family', 'qwen', 's', 10))
+            path.write_text(json.dumps(changed))
+            with self.assertRaisesRegex(ValueError, 'family'):
+                matrix.extend(runs[0], path)
+            self.assertEqual(json.loads((runs[0] / 'matrix.json').read_text()), after)
+            # The real submission: one sbatch per array, the listing written, the ledger of every run.
+            (runs[1] / 'generated/gen-b/generation.json').unlink()
+            with patch.object(matrix.subprocess, 'run') as sbatch:
+                sbatch.return_value.stdout = '777\n'
+                matrix.fleet(runs, 3, tier='m')
+            self.assertEqual(len(sbatch.call_args_list), 2)
+            listing = Path(sbatch.call_args_list[0].args[0][-1])
+            self.assertEqual(listing.read_text(), f'generator 30 {30 * 1024 + 1024} gen-c {both}\n'
+                                                  f'generator 40 {40 * 1024 + 1024} gen-b {both}\n')
+            self.assertIn('--dependency=afterany:777', sbatch.call_args_list[1].args[0])
+            ledger = [(row['role'], row['id'], row['job_id']) for row in map(json.loads, (runs[1] / 'jobs.jsonl').read_text().splitlines())]
+            self.assertIn(('generator', 'gen-b', '777_1'), ledger)
+            self.assertIn(('judge', 'sweep', '777_0'), ledger)
 
 
 if __name__ == '__main__':

@@ -23,11 +23,17 @@
     "partition": "cuda",
     "gres": "gpu:fast:1",
     "parallel": true,
-    "time": "1-00:00:00",
+    "time": "10-00:00:00",
     "mem": "96G",
     "min_free_mb": 70000,
-    "max_wait": 21600,
-    "env": "GRTL-llm"
+    "max_wait": 691200,
+    "env": "GRTL-llm",
+    "free_margin_mb": 1024,
+    "tiers": [
+      "s",
+      "m",
+      "l"
+    ]
   },
   "generators": [
     {
@@ -115,6 +121,8 @@
     {
       "id": "gpt-oss-120b",
       "family": "gpt-oss",
+      "tier": "l",
+      "gpu_memory_gb": 70,
       "parameters": {
         "model": "openai/gpt-oss-120b",
         "revision": "b5c939de8f754692c1647ca79fbf85e8c1e70f8a",
@@ -125,19 +133,24 @@
       }
     },
     {
-      "id": "glm-4.7-flash",
+      "id": "glm-4.7-flash-fp8",
       "family": "glm",
+      "tier": "m",
+      "gpu_memory_gb": 42,
       "parameters": {
         "model": "zai-org/GLM-4.7-Flash",
         "revision": "7dd20894a642a0aa287e9827cb1a1f7f91386b67",
         "temperature": 0.0,
         "top_p": 1.0,
-        "max_new_tokens": 4096
+        "max_new_tokens": 4096,
+        "quantization": "fp8_per_channel"
       }
     },
     {
       "id": "gpt-oss-20b",
       "family": "gpt-oss",
+      "tier": "s",
+      "gpu_memory_gb": 22,
       "parameters": {
         "model": "openai/gpt-oss-20b",
         "revision": "6cee5e81ee83917806bbde320786a8fb61efebee",

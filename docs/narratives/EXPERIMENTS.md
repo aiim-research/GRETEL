@@ -167,3 +167,49 @@ The padding turned out to be a framework-wide problem (task 0 of the research pl
 - **Prompts (4 November, protocol 9).** Gianrico's prompts (the Reconstruction extractor, the two-part output schema, the graph text) are unchanged. The narrator's rules (the explanation pipeline's) ask for the root causes the modifications support, at most five, instead of "the top 3-5": three causes for a one-edit counterfactual invite invented ones and would bias the minimality factor. The Consistency judge prompt (new) was refined and checked for format with a small model. Open: the narrator prompts are long (median 8 to 9 thousand tokens; 4 % of BBBP and 11 % of AIDS above 16 384, a few up to 35 000), mostly redundant edge lists on Tree-Cycles and raw 23- to 42-column feature vectors on the molecules.
 - **Runs (5 November).** Two accounts in parallel (Rodrigo: Qwen2.5-32B and Llama-3.1-8B; Gianrico: Qwen2.5-3B, 7B and 14B), same pairs, judges, revisions and vLLM version; one run per dataset and account, one batch per dataset (`paper_probe_matrix.py fleet`, throttled Slurm arrays), each launched when the previous one is over: Tree-Cycles, BBBP, AIDS. The separate E0 pilot is dropped: Tree-Cycles, which ends first, plays its role. The judge validation V0 (annotated and synthetic narratives, three candidate judges) is prepared by Rodrigo and Gianrico together after the batches; if it disqualifies the primary judge on a probe, only the judges are rerun. Tutorials: `RUNS.md`, `RUNS_RODRIGO.md`, `RUNS_GIANRICO.md`.
 - **Plan B (6 November).** Our home quotas (64 GB) cannot hold the weights (the two judges alone take 65 and 62 GB, and the GPU nodes' local disks have 27 to 57 GB free), while Gianrico's account has 512 GB with his pilot models already downloaded. Every GPU run moves to his account, with one batch per dataset. The narrators become the models of his pilots, at his revisions: Qwen3.5 2B, 4B, 9B and 27B (the scale ladder) and Gemma-4-31B-it (another family), replacing Qwen2.5 3B to 32B and Llama-3.1-8B (D8: the draft's list has to change). The judges stay: GPT-OSS-120B (primary, the only new download, 65 GB), GLM-4.7-Flash (robustness), GPT-OSS-20B (V0). Context 40 960 tokens: 9 of the 2 718 narrator prompts of the pairs exceed 32 768. Pairs, computed on the server on 5 November and in `dev`: Tree-Cycles 64 100 instances, BBBP 102, AIDS 100, every arm valid; BBBP and AIDS are identical to the local smoke runs of the same instances (graphs, truth and user prompts), and one Tree-Cycles instance differs only in the minimized edge, because BLS-F seeds its random generator once per run and the smoke ran another subset of instances.
+
+## 10. Update of 16 November 2026: plan C, everything local on shared GPUs
+
+**What happened.** From 9 to 15 November no model ran. Gianrico's batches (with GPT-OSS-20B in place of 120B as a first probe) waited first for 70 GB and then for 90 GiB of free memory on an H200 that had about 54 GB free. The H200s are shared: Slurm gives a job the card, not its memory, and other users' jobs hold most of it.
+
+**Diagnosis.** One memory threshold for every model. vLLM takes a fraction of the whole card (`gpu_memory_utilization`) and refuses to start when that fraction is not free (checked in the code of vLLM 0.33.0). So the 2B narrator, which needs about 12 GiB, waited for the memory of the largest model, and the 0.75 of `matrix.json` asked for 106 GB whatever the model.
+
+**Decision (Rodrigo, 16 November).** Everything local for now, no API, even if it takes longer. What follows replaces the run plan of section 9 (plan B). The pairs, the prompts, the probes, the sampling, the model revisions and the vLLM version do not change.
+
+**Each model waits for its own memory.** A model entry carries `gpu_memory_gb`, the GiB its engine takes (weights, activations and KV cache). The job waits for that much free memory plus 1 GiB, and the engine is sized to it. The budgets come from the model configurations. The KV cache is small in all of them: Qwen3.5 keeps keys and values in one layer of four (the others are linear attention), Gemma 4 in 10 global layers (its 50 sliding layers keep 1 024 tokens), GLM-4.7-Flash uses MLA and GPT-OSS a sliding window in half of its layers. A 40 960-token prompt takes 1.3 to 3.1 GiB of KV cache, so the weights decide.
+
+| Class (`tier`) | Model | Role | As loaded | Weights (GiB, estimate) | Budget (GiB) |
+|---|---|---|---|---|---|
+| s | Qwen3.5-2B | narrator | bf16 | 4.5 | 12 |
+| s | Qwen3.5-4B | narrator | bf16 | 9 | 18 |
+| s | Qwen3.5-9B | narrator | bf16 | 18 | 28 |
+| s | GPT-OSS-20B | judge of the three probes and of the sweep | MXFP4, as stored | 13 | 22 |
+| m | Qwen3.5-27B | narrator (`qwen3.5-27b-fp8`) | FP8 online | 28 | 42 |
+| m | Gemma-4-31B-it | narrator (`gemma-4-31b-it-fp8`) | FP8 online | 31 | 46 |
+| m | GLM-4.7-Flash | robustness judge (`glm-4.7-flash-fp8`) | FP8 online | 30 | 42 |
+| l | GPT-OSS-120B | reference judge of the three probes and of the sweep | MXFP4, as stored | 61 | 70 |
+
+Classes s and m fit in the 54 GB that were free. In bf16 the three models of class m would need 65 to 73 GiB, as much as GPT-OSS-120B, which has no smaller version (its weights are already 4-bit).
+
+**FP8 online for class m.** `quantization: fp8_per_channel` in vLLM: FP8 weights with one scale per output channel and dynamic per-token activation scales, the FP8_DYNAMIC recipe of llm-compressor. vLLM quantizes the same bf16 checkpoints, at the same revisions, layer by layer while loading, so the card never holds the bf16 model and nothing is downloaded. The ids carry `-fp8` and the paper has to state it. Checked on the laptop with a 0.5B model (weights from 0.93 to 0.59 GiB, same engine and version). Not checked yet: the H200 (the only GPU here with native FP8) and these three architectures. The load test (`fit`, below) checks both before any run is frozen.
+
+**FP8 control.** `matrix_local_fp8_control.json`: Qwen3.5-9B narrated in FP8 on Tree-Cycles and judged by GPT-OSS-20B, to compare with its bf16 cells of the main run under the same judge. It measures what FP8 does to the three probes where both precisions fit, so the top of the scale ladder (bf16 up to 9B, FP8 at 27B) can be read.
+
+**Judges.** GPT-OSS-20B judges everything now (three probes, and the Recourse sweep as the acting model). GLM-4.7-Flash in FP8 is the robustness judge of another family, as before. GPT-OSS-120B stays the intended primary judge: one job waits (up to 8 days) for 71 GiB free on a GPU and, once it starts, judges every narrator on the three datasets and the sweep with one load, so one window is enough. How the paper reads in each case:
+
+- 120B runs: it is the primary judge, as planned. GPT-OSS-20B becomes a second size of the same family, and the agreement between the two (F1 correlation and MAE on Reconstruction, kappa on Consistency, change of the Recourse lift) joins the robustness block next to GLM.
+- 120B never finds the memory: GPT-OSS-20B is the primary judge, supported by V0 (synthetic narratives with known content) and by its agreement with GLM. The Recourse flip rates depend on the acting model, so the sweep is reported for 20B and the text says it. Before settling for this, Rodrigo asks the administrators for a reservation of one H200 for two days, which is all 120B needs.
+
+**How it runs** (`scripts/paper_probe_matrix.py`, tutorial in `RUNS_GIANRICO.md`):
+
+- One run per dataset with every model (`lab/config/narratives/matrix_local.json`, runs `narr-local/<dataset>`).
+- `fit` loads each model of classes s and m on the real GPU with its budget and answers the longest prompt of the pairs, before `prepare` freezes anything. A wrong budget or an architecture that FP8 online does not support shows there.
+- `fleet --tier <class>` queues one memory class. A task is a chain: one model over the three datasets, loaded once, so a model that had to wait for memory keeps it until it has finished everywhere. The narrators' array first, then the evaluators' (the judges that share a model in one task, and each narrator's self-evaluation).
+- Everything is idempotent. A narrator with its narratives written is skipped, a judge evaluates the cells (narrator, judge) without results whose narrator is done, and a claim file keeps two running jobs off the same work. A fleet can be launched again and only does what is missing. A larger class also queues the judges of the smaller ones, which then only evaluate the new narrators. A judge that starts before its narrators have finished ends at once, without loading and without an error cell.
+- Two tasks of ours that see the same free memory would both start and one would fail. A lock per GPU makes one task at a time check the memory and load.
+- `extend` adds to the prepared runs a model with a new id (a narrator at another precision if FP8 fails for one architecture, a judge that becomes available, later the API judges) without touching what is frozen or done. Its cells are simply pending for the next fleet.
+- Order: class s on Tree-Cycles alone (the sanity check and the real times), then class s on the three datasets and class m, then class l when the five narrators are done.
+
+**Judge validation V0.** `matrix_v0.json` has the same judges with the same budgets and the FP8 GLM, so V0 validates the judges as the matrix runs them.
+
+**Checked and not checked.** Unit tests of the chains, the classes and the idempotence with scripted models (`tests/narrative_arms_unit.py`, `tests/paper_probes_unit.py`), the Slurm script against a simulated GPU (wait, timeout, late memory, three concurrent tasks on one card), a real load test with vLLM 0.33.0 on the laptop GPU (budget in GiB, FP8 online), and a dry run of the three classes over the real pairs. Nothing has run on the server yet: the budgets are estimates until `fit` prints vLLM's own numbers.

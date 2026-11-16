@@ -901,11 +901,31 @@ class ModelMatrixIntegration(unittest.TestCase):
                 matrix.validate_sources(dumps, {**config, 'num_nodes': 10})
             with self.assertRaises(ValueError):
                 matrix.validate_sources(dumps + [dumps[0]], config)
+            missing = lambda: patch('src.core.factory_base.get_instance_kvargs',
+                                    side_effect=FileNotFoundError('Missing cached checkpoint'))
+            # Before any narrator has finished the judge has nothing to evaluate: it is not loaded, no error cell.
             Context._Context__global = None
-            with patch('src.core.factory_base.get_instance_kvargs', side_effect=FileNotFoundError('Missing cached checkpoint')):
+            with missing():
+                self.assertEqual(matrix.run_judge(run, config['judges'][0]['id']), 0)
+            self.assertFalse(any(cell['status'] == 'error' for cell in matrix.collect(run)[1]))
+            factory = get_instance_kvargs
+            def scripted_model(class_name, kwargs):
+                if class_name != 'src.LLMexplaneability.huggingface.HuggingFaceLLM':
+                    return factory(class_name, kwargs)
+                return ScriptedLLM(kwargs['context'], {'class': 'probes_fixtures.ScriptedLLM', 'parameters': {
+                    'role': 'generator', 'model': kwargs['local_config']['parameters']['model']}})
+            with patch('src.core.factory_base.get_instance_kvargs', side_effect=scripted_model):
+                for entry in config['generators']:
+                    Context._Context__global = None
+                    matrix.run_generator(run, entry['id'])
+            # With the narratives written, a judge that cannot be loaded fails every cell of its own, visibly.
+            Context._Context__global = None
+            with missing():
                 self.assertEqual(matrix.run_judge(run, config['judges'][0]['id']), 2)
             _, cells = matrix.collect(run)
             self.assertEqual(sum(cell['status'] == 'error' for cell in cells), 6)
+            self.assertIn('Judge initialization: FileNotFoundError: Missing cached checkpoint',
+                          json.loads(next(run.glob('probes/*/*/error.json')).read_text())['error'])
             frozen = Path(json.loads((run / 'matrix.json').read_text())['sources'][0]['frozen'])
             frozen.write_text(frozen.read_text() + '\n')
             with self.assertRaisesRegex(ValueError, 'Frozen source'):
