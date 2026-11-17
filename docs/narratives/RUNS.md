@@ -8,20 +8,20 @@ What `docs/narratives/EXPERIMENTS.md` plans, as Slurm jobs on kalifano. The step
 ## The pipeline
 
 1. **Pairs pass** (CPU, GRETEL, protocol v2: no padding, isolated nodes deleted, `docs/v2/README.md`), done once in Rodrigo's account and committed to `dev`. One run per dataset, fold 0, DCE + BLS-F, no LLM. Every instance gives three graph pairs, the arms `minimized` (BLS-F: bond edits and atom substitutions), `seed` (DCE's nearest graph of the other class, written as edits on the input) and `random_subset` (the input plus a random subset of the seed's edits of the minimized size), and freezes every generation prompt: direct, inverse, renamed and identity (the direct prompt again, sampled with seed + 1). Results: `lab/output/results/narr-<dataset>_dce_lclsf` (Tree-Cycles 64: 100 instances, BBBP: 102, AIDS: 100).
-2. **Model matrix** (GPU, `scripts/paper_probe_matrix.py`, plan C of 16 November: `EXPERIMENTS.md`, section 10), one run per dataset with every model: `lab/config/narratives/matrix_local.json`, runs `lab/output/results/narr-local/<dataset>`. The GPUs are shared, so each model waits only for its own memory and the models are queued by memory class (`fleet --tier s`, `m`, `l`). A task is one model over the three datasets, loaded once. The narrators write the narratives, the judges run the probes over them, and each narrator judges its own Consistency inversion test (E6). Order: a load test of every model (`fit`), class `s` on Tree-Cycles alone (the sanity check and the real times), then class `s` on the three datasets and class `m`, then class `l`. Every command can be launched again and only does what is missing.
+2. **Model matrix** (GPU, `scripts/paper_probe_matrix.py`, plan C of 16 November: `EXPERIMENTS.md`, section 10), one run per dataset with every model: `lab/config/narratives/matrix_local.json`. Tree-Cycles is Gianrico's run `narr-matrix/tcr64-20b-h200-longwait` (completed, not repeated), BBBP and AIDS are `lab/output/results/narr-local/<dataset>`. The GPUs are shared, so each model waits only for its own memory and the models are queued by memory class (`fleet --tier s`, `m`, `l`). A task is one model over the three datasets, loaded once. The narrators write the narratives, the judges run the probes over them, and each narrator judges its own Consistency inversion test (E6). Order: a load test of every model (`fit`), class `s` on Tree-Cycles alone (the sanity check and the real times), then class `s` on the three datasets and class `m`, then class `l`. Every command can be launched again and only does what is missing.
 3. **Judge validation V0**, after the batches, prepared by Rodrigo and Gianrico together (annotated narratives, and synthetic ones with known content: `src/LLMexplaneability/synthetic.py`, `lab/config/narratives/matrix_v0.json`, `scripts/v0_judge_validation.py`). Its judges are the matrix's, with the same budgets. If the primary judge fails a probe, only the judges are run again, never the narrators.
 
 ## Models and probes
 
-Decided on 6 November: the narrators are the models of Gianrico's pilots, newer than the draft's list (Qwen2.5 and Llama-3.1) and already downloaded. Decided on 16 November: everything local for now, each model with its own GPU budget, and the models of 27 to 31B loaded in FP8 (vLLM quantizes the same bf16 weights while loading), which is what fits in the memory that is usually free.
+Decided on 6 November: the narrators are the models of Gianrico's pilots, newer than the draft's list (Qwen2.5 and Llama-3.1) and already downloaded. Decided on 16 November: everything local for now, each model with its own GPU budget. Decided on 17 November: Gianrico's Tree-Cycles run is reused as it is, so Qwen3.5-27B and GLM-4.7-Flash stay in bf16 as there, and only Gemma-4-31B-it is loaded in FP8 (vLLM quantizes the same bf16 weights while loading), since in bf16 it did not fit in 84 GiB.
 
 | Role | Models | Class, GiB | As loaded |
 |---|---|---|---|
 | Narrators, scale ladder | Qwen3.5 2B, 4B, 9B | `s`: 12, 18, 28 | bf16 |
-| Narrators, scale ladder | Qwen3.5-27B (`qwen3.5-27b-fp8`) | `m`: 42 | FP8 online |
+| Narrators, scale ladder | Qwen3.5-27B | `l`: 70 | bf16 |
 | Narrator of another family | Gemma-4-31B-it (`gemma-4-31b-it-fp8`) | `m`: 46 | FP8 online |
 | Judge of the three probes and of the Recourse budget sweep, now | GPT-OSS-20B | `s`: 22 | MXFP4, as stored |
-| Robustness judge | GLM-4.7-Flash (`glm-4.7-flash-fp8`) | `m`: 42 | FP8 online |
+| Robustness judge | GLM-4.7-Flash | `l`: 70 | bf16 |
 | Reference judge of the three probes and of the sweep, when a GPU has 71 GiB free | GPT-OSS-120B | `l`: 70 | MXFP4, as stored |
 | FP8 control (`matrix_local_fp8_control.json`, Tree-Cycles) | Qwen3.5-9B in FP8, judged by GPT-OSS-20B | `s`: 20 | FP8 online |
 | Later, with API access | DeepSeek-V3.2 and Gemini 3 Flash (judges), Gemini 2.5 Flash (narrator) | | |

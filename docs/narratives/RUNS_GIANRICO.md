@@ -1,156 +1,176 @@
 # Narrative paper, the model matrix on shared GPUs (Gianrico's account)
 
-Plan C, 16 November 2026. Everything runs locally, from your account, over the frozen pairs that are already in `dev`. Overview: `RUNS.md`. Why and what changes for the paper: `EXPERIMENTS.md`, section 10.
+Updated 17 November 2026, after your Tree-Cycles run. Overview: `RUNS.md`. Why and what it means for the paper: `EXPERIMENTS.md`, sections 10 to 12.
 
-**What was wrong.** Every task waited for the same amount of free GPU memory (70 GB, then 90 GiB), whatever its model, because vLLM takes a fraction of the whole card and refuses to start if that fraction is not free. The 2B narrator needs 12 GiB and was waiting for 90.
+**Where we are.** Your run `narr-matrix/tcr64-20b-h200-longwait` is kept and completed, not repeated: the narratives of Qwen3.5 2B, 4B, 9B and 27B and their Reconstruction and Consistency results (GPT-OSS-20B, GLM-4.7-Flash, self-evaluation) are final. What is left:
 
-**What changes.** Each model waits only for its own memory, and the models are split in three memory classes that are queued apart, so what fits runs now and the rest takes the memory when it appears:
+| What | Why |
+|---|---|
+| Recourse on Tree-Cycles, judges only | It failed because NetworkX 3.7 no longer has `nx.random_tree`. Fixed in `dev` (the same trees as before) |
+| Gemma-4-31B-it on the three datasets, in FP8 | bf16 did not fit with 84 GiB. FP8 halves the weights, from the same files |
+| BBBP and AIDS, everything | Nothing ran there yet |
+| GPT-OSS-120B on the three datasets | Whenever a GPU has 71 GiB free |
 
-| Class | Models | GiB each | Notes |
-|---|---|---|---|
-| `s` | narrators Qwen3.5 2B, 4B and 9B, judge GPT-OSS-20B | 12, 18, 28, 22 | as before (bf16, GPT-OSS as stored) |
-| `m` | narrators Qwen3.5-27B and Gemma-4-31B-it, judge GLM-4.7-Flash | 42, 46, 42 | loaded in FP8 from the same weights you have (vLLM quantizes them while loading: nothing to download, the card never holds the bf16 model). In bf16 they would need 65 to 73 GiB |
-| `l` | judge GPT-OSS-120B | 70 | no smaller version exists. One job waits for the memory and then judges everything with one load |
+**How it runs now.** Each model waits only for its own memory, and the models are queued in three memory classes:
 
-A task is one model over the three datasets (Tree-Cycles, then BBBP, then AIDS), loaded once: a model that had to wait for memory keeps it until it has finished everywhere. Every command below can be launched again: it only does what is missing.
+| Class | Models | GiB each |
+|---|---|---|
+| `s` | narrators Qwen3.5 2B, 4B, 9B (bf16), judge GPT-OSS-20B | 12, 18, 28, 22 |
+| `m` | narrator Gemma-4-31B-it in FP8 | 46 |
+| `l` | narrator Qwen3.5-27B and judge GLM-4.7-Flash, both bf16 as in your run, and judge GPT-OSS-120B | 70 each |
 
-Rule of the server: only Slurm jobs compute. The commands below only use git, `sbatch`, `squeue`, or read JSON. Run them from the repository root with `conda activate GRTL`. In every new shell, set first:
+A task is one model over the three datasets (Tree-Cycles, BBBP, AIDS), loaded once. Every command can be launched again: it only does what is missing, so Tree-Cycles' finished narrators and cells are skipped. Rule of the server: only Slurm jobs compute. The commands below only use git, `sbatch`, `squeue`, or read JSON. In every new shell:
 
 ```bash
-cd ~/projects/GRETEL-dev && conda activate GRTL
+cd ~/GRETEL && conda activate GRTL
+TCR=lab/output/results/narr-matrix/tcr64-20b-h200-longwait
 R=lab/output/results/narr-local
-RUNS="--run-root $R/tcr64 --run-root $R/bbbp --run-root $R/aids"
+RUNS="--run-root $TCR --run-root $R/bbbp --run-root $R/aids"
 PAIRS="--source lab/output/results/narr-tcr64_dce_lclsf --source lab/output/results/narr-bbbp_dce_lclsf --source lab/output/results/narr-aids_dce_lclsf"
 ```
 
-**Step 1. Stop the current queue and update the code.** First keep what the waiting jobs learned: the free memory they saw on the GPU, one sample every five minutes. Send Rodrigo the line this prints, it tells us which budgets are realistic:
+Do not move or rename `$TCR`: its manifest records the absolute paths of its frozen pairs.
+
+**Step 1. Numbers from your finished jobs, then update the code.** The logs of your run say how much memory each model really took. Send Rodrigo the output of these three commands, they set the budgets:
 
 ```bash
+for f in $(grep -l "Model loading took" lab/output/logs/slurm_*.out); do
+  echo "$(grep -o "models--[^/]*" $f | head -1)  $(grep -o 'Model loading took [0-9.]* GiB' $f | head -1)  $(grep -o 'Available KV cache memory: [0-9.]* GiB' $f | head -1)"
+done | sort | uniq
+grep -l "gemma-4-31B" lab/output/logs/slurm_*.out | xargs grep -h "Model loading took\|KV cache\|Error" | tail -25
 grep -ho "[0-9]* MiB free" lab/output/logs/slurm_*.out | awk '{print $1}' | sort -n | awk '{a[NR]=$1} END {i=int(NR*0.9); if (i<1) i=1; if (NR) print "samples", NR, "min", a[1], "median", a[int((NR+1)/2)], "p90", a[i], "max", a[NR]}'
-ls lab/output/results/narr-matrix/*/generated/*/generation.json 2>/dev/null     # narrators that finished (none expected)
 ```
 
-If the second command lists files, tell Rodrigo before going on. Then cancel the queued matrix jobs (they still wait for 90 GiB), put your local edits aside and update:
+Then update the code. Your clone has your own changes of 14 November (a local commit and maybe edits): they are kept on a branch and in a stash, and `dev` is moved to the published one. Results and other untracked files stay where they are.
 
 ```bash
-squeue -u $USER -o "%.16i %.14j %.9T %.11M %R"                                   # what is queued
-squeue -u $USER -h -o "%F %j" | awk '$2 ~ /^pm-/ {print $1}' | sort -u | xargs -r scancel
-git stash push -m "my matrix edits, 14 November"                                 # kept: git stash list
-launchers/server_sync.sh
-ls lab/config/narratives/matrix_local.json                                       # the new configuration
+squeue -u $USER                                  # should be empty: everything of 14 November has ended
+git fetch origin
+git branch keep-14-november                      # your current state, local commit included
+git status --short | grep -v '^??'               # if this lists files: git stash push -m "edits of 14 November"
+git checkout -f -B dev origin/dev
+git log --oneline -1                             # the latest commit of dev
 ```
 
-The old runs under `narr-matrix` stay where they are, nothing reads them. The environment `GRTL-llm` (vLLM 0.33.0) and the weights are the ones you have. Check that the eight models are in the cache (GPT-OSS-120B is the only one your pilots did not use):
+If you never warmed the AIDS raw data (the Recourse probe rebuilds the molecules for the oracle), do it once:
 
 ```bash
-du -sh ~/hf_cache/hub/models--* | sort -h
-sbatch -p normal scripts/slurm_hf_download.sh lab/config/narratives/matrix_local.json   # only if one is missing: it skips the complete ones
+sbatch -p normal --wrap "bash -lc 'conda activate GRTL && python tools/warm_dataset.py lab/config/narratives/pairs/aids/generate_minimize0.jsonc'"
 ```
 
-**Step 2. Load test** (`fit`). Before anything is frozen, each model of classes `s` and `m` is loaded on the real GPU exactly as the matrix will load it, with its budget, and answers the longest prompt of the pairs. A wrong budget, or a model that FP8 does not support, shows here and costs minutes. One job per model, each waiting for its own memory:
+**Step 2. Load test** (`fit`). Each model is loaded on the real GPU exactly as the matrix will load it, with its budget, and answers the longest prompt of the pairs. A wrong budget, or Gemma not fitting in FP8 either, shows here and costs minutes. One job per model, each waiting for its own memory:
 
 ```bash
 python scripts/paper_probe_matrix.py fit --max 3 --tier s --tier m --config lab/config/narratives/matrix_local.json $PAIRS
+python scripts/paper_probe_matrix.py fit --max 2 --model qwen3.5-27b --model glm-4.7-flash --config lab/config/narratives/matrix_local.json $PAIRS
 python scripts/paper_probe_matrix.py fit --config lab/config/narratives/matrix_local_fp8_control.json --model qwen3.5-9b-fp8 $PAIRS
 squeue -u $USER -o "%.16i %.14j %.9T %.11M %R"
 ```
 
-The small models end within the hour. The three of class `m` need 43 to 47 GiB free and take longer to load. Results:
+Results, when they end:
 
 ```bash
-grep -H '"status"\|"error"\|"load_seconds"' $R/fit/*.json | grep -v config.json
+grep -H '"status"\|"error"\|"load_seconds"' lab/output/results/narr-local/fit/*.json | grep -v config.json
 grep -l "FIT" lab/output/logs/slurm_*.out | xargs grep -h "FIT \|Model loading took\|Available KV cache memory\|Maximum concurrency"
 ```
 
-Send Rodrigo the output of the second command (vLLM's own numbers: what the weights took, what was left for the cache). What to do with each result:
+Send Rodrigo the second output. What to do with each result:
 
-- `FIT OK` for the four models of class `s`: go on with steps 3 and 4. Do not wait for class `m`.
-- `FIT OK` for the three of class `m`: class `m` can be launched (step 5).
-- `FIT FAILED` with "is less than desired GPU memory utilization": another user took the memory between the check and the load. Run the test of that model again (`fit --model <id>` with the same other arguments).
-- `FIT FAILED` with "No available memory for the cache blocks", or a message about the maximum number of tokens in the KV cache: the budget is short. Run it again with more, e.g. `--memory gemma-4-31b-it-fp8=50`, and tell Rodrigo the value that passes.
-- `FIT FAILED` with anything else (in particular an error about quantization or FP8): send Rodrigo the last 30 lines of that job's log. He will push a changed configuration for that model, which enters the runs with `extend` (step 7). Classes that passed go on meanwhile.
-- A test of class `m` that is still waiting after two days: tell Rodrigo, with the "MiB free" lines of its log. It means that even 43 GiB are rare.
+- `FIT OK` for a model: its class can go (steps 4 to 6). Do not wait for the others.
+- `FIT FAILED` with "is less than desired GPU memory utilization": another user took the memory between the check and the load. Run that test again (`fit --model <id>` with the same other arguments).
+- `FIT FAILED` with "No available memory for the cache blocks", or a message about the KV cache and the maximum model length: the budget is short. Run it again with more, e.g. `--memory gemma-4-31b-it-fp8=56`, and tell Rodrigo the value that passes.
+- `FIT FAILED` with anything else (an error about quantization or FP8 in particular): send Rodrigo the last 30 lines of that job's log.
+- A test still waiting after two days: tell Rodrigo, with the "MiB free" lines of its log.
 
-**Step 3. Freeze the three runs and the control** (CPU jobs, minutes each): each copies the frozen pairs of one dataset into its run, with their hashes.
+**Step 3. Prepare the runs** (CPU jobs, minutes). BBBP and AIDS get new runs, with the frozen pairs and their hashes. The FP8 control gets its own small run.
 
 ```bash
-for d in tcr64 bbbp aids; do
+for d in bbbp aids; do
   sbatch -p normal scripts/slurm_matrix_prepare.sh lab/config/narratives/matrix_local.json $R/$d lab/output/results/narr-${d}_dce_lclsf
 done
 sbatch -p normal scripts/slurm_matrix_prepare.sh lab/config/narratives/matrix_local_fp8_control.json $R/fp8-control-tcr64 lab/output/results/narr-tcr64_dce_lclsf
-tail -qn1 lab/output/logs/matrix_prepare_*.out      # Matrix: .../narr-local/<run>, four times
+tail -qn1 lab/output/logs/matrix_prepare_*.out      # Matrix: .../narr-local/<run>, three times
 ```
 
-**Step 4. Class `s` on Tree-Cycles alone: the sanity check.** The three small narrators, then their evaluators (GPT-OSS-20B on the three probes and the sweep with one load, and each narrator's self-evaluation). It is short and tells us that the whole pipeline works and how long things take, before the long jobs start.
+Your Tree-Cycles run is brought to the same configuration instead (JSON only, seconds). `extend` adds Gemma in FP8 and GPT-OSS-120B, removes the bf16 Gemma, which produced nothing (its error cells go to `$TCR/archive/`), and sets the budgets. `reset` moves the failed Recourse results to the archive, so those cells do Recourse again and nothing else:
 
 ```bash
-python scripts/paper_probe_matrix.py fleet --max 3 --tier s --run-root $R/tcr64
+python scripts/paper_probe_matrix.py extend --config lab/config/narratives/matrix_local.json --run-root $TCR
+python scripts/paper_probe_matrix.py reset --probe recourse --judge gpt-oss-20b --judge gpt-oss-20b-sweep --judge glm-4.7-flash --run-root $TCR
+python scripts/paper_probe_matrix.py summary --run-root $TCR
 ```
 
-`fleet` prints the two arrays (`pm-gen-s`, then `pm-eva-s`, which starts when the narrators' array has ended) and the task of each index. At most `--max` tasks of an array run at a time, the smallest models first. While it runs, and when it ends:
+The last command should print four narrators done and Gemma missing, and `'complete': 4` (the four self-evaluations, which have no Recourse). Every other cell is pending.
+
+**Step 4. Recourse on Tree-Cycles: the sanity check.** It is the only probe that never ran, so it goes first and alone. GPT-OSS-20B judges Recourse for the four narrators and the budget sweep with one load:
 
 ```bash
-squeue -u $USER -o "%.16i %.14j %.9T %.11M %R"
-python scripts/paper_probe_matrix.py summary --run-root $R/tcr64        # reads JSON only: narrators done, cells complete, error, pending
-cut -d, -f1-6 $R/tcr64/matrix-summary.csv
-sacct -u $USER -S 2026-11-16 --format=JobID%18,JobName%12,State,Elapsed | grep "pm-"
+python scripts/paper_probe_matrix.py fleet --max 3 --tier s --run-root $TCR
 ```
 
-When `summary` shows the three narrators done and their cells with `gpt-oss-20b`, `gpt-oss-20b-sweep` and `self` complete, send Rodrigo the first six columns of the CSV (the parse rates per probe) and the `sacct` lines, and wait for his go before step 5. If the prompts or the parsing were broken, this is where we see it.
+Only one task is queued (`pm-eva-s`), since the narrators are done. When it ends:
 
-**Step 5. Class `s` on the three datasets, and class `m`.** After Rodrigo's go, and for class `m` after its three load tests passed:
+```bash
+python scripts/paper_probe_matrix.py summary --run-root $TCR
+grep recourse $TCR/matrix-summary.csv | cut -d, -f1-6
+sacct -u $USER -S 2026-11-17 --format=JobID%18,JobName%12,State,Elapsed | grep "pm-"
+```
+
+Send Rodrigo the Recourse lines and the times, and wait for his go. The status counts must show no `oracle_error`.
+
+**Step 5. Class `s` on the three datasets, and class `m`.** After Rodrigo's go, and for class `m` after Gemma's load test passed:
 
 ```bash
 python scripts/paper_probe_matrix.py fleet --max 3 --tier s $RUNS
 python scripts/paper_probe_matrix.py fleet --max 2 --tier m $RUNS
 ```
 
-The first skips Tree-Cycles (done) and does BBBP and AIDS. The second narrates with Qwen3.5-27B and Gemma-4-31B-it, then runs GLM-4.7-Flash over every narrator that is done, GPT-OSS-20B over the two new narrators and their self-evaluations. A class `m` task waits until its GPU has 43 to 47 GiB free, for up to 8 days, and its job can last 10 days. If you know which node has the freest H200, add `--node <node>` (e.g. `--node compute-2-3`). Without it Slurm chooses, and the task waits on the GPU it got.
+The first narrates BBBP and AIDS with the three small Qwen models and judges them with GPT-OSS-20B. The second narrates the three datasets with Gemma in FP8, then GPT-OSS-20B judges it and it judges itself. A task waits until its GPU has its budget free, for up to 8 days, and its job can last 10 days. If you know which node has the freest H200, add `--node <node>` (e.g. `--node compute-2-3`). Without it Slurm chooses, and the task waits on the GPU it got.
 
-**Step 6. Class `l`: GPT-OSS-120B.** Launch it when the five narrators are done in the three runs:
+**Step 6. Class `l`.** Launch it when the narrators' arrays of step 5 (`pm-gen-s`, `pm-gen-m`) have ended:
 
 ```bash
-for d in tcr64 bbbp aids; do python scripts/paper_probe_matrix.py summary --run-root $R/$d | grep Narrators; done
 python scripts/paper_probe_matrix.py fleet --max 3 --tier l $RUNS
 ```
 
-One task waits for 71 GiB free (up to 8 days) and then judges the five narrators on the three datasets and the sweep without unloading. The same command also queues GPT-OSS-20B and GLM-4.7-Flash again if any of their cells is still missing, so it doubles as the final sweep of what was left. Two things that help:
+Qwen3.5-27B narrates BBBP and AIDS (Tree-Cycles is done). Then GLM-4.7-Flash judges everything it has not judged (Recourse on Tree-Cycles, Gemma, BBBP and AIDS), and GPT-OSS-120B judges everything with one load, when it finds 71 GiB. The same command also queues GPT-OSS-20B again for whatever is still missing, so it doubles as the final sweep. Two things that help:
 
-- It is safe to launch it once per node (`--node <node>`, one command per node with an H200): the first task that finds the memory takes the work, a second one that starts later shares the cells that are left, and none repeats a cell.
-- If class `m` is stuck for more than three days, launch class `l` anyway: it judges the three small narrators now, and the same command later judges the rest.
+- It is safe to launch it once per node (`--node <node>`, one command per node with an H200): the first task that finds the memory takes the work, one that starts later shares the cells that are left, and none repeats a cell.
+- If class `m` is stuck for more than three days, launch class `l` anyway. Gemma's cells stay pending, and the same command launched later judges them.
 
-The FP8 control can go at any time after the load test of `qwen3.5-9b-fp8` passed (one narrator and one judge, class `s` sizes):
+The FP8 control can go at any time after its load test passed:
 
 ```bash
 python scripts/paper_probe_matrix.py fleet --max 2 --run-root $R/fp8-control-tcr64
 ```
 
-**Step 7. When something fails, or something changes.** Launching a class again is always the same `fleet` command, once the previous jobs of that class have ended (`squeue` shows no `pm-gen-<class>` nor `pm-eva-<class>`). It queues only the models with work left. What you may see:
+**Step 7. When something fails, or something changes.** Launching a class again is always the same `fleet` command, once the previous jobs of that class have ended (`squeue` shows no `pm-gen-<class>` nor `pm-eva-<class>`). It queues only the models with work left.
 
 | Symptom | Meaning | What to do |
 |---|---|---|
 | A task ends with exit status 3, its log says "never ... MiB free" | The memory never appeared in 8 days | Launch the class again, and tell Rodrigo |
 | Log: "is less than desired GPU memory utilization" | Another user took the memory between the check and the load | Launch the class again |
 | Log: "No available memory for the cache blocks" | The model's budget is short | Launch again with `--memory <id>=<GiB>`, and tell Rodrigo |
-| `summary` shows `error` cells | Read `$R/<dataset>/probes/<narrator>/<judge>/error.json` | Launch the class again: it retries them. If it repeats, send the file |
+| `summary` shows `error` cells | Read `<run>/probes/<narrator>/<judge>/error.json` | Launch the class again: it retries them. If it repeats, send the file |
 | A job hits the 10-day limit | The cells already complete are kept, the one in progress starts again | Launch the class again |
 | Log: "nothing to do now" and the task ends at once | Its narrators have not finished yet, or everything is done | Nothing. A later launch picks it up |
 
-If Rodrigo pushes a new or changed model (e.g. after a failed load test), add it to the prepared runs. Nothing that is frozen or done changes:
+If Rodrigo pushes a changed configuration, bring the runs to it. Nothing that is frozen or done changes:
 
 ```bash
-launchers/server_sync.sh
+git fetch origin && git checkout -f -B dev origin/dev
 python scripts/paper_probe_matrix.py extend --config lab/config/narratives/matrix_local.json $RUNS
 ```
 
-**Step 8. The results to `dev`**, after the sanity check and then whenever a class ends:
+**Step 8. The results to `dev`**, after step 4 and then whenever a class ends:
 
 ```bash
-git switch -c narr-results                       # the first time; then git switch narr-results
-git add lab/output/results/narr-local && git commit -m "Narrative paper: local matrix, <what ended>"
+git switch -c narr-results                       # the first time; then git switch narr-results && git merge dev
+git add $TCR $R && git commit -m "Narrative paper: local matrix, <what ended>"
 git push fork narr-results
+git switch dev
 ```
 
 Then open (or update) a pull request from `GianFor:narr-results` into `aiim-research:dev`.
 
-**What to send Rodrigo, in order:** the free-memory line of step 1, the numbers of the load test (step 2), the Tree-Cycles summary and times (step 4), and anything that says FAILED or error.
+**What to send Rodrigo, in order:** the three outputs of step 1, the numbers of the load test (step 2), the Recourse lines and times of step 4, and anything that says FAILED or error.

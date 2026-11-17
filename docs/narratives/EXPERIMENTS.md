@@ -236,3 +236,22 @@ On the seed arm precision stays high (0.85 to 0.98) and recall falls to 0.10 to 
 **Consistency is near its ceiling.** With GPT-OSS-20B, over both arms, identity is 0.83 to 1.0, inversion 0.84 to 0.99 and renaming 0.85 to 0.97, the lowest value of each being Qwen3.5-2B. Only Qwen3.5-2B on the seed arm falls clearly (0.63 to 0.80). The domain text states the classification rule and how an edit makes or breaks a cycle, so the mechanism is given to the narrator. Most of the renaming drop is the judge's: in 7 of the 10 renaming verdicts that GPT-OSS-20B called incompatible for Qwen3.5-27B, the edges named in A, mapped through NODE MAPPING, are exactly the edges named in B (the judge compares raw indices at `reasoning_effort` low). V0 has to test the renaming case. Agreement between the two judges is 0.87 to 0.98, with kappa 0.14 to 0.47, low because almost every verdict is "compatible". Self-evaluation of the inversion test is within 0.06 of the external judges.
 
 **Open.** Recourse has to be judged again (narratives unchanged). Gemma needs its log. Whether these bf16 narratives become the Tree-Cycles run of the paper, and so whether the 27B narrator and GLM stay in bf16 on the other datasets, is to be decided.
+
+## 12. Decision of 17 November 2026: reuse every narrative
+
+Gianrico's Tree-Cycles run becomes the Tree-Cycles run of the paper. Nothing in it is generated again. Its narratives (Qwen3.5 2B, 4B, 9B and 27B, bf16, 4096 output tokens) and its Reconstruction, Consistency and self-evaluation results are final. So that BBBP and AIDS are narrated and judged by the same models, the local matrix takes its settings:
+
+- **Qwen3.5-27B and GLM-4.7-Flash in bf16** (ids `qwen3.5-27b` and `glm-4.7-flash`, as in his run), class `l`, 70 GiB each. Gianrico's jobs found 92 GB free within about three days, so 71 GiB is realistic. FP8 stays only for Gemma.
+- **Gemma-4-31B-it in FP8** (`gemma-4-31b-it-fp8`, class `m`, 46 GiB). In bf16 it did not fit in 84 GiB. It is the only narrator in FP8, which the paper states. The FP8 control (Qwen3.5-9B) measures what FP8 does to the probes.
+- **The model defaults of his run** (`gpu_memory_utilization` 0.6, which the per-model budget overrides, and 4096 output tokens), so the narrators' configuration is the same in the three runs.
+
+What has to run, and nothing else:
+
+| Dataset | Narrators | Judges |
+|---|---|---|
+| Tree-Cycles (his run, `narr-matrix/tcr64-20b-h200-longwait`) | Gemma FP8 | Recourse again for GPT-OSS-20B (default K and sweep) and GLM over the four Qwen models. Everything for Gemma. GPT-OSS-120B over all |
+| BBBP, AIDS (`narr-local/<dataset>`) | All five | All |
+
+Not repeated: the narrator answers that were cut or malformed (6 to 23 %). They are a property of each narrator and are reported as such, and drawing again only the failures would bias the sample. The prompts do not change either, although the narrators reason inside the explanation field, because Tree-Cycles is already narrated with them.
+
+Code for this (`scripts/paper_probe_matrix.py`): a cell is complete when every probe of its judge has results, so `reset --probe recourse` moves the failed Recourse results to `<run>/archive/` and the next fleet runs only Recourse in those cells. `extend` also removes from a run the models that the configuration no longer has, if they produced nothing (the bf16 Gemma of his run). Checked on a copy of his run: extend, reset, and a Recourse pass with a stub judge under NetworkX 3.7 (no oracle error, the 48 Reconstruction and Consistency rows untouched).

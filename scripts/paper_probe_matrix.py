@@ -30,8 +30,9 @@ narrator with its narratives written is skipped, a judge evaluates the cells
 keeps two running jobs off the same work, so a fleet can be launched again and
 only does what is missing. fit loads the models of a configuration on the real
 GPU and answers the longest prompt of the pairs, before a run is prepared.
-extend adds new models (new ids) to a prepared run without touching what is
-frozen.
+extend brings a prepared run to a configuration (new models in, models that
+produced nothing out) without touching what is frozen, and reset makes cells do
+one probe again (e.g. Recourse) without touching narratives or other probes.
 """
 import argparse
 import copy
@@ -312,16 +313,42 @@ def check_models(config):
 
 
 def extend(run, config_path):
-    """Add to a prepared run the models of a configuration that it does not have (new ids), e.g. a narrator at
-    another precision or a judge that became available. Nothing frozen changes: the pairs, the probes, the
-    defaults and the models already in the run stay as they are, and an entry with a known id must be the same
-    model (only its memory class and budget, and the slurm settings, are updated). Reads and writes JSON only."""
+    """Bring a prepared run to a configuration: add its models that the run does not have (new ids), e.g. a
+    narrator at another precision or a judge that became available, and remove the run's models that the
+    configuration no longer has, only if they produced nothing (their configs and error cells go to
+    <run>/archive/<time>/). Nothing frozen changes: the pairs, the probes and the defaults must be the run's, and
+    an entry with a known id must be the same model (only its memory class and budget, and the slurm settings,
+    are updated). Reads and writes JSON only."""
     from scripts.run_paper_probes import validate_configuration
     manifest = json.loads((run / 'matrix.json').read_text())
     config, new = manifest['configuration'], json.loads(Path(config_path).read_text())
-    for key in ('scope', 'arms', 'model_defaults', 'probes', 'self_evaluation'):
+    for key in ('arms', 'model_defaults', 'probes', 'self_evaluation'):
         if new.get(key) != config.get(key):
             raise ValueError(f'"{key}" is not the run\'s: that needs a new run')
+    # A model of the run that the configuration no longer has leaves it, if it has produced nothing.
+    stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    removed = []
+    for role in ('generators', 'judges'):
+        wanted = {entry['id'] for entry in new[role]}
+        for entry in [e for e in config[role] if e['id'] not in wanted]:
+            tag = entry['id']
+            if role == 'generators':
+                produced = (run / 'generated' / tag / 'generation.json').exists() or any(
+                    (run / 'probes' / tag).glob('*/*/summary.json'))
+                leftovers = [run / 'generated' / tag, run / 'probes' / tag,
+                             run / 'configs' / f'generator-{tag}.json', run / 'configs' / f'self-{tag}.json']
+            else:
+                produced = any(run.glob(f'probes/*/{tag}/*/summary.json'))
+                leftovers = list(run.glob(f'probes/*/{tag}')) + [run / 'configs' / f'judge-{tag}.json']
+            if produced:
+                raise ValueError(f'{tag} has results in {run.name}: keep it in the configuration')
+            for item in leftovers:
+                if item.exists():
+                    target = run / 'archive' / stamp / item.relative_to(run)
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    os.replace(item, target)
+            config[role].remove(entry)
+            removed.append(f'{role[:-1]}:{tag}')
     resources = ('tier', 'gpu_memory_gb')
     model = lambda entry: {key: value for key, value in entry.items() if key not in resources}
     added = []
@@ -345,10 +372,59 @@ def extend(run, config_path):
             write_json(run / 'configs' / ('self-' + entry['id'] + '.json'), self_config(config, entry))
     manifest.setdefault('extensions', []).append({
         'time': datetime.now(timezone.utc).isoformat(), 'added': [f'{role}:{entry["id"]}' for role, entry in added],
+        'removed': removed,
         'code_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()})
     write_json(run / 'matrix.json', manifest)
-    print(run.name, 'added:', [f'{role}:{entry["id"]}' for role, entry in added] or 'nothing (budgets and slurm settings updated)', flush=True)
+    print(run.name, 'added:', [f'{role}:{entry["id"]}' for role, entry in added] or 'nothing',
+          '| removed (nothing produced, moved to archive/):', removed or 'nothing', '| budgets and slurm settings updated', flush=True)
     return added
+
+
+def reset(run, probe, judges=None, generators=None):
+    """Make the cells of a prepared run do one probe again, e.g. Recourse after a failure of the oracle replay:
+    its results move to <run>/archive/<time>/ and the summaries keep the other probes, so the next fleet runs
+    only that probe in those cells. Narratives and the other probes are untouched. Reads and writes JSON only."""
+    config = json.loads((run / 'matrix.json').read_text())['configuration']
+    stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    judges_all = [e['id'] for e in config['judges']] + (['self'] if 'self_evaluation' in config else [])
+    unknown = set(judges or []) - set(judges_all) | set(generators or []) - {e['id'] for e in config['generators']}
+    if unknown:
+        raise ValueError('Unknown ids for this run: ' + ', '.join(sorted(unknown)))
+    count = 0
+    for g in [e['id'] for e in config['generators'] if not generators or e['id'] in generators]:
+        for j in [j for j in judges_all if not judges or j in judges]:
+            cell = run / 'probes' / g / j
+            if (cell / 'claim.json').exists():
+                try:
+                    held = json.loads((cell / 'claim.json').read_text())
+                except (OSError, ValueError):
+                    held = {}
+                if _alive(held):
+                    raise ValueError(f'A running job holds {g}/{j}: reset it when that job has ended')
+            for summary in sorted(cell.glob('*/summary.json')):
+                rows = json.loads(summary.read_text())
+                if not any(row['probe'] == probe for row in rows):
+                    continue
+                archive = run / 'archive' / stamp / summary.parent.relative_to(run)
+                archive.mkdir(parents=True, exist_ok=True)
+                (archive / 'summary.json').write_text(summary.read_text())
+                if (summary.parent / probe).exists():
+                    os.replace(summary.parent / probe, archive / probe)
+                kept = [row for row in rows if row['probe'] != probe]
+                if kept:
+                    write_json(summary, kept)
+                else:
+                    for item in summary.parent.iterdir():
+                        os.replace(item, archive / item.name)
+                    summary.parent.rmdir()
+                count += 1
+                print(f'{g} {j}: {probe} reset ({summary.parent.name})', flush=True)
+    manifest = json.loads((run / 'matrix.json').read_text())
+    manifest.setdefault('resets', []).append({'time': stamp, 'probe': probe, 'judges': judges, 'generators': generators,
+                                              'cells': count})
+    write_json(run / 'matrix.json', manifest)
+    collect(run)
+    return count
 
 
 def prepare_judge_rerun(config_path, previous, destination=None, judges=None, probes=None):
@@ -531,9 +607,25 @@ def model_key(config, entry):
     return json.dumps([entry.get('class'), {**config['model_defaults'], **entry['parameters']}], sort_keys=True)
 
 
+def expected_probes(config, judge):
+    """The probes a cell of this judge (an id, or 'self') must have: the judge's own, or the matrix's."""
+    if judge == 'self':
+        return list(config['self_evaluation']['probes'])
+    entry = next(e for e in config['judges'] if e['id'] == judge)
+    return list(entry.get('probes', config['probes']))
+
+
+def done_probes(cell):
+    """The probes with results in a cell (narrator, judge), over every pass that wrote there."""
+    done = set()
+    for path in Path(cell).glob('*/summary.json'):
+        done.update(row['probe'] for row in json.loads(path.read_text()))
+    return done
+
+
 def pending(role, ids, runs, ready=False):
-    """(run, id, narrator) of the work a chain still has: narrators without narratives, judge cells without
-    results. ``ready`` keeps only what can run now, the cells whose narrator has written its narratives."""
+    """(run, id, narrator) of the work a chain still has: narrators without narratives, judge cells with a probe
+    without results. ``ready`` keeps only what can run now, the cells whose narrator has written its narratives."""
     left = []
     for run in runs:
         config = json.loads((run / 'matrix.json').read_text())['configuration']
@@ -549,7 +641,7 @@ def pending(role, ids, runs, ready=False):
             else:
                 cells = [(g, tag) for g in generators] if tag in judges else []
             for g, j in cells:
-                if any((run / 'probes' / g / j).glob('*/summary.json')):
+                if set(expected_probes(config, j)) <= done_probes(run / 'probes' / g / j):
                     continue
                 if ready and not (run / 'generated' / g / 'generation.json').exists():
                     continue
@@ -786,11 +878,13 @@ def run_generator(run, tag, engine=None):
 
 
 def evaluate_cell(run, g, tag, engine, context, config, role_config, keep, manifest):
-    """One cell (narrator g, judge tag) if it has no results, its narrator is done and no running job holds it.
-    Returns 'complete', 'waiting' (narrator not done), 'held', 'done' or 'error'."""
+    """The probes of one cell (narrator g, judge tag) that have no results yet (all of them the first time, one
+    after a reset), if its narrator is done and no running job holds it. Returns 'complete', 'waiting' (narrator
+    not done), 'held', 'done' or 'error'."""
     from scripts.run_paper_probes import execute, load_dumps
     output = run / 'probes' / g / tag
-    if any(output.glob('*/summary.json')):
+    missing = [name for name in config['probes'] if name not in done_probes(output)]
+    if not missing:
         return 'complete'
     if not (run / 'generated' / g / 'generation.json').exists():
         return 'waiting'
@@ -812,8 +906,8 @@ def evaluate_cell(run, g, tag, engine, context, config, role_config, keep, manif
         if len(dumps) != len(manifest['sources']):
             raise ValueError('Incomplete generator outputs')
         destination, errors = execute(judge, [dump for dump in dumps if keep(dump[1])], config, context,
-                                      list(config['probes']), output)
-        print(g, tag, 'Results:', destination, 'attempt_errors:', errors, flush=True)
+                                      missing, output)
+        print(g, tag, 'Results:', destination, 'probes:', missing, 'attempt_errors:', errors, flush=True)
         return 'done'
     except Exception as exc:
         message = str(exc) if isinstance(exc, RuntimeError) and exc.__cause__ is not None else f'{type(exc).__name__}: {exc}'
@@ -846,8 +940,9 @@ def source_filter(manifest, substrings):
     """Whether a generated dump comes from a source whose original path contains one of the substrings."""
     if not substrings:
         return lambda payload: True
-    original = {source['frozen']: source['path'] for source in manifest['sources']}
-    return lambda payload: any(text in original[payload['matrix_source']['path']] for text in substrings)
+    # By file name: the frozen files have unique names, and a run that was moved keeps them.
+    original = {Path(source['frozen']).name: source['path'] for source in manifest['sources']}
+    return lambda payload: any(text in original[Path(payload['matrix_source']['path']).name] for text in substrings)
 
 
 def run_self(run, tag, engine=None):
@@ -891,7 +986,8 @@ def collect(run):
             g = generator['id']
             cell = run / 'probes' / g / j
             summaries = sorted(cell.glob('*/summary.json'))
-            status = 'complete' if summaries else 'error' if (cell / 'error.json').exists() else 'pending'
+            status = ('complete' if set(expected_probes(config, j)) <= done_probes(cell)
+                      else 'error' if (cell / 'error.json').exists() else 'pending')
             cells.append({'generator': g, 'judge': j, 'status': status})
             for path in summaries:
                 for row in json.loads(path.read_text()):
@@ -957,6 +1053,11 @@ def main(argv=None):
     command = commands.add_parser('extend')
     command.add_argument('--config', required=True)
     command.add_argument('--run-root', action='append', required=True)
+    command = commands.add_parser('reset')
+    command.add_argument('--run-root', action='append', required=True)
+    command.add_argument('--probe', required=True)
+    command.add_argument('--judge', action='append', help='judge id or self; repeat (default: all)')
+    command.add_argument('--generator', action='append', help='narrator id; repeat (default: all)')
     for name in ('run-chain', 'pending'):
         command = commands.add_parser(name)
         command.add_argument('--role', required=True, choices=('generator', 'judge', 'self'))
@@ -994,6 +1095,10 @@ def main(argv=None):
     if args.command == 'extend':
         for root in args.run_root:
             extend(Path(root).resolve(), args.config)
+        return 0
+    if args.command == 'reset':
+        for root in args.run_root:
+            reset(Path(root).resolve(), args.probe, args.judge, args.generator)
         return 0
     if args.command in ('run-chain', 'pending'):
         runs, ids = [Path(r).resolve() for r in args.run_root], args.ids.split(',')

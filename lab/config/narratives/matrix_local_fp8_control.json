@@ -13,7 +13,7 @@
     "seed": 0,
     "max_new_tokens": 4096,
     "enable_thinking": false,
-    "gpu_memory_utilization": 0.75,
+    "gpu_memory_utilization": 0.6,
     "max_model_len": 40960,
     "max_num_seqs": 64,
     "local_files_only": true

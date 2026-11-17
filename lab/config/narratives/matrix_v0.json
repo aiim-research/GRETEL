@@ -133,17 +133,16 @@
       }
     },
     {
-      "id": "glm-4.7-flash-fp8",
+      "id": "glm-4.7-flash",
       "family": "glm",
-      "tier": "m",
-      "gpu_memory_gb": 42,
+      "tier": "l",
+      "gpu_memory_gb": 70,
       "parameters": {
         "model": "zai-org/GLM-4.7-Flash",
         "revision": "7dd20894a642a0aa287e9827cb1a1f7f91386b67",
         "temperature": 0.0,
         "top_p": 1.0,
-        "max_new_tokens": 4096,
-        "quantization": "fp8_per_channel"
+        "max_new_tokens": 4096
       }
     },
     {

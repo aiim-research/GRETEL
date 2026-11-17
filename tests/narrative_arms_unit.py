@@ -518,19 +518,49 @@ class PaperMatrix(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'family'):
                 matrix.extend(runs[0], path)
             self.assertEqual(json.loads((runs[0] / 'matrix.json').read_text()), after)
+            # A narrator that produced nothing leaves the runs when the configuration drops it; one with results cannot.
+            path.write_text(json.dumps(config))
+            with patch.object(matrix.subprocess, 'check_output', return_value='2' * 40 + '\n'):
+                for run in runs:
+                    matrix.extend(run, path)
+                self.assertEqual([e['id'] for e in json.loads((runs[0] / 'matrix.json').read_text())['configuration']['generators']],
+                                 ['gen-a', 'gen-b'])
+                self.assertFalse((runs[0] / 'configs/generator-gen-c.json').exists())
+                self.assertTrue(list(runs[0].glob('archive/*/configs/generator-gen-c.json')))
+                dropped = copy.deepcopy(config)
+                dropped['generators'] = dropped['generators'][1:]
+                path.write_text(json.dumps(dropped))
+                with self.assertRaisesRegex(ValueError, 'has results'):
+                    matrix.extend(runs[0], path)
+            # One probe again (Recourse after a failed oracle replay): only that probe runs, the others stay.
+            for run in runs:
+                matrix.reset(run, 'recourse', judges=['sweep'])
+            self.assertEqual(len(matrix.pending('judge', ['judge', 'sweep'], runs, ready=True)), 4)
+            kept = [r for r in matrix.collect(runs[0])[0] if r['judge'] == 'judge']
+            self.assertTrue(kept)
+            with patch('src.core.factory_base.get_instance_kvargs', side_effect=scripted):
+                del loaded[:]
+                Context._Context__global = None
+                self.assertEqual(matrix.run_chain('judge', ['judge', 'sweep'], runs), 0)
+            self.assertEqual(loaded, ['scripted-judge'])
+            for run in runs:
+                rows, cells = matrix.collect(run)
+                self.assertTrue(all(cell['status'] == 'complete' for cell in cells), cells)
+                self.assertEqual(len([r for r in rows if r['judge'] == 'sweep']), 2)   # one Recourse row per narrator
+                self.assertEqual(json.loads((run / 'matrix.json').read_text())['resets'][-1]['probe'], 'recourse')
+            self.assertEqual([r for r in matrix.collect(runs[0])[0] if r['judge'] == 'judge'], kept)
+            with self.assertRaisesRegex(ValueError, 'Unknown ids'):
+                matrix.reset(runs[0], 'recourse', judges=['nobody'])
             # The real submission: one sbatch per array, the listing written, the ledger of every run.
             (runs[1] / 'generated/gen-b/generation.json').unlink()
             with patch.object(matrix.subprocess, 'run') as sbatch:
                 sbatch.return_value.stdout = '777\n'
                 matrix.fleet(runs, 3, tier='m')
-            self.assertEqual(len(sbatch.call_args_list), 2)
+            self.assertEqual(len(sbatch.call_args_list), 1)   # gen-b's cells are complete: no evaluators to queue
             listing = Path(sbatch.call_args_list[0].args[0][-1])
-            self.assertEqual(listing.read_text(), f'generator 30 {30 * 1024 + 1024} gen-c {both}\n'
-                                                  f'generator 40 {40 * 1024 + 1024} gen-b {both}\n')
-            self.assertIn('--dependency=afterany:777', sbatch.call_args_list[1].args[0])
+            self.assertEqual(listing.read_text(), f'generator 40 {40 * 1024 + 1024} gen-b {both}\n')
             ledger = [(row['role'], row['id'], row['job_id']) for row in map(json.loads, (runs[1] / 'jobs.jsonl').read_text().splitlines())]
-            self.assertIn(('generator', 'gen-b', '777_1'), ledger)
-            self.assertIn(('judge', 'sweep', '777_0'), ledger)
+            self.assertIn(('generator', 'gen-b', '777_0'), ledger)
 
 
 if __name__ == '__main__':
