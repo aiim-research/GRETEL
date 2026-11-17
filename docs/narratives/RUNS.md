@@ -13,17 +13,16 @@ What `docs/narratives/EXPERIMENTS.md` plans, as Slurm jobs on kalifano. The step
 
 ## Models and probes
 
-Decided on 6 November: the narrators are the models of Gianrico's pilots, newer than the draft's list (Qwen2.5 and Llama-3.1) and already downloaded. Decided on 16 November: everything local for now, each model with its own GPU budget. Decided on 17 November: Gianrico's Tree-Cycles run is reused as it is, so Qwen3.5-27B and GLM-4.7-Flash stay in bf16 as there, and only Gemma-4-31B-it is loaded in FP8 (vLLM quantizes the same bf16 weights while loading), since in bf16 it did not fit in 84 GiB.
+Decided on 6 November: the narrators are the models of Gianrico's pilots, newer than the draft's list (Qwen2.5 and Llama-3.1) and already downloaded. Decided on 16 November: everything local for now, each model with its own GPU budget. Decided on 17 November: Gianrico's Tree-Cycles run is reused as it is, so every model runs as there, in bf16 (GPT-OSS as stored), with budgets measured in his logs. Gemma-4-31B-it needs 93 GiB, most of it KV cache, so it only runs on an H200.
 
 | Role | Models | Class, GiB | As loaded |
 |---|---|---|---|
 | Narrators, scale ladder | Qwen3.5 2B, 4B, 9B | `s`: 12, 18, 28 | bf16 |
-| Narrators, scale ladder | Qwen3.5-27B | `l`: 70 | bf16 |
-| Narrator of another family | Gemma-4-31B-it (`gemma-4-31b-it-fp8`) | `m`: 46 | FP8 online |
+| Narrators, scale ladder | Qwen3.5-27B | `m`: 60 | bf16 |
+| Narrator of another family | Gemma-4-31B-it | `l`: 93 (H200 only) | bf16 |
 | Judge of the three probes and of the Recourse budget sweep, now | GPT-OSS-20B | `s`: 22 | MXFP4, as stored |
-| Robustness judge | GLM-4.7-Flash | `l`: 70 | bf16 |
+| Robustness judge | GLM-4.7-Flash | `m`: 64 | bf16 |
 | Reference judge of the three probes and of the sweep, when a GPU has 71 GiB free | GPT-OSS-120B | `l`: 70 | MXFP4, as stored |
-| FP8 control (`matrix_local_fp8_control.json`, Tree-Cycles) | Qwen3.5-9B in FP8, judged by GPT-OSS-20B | `s`: 20 | FP8 online |
 | Later, with API access | DeepSeek-V3.2 and Gemini 3 Flash (judges), Gemini 2.5 Flash (narrator) | | |
 
 Narrators: vLLM, thinking off and no image or video input, temperature 0.7, top-p 0.95, 4096 output tokens (1024 cut half of the valid answers in the Tree-Cycles run of 17 November), seed 0 (identity: seed 1), context 40 960 tokens (the longest narrator prompts reach about 35 000). No judge reads narratives of its own family. Probes per narrator and pair (GPT-OSS-20B and GPT-OSS-120B): Reconstruction under CTX on/off x MODE dict/full on the three arms. Consistency (inversion, renaming, identity) and Recourse with and without explanation at K = the instance's minimized edit count, on the seed and minimized arms. The sweep, K in 1, 2, 3, 5, 8 on the minimized arm of Tree-Cycles and BBBP. GLM-4.7-Flash: Reconstruction CTX-off/MODE-dict, Consistency and Recourse. If GPT-OSS-120B runs it is the primary judge and GPT-OSS-20B a second size of its family. If it never finds the memory, GPT-OSS-20B is the primary judge.

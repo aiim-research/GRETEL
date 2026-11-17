@@ -80,8 +80,8 @@
     {
       "id": "qwen3.5-27b",
       "family": "qwen",
-      "tier": "l",
-      "gpu_memory_gb": 70,
+      "tier": "m",
+      "gpu_memory_gb": 60,
       "parameters": {
         "model": "Qwen/Qwen3.5-27B",
         "revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
@@ -92,18 +92,17 @@
       }
     },
     {
-      "id": "gemma-4-31b-it-fp8",
+      "id": "gemma-4-31b-it",
       "family": "gemma",
-      "tier": "m",
-      "gpu_memory_gb": 46,
+      "tier": "l",
+      "gpu_memory_gb": 93,
       "parameters": {
         "model": "google/gemma-4-31B-it",
         "revision": "842da3794eaa0b77d5f08bae87a17459d91ff475",
         "limit_mm_per_prompt": {
           "image": 0,
           "video": 0
-        },
-        "quantization": "fp8_per_channel"
+        }
       }
     }
   ],
@@ -181,8 +180,8 @@
     {
       "id": "glm-4.7-flash",
       "family": "glm",
-      "tier": "l",
-      "gpu_memory_gb": 70,
+      "tier": "m",
+      "gpu_memory_gb": 64,
       "parameters": {
         "model": "zai-org/GLM-4.7-Flash",
         "revision": "7dd20894a642a0aa287e9827cb1a1f7f91386b67",

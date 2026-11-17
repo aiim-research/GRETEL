@@ -255,3 +255,21 @@ What has to run, and nothing else:
 Not repeated: the narrator answers that were cut or malformed (6 to 23 %). They are a property of each narrator and are reported as such, and drawing again only the failures would bias the sample. The prompts do not change either, although the narrators reason inside the explanation field, because Tree-Cycles is already narrated with them.
 
 Code for this (`scripts/paper_probe_matrix.py`): a cell is complete when every probe of its judge has results, so `reset --probe recourse` moves the failed Recourse results to `<run>/archive/` and the next fleet runs only Recourse in those cells. `extend` also removes from a run the models that the configuration no longer has, if they produced nothing (the bf16 Gemma of his run). Checked on a copy of his run: extend, reset, and a Recourse pass with a stub judge under NetworkX 3.7 (no oracle error, the 48 Reconstruction and Consistency rows untouched).
+
+## 13. Budgets from the logs, 17 November 2026: no FP8
+
+Gianrico's logs give what each model really takes on the H200 (vLLM 0.33.0, `gpu_memory_utilization` 0.60, that is 84.2 of 140.4 GiB):
+
+| Model | Weights (GiB) | KV cache left (GiB) | Rest: activations, CUDA graphs (GiB) |
+|---|---|---|---|
+| Qwen3.5-2B | 3.6 | 78.9 | 1.8 |
+| Qwen3.5-4B | 7.9 | 74.0 | 2.3 |
+| Qwen3.5-9B | 16.7 | 64.7 | 2.9 |
+| Qwen3.5-27B | 50.1 | 30.6 | 3.6 |
+| Gemma-4-31B-it | 57.9 | 22.6 | 3.7 |
+| GLM-4.7-Flash | 55.8 | 25.2 | 3.2 |
+| GPT-OSS-20B | 13.0 | 68.7 | 2.5 |
+
+Gemma failed because one prompt of 40 960 tokens needs 28.9 GiB of KV cache in vLLM (about 740 KiB per token), and only 22.6 were left. The estimate of section 10, 1.3 to 3.1 GiB for its sliding-window layers, was wrong for this model in this vLLM. So FP8 weights do not solve Gemma: it would still need about 63 GiB. Every model now runs as in Gianrico's run, in bf16, and the FP8 control is dropped. Budgets, as weights plus the KV cache of one maximum-length prompt plus the rest plus a margin: Qwen3.5 2B, 4B and 9B 12, 18 and 28 GiB and GPT-OSS-20B 22 (class `s`), Qwen3.5-27B 60 and GLM-4.7-Flash 64 (class `m`), Gemma-4-31B-it 93 and GPT-OSS-120B 70 (class `l`). The cluster also has 80 GB cards (one of Gemma's earlier attempts got one), so classes `m` and `l` are queued on the H200 node, and a task whose model needs more than its card holds ends at once with exit status 4 instead of waiting 8 days.
+
+Free memory seen by the waiting jobs, every five minutes: median 46.9 GiB, 90th percentile 56.9 GiB, maximum 139.8 GiB, over 755 samples. The samples come only from jobs that were waiting, so they undercount the free periods (two of Gianrico's jobs found 90 GiB on 16 November). Class `s` fits in the usual free memory. Classes `m` and `l` need the less common windows. If Gemma finds no 94 GiB in a week, the fallback is an FP8 KV cache, which halves its 28.9 GiB.

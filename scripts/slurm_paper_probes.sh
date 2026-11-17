@@ -80,6 +80,13 @@ if [ "${SKIP_GPU_WAIT:-0}" != 1 ]; then
   uuid=$(nvidia-smi -i "$gpu" --query-gpu=uuid --format=csv,noheader 2> /dev/null | tr -d ' ' || true)
   need=${MIN_FREE_MB:-30000}
   step=${WAIT_STEP:-60}
+  # The partition also has 80 GB cards: a model that needs more than the card has would wait for nothing.
+  total_mb=$(nvidia-smi -i "$gpu" --query-gpu=memory.total --format=csv,noheader,nounits | tr -d ' ')
+  if [ "$need" -gt "$total_mb" ]; then
+    echo "$(date '+%F %T') $(hostname) GPU $gpu has $total_mb MiB in all and this model needs $need MiB free:" \
+         "queue it on an H200 node (fleet --node <node>)"
+    exit 4
+  fi
   echo "$(date '+%F %T') $(hostname) GPU $gpu ${uuid}: waiting for $need MiB free"
   # One task of this user at a time checks the memory of a GPU and loads its model on it: two tasks that saw
   # the same free memory would both start and one would fail. The lock is held from the check that passes
