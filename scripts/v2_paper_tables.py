@@ -28,11 +28,15 @@ from scipy.stats import wilcoxon
 REPO = Path(__file__).resolve().parent.parent
 DATASETS = ["aids", "bbbp", "bzr", "enzymes", "proteins", "synthie"]
 CELLS = DATASETS + [d + "-m70" for d in DATASETS]
-# (name, scope after "v2-<cell>-sel_"). Arm E (2026-11-15): DBS on the DCEM seeds, and two end-to-end explainers of
-# Abrate et al., OFS with obs and DDBS (DFS with DBS), whose correctness is below 1 (their seeds are their own).
+# (name, scope after "v2-<cell>-sel_"). Arm E (2026-11-15): DBS on the DCEM seeds. The paper compares minimizers on
+# the DCEM seeds only (decision of 2026-11-17): the end-to-end explainers OFS with obs (``ofs_obs``) and DDBS
+# (``dfs_dbs``) ran in arm E but stay out of the tables (they never edit features, and solve 7 to 100 % of instances).
 ARMS = [("DCEM", "dcm_dummy"), ("OBS", "dcm_obs"), ("RHC", "dcm_rhc"), ("bls_v0", "dcm_lcls-v0"), ("bls_v1-F", "dcm_lcls-v1-f"),
         ("control-F", "dcm_lcls-sel-v1-untrained-f"), ("selector_v1-F", "dcm_lcls-sel-v1-f"),
-        ("RHC-B", "dcm_rhc-b"), ("DBS", "dcm_dbs"), ("OFS+obs", "ofs_obs"), ("DDBS", "dfs_dbs")]
+        ("RHC-B", "dcm_rhc-b"), ("DBS", "dcm_dbs")]
+# The three (cell, arm, fold) whose original run did not reproduce (arm D): the tables take the traced rerun ``-t``
+# instead, which is the reproducible one (arm E: the two deterministic repetitions of the AIDS fold equal it, 200/200).
+RERUN = {("aids", "control-F", 9), ("synthie", "selector_v1-F", 9), ("synthie-m70", "selector_v1-F", 2)}
 # The stability table (arm E, optional): bls_v1-F and selector_v1-F with seeds 1 and 2 next to seed 0.
 SEEDS = [("bls_v1-F", "dcm_lcls-v1-f"), ("selector_v1-F", "dcm_lcls-sel-v1-f")]
 KEYS = {"ok": "Correctness", "struct": "StructuralEditDistance", "feat": "MatchedFeatureDistance",
@@ -48,9 +52,7 @@ PAIRS = [("bls_v0", "OBS", ["struct", "ged", "calls"]), ("bls_v0", "RHC", ["stru
          ("selector_v1-F", "RHC", ["struct", "feat", "total", "calls"]),
          ("RHC-B", "bls_v1-F", ["struct", "feat", "total", "calls"]),
          ("RHC-B", "selector_v1-F", ["struct", "feat", "total", "calls"]),
-         ("bls_v0", "DBS", ["struct", "ged", "calls"]), ("DBS", "OBS", ["struct", "ged", "calls"]),
-         ("selector_v1-F", "OFS+obs", ["struct", "feat", "total", "calls"]),
-         ("selector_v1-F", "DDBS", ["struct", "feat", "total", "calls"])]
+         ("bls_v0", "DBS", ["struct", "ged", "calls"]), ("DBS", "OBS", ["struct", "ged", "calls"])]
 
 
 def load(results: Path, scope: str) -> dict:
@@ -80,8 +82,16 @@ def pair(a, b, key, rng):
     p = float(wilcoxon(x, y).pvalue) if np.any(d != 0) else 1.0
     bs = rng.integers(0, len(ids), (2000, len(ids)))
     r = x[bs].mean(1) / np.maximum(y[bs].mean(1), 1e-9) - 1
-    return {"n": len(ids), "rel": x.mean() / max(y.mean(), 1e-9) - 1, "lo": np.quantile(r, .025), "hi": np.quantile(r, .975),
+    return {"n": len(ids), "a": x.mean(), "b": y.mean(), "rel": x.mean() / max(y.mean(), 1e-9) - 1, "lo": np.quantile(r, .025), "hi": np.quantile(r, .975),
             "p": p, "better": int((d < 0).sum()), "ties": int((d == 0).sum()), "worse": int((d > 0).sum())}
+
+
+def cell(r: dict) -> str:
+    """A/B - 1 with its interval; the means themselves when B is zero (a minimizer that never changes a feature)."""
+    star = "*" if r["ph"] < .05 else ""
+    if r["b"] < 1e-6:
+        return f"{r['a']:.2f} frente a 0{star}"
+    return f"{r['rel']:+.1%} [{r['lo']:+.0%}, {r['hi']:+.0%}]{star}"
 
 
 def fold_stats(d: dict, key: str):
@@ -101,6 +111,10 @@ def main(argv=None):
     results = Path(args.results)
     rng = np.random.default_rng(0)
     data = {c: {n: load(results, f"v2-{c}-sel_{s}") for n, s in ARMS} for c in CELLS}
+    for c, n, fold in RERUN:
+        rerun = {k: v for k, v in load(results, f"v2-{c}-sel_{dict(ARMS)[n]}-t").items() if k[0] == fold}
+        if rerun:
+            data[c][n] = {k: v for k, v in data[c][n].items() if k[0] != fold} | rerun
     present = [n for n, _ in ARMS if any(data[c][n] for c in CELLS)]      # arms with results (arm E arrives later)
 
     cols = ["cell", "dataset", "oracle", "arm", "fold", "instance_id", "ok", "struct", "feat", "total", "ged", "calls",
@@ -116,7 +130,9 @@ def main(argv=None):
     md = ["# Tablas del protocolo v2, 12 celdas clásicas, DCEM, folds 0 a 9", "",
           "Generado por `scripts/v2_paper_tables.py` (GRETEL). Costes medios sobre las instancias correctas, media y "
           "desviación típica sobre las medias de los 10 folds. S estructura (StructuralEditDistance), F features "
-          "(MatchedFeatureDistance), total S + F (EditDistance), GED la fórmula exacta del paper 1, llamadas al oráculo.", ""]
+          "(MatchedFeatureDistance), total S + F (EditDistance), GED la fórmula exacta del paper 1, llamadas al oráculo. "
+          "Tres folds cuya ejecución original no se reprodujo usan su repetición trazada `-t`, que es la reproducible: "
+          + ", ".join(f"{n} en {c} fold {f}" for c, n, f in sorted(RERUN)) + ".", ""]
     md += ["## 1. Media por celda y brazo", "",
            "| Celda | Brazo | n | correctas | S | F | total | GED | llamadas |", "|---|---|---|---|---|---|---|---|---|"]
     for c in CELLS:
@@ -151,8 +167,7 @@ def main(argv=None):
         md += [f"### {a} frente a {b}", "", "| Celda | " + " | ".join(keys) + " | gana/empata/pierde (total o S) |",
                "|---|" + "---|" * (len(keys) + 1)]
         for c in CELLS:
-            row = [f"{res[k][c]['rel']:+.1%} [{res[k][c]['lo']:+.0%}, {res[k][c]['hi']:+.0%}]{'*' if res[k][c]['ph'] < .05 else ''}"
-                   for k in keys]
+            row = [cell(res[k][c]) for k in keys]
             ref = res["total" if "total" in keys else "struct"][c]
             md.append(f"| {c} | " + " | ".join(row) + f" | {ref['better']}/{ref['ties']}/{ref['worse']} |")
         md.append("")

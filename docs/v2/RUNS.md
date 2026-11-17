@@ -213,9 +213,11 @@ launchers/slurm_submit.sh -p normal -m 10 -a ${JEC:-$JE} docs/v2/E_STAB.md
 
 ### E6. Home
 
-`make server-import`, then (Claude) `scripts/v2_paper_tables.py` (DBS, OFS+obs and DDBS as arms, the seeds as section 5) and `scripts/v2_traces.py` (the deterministic repetitions in section 0). For RHC-B on COLORS-3: bls_v1-F's mean minimizer calls of its two cells go into `docs/v2/RHC_BUDGET.json`, then `scripts/gen_v2_configs.py`, `scripts/gen_v2_queues.py` and a short queue of its 20 configs.
+`make server-import`, then (Claude) `scripts/v2_paper_tables.py` (DBS as an arm, the seeds as section 5) and `scripts/v2_traces.py` (the deterministic repetitions in section 0). For RHC-B on COLORS-3: bls_v1-F's mean minimizer calls of its two cells go into `docs/v2/RHC_BUDGET.json`, then `scripts/gen_v2_configs.py`, `scripts/gen_v2_queues.py` and a short queue of its 20 configs.
 
 **What to check when it arrives.** OFS and DFS are not correct on every instance (0.833 on BBBP fold 0 for OFS): the paper compares costs on the instances every explainer gets right and reports correctness as a row. DBS starts from the same DCEM seeds as obs and edits only edges, like obs, so it sits with the other methods and is compared in structure (paper 1's metric).
+
+**Results (2026-11-17).** `E.md` complete, 362 of 362, no failures. DBS on the DCEM seeds loses to obs in structure in the 12 cells at the same calls (+2 % on ENZYMES to +96 % on Synthie) and to bls_v0 in the 12, so it joins obs among the other minimizers. OFS with obs and DDBS never edit a feature (F = 0) and solve 7 % to 100 % of the instances (about 10 % on ENZYMES, 20 % for DDBS on AIDS); the paper compares minimizers on the DCEM seeds only, so they stay out of the tables (decision of 2026-11-17; their results remain under `v2-<cell>-sel_ofs_obs` and `_dfs_dbs`). The deterministic repetitions refute the float-sum explanation: `-d1` and `-d2` equal each other and the non-deterministic traced rerun `-t` (200/200), and the original fold 9 differs from its first instance with the same node, caches, instance order and code. The original is the outlier, cause unknown, and `v2_paper_tables.py` takes the `-t` rerun for the three folds (`RERUN`).
 
 ## Phase 0 (done, for the record)
 
