@@ -150,7 +150,7 @@ The selector paper is written (`~/projects/phd/3-2026-11-*/article-es/`). Arm E 
 | `E.md`, first two lines | the AIDS control-F fold 9 (the arm-D fold that did not reproduce) twice with deterministic PyTorch on one CPU thread (`dcm-lcls-sel-v1-untrained-f-d1`, `-d2`, parameter `deterministic`): if the two coincide, the three folds of arm D differed because of multithreaded float sums (the article's note "determinismo") | 2 |
 | `E.md` | DBS on the DCEM seeds (`dcm/dcm-dbs`), OFS with obs (`ofs/ofs-obs`, the coupled explainer of Abrate et al., for the global comparison) and DDBS (`dfs/dfs-dbs`, their data-driven explainer), 12 classic cells | 360 |
 | `E_COLORS.md` | the same three arms on the two COLORS-3 cells (DBS needs the DCEM seeds of `D_COLORS_A`) | 60 |
-| `E_STAB.md` (optional) | bls_v1-F and selector_v1-F with seeds 1 and 2 (`-s1`, `-s2`), the stability table the article still has to decide on | 480 |
+| `E_STAB.md` | selector_v1-F with seeds 1 and 2 (`-s1`, `-s2`), the stability table (decided 2026-11-17: the selector only, against bls_v1-F at seed 0) | 240 |
 | later | RHC at bls_v1-F's budget on COLORS-3, once its fleet is home (its budget comes from those runs) | 20 |
 
 **DBS and DFS without padding.** Their prior counted edges by node index (Abrate and Bonchi's, meaningful only when node i is the same node in every graph, as in ASD), so v2 left them out. Arm E runs them with the type-pair prior (`prior: "type_pair"`, `src/explainer/future/utils/data_driven_priors.py`): the edges of the fold's training graphs counted by the types of their endpoints, per class and divided by the number of graphs of each side. The node type per dataset is `NODE_TYPES` in `scripts/gen_v2_configs.py`: the one-hot label of the TU datasets (atom in AIDS and BZR, secondary-structure element in ENZYMES and PROTEINS), the atomic number in BBBP, the five binary columns in COLORS-3, and 10 k-means clusters of the features in Synthie. With the node index as the type and no normalisation it is exactly the index prior (`tests/data_driven_priors_unit.py`). DBS keeps the fleet's obs settings (`max_oc` 4000, batches of 5), DFS OFS's (`max_oc` 2000, batches of 5).
@@ -205,11 +205,16 @@ echo "D_COLORS_A $JA   D_COLORS_C $JC   E_COLORS $JEC"
 
 If E has already left the queue, drop `-a $JE`. If the COLORS-3 fleet ran before, only the last line, with `-a $JE`.
 
-### E5. The stability table (only if decided)
+### E5. The stability table
+
+After the COLORS-3 queue, so the two never exceed 10 jobs together (`JEC` is the E_COLORS job id printed in E4; if the shell lost it, `squeue -u $USER` shows it):
 
 ```bash
-launchers/slurm_submit.sh -p normal -m 10 -a ${JEC:-$JE} docs/v2/E_STAB.md
+cd ~/projects/GRETEL && git pull && conda activate GRTL
+JS=$(launchers/slurm_submit.sh -p normal -m 10 -a $JEC docs/v2/E_STAB.md | sed -n 's/^JOBS //p'); echo "E_STAB $JS"
 ```
+
+It reuses the DCEM seeds and the sel2fm-pre checkpoints of the fleet (no warm job). `v2_paper_tables.py` writes the table as section 5 when the results come home: the selector's total with seeds 0, 1 and 2, and each seed against bls_v1-F with Holm across the 12 cells.
 
 ### E6. Home
 

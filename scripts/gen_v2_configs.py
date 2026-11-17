@@ -362,9 +362,10 @@ def suffix_twin(rel: str, data: dict, suffix: str, **params) -> tuple[str, dict]
 
 
 # Arm E: the fold of arm D whose control-F run did not reproduce (AIDS, fold 9), twice with deterministic PyTorch on
-# one thread; and bls_v1-F and selector_v1-F with seeds 1 and 2 on the 12 classic cells (the stability table).
+# one thread; and selector_v1-F with seeds 1 and 2 on the 12 classic cells (the stability table; the selector only,
+# decided 2026-11-17: its seed 0 is the fleet's run, and bls_v1-F stays at seed 0 as the reference).
 DETERMINISTIC = ("aids", "dcm-lcls-sel-v1-untrained-f", 9)
-SEED_TWINS = ("dcm-lcls-v1-f", "dcm-lcls-sel-v1-f")
+SEED_TWINS = ("dcm-lcls-sel-v1-f",)
 
 
 def paper1_configs() -> list[str]:

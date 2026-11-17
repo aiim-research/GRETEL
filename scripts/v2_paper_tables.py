@@ -37,8 +37,9 @@ ARMS = [("DCEM", "dcm_dummy"), ("OBS", "dcm_obs"), ("RHC", "dcm_rhc"), ("bls_v0"
 # The three (cell, arm, fold) whose original run did not reproduce (arm D): the tables take the traced rerun ``-t``
 # instead, which is the reproducible one (arm E: the two deterministic repetitions of the AIDS fold equal it, 200/200).
 RERUN = {("aids", "control-F", 9), ("synthie", "selector_v1-F", 9), ("synthie-m70", "selector_v1-F", 2)}
-# The stability table (arm E, optional): bls_v1-F and selector_v1-F with seeds 1 and 2 next to seed 0.
-SEEDS = [("bls_v1-F", "dcm_lcls-v1-f"), ("selector_v1-F", "dcm_lcls-sel-v1-f")]
+# The stability table (arm E): selector_v1-F with seeds 1 and 2 next to seed 0, each against bls_v1-F (seed 0).
+SEEDS = [("selector_v1-F", "dcm_lcls-sel-v1-f")]
+REF = ("bls_v1-F", "dcm_lcls-v1-f")
 KEYS = {"ok": "Correctness", "struct": "StructuralEditDistance", "feat": "MatchedFeatureDistance",
         "ged": "GraphEditDistance", "calls": "OracleCalls", "runtime": "Runtime", "sparsity": "Sparsity"}
 PAPER1 = {"synthie": (201.41, 2.16, 185.22), "bbbp": (18.98, 3.20, 14.43), "enzymes": (58.46, 2.55, 14.46),
@@ -200,12 +201,13 @@ def main(argv=None):
                 row += [f"{v.get('base_rate', float('nan')):.3f}", f"{fin.get('auc_flip', float('nan')):.3f}",
                         f"{fin.get('skill', float('nan')):+.3f}"]
             md.append("| " + " | ".join(row) + " |")
-    seeds = {(n, k): {c: load(results, f"v2-{c}-sel_{sc}" + (f"-s{k}" if k else "")) for c in CELLS}
-             for n, sc in SEEDS for k in (0, 1, 2)}
+    seeds = {(n, k): {c: data[c][n] if k == 0 else load(results, f"v2-{c}-sel_{sc}-s{k}") for c in CELLS}
+             for n, sc in SEEDS for k in (0, 1, 2)}     # seed 0 is the fleet's run, with the RERUN folds
     if any(seeds[(n, 1)][c] for n, _ in SEEDS for c in CELLS):
         md += ["", "## 5. Estabilidad frente a la semilla del minimizador (semillas 0, 1 y 2)", "",
                "Total S + F medio por semilla (instancias correctas, los diez folds) y su media ± desviación entre "
-               "semillas. Diferencia relativa del selector frente a bls_v1-F con cada semilla.", "",
+               "semillas. Diferencia relativa de cada semilla del selector frente a bls_v1-F (semilla 0): la "
+               "significación es Wilcoxon pareado con Holm sobre las 12 celdas, como en la sección 2.", "",
                "| Celda | Brazo | semilla 0 | semilla 1 | semilla 2 | media ± desv. |", "|---|---|---|---|---|---|"]
         for c in CELLS:
             for n, _ in SEEDS:
@@ -213,12 +215,15 @@ def main(argv=None):
                      else float("nan") for k in (0, 1, 2)]
                 md.append(f"| {c} | {n} | " + " | ".join(f"{x:.2f}" for x in m) + f" | {np.nanmean(m):.2f} ± {np.nanstd(m):.2f} |")
         md += ["", "| Celda | selector frente a bls_v1-F, semilla 0 | semilla 1 | semilla 2 |", "|---|---|---|---|"]
+        ref = {c: data[c][REF[0]] for c in CELLS}
+        res = {k: {c: pair(seeds[("selector_v1-F", k)][c], ref[c], "total", rng) if seeds[("selector_v1-F", k)][c] else None
+                   for c in CELLS} for k in (0, 1, 2)}
+        for k in (0, 1, 2):
+            ok = [c for c in CELLS if res[k][c]]
+            for c, p in zip(ok, holm([res[k][c]["p"] for c in ok])):
+                res[k][c]["ph"] = p
         for c in CELLS:
-            row = []
-            for k in (0, 1, 2):
-                a, b = seeds[("selector_v1-F", k)][c], seeds[("bls_v1-F", k)][c]
-                row.append(f"{pair(a, b, 'total', rng)['rel']:+.1%}" if a and b else "")
-            md.append(f"| {c} | " + " | ".join(row) + " |")
+            md.append(f"| {c} | " + " | ".join(cell(res[k][c]) if res[k][c] else "" for k in (0, 1, 2)) + " |")
     (out / "tablas.md").write_text("\n".join(md) + "\n")
     print(f"wrote {out / 'por_instancia.csv'} and {out / 'tablas.md'}")
 
