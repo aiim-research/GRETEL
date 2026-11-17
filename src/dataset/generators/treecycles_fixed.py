@@ -4,6 +4,7 @@ import networkx as nx
 import numpy as np
 
 from src.dataset.generators.base import Generator
+from src.dataset.generators.treecycles_rand import random_tree
 from src.dataset.instances.graph import GraphInstance
 
 
@@ -57,11 +58,11 @@ class TreeCyclesFixed(Generator):
                 for _ in range(self.num_cycles):
                     cycles.append(nx.cycle_graph(self.cycle_size))
 
-                tc_graph = self._join_graphs_as_adj(nx.random_tree(n=left, seed=tree_rng), cycles, rng)
+                tc_graph = self._join_graphs_as_adj(random_tree(left, tree_rng), cycles, rng)
                 self.dataset.instances.append(GraphInstance(id=i, data=tc_graph, label=1))
             else:
                 # Generating a random tree containing all the nodes of the instance
-                t_graph = nx.random_tree(n=self.num_nodes_per_instance, seed=tree_rng)
+                t_graph = random_tree(self.num_nodes_per_instance, tree_rng)
                 self.dataset.instances.append(GraphInstance(id=i, data=nx.to_numpy_array(t_graph), label=0))
 
             self.context.logger.info("Generated instance with id:"+str(i))

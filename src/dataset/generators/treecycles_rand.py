@@ -7,6 +7,19 @@ from src.dataset.generators.base import Generator
 from src.dataset.instances.graph import GraphInstance
 
 
+def random_tree(n, rng):
+    """A uniformly random tree on the nodes 0..n-1: NetworkX's ``random_tree`` up to 3.3, which 3.4 removed.
+
+    The same draws in the same order (a random Prufer sequence of length n - 2 from ``rng``, a ``random.Random``)
+    and the same conversion, so a dataset generated with any NetworkX version is the one generated before.
+    ``random_labeled_tree``, its replacement, draws differently and would change every Tree-Cycles dataset."""
+    if n < 1:
+        raise ValueError('A tree needs at least one node')
+    if n == 1:
+        return nx.empty_graph(1)
+    return nx.from_prufer_sequence([rng.choice(range(n)) for _ in range(n - 2)])
+
+
 class TreeCyclesRand(Generator):
     """Random trees (label 0) and random trees with cycles of random sizes attached (label 1).
 
@@ -54,12 +67,12 @@ class TreeCyclesRand(Generator):
                     budget -= num_nodes
 
                 left += budget
-                tc_graph = self._join_graphs_as_adj(nx.random_tree(n=left, seed=tree_rng), cycles, rng)
+                tc_graph = self._join_graphs_as_adj(random_tree(left, tree_rng), cycles, rng)
 
                 self.dataset.instances.append(GraphInstance(id=i, data=tc_graph, label=1))
             else:
                 # Generating a random tree containing all the nodes of the instance
-                t_graph = nx.random_tree(n=self.num_nodes_per_instance, seed=tree_rng)
+                t_graph = random_tree(self.num_nodes_per_instance, tree_rng)
                 self.dataset.instances.append(GraphInstance(id=i, data=nx.to_numpy_array(t_graph), label=0))
 
             self.context.logger.info("Generated instance with id:"+str(i))

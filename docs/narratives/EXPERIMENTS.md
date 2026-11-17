@@ -213,3 +213,26 @@ Classes s and m fit in the 54 GB that were free. In bf16 the three models of cla
 **Judge validation V0.** `matrix_v0.json` has the same judges with the same budgets and the FP8 GLM, so V0 validates the judges as the matrix runs them.
 
 **Checked and not checked.** Unit tests of the chains, the classes and the idempotence with scripted models (`tests/narrative_arms_unit.py`, `tests/paper_probes_unit.py`), the Slurm script against a simulated GPU (wait, timeout, late memory, three concurrent tasks on one card), a real load test with vLLM 0.33.0 on the laptop GPU (budget in GiB, FP8 online), and a dry run of the three classes over the real pairs. Nothing has run on the server yet: the budgets are estimates until `fit` prints vLLM's own numbers.
+
+## 11. First results, 17 November 2026: Tree-Cycles from Gianrico's account
+
+Gianrico's earlier queue (before plan C) finished on the H200 of compute-2-3, with a 92 000 MB free-memory threshold and `gpu_memory_utilization` 0.60: run `narr-matrix/tcr64-20b-h200-longwait`, the same frozen pairs as ours (content fingerprint `b1d70dd...`), narrators in bf16 with 4096 output tokens, judges GPT-OSS-20B and GLM-4.7-Flash in bf16, and self-evaluation. The analysis below reads his `matrix-summary.json` and the per-instance records.
+
+**What ran.** Qwen3.5 2B, 4B, 9B and 27B narrated everything. Gemma-4-31B-it did not start (a KV-cache limit at startup, log not seen yet). Recourse failed in every cell with an oracle error: `nx.random_tree` was removed in NetworkX 3.4 and `GRTL-llm` has 3.7, so the Tree-Cycles dataset could not be rebuilt for the oracle. Fixed on 17 November (`random_tree` in `treecycles_rand.py`, the same draws as NetworkX 3.2.1: the dataset rebuilt with 3.7 is identical, and the oracle reproduces the 600 labels of the pairs). BBBP and AIDS replay their oracles under NetworkX 3.7 without changes.
+
+**Narrator outputs.** Valid two-part answers: 77 % (2B), 84 % (4B), 85 % (9B), 94 % (27B). About half of the failures are answers cut at 4096 tokens, most of them repetition loops: the narrators trace cycles node by node inside the explanation field (thinking is off, so they reason there). The rest are malformed objects (duplicate fields, an object written twice, a missing empty field). Half of the valid answers are longer than 1024 tokens, so the plan's 1024 would have lost them: the local configurations now use 4096.
+
+**Reconstruction is a function of the size of the edit set.** CTX-off/MODE-dict edge F1 with GPT-OSS-20B (GLM-4.7-Flash agrees to within 0.03 in every cell):
+
+| Narrator | Minimized (median 1 edit) | Random subset (median 1.5) | Seed (median 113) |
+|---|---|---|---|
+| Qwen3.5-2B | 0.99 | 0.99 | 0.20 |
+| Qwen3.5-4B | 0.99 | 1.00 | 0.25 |
+| Qwen3.5-9B | 1.00 | 0.98 | 0.17 |
+| Qwen3.5-27B | 1.00 | 0.99 | 0.23 |
+
+On the seed arm precision stays high (0.85 to 0.98) and recall falls to 0.10 to 0.17: the narrative names the few edits that make or break a cycle and leaves out the hundred that do not matter. On Tree-Cycles the minimized and the random-subset arms are equally easy, so RQ5 cannot separate minimality from size here. CTX-on changes nothing. MODE-full scores 1.0 everywhere, because the judge reads the narrator's own `edits` field: under the two-part schema MODE-full measures copying, not the narrative (risk R3 of the paper's TODO).
+
+**Consistency is near its ceiling.** With GPT-OSS-20B, over both arms, identity is 0.83 to 1.0, inversion 0.84 to 0.99 and renaming 0.85 to 0.97, the lowest value of each being Qwen3.5-2B. Only Qwen3.5-2B on the seed arm falls clearly (0.63 to 0.80). The domain text states the classification rule and how an edit makes or breaks a cycle, so the mechanism is given to the narrator. Most of the renaming drop is the judge's: in 7 of the 10 renaming verdicts that GPT-OSS-20B called incompatible for Qwen3.5-27B, the edges named in A, mapped through NODE MAPPING, are exactly the edges named in B (the judge compares raw indices at `reasoning_effort` low). V0 has to test the renaming case. Agreement between the two judges is 0.87 to 0.98, with kappa 0.14 to 0.47, low because almost every verdict is "compatible". Self-evaluation of the inversion test is within 0.06 of the external judges.
+
+**Open.** Recourse has to be judged again (narratives unchanged). Gemma needs its log. Whether these bf16 narratives become the Tree-Cycles run of the paper, and so whether the 27B narrator and GLM stay in bf16 on the other datasets, is to be decided.
