@@ -1,12 +1,12 @@
 # Narrative paper, the model matrix on shared GPUs (Gianrico's account)
 
-Updated 17 November 2026, after your Tree-Cycles run and the memory numbers of its logs. Overview: `RUNS.md`. Why and what it means for the paper: `EXPERIMENTS.md`, sections 10 to 12.
+Updated 19 November 2026, after the Recourse check on Tree-Cycles. Overview: `RUNS.md`. Why and what it means for the paper: `EXPERIMENTS.md`, sections 10 to 14.
 
 **Where we are.** Your run `narr-matrix/tcr64-20b-h200-longwait` is kept and completed, not repeated: the narratives of Qwen3.5 2B, 4B, 9B and 27B and their Reconstruction and Consistency results (GPT-OSS-20B, GLM-4.7-Flash, self-evaluation) are final. What is left:
 
 | What | Why |
 |---|---|
-| Recourse on Tree-Cycles, judges only | It failed because NetworkX 3.7 no longer has `nx.random_tree`. Fixed in `dev` (the same trees as before) |
+| Recourse on Tree-Cycles with GLM-4.7-Flash | GPT-OSS-20B already did it (18 November, step 4). GLM comes with class `m` |
 | Gemma-4-31B-it on the three datasets, in bf16 | It needs 91 GiB: 58 of weights and 29 of KV cache for one 40 960-token prompt, and your jobs gave it 84 |
 | BBBP and AIDS, everything | Nothing ran there yet |
 | GPT-OSS-120B on the three datasets | Whenever a GPU has 71 GiB free |
@@ -44,7 +44,14 @@ git checkout -f -B dev origin/dev
 git log --oneline -1                             # the latest commit of dev
 ```
 
-If you already did this, run only `git fetch origin && git checkout -f -B dev origin/dev` again: the budgets changed on the 17th.
+You did this on the 17th, but before the last change of that evening: your run still lists Gemma in FP8 (`gemma-4-31b-it-fp8`) and GLM with 70 GiB. Run only this again:
+
+```bash
+git fetch origin && git checkout -f -B dev origin/dev
+git log --oneline -1                             # a commit of 19 November
+```
+
+Since the 19th a task that loses its memory to another user while its model loads (vLLM says "is less than desired GPU memory utilization", as GLM's test did on the 18th) goes back to waiting by itself, up to 50 times. Its log says "waiting for it again".
 
 If you never warmed the AIDS raw data (the Recourse probe rebuilds the molecules for the oracle), do it once:
 
@@ -52,10 +59,10 @@ If you never warmed the AIDS raw data (the Recourse probe rebuilds the molecules
 sbatch -p normal --wrap "bash -lc 'conda activate GRTL && python tools/warm_dataset.py lab/config/narratives/pairs/aids/generate_minimize0.jsonc'"
 ```
 
-**Step 2. Load test** (`fit`). Each model of classes `s` and `m` is loaded on the real GPU exactly as the matrix will load it, with its budget, and answers the longest prompt of the pairs. A budget that is too tight shows here and costs minutes. One job per model, each waiting for its own memory (class `l` is not tested: its test would wait as long as its real job):
+**Step 2. Load test** (`fit`). Each model of classes `s` and `m` is loaded on the real GPU exactly as the matrix will load it, with its budget, and answers the longest prompt of the pairs. A budget that is too tight shows here and costs minutes. One job per model, each waiting for its own memory (class `l` is not tested: its test would wait as long as its real job). GPT-OSS-20B passed on the 18th, and the FP8 test of Gemma is gone, so what is left is the three small Qwen models and class `m`:
 
 ```bash
-python scripts/paper_probe_matrix.py fit --max 3 --tier s --config lab/config/narratives/matrix_local.json $PAIRS
+python scripts/paper_probe_matrix.py fit --max 3 --model qwen3.5-2b --model qwen3.5-4b --model qwen3.5-9b --config lab/config/narratives/matrix_local.json $PAIRS
 python scripts/paper_probe_matrix.py fit --max 2 --tier m --node compute-2-3 --config lab/config/narratives/matrix_local.json $PAIRS
 squeue -u $USER -o "%.16i %.14j %.9T %.11M %R"
 ```
@@ -70,12 +77,12 @@ grep -l "FIT" lab/output/logs/slurm_*.out | xargs grep -h "FIT \|Model loading t
 Send Rodrigo the second output. What to do with each result:
 
 - `FIT OK` for a model: its class can go (steps 4 to 6). Do not wait for the others.
-- `FIT FAILED` with "is less than desired GPU memory utilization": another user took the memory between the check and the load. Run that test again (`fit --model <id>` with the same other arguments).
+- `FIT FAILED` with "is less than desired GPU memory utilization": the memory was taken 50 times in a row while loading. Run that test again (`fit --model <id>` with the same other arguments).
 - `FIT FAILED` with "No available memory for the cache blocks", or "KV cache is needed, which is larger than the available KV cache memory": the budget is short. Run it again with more, e.g. `--memory qwen3.5-27b=66`, and tell Rodrigo the value that passes.
 - `FIT FAILED` with anything else: send Rodrigo the last 30 lines of that job's log.
 - A test still waiting after two days: tell Rodrigo, with the "MiB free" lines of its log.
 
-**Step 3. Prepare the runs** (CPU jobs, minutes). BBBP and AIDS get new runs, with the frozen pairs and their hashes.
+**Step 3. Prepare the runs** (CPU jobs, minutes). BBBP and AIDS get new runs, with the frozen pairs and their hashes. If you already prepared them with the code of the 17th, do not prepare them again: the `extend` below brings them to the new configuration.
 
 ```bash
 for d in bbbp aids; do
@@ -84,17 +91,16 @@ done
 tail -qn1 lab/output/logs/matrix_prepare_*.out      # Matrix: .../narr-local/<run>, twice
 ```
 
-Your Tree-Cycles run is brought to the same configuration instead (JSON only, seconds). `extend` adds GPT-OSS-120B and sets the budgets. `reset` moves the failed Recourse results to the archive, so those cells do Recourse again and nothing else:
+Your Tree-Cycles run was brought to the configuration of the 17th on the 18th (`extend` and `reset`). Do not run `reset` again: it would move GPT-OSS-20B's new Recourse results to the archive. Only `extend`, on the three runs, which puts Gemma back in bf16 (the FP8 entry produced nothing, so it goes to the archive) and sets the new budgets:
 
 ```bash
-python scripts/paper_probe_matrix.py extend --config lab/config/narratives/matrix_local.json --run-root $TCR
-python scripts/paper_probe_matrix.py reset --probe recourse --judge gpt-oss-20b --judge gpt-oss-20b-sweep --judge glm-4.7-flash --run-root $TCR
+python scripts/paper_probe_matrix.py extend --config lab/config/narratives/matrix_local.json $RUNS
 python scripts/paper_probe_matrix.py summary --run-root $TCR
 ```
 
-The last command should print four narrators done and Gemma missing, and `{'complete': 4, 'error': 4, 'pending': 22}`. The four complete cells are the self-evaluations, which have no Recourse. The four errors are Gemma's failed start of the 16th: they are retried once Gemma has narrated.
+For Tree-Cycles the first command should print `added: ['generator:gemma-4-31b-it'] | removed (nothing produced, moved to archive/): ['generator:gemma-4-31b-it-fp8']`, and the second four narrators done, `gemma-4-31b-it` missing and `{'complete': 12, 'error': 0, 'pending': 18}`. The twelve complete cells are the self-evaluations and GPT-OSS-20B's eight. The eighteen pending: GLM's Recourse for the four Qwen narrators, GPT-OSS-120B (and its sweep) for them, and Gemma's six cells.
 
-**Step 4. Recourse on Tree-Cycles: the sanity check.** It is the only probe that never ran, so it goes first and alone. GPT-OSS-20B judges Recourse for the four narrators and the budget sweep with one load:
+**Step 4. Recourse on Tree-Cycles: the sanity check. Done on 18 November** (24 conditions, no `oracle_error`, 9 h; the results are in `EXPERIMENTS.md`, section 14). For the record, it was: GPT-OSS-20B judges Recourse for the four narrators and the budget sweep with one load:
 
 ```bash
 python scripts/paper_probe_matrix.py fleet --max 3 --tier s --run-root $TCR
@@ -108,9 +114,8 @@ grep recourse $TCR/matrix-summary.csv | cut -d, -f1-6
 sacct -u $USER -S 2026-11-17 --format=JobID%18,JobName%12,State,Elapsed | grep "pm-"
 ```
 
-Send Rodrigo the Recourse lines and the times, and wait for his go. The status counts must show no `oracle_error`.
 
-**Step 5. Class `s` on the three datasets, and class `m`.** After Rodrigo's go, and for class `m` after its two load tests passed:
+**Step 5. Class `s` on the three datasets, and class `m`.** Rodrigo's go is given (19 November). Class `s` after its three load tests passed, class `m` after its two:
 
 ```bash
 python scripts/paper_probe_matrix.py fleet --max 3 --tier s $RUNS
@@ -138,7 +143,7 @@ If Gemma has not found 94 GiB after a week, tell Rodrigo: the fallback is a lowe
 |---|---|---|
 | A task ends with exit status 3, its log says "never ... MiB free" | The memory never appeared in 8 days | Launch the class again, and tell Rodrigo |
 | A task ends at once with exit status 4, its log says "queue it on an H200 node" | It got an 80 GB card and its model needs more | Launch the class again with `--node <H200 node>` |
-| Log: "is less than desired GPU memory utilization" | Another user took the memory between the check and the load | Launch the class again |
+| Log: "is less than desired GPU memory utilization", then "waiting for it again" | Another user took the memory while the model was loading | Nothing: the task waits again by itself. If it ends with that error (50 times in a row), launch the class again |
 | Log: "No available memory for the cache blocks" | The model's budget is short | Launch again with `--memory <id>=<GiB>`, and tell Rodrigo |
 | `summary` shows `error` cells | Read `<run>/probes/<narrator>/<judge>/error.json` | Launch the class again: it retries them. If it repeats, send the file |
 | A job hits the 10-day limit | The cells already complete are kept, the one in progress starts again | Launch the class again |
@@ -162,4 +167,4 @@ git switch dev
 
 Then open (or update) a pull request from `GianFor:narr-results` into `aiim-research:dev`.
 
-**What to send Rodrigo, in order:** the numbers of the load test (step 2), the Recourse lines and times of step 4, and anything that says FAILED or error.
+**What to send Rodrigo, in order:** the numbers of the load tests (step 2), the output of `extend` and `summary` (step 3), and anything that says FAILED or error.

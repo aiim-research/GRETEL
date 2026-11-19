@@ -273,3 +273,30 @@ Gianrico's logs give what each model really takes on the H200 (vLLM 0.33.0, `gpu
 Gemma failed because one prompt of 40 960 tokens needs 28.9 GiB of KV cache in vLLM (about 740 KiB per token), and only 22.6 were left. The estimate of section 10, 1.3 to 3.1 GiB for its sliding-window layers, was wrong for this model in this vLLM. So FP8 weights do not solve Gemma: it would still need about 63 GiB. Every model now runs as in Gianrico's run, in bf16, and the FP8 control is dropped. Budgets, as weights plus the KV cache of one maximum-length prompt plus the rest plus a margin: Qwen3.5 2B, 4B and 9B 12, 18 and 28 GiB and GPT-OSS-20B 22 (class `s`), Qwen3.5-27B 60 and GLM-4.7-Flash 64 (class `m`), Gemma-4-31B-it 93 and GPT-OSS-120B 70 (class `l`). The cluster also has 80 GB cards (one of Gemma's earlier attempts got one), so classes `m` and `l` are queued on the H200 node, and a task whose model needs more than its card holds ends at once with exit status 4 instead of waiting 8 days.
 
 Free memory seen by the waiting jobs, every five minutes: median 46.9 GiB, 90th percentile 56.9 GiB, maximum 139.8 GiB, over 755 samples. The samples come only from jobs that were waiting, so they undercount the free periods (two of Gianrico's jobs found 90 GiB on 16 November). Class `s` fits in the usual free memory. Classes `m` and `l` need the less common windows. If Gemma finds no 94 GiB in a week, the fallback is an FP8 KV cache, which halves its 28.9 GiB.
+
+## 14. Recourse on Tree-Cycles, 19 November 2026: GPT-OSS-20B
+
+Gianrico's job of 18 November (one load of GPT-OSS-20B, 9 h 07 min) judged Recourse for the four Qwen narrators at the record budget (K = the number of edits of the minimized counterfactual, for both arms) and at the sweep K = 1, 2, 3, 5 and 8. All 24 conditions have results and none has an `oracle_error`, so the NetworkX fix of section 11 holds. Reminder of the probe: the judge sees the factual graph, the ORIGINAL EDITS, the domain text and the target class, and proposes a different edit set of at most K edits, once with the narrator's explanation and once without it. A proposal succeeds when the oracle gives the target class. The minimized arm runs at every K, and the seed arm only at the record budget.
+
+He ran the code of the afternoon of 17 November, so his run lists Gemma as `gemma-4-31b-it-fp8`. `extend` with the current configuration puts it back in bf16 and leaves the twelve finished cells alone (checked on a copy of the run: `{'complete': 12, 'error': 0, 'pending': 18}`). His GLM load test failed because vLLM found 12.8 GiB free at startup: another user took the memory in the minute between our check and vLLM's. Since this update the Slurm script recognizes that error and waits for the memory again (at most 50 times).
+
+Minimized arm, the four narrators pooled (400 pairs per K; unparsed narratives count as failures in both arms):
+
+| K | With explanation | Without | Difference | Only with : only without | McNemar p |
+|---|---|---|---|---|---|
+| record | 0.69 | 0.53 | +0.16 | 80 : 15 | < 0.0001 |
+| 1 | 0.47 | 0.48 | -0.01 | 6 : 11 | 0.33 |
+| 2 | 0.54 | 0.48 | +0.05 | 28 : 7 | 0.0005 |
+| 3 | 0.67 | 0.51 | +0.16 | 75 : 11 | < 0.0001 |
+| 5 | 0.69 | 0.53 | +0.16 | 82 : 17 | < 0.0001 |
+| 8 | 0.72 | 0.56 | +0.16 | 86 : 21 | < 0.0001 |
+
+At the record budget, per narrator: Qwen3.5-2B +0.12 (p 0.017), 4B +0.18 (p < 0.001), 9B +0.08 (p 0.10), 27B +0.27 (0.88 against 0.61, p < 0.001). The larger narrator helps more, as in Reconstruction.
+
+The effect comes entirely from one direction. Going from a tree to class 1 (49 of the 100 pairs) takes one added edge anywhere, and both arms succeed 95 to 98 % at every K. Going from class 1 to a tree (51 pairs) needs one removed edge per cycle, and the minimized counterfactual removes exactly that many (record budget 1 to 5, usually 3). A proposal that removes fewer edges than the original never succeeds (0 of 342 with the explanation, 0 of 664 without). Without the explanation the judge usually removes a single edge (612 of its 1018 proposals), and with it the judge removes one per cycle that the explanation describes. Success towards the tree class: 0.63 against 0.28 at the record budget, 0.60 to 0.70 against 0.23 to 0.31 at K = 3, 5 and 8. Among proposals that remove the right number of edges the explanation still helps (0.75 against 0.64), since it says where the cycles are. The judge sees ORIGINAL EDITS in both arms, so this is information beyond the edit list: how many cycles there are and which edges close them.
+
+At K = 1 and 2 the sweep is capped by the task, not by the explanation. Only 32 of the 178 tree-bound pairs have one cycle and 62 have at most two, so 0.18 and 0.35 are the ceilings, and K = 1 gives 0.17 in both arms. With the explanation the judge more often refuses an impossible budget (52 of its 59 empty proposals have K below the number of cycles), which counts as a failure here. The explanation also costs something: 72 proposals with it (17 without) remove an edge the graph does not have, and 48 of the 72 take that edge from the explanation, which described a cycle that is not there.
+
+The seed arm gives 0.35 in both arms. Its budget is the minimized size (1 to 5 edits) while its original has about 110 edits, which a proposal may not reuse. Towards class 1 both arms succeed 138 of 168 times. Towards the tree class almost nothing works (4 and 3 of 182): the edges that break the cycles are mostly among the seed's 110, so two thirds of the proposals are `reused_original`. The condition says little about the explanation and can stay out of the main table.
+
+For the paper: on Tree-Cycles Recourse shows that the explanation carries usable information beyond the edit list, which Reconstruction cannot show there (section 11: it is near its ceiling). It does so only for the direction that requires knowing the structure, and only from K equal to the number of cycles. Report the record budget and K ≥ 3, with the direction split. GLM-4.7-Flash (class `m`) and GPT-OSS-120B (class `l`) will say whether the effect depends on the judge.

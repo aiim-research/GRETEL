@@ -4,7 +4,7 @@ Since 6 November every GPU run is in Gianrico's account (`RUNS_GIANRICO.md`): hi
 
 **Plan C (16 November).** Everything local, each model with its own GPU budget, in three memory classes (`EXPERIMENTS.md`, section 10). On this side:
 
-- Read what Gianrico sends and answer (the memory numbers of his logs arrived on 17 November): the numbers of the load test (if a budget is short, change `lab/config/narratives/matrix_local.json`, giving a changed model a new id, push, and he runs `extend`), and the Recourse results on Tree-Cycles (his step 4), which need a go before the rest is launched.
+- Read what Gianrico sends and answer (the memory numbers of his logs arrived on 17 November): the numbers of the load test (if a budget is short, change `lab/config/narratives/matrix_local.json`, giving a changed model a new id, push, and he runs `extend`), and the output of `extend` on the three runs (his step 3). The Recourse results on Tree-Cycles (his step 4) arrived on 19 November and the go is given (`EXPERIMENTS.md`, section 14).
 - Tree-Cycles is his run of 14 November, reused (`EXPERIMENTS.md`, section 12). Its results are analysed in section 11.
 - Ask Francesco and Giovanni for a reservation of one H200 for two days. GPT-OSS-120B needs 71 GiB free at once and that has not been seen in a week. With a reservation it judges everything in one job.
 - Decide the primary judge when class `l` has either run or waited its 8 days without memory.

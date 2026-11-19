@@ -74,7 +74,10 @@ if [ -n "$chain_role" ] && ! work_left; then
   exit 0
 fi
 
-if [ "${SKIP_GPU_WAIT:-0}" != 1 ]; then
+waited=0
+watcher=''
+locked=0
+gpu_wait() {
   gpu=${CUDA_VISIBLE_DEVICES:-0}
   gpu=${gpu%%,*}
   uuid=$(nvidia-smi -i "$gpu" --query-gpu=uuid --format=csv,noheader 2> /dev/null | tr -d ' ' || true)
@@ -96,7 +99,6 @@ if [ "${SKIP_GPU_WAIT:-0}" != 1 ]; then
     exec 9> "/tmp/gretel-gpu-$(id -un)-${uuid:-$gpu}.lock"
     locked=1
   fi
-  waited=0
   shown=-100000
   while true; do
     [ "$locked" = 0 ] || flock 9
@@ -131,38 +133,76 @@ if [ "${SKIP_GPU_WAIT:-0}" != 1 ]; then
       done
       flock -u 9
       rm -f "$GRETEL_GPU_READY" ) &
-    trap "kill $! 2> /dev/null || true" EXIT
+    watcher=$!
   fi
-fi
+}
 
-case "$pass" in
-  generate) srun python main.py "$config" "${RUN_ID:-1}" ;;
-  probe)
-    results=${3:?missing results root}
-    extra=()
-    [ -z "${4:-}" ] || extra+=(--probe "$4")
-    # All dumps unless SAMPLE_LIMIT is set
-    [ -z "${SAMPLE_LIMIT:-}" ] || extra+=(--limit "$SAMPLE_LIMIT")
-    srun python scripts/run_paper_probes.py --config "$config" --results "$results" "${extra[@]}"
-    ;;
-  matrix-generator)
-    srun python scripts/paper_probe_matrix.py run-generator --run-root "$config" --generator "${3:?missing generator ID}"
-    ;;
-  matrix-judge)
-    srun python scripts/paper_probe_matrix.py run-judge --run-root "$config" --judge "${3:?missing judge ID}"
-    ;;
-  matrix-self)
-    srun python scripts/paper_probe_matrix.py run-self --run-root "$config" --generator "${3:?missing generator ID}"
-    ;;
-  chain)
-    # One model, loaded once, over the runs of the line: a narrator, the judges that share a model, or a self-evaluation.
-    srun python scripts/paper_probe_matrix.py run-chain --role "$chain_role" --ids "$ids" "${chain_flags[@]}" 9>&-
-    ;;
-  fit)
-    # Load test of one model of a configuration: items = configuration, then the sources of the pairs.
-    fit_flags=()
-    for item in "${items[@]:1}"; do fit_flags+=(--source "$item"); done
-    srun python scripts/paper_probe_matrix.py run-fit --config "${items[0]}" --model "$ids" "${fit_flags[@]}" 9>&-
-    ;;
-  *) echo "unknown pass: $pass"; exit 2 ;;
-esac
+# Unlocks the GPU after a model failed to load (the watcher would otherwise hold the lock for an hour), and at exit.
+gpu_release() {
+  if [ -n "$watcher" ]; then
+    kill "$watcher" 2> /dev/null || true
+    wait "$watcher" 2> /dev/null || true
+    watcher=''
+  fi
+  [ "$locked" = 0 ] || flock -u 9
+  rm -f "${GRETEL_GPU_READY:-}"
+}
+trap gpu_release EXIT
+
+run_pass() {
+  case "$pass" in
+    generate) srun python main.py "$config" "${RUN_ID:-1}" ;;
+    probe)
+      results=${3:?missing results root}
+      extra=()
+      [ -z "${4:-}" ] || extra+=(--probe "$4")
+      # All dumps unless SAMPLE_LIMIT is set
+      [ -z "${SAMPLE_LIMIT:-}" ] || extra+=(--limit "$SAMPLE_LIMIT")
+      srun python scripts/run_paper_probes.py --config "$config" --results "$results" "${extra[@]}"
+      ;;
+    matrix-generator)
+      srun python scripts/paper_probe_matrix.py run-generator --run-root "$config" --generator "${3:?missing generator ID}"
+      ;;
+    matrix-judge)
+      srun python scripts/paper_probe_matrix.py run-judge --run-root "$config" --judge "${3:?missing judge ID}"
+      ;;
+    matrix-self)
+      srun python scripts/paper_probe_matrix.py run-self --run-root "$config" --generator "${3:?missing generator ID}"
+      ;;
+    chain)
+      # One model, loaded once, over the runs of the line: a narrator, the judges that share a model, or a self-evaluation.
+      srun python scripts/paper_probe_matrix.py run-chain --role "$chain_role" --ids "$ids" "${chain_flags[@]}" 9>&-
+      ;;
+    fit)
+      # Load test of one model of a configuration: items = configuration, then the sources of the pairs.
+      fit_flags=()
+      for item in "${items[@]:1}"; do fit_flags+=(--source "$item"); done
+      srun python scripts/paper_probe_matrix.py run-fit --config "${items[0]}" --model "$ids" "${fit_flags[@]}" 9>&-
+      ;;
+    *) echo "unknown pass: $pass"; exit 2 ;;
+  esac
+}
+
+# Between the check that found the memory free and vLLM's own check at startup (a minute later) another
+# user's job can take it: vLLM then stops with "Free memory on device ... on startup is less than desired
+# GPU memory utilization". Nothing was done, so the task waits for the memory again (at most MAX_RETRIES times).
+retries=0
+while true; do
+  [ "${SKIP_GPU_WAIT:-0}" = 1 ] || gpu_wait
+  log=$(mktemp "${TMPDIR:-/tmp}/gretel-pass-XXXXXXXX")
+  status=0
+  run_pass "$@" 2>&1 | tee "$log" || status=${PIPESTATUS[0]}
+  if [ "$status" != 0 ] && [ "${SKIP_GPU_WAIT:-0}" != 1 ] && [ "$retries" -lt "${MAX_RETRIES:-50}" ] \
+     && grep -q 'reduce GPU memory used by other processes' "$log"; then
+    retries=$((retries + 1))
+    echo "$(date '+%F %T') GPU $gpu: another job took the memory while the model was loading;" \
+         "waiting for it again (retry $retries)"
+    rm -f "$log"
+    gpu_release
+    shown=-100000
+    continue
+  fi
+  rm -f "$log"
+  exit "$status"
+done
+
