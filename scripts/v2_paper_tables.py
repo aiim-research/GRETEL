@@ -28,6 +28,9 @@ from scipy.stats import wilcoxon
 REPO = Path(__file__).resolve().parent.parent
 DATASETS = ["aids", "bbbp", "bzr", "enzymes", "proteins", "synthie"]
 CELLS = DATASETS + [d + "-m70" for d in DATASETS]
+# COLORS-3 (--colors): its two cells, reported apart in the appendix (Holm across its two cells).
+COLORS = ["colors-3-s20", "colors-3-m70-s20"]
+PAPER1_COLORS = {"colors-3-s20": (92.96, 9.18, 82.96)}
 # (name, scope after "v2-<cell>-sel_"). Arm E (2026-11-15): DBS on the DCEM seeds. The paper compares minimizers on
 # the DCEM seeds only (decision of 2026-11-17): the end-to-end explainers OFS with obs (``ofs_obs``) and DDBS
 # (``dfs_dbs``) ran in arm E but stay out of the tables (they never edit features, and solve 7 to 100 % of instances).
@@ -107,12 +110,18 @@ def main(argv=None):
     ap.add_argument("out")
     ap.add_argument("--results", default=str(REPO / "lab/output/results"))
     ap.add_argument("--pretrained", default=str(REPO / "models/pretrained/v2"))
+    ap.add_argument("--colors", action="store_true", help="the two COLORS-3 cells instead of the 12 classic ones, "
+                    "written as tablas_colors.md and por_instancia_colors.csv")
     args = ap.parse_args(argv)
+    global CELLS, PAPER1
+    suffix = ""
+    if args.colors:
+        CELLS, PAPER1, suffix = COLORS, PAPER1_COLORS, "_colors"
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
     results = Path(args.results)
     rng = np.random.default_rng(0)
     data = {c: {n: load(results, f"v2-{c}-sel_{s}") for n, s in ARMS} for c in CELLS}
-    for c, n, fold in RERUN:
+    for c, n, fold in (r for r in RERUN if r[0] in CELLS):
         rerun = {k: v for k, v in load(results, f"v2-{c}-sel_{dict(ARMS)[n]}-t").items() if k[0] == fold}
         if rerun:
             data[c][n] = {k: v for k, v in data[c][n].items() if k[0] != fold} | rerun
@@ -120,7 +129,7 @@ def main(argv=None):
 
     cols = ["cell", "dataset", "oracle", "arm", "fold", "instance_id", "ok", "struct", "feat", "total", "ged", "calls",
             "runtime", "sparsity"]
-    with open(out / "por_instancia.csv", "w", newline="") as f:
+    with open(out / f"por_instancia{suffix}.csv", "w", newline="") as f:
         w = csv.writer(f); w.writerow(cols)
         for c in CELLS:
             for name in present:
@@ -128,7 +137,7 @@ def main(argv=None):
                     w.writerow([c, c.removesuffix("-m70"), "margin 0.7" if c.endswith("-m70") else "base", name, fold, iid]
                                + [round(v.get(k, float("nan")), 6) for k in cols[6:]])
 
-    md = ["# Tablas del protocolo v2, 12 celdas clásicas, DCEM, folds 0 a 9", "",
+    md = [f"# Tablas del protocolo v2, {'COLORS-3 (dos celdas)' if args.colors else '12 celdas clásicas'}, DCEM, folds 0 a 9", "",
           "Generado por `scripts/v2_paper_tables.py` (GRETEL). Costes medios sobre las instancias correctas, media y "
           "desviación típica sobre las medias de los 10 folds. S estructura (StructuralEditDistance), F features "
           "(MatchedFeatureDistance), total S + F (EditDistance), GED la fórmula exacta del paper 1, llamadas al oráculo. "
@@ -156,7 +165,7 @@ def main(argv=None):
                 md.append(f"| {c} | {name} | " + " | ".join(f"{q:.2f}" for q in np.percentile(x, [50, 75, 90, 100])) + " |")
     md += ["", "## 2. Comparaciones pareadas", "",
            "Diferencia relativa de las medias (A/B - 1), intervalo bootstrap al 95 % entre corchetes, y `*` si el Wilcoxon "
-           "pareado sigue por debajo de 0,05 tras Holm sobre las 12 celdas. Instancias correctas en los dos brazos.", ""]
+           "pareado sigue por debajo de 0,05 tras Holm sobre las celdas de la tabla. Instancias correctas en los dos brazos.", ""]
     for a, b, keys in PAIRS:
         if not all(data[c][a] and data[c][b] for c in CELLS):
             continue                     # an arm without results in some cell (arm E not imported yet)
@@ -207,7 +216,7 @@ def main(argv=None):
         md += ["", "## 5. Estabilidad frente a la semilla del minimizador (semillas 0, 1 y 2)", "",
                "Total S + F medio por semilla (instancias correctas, los diez folds) y su media ± desviación entre "
                "semillas. Diferencia relativa de cada semilla del selector frente a bls_v1-F (semilla 0): la "
-               "significación es Wilcoxon pareado con Holm sobre las 12 celdas, como en la sección 2.", "",
+               "significación es Wilcoxon pareado con Holm sobre las celdas, como en la sección 2.", "",
                "| Celda | Brazo | semilla 0 | semilla 1 | semilla 2 | media ± desv. |", "|---|---|---|---|---|---|"]
         for c in CELLS:
             for n, _ in SEEDS:
@@ -224,8 +233,8 @@ def main(argv=None):
                 res[k][c]["ph"] = p
         for c in CELLS:
             md.append(f"| {c} | " + " | ".join(cell(res[k][c]) if res[k][c] else "" for k in (0, 1, 2)) + " |")
-    (out / "tablas.md").write_text("\n".join(md) + "\n")
-    print(f"wrote {out / 'por_instancia.csv'} and {out / 'tablas.md'}")
+    (out / f"tablas{suffix}.md").write_text("\n".join(md) + "\n")
+    print(f"wrote {out / f'por_instancia{suffix}.csv'} and {out / f'tablas{suffix}.md'}")
 
 
 if __name__ == "__main__":

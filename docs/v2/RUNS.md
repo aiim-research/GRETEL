@@ -224,14 +224,16 @@ It reuses the DCEM seeds and the sel2fm-pre checkpoints of the fleet (no warm jo
 
 **Results (2026-11-17).** `E.md` complete, 362 of 362, no failures. DBS on the DCEM seeds loses to obs in structure in the 12 cells at the same calls (+2 % on ENZYMES to +96 % on Synthie) and to bls_v0 in the 12, so it joins obs among the other minimizers. OFS with obs and DDBS never edit a feature (F = 0) and solve 7 % to 100 % of the instances (about 10 % on ENZYMES, 20 % for DDBS on AIDS); the paper compares minimizers on the DCEM seeds only, so they stay out of the tables (decision of 2026-11-17; their results remain under `v2-<cell>-sel_ofs_obs` and `_dfs_dbs`). The deterministic repetitions refute the float-sum explanation: `-d1` and `-d2` equal each other and the non-deterministic traced rerun `-t` (200/200), and the original fold 9 differs from its first instance with the same node, caches, instance order and code. The original is the outlier, cause unknown, and `v2_paper_tables.py` takes the `-t` rerun for the three folds (`RERUN`).
 
-## Step F (25 November): COLORS-3 completion and the stability table
+## Step F (25 November): the stability table; COLORS-3 on hold
 
-Home as of 25 November: E (362), D_COLORS_A/B/C (144) and E_COLORS (60) complete; nothing of `E_STAB.md` yet. What is left:
+Home as of 25 November: E (362), D_COLORS_A/B/C (144) and E_COLORS (60) complete; nothing of `E_STAB.md` yet.
+
+**COLORS-3 is on hold.** Its cells evaluate a fixed sample of 20 instances per fold (the evaluator's `instance_ids`), drawn by `scripts/gen_selector_paper_matrix.py` (`subset_ids`) from the splits of the padded dataset cache (`COLORS-3-b24abe85...`). Protocol v2 runs on another dataset cache (`COLORS-3-64f13394...`, isolated nodes deleted) with other splits, so only 23 of the 200 sampled instances fall in their fold's test set: COLORS-3 v2 explained 23 instances per cell, and its selector collections were drawn the same way. `F_COLORS.md` (RHC at bls_v1-F's budget and the traced twins, 80 configs) is ready but waits for that decision: running it now would only add to the same 23 instances.
 
 | Queue | What | Configs |
 |---|---|---|
-| `F_COLORS.md` | COLORS-3: RHC at bls_v1-F's budget (`dcm-rhc-b`, 101 calls on `colors-3-s20`, 179 on `colors-3-m70-s20`: bls_v1-F's mean calls minus DCEM's, folds 0 to 9) and the traced bls_v1-F, control-F and selector_v1-F (`-t`, the appendix's mechanism and convergence) | 80 |
 | `E_STAB.md` | selector_v1-F with seeds 1 and 2 on the 12 classic cells (the stability table) | 240 |
+| `F_COLORS.md` (on hold) | COLORS-3: RHC at bls_v1-F's budget (101 and 179 calls) and the traced bls_v1-F, control-F and selector_v1-F | 80 |
 
 ### F1. Sync and look at what runs
 
@@ -240,26 +242,26 @@ cd ~/projects/GRETEL && git pull && conda activate GRTL
 squeue -u $USER
 ```
 
-### F2. Submit both as one chain (E_STAB starts when F_COLORS has ended, so never more than 10 jobs)
+### F2. Submit the stability table
 
 ```bash
-JF=$(launchers/slurm_submit.sh -p normal -m 10 -c docs/v2/F_COLORS.md docs/v2/E_STAB.md | sed -n 's/^JOBS //p'); echo "F $JF"
+JS=$(launchers/slurm_submit.sh -p normal -m 10 docs/v2/E_STAB.md | sed -n 's/^JOBS //p'); echo "E_STAB $JS"
 ```
 
-If `squeue` showed an array of yours still running (an `E_STAB` submitted earlier, for instance), add `-a <its job id>` so the chain waits for it: the launcher leaves out the configs that array already holds, and the ones that already have results. No warm job: the DCEM seeds and the checkpoints are on the server.
+If `squeue` showed an array of yours still running, add `-a <its job id>` so this one waits for it (10 jobs at most): the launcher leaves out the configs already queued or running in it, and the ones that already have results. No warm job: the DCEM seeds and the sel2fm-pre checkpoints are on the server.
 
 ### F3. While it runs
 
 ```bash
 squeue -u $USER | head
-grep -l "status=FAIL\|Traceback" output/logs/v2-colors-3*/*/fold*_${JF%% *}_*.out 2>/dev/null
+grep -l "status=FAIL\|Traceback" output/logs/v2-*-sel/dcm-lcls-sel-v1-f-s[12]/fold*_${JS}_*.out 2>/dev/null
 ```
 
-F_COLORS takes a few hours (COLORS-3 is small); E_STAB is about one tenth of the first fleet's selector stage, a day or two at 10 jobs.
+240 runs of the selector, about a day or two at 10 jobs.
 
 ### F4. Home
 
-`make server-import`, then (Claude) `scripts/v2_paper_tables.py` (the stability table as section 5, RHC-B of COLORS-3 in its table) and `scripts/v2_traces.py`.
+`make server-import`, then (Claude) `scripts/v2_paper_tables.py` (the stability table as its section 5).
 
 ## Phase 0 (done, for the record)
 
