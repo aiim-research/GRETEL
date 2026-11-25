@@ -224,16 +224,15 @@ It reuses the DCEM seeds and the sel2fm-pre checkpoints of the fleet (no warm jo
 
 **Results (2026-11-17).** `E.md` complete, 362 of 362, no failures. DBS on the DCEM seeds loses to obs in structure in the 12 cells at the same calls (+2 % on ENZYMES to +96 % on Synthie) and to bls_v0 in the 12, so it joins obs among the other minimizers. OFS with obs and DDBS never edit a feature (F = 0) and solve 7 % to 100 % of the instances (about 10 % on ENZYMES, 20 % for DDBS on AIDS); the paper compares minimizers on the DCEM seeds only, so they stay out of the tables (decision of 2026-11-17; their results remain under `v2-<cell>-sel_ofs_obs` and `_dfs_dbs`). The deterministic repetitions refute the float-sum explanation: `-d1` and `-d2` equal each other and the non-deterministic traced rerun `-t` (200/200), and the original fold 9 differs from its first instance with the same node, caches, instance order and code. The original is the outlier, cause unknown, and `v2_paper_tables.py` takes the `-t` rerun for the three folds (`RERUN`).
 
-## Step F (25 November): the stability table; COLORS-3 on hold
+## Step F (25 November): the stability table
 
 Home as of 25 November: E (362), D_COLORS_A/B/C (144) and E_COLORS (60) complete; nothing of `E_STAB.md` yet.
 
-**COLORS-3 is on hold.** Its cells evaluate a fixed sample of 20 instances per fold (the evaluator's `instance_ids`), drawn by `scripts/gen_selector_paper_matrix.py` (`subset_ids`) from the splits of the padded dataset cache (`COLORS-3-b24abe85...`). Protocol v2 runs on another dataset cache (`COLORS-3-64f13394...`, isolated nodes deleted) with other splits, so only 23 of the 200 sampled instances fall in their fold's test set: COLORS-3 v2 explained 23 instances per cell, and its selector collections were drawn the same way. `F_COLORS.md` (RHC at bls_v1-F's budget and the traced twins, 80 configs) is ready but waits for that decision: running it now would only add to the same 23 instances.
+**COLORS-3 leaves the selector paper** (decision of 25 November). Its cells evaluate a fixed sample of 20 instances per fold (the evaluator's `instance_ids`), drawn by `scripts/gen_selector_paper_matrix.py` (`subset_ids`) from the splits of the padded dataset cache (`COLORS-3-b24abe85...`). Protocol v2 runs on another dataset cache (`COLORS-3-64f13394...`, isolated nodes deleted) with other splits, so only 23 of the 200 sampled instances fell in their fold's test set (its selector collections were drawn the same way). Its results stay on disk for the record and nothing more of it runs. Any later use of COLORS-3 under v2 has to draw the sample from the v2 splits.
 
 | Queue | What | Configs |
 |---|---|---|
 | `E_STAB.md` | selector_v1-F with seeds 1 and 2 on the 12 classic cells (the stability table) | 240 |
-| `F_COLORS.md` (on hold) | COLORS-3: RHC at bls_v1-F's budget (101 and 179 calls) and the traced bls_v1-F, control-F and selector_v1-F | 80 |
 
 ### F1. Sync and look at what runs
 
