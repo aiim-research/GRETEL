@@ -1,5 +1,5 @@
 {
- "_note": "RHC budget per cell (budget-matched arm dcm-rhc-b): mean oracle calls of bls_v1-F minus those of DCEM alone, fleet folds 0 to 8 (scripts/v2_fleet.py, 2026-11-09)",
+ "_note": "RHC budget per cell (budget-matched arm dcm-rhc-b): mean oracle calls of bls_v1-F minus those of DCEM alone, fleet folds 0 to 8 (scripts/v2_fleet.py, 2026-11-09); COLORS-3 (2026-11-25): the same difference over folds 0 to 9 of its fleet",
  "aids": 316,
  "aids-m70": 369,
  "bbbp": 147,
@@ -20,5 +20,7 @@
  "tri-40n-gcn-m70": 458,
  "tri-80": 1195,
  "tri-80-gcn": 1439,
- "tri-80-gcn-m70": 1507
+ "tri-80-gcn-m70": 1507,
+ "colors-3-s20": 101,
+ "colors-3-m70-s20": 179
 }

@@ -224,6 +224,43 @@ It reuses the DCEM seeds and the sel2fm-pre checkpoints of the fleet (no warm jo
 
 **Results (2026-11-17).** `E.md` complete, 362 of 362, no failures. DBS on the DCEM seeds loses to obs in structure in the 12 cells at the same calls (+2 % on ENZYMES to +96 % on Synthie) and to bls_v0 in the 12, so it joins obs among the other minimizers. OFS with obs and DDBS never edit a feature (F = 0) and solve 7 % to 100 % of the instances (about 10 % on ENZYMES, 20 % for DDBS on AIDS); the paper compares minimizers on the DCEM seeds only, so they stay out of the tables (decision of 2026-11-17; their results remain under `v2-<cell>-sel_ofs_obs` and `_dfs_dbs`). The deterministic repetitions refute the float-sum explanation: `-d1` and `-d2` equal each other and the non-deterministic traced rerun `-t` (200/200), and the original fold 9 differs from its first instance with the same node, caches, instance order and code. The original is the outlier, cause unknown, and `v2_paper_tables.py` takes the `-t` rerun for the three folds (`RERUN`).
 
+## Step F (25 November): COLORS-3 completion and the stability table
+
+Home as of 25 November: E (362), D_COLORS_A/B/C (144) and E_COLORS (60) complete; nothing of `E_STAB.md` yet. What is left:
+
+| Queue | What | Configs |
+|---|---|---|
+| `F_COLORS.md` | COLORS-3: RHC at bls_v1-F's budget (`dcm-rhc-b`, 101 calls on `colors-3-s20`, 179 on `colors-3-m70-s20`: bls_v1-F's mean calls minus DCEM's, folds 0 to 9) and the traced bls_v1-F, control-F and selector_v1-F (`-t`, the appendix's mechanism and convergence) | 80 |
+| `E_STAB.md` | selector_v1-F with seeds 1 and 2 on the 12 classic cells (the stability table) | 240 |
+
+### F1. Sync and look at what runs
+
+```bash
+cd ~/projects/GRETEL && git pull && conda activate GRTL
+squeue -u $USER
+```
+
+### F2. Submit both as one chain (E_STAB starts when F_COLORS has ended, so never more than 10 jobs)
+
+```bash
+JF=$(launchers/slurm_submit.sh -p normal -m 10 -c docs/v2/F_COLORS.md docs/v2/E_STAB.md | sed -n 's/^JOBS //p'); echo "F $JF"
+```
+
+If `squeue` showed an array of yours still running (an `E_STAB` submitted earlier, for instance), add `-a <its job id>` so the chain waits for it: the launcher leaves out the configs that array already holds, and the ones that already have results. No warm job: the DCEM seeds and the checkpoints are on the server.
+
+### F3. While it runs
+
+```bash
+squeue -u $USER | head
+grep -l "status=FAIL\|Traceback" output/logs/v2-colors-3*/*/fold*_${JF%% *}_*.out 2>/dev/null
+```
+
+F_COLORS takes a few hours (COLORS-3 is small); E_STAB is about one tenth of the first fleet's selector stage, a day or two at 10 jobs.
+
+### F4. Home
+
+`make server-import`, then (Claude) `scripts/v2_paper_tables.py` (the stability table as section 5, RHC-B of COLORS-3 in its table) and `scripts/v2_traces.py`.
+
 ## Phase 0 (done, for the record)
 
 Fold 0 of the first paper's cells with DCE, DCEM and OFS (`SONDEO_A`, `SONDEO_B`) and of the selector's edge-only arms with DCE (`SONDEO_SEL_A`, `SONDEO_SEL_B`, 8 of 23 cells complete). Findings: `scripts/v2_tables.py --pairs`. Paper 1's BLS stalls when the seed is a counterfactual through its node features (ENZYMES, BBBP), BLS-F does not; DCEM with BLS-F matches DCE at a fraction of the calls; the edge-only selector predicts well (removal AUC 0.85 to 0.97) but does not lower the cost, which is why the fleet uses the F arms.
